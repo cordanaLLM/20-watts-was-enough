@@ -9,7 +9,10 @@
   ([DOI](https://doi.org/10.1111/nph.20418)); and
 - 2026-08-30 — a bounded common-mycorrhizal-network update covering sampled
   forest topology, path-identification controls, defence-associated receiver
-  effects, and the active dispute over forest-scale inference.
+  effects, and the active dispute over forest-scale inference; and
+- 2026-09-05 — a follow-up on global hyphal-density estimates, host-relatedness
+  effects, parasite-conditioned allocation, biological cost, and the boundary
+  between local fungal response and an artificial expert controller.
 
 The Wikipedia article supplied as the 2026-08-30 source lead framed search
 questions only. No observation or evidence status below depends on it.
@@ -62,6 +65,11 @@ the same plant endpoints, so a shared mesh cut or endpoint response cannot
 identify which channel caused the effect. Guild, genet, continuity, indirect
 pathways, and independently severable interventions must be reported.
 
+The 2026-09-05 follow-up retains that disposition. Its engineering consequence
+is to distinguish local routing signals from the task context supplied by a
+controller, and to charge the shared transport plane for its whole lifecycle.
+The energy comparison remains an experiment to run.
+
 The biological findings also impose several negative conclusions:
 
 - oscillation is not evidence of encoded communication unless a decoded
@@ -79,6 +87,23 @@ The biological findings also impose several negative conclusions:
   function, cost, and restored service are measured.
 
 ## Audit method and promotion gate
+
+The 2026-09-05 update checked the methods and results of the three new sources
+listed below, including Stewart et al.'s accepted manuscript and supplementary
+methods. It is a bounded follow-up, not a systematic search or an independent
+replication. Wikipedia supplied search leads only. Source bodies remain at
+their publisher or institutional repository; this audit stores original
+paraphrases and link-only provenance.
+
+**Update disclosure:** @lusoris supplied the research direction and remains the
+accountable publication approver. OpenAI Codex and its delegated agents
+performed source discovery, checking, drafting and repository validation on
+2026-09-05, using public web search, publisher pages and institutional
+repositories. No new human scientific review, funding or competing-interest
+declaration is recorded; the existing
+[snapshot disclosure](../disclosures/v0.3.0.md) supplies the declared project
+context, not approval of this later update. This literature-only work collected
+no biological material and performed no intervention.
 
 Primary experiments, genetic interventions, direct imaging, isotopic tracing,
 and measured network perturbations receive the most weight. Reviews are used
@@ -134,7 +159,10 @@ proxy for common control, common genotype, or freely shared resources.
 | Stress priming | controlled heat and drought prime--delay--challenge experiments | prior sublethal stress can transiently alter later growth/activity | plausible to established by isolate; substrate unresolved | acclimation, retained metabolites, damage selection, or growth-state carryover |
 | Plant--fungus trade | partner manipulation and isotope tracing | carbon supply can alter fungal N/P uptake and allocation; exchange can be unequal | established in scoped AM systems | local carbon limitation and ordinary exchange economics |
 | Common-network topology | fungal and tree microsatellite genotyping in Douglas-fir forest plots | sampled roots can share *Rhizopogon* genets and form non-random association graphs | established for the sampled species and plots; continuous active hyphae and flux were not observed by genotyping | shared fungal identity or spatial overlap is mistaken for an active transport path |
+| Global AM-hyphal density | geospatial prediction and width imaging (`FUNG-T32`) | estimated abundance | model-dependent | density is mistaken for connectivity |
 | Defence-associated receiver effects | compartmented tomato experiments, defence assays, labelled jasmonic acid, root exudates, and microbiome interventions | an intact AM-fungal path can alter a receiver response; one recent system identifies jasmonic acid as a transported signal | established for the tested tomato systems; forest and cross-species generality unestablished | root, soil, water, volatile, or microbial pathways reproduce the receiver effect |
+| Host relatedness and transfer | paired seedlings (`FUNG-T33`) | family-dependent enrichment | scoped association | enrichment is mistaken for kin-selected aid |
+| Parasite-conditioned allocation | paired potatoes (`FUNG-T34`) | tracer redistribution | preparation-specific | local response is mistaken for distant-state awareness |
 | Concurrent fungal guild networks | peer-reviewed perspective plus a proposed spatial-mapping and intervention agenda | multiple guilds may link the same plant endpoints, but their existence, continuity, interaction, and function require separate tests | research programme proposed; functional effects unestablished | mixed inoculum, shared endpoints, and co-severed paths confound attribution |
 | Ecosystem consequence | connected-litter microcosms | fungal reallocation can alter decomposition, N retention, and carbon-use efficiency | plausible and system-specific | species turnover, substrate chemistry, and microbial competition |
 
@@ -446,6 +474,23 @@ present. The authors also stress that this design approaches, but does not
 directly prove, continuous cytoplasmic flow. Network identity, continuity,
 transport, and effect therefore remain separate measurements.
 
+### Hyphal abundance is not a connection graph
+
+Stewart et al. compiled over 16,000 soil cores from 322 studies, using only
+geolocated field observations for spatial prediction. Laboratory hyphal-width
+measurements supplied the biomass conversion. Their model estimated
+$(1.10\pm0.13)\times10^{17}\ \mathrm{km}$ of living AM hyphae and
+$300\pm60\ \mathrm{Mt\ C}$ in the top $15\ \mathrm{cm}$ of global soils;
+both uncertainties are reported standard deviations, and Mt C means million
+tonnes of carbon ([DOI](https://doi.org/10.1126/science.adu4373); `FUNG-T32`).
+Sampling gaps, model extrapolation and morphology limit the estimate;
+uncertain turnover further limits its conversion into annual carbon flows.
+
+This is a density estimate, not a traced connection graph. It cannot identify
+each segment's genet, plant endpoints, continuity or active flux. A software
+translation therefore needs explicit connection and payload records; a large
+aggregate network size cannot supply those identities or a common objective.
+
 ### Material transfer and receiver effects answer different questions
 
 Direct carbon transfer in one controlled vesicular--arbuscular system and a
@@ -463,6 +508,23 @@ exudates, recruitment of *Streptomyces* and *Actinoplanes*, and suppression of
 transported chemical and a downstream response for that preparation. It does
 not establish sender intent, a universal fungal code, preferential warning of
 kin, or forest-scale signalling.
+
+### Relatedness effects do not demonstrate kin-selected aid
+
+Pickles et al. compared sibling and unrelated interior Douglas-fir seedlings
+from four families across hypha-admitting $35\ \mathrm{\mu m}$ and
+hypha-restricting $0.5\ \mathrm{\mu m}$ mesh. Their six-day isotope chase
+analysed 37 labelled pairs. Recipient roots showed greater carbon enrichment in
+sibling pairs in two families; the others did not
+([DOI](https://doi.org/10.1111/nph.14325); `FUNG-T33`). Seedling-to-seedling
+transfer was about 0.1% of recovered label. Transfer persisted across the finer
+mesh, leaving exudation followed by fungal uptake as an alternative route;
+mesh exclusion did not prove uninterrupted hyphal transport.
+
+The measured endpoint was enrichment, not reproductive fitness. A kin-selection
+test would need donor costs, recipient benefit and relatedness, alongside the
+fungus's own evolutionary incentives. This family interaction does not supply
+those measurements or demonstrate kin-selected aid.
 
 ### Conditional exchange does not imply organismal routing
 
@@ -512,6 +574,32 @@ is unnecessary overhead; ordinary constrained allocation is the null.
 - gross two-way flux can coexist with a highly asymmetric net benefit;
 - partner choice can reduce diversity or strand weak participants;
 - isotope arrival does not identify intent or ultimate fitness effect.
+
+### Local stress response is not distal task awareness
+
+Magkourilou et al. paired potato plants across root-excluding mesh with mixed
+fungal inoculum and varied potato-cyst-nematode infection. Rotating cores
+estimated non-hyphal tracer movement. Separate assays followed phosphorus for
+two weeks and carbon for 24 hours
+([DOI](https://doi.org/10.1111/1365-2435.14693); `FUNG-T34`). Carbon moved
+away from infected hosts without demonstrated discrimination of the neighbour's
+infection state. Overall phosphorus treatment effects were not significant.
+Higher phosphorus acquisition by uninfected partners appeared in an exploratory
+mixed-pair analysis selected after inspecting the data (methods §2.9); it is
+not an independent confirmation of preferential allocation.
+
+The assays used different replicate sets and time windows. Individual
+continuous networks were not genotyped, and fitness was not established.
+The observation supports local responsiveness, with destination-aware choice
+still unresolved.
+
+For an artificial system, local queue pressure, expert health, or link
+utilisation may be cheap routing signals. They are insufficient when correctness
+depends on task priority, receiver capability, or the state of a distant
+specialist. That distinction is a testable design boundary in
+[Candidate 013](../../experiments/candidates/013-deficit-capability-routing.md),
+with ordinary backpressure and primal--dual allocation as the null. The
+biological result does not establish the software mechanism.
 
 ### Concurrent guild networks require channel-specific intervention
 
@@ -581,6 +669,41 @@ effects at their demonstrated scale while marking general forest aid,
 community optimisation, and plant or fungal intent as disputed. “Wood wide
 web” is useful public shorthand only when the exact link and endpoint are named;
 it is not an evidence-bearing biological unit or a project architecture.
+
+### What survives as an expert-controller hypothesis
+
+In the proposed translation, typed specialists are separate software
+components. A controller owns the task objective, admission decision, output
+selection, resource ceiling, and
+failure policy; the shared plane carries typed artifacts and records in-flight
+state. Local specialists may expose deficit, capability, health, and reuse
+signals, but they do not acquire common agency merely because they share a
+transport path. Strategic allocation from
+[Candidate 008](../../experiments/candidates/008-contestable-modular-allocation.md)
+applies only when modules have different objectives or private
+information. Otherwise its market machinery is avoidable overhead.
+
+The applicable existing hypothesis is [C-585](../claims.md#c-585): explicit
+transport may help sparse coordination when geometry, in-flight inventory and
+local receiver state matter. It does not establish a small-model advantage.
+Testing the broader
+[working architecture](../../concept/01-working-architecture.md) also requires
+a capacity-matched general model and a conventional sparse mixture-of-experts
+router. The comparison must charge controller execution, dispatch,
+serialisation, queues, adapters, transport, state replication, idle reserve,
+model storage, image pull and
+warm-up, retries, cleanup, monitoring, and topology changes. Biological carbon
+mass is not electrical energy, and hyphal biomass is not saved accelerator
+memory. No cited fungal experiment measures this artificial quality--joule--
+material frontier. The controller can be an ordinary bounded program; these
+sources supply no reason to require a language model to run that loop.
+
+Reject the translation if a fixed typed router, backpressure or primal--dual
+allocator, a standard sparse mixture of experts, or the capacity-matched
+general model ties it once those lifecycle costs and failures are included.
+The fungal evidence supplies stress cases—ambiguous paths, locally responsive
+but distally blind flow, incompatible actors, turnover, damage, and unequal
+benefit—not an efficiency result.
 
 ### Ecosystem effects stay at ecosystem scale
 
@@ -1097,6 +1220,9 @@ claims.
 | FUNG-T29 | audit conclusion | No reviewed result warrants a new stable principle or candidate. | All abstractions reduce to existing bundles and mature nulls. | registry |
 | FUNG-T30 | audit conclusion | Conservation-qualified topology adaptation is the narrowest useful fungal residual. | Must beat fixed routing/global optimization with in-flight inventory charged. | Candidates 001, 013 |
 | FUNG-T31 | perspective boundary | Different fungal guilds may concurrently connect the same plant endpoints, but their continuity, interaction, and functional effects are unestablished until channel-specific interventions separate them. | Rillig et al. 2025 proposes terminology and experiments; it does not report a decisive concurrent-guild experiment. | P-013, Candidate 014, FUNG-E09 |
+| FUNG-T32 | plausible global estimate | AM-hyphal abundance has a spatial model with propagated uncertainty. | Stewart et al. 2026; endpoints and active paths unmeasured. | Candidate 014 |
+| FUNG-T33 | established scoped association | Seedling carbon enrichment varied with relatedness and family. | Pickles et al. 2017; route and fitness unresolved. | no kin-selection promotion |
+| FUNG-T34 | established scoped observation | Host infection altered carbon redistribution. | Magkourilou et al. 2025; phosphorus subgroup exploratory. | Candidate 013 stress condition |
 
 ## Quantitative reporting checklist
 
@@ -1551,5 +1677,44 @@ such in the text. Promotion should move verified entries to
   pages = {1512518},
   doi = {10.3389/ffgc.2024.1512518},
   url = {https://doi.org/10.3389/ffgc.2024.1512518}
+}
+
+@article{stewart2026density,
+  author = {Stewart, Justin D. and Bisot, Corentin and Cargill, Rachael I. M. and others},
+  title = {Global Density and Biomass of Arbuscular Mycorrhizal Fungal Networks},
+  journal = {Science},
+  year = {2026},
+  volume = {392},
+  number = {6803},
+  pages = {1171--1176},
+  doi = {10.1126/science.adu4373},
+  url = {https://eprints.whiterose.ac.uk/id/eprint/242029/},
+  note = {Accepted manuscript and supplementary methods checked 2026-09-05; link-only provenance. Accepted version CC BY 4.0.}
+}
+
+@article{pickles2017kinship,
+  author = {Pickles, Brian J. and Wilhelm, Roland and Asay, Amanda K. and Hahn, Aria S. and Simard, Suzanne W. and Mohn, William W.},
+  title = {Transfer of 13C between Paired Douglas-fir Seedlings Reveals Plant Kinship Effects and Uptake of Exudates by Ectomycorrhizas},
+  journal = {New Phytologist},
+  year = {2017},
+  volume = {214},
+  number = {1},
+  pages = {400--411},
+  doi = {10.1111/nph.14325},
+  url = {https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.14325},
+  note = {Publisher full text checked 2026-09-05; link-only provenance; no source body redistributed.}
+}
+
+@article{magkourilou2025pests,
+  author = {Magkourilou, E. and Durant, E. K. and Bell, C. A. and Daniell, T. J. and Urwin, P. E. and Field, K. J.},
+  title = {Plant Pests Influence the Movement of Plant-fixed Carbon and Fungal-acquired Nutrients through Arbuscular Mycorrhizal Networks},
+  journal = {Functional Ecology},
+  year = {2025},
+  volume = {39},
+  number = {6},
+  pages = {1400--1410},
+  doi = {10.1111/1365-2435.14693},
+  url = {https://eprints.whiterose.ac.uk/id/eprint/219534/},
+  note = {Published version checked 2026-09-05; first online 2024, issue year 2025; link-only provenance. Source CC BY.}
 }
 ```
