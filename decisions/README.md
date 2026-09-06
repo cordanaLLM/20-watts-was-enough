@@ -85,3 +85,4 @@ than silently changing its outcome.
 | [0078](0078-reuse-verified-renderer-build-cache.md) | Reuse verified renderer build cache | accepted |
 | [0079](0079-run-the-frozen-clrs-development-tree-through-20w.md) | Run the frozen CLRS development tree through 20w | accepted |
 | [0080](0080-impact-scope-local-validation.md) | Impact-scope local validation | accepted |
+| [0081](0081-retain-ordinary-pdf-generation-mismatches.md) | Retain ordinary PDF generation mismatches | accepted |

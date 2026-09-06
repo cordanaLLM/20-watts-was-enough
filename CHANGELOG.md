@@ -7,6 +7,11 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- Ordinary PDF generation retains both exact PDF/manifest pairs when they
+  disagree, without replacing the public edition. Completed evidence survives
+  a later retention or cleanup failure; incomplete bundles are reported as
+  such. These local diagnostics do not impersonate a reproducibility proof.
+
 - CLRS development receipts start their diagnostic run interval before fixture
   loading, task binding and executable hashing. Deadlines and `NO_RESULT`
   authority stay unchanged. Final receipt writing and output-root closing remain

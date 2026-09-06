@@ -79,21 +79,26 @@ func (lock *publicationLock) release() error {
 	return nil
 }
 
-func compareAndPublishRenderPairs(repositoryRoot, firstDirectory, secondDirectory string) error {
+func compareRenderPairs(repositoryRoot, firstDirectory, secondDirectory string) ([]renderedArtifact, error) {
 	first, err := readRenderPair(firstDirectory)
 	if err != nil {
-		return fmt.Errorf("read first PDF render: %w", err)
+		return nil, fmt.Errorf("read first PDF render: %w", err)
 	}
 	second, err := readRenderPair(secondDirectory)
 	if err != nil {
-		return fmt.Errorf("read second PDF render: %w", err)
+		return nil, fmt.Errorf("read second PDF render: %w", err)
 	}
 	for index := range first {
 		if first[index].name != second[index].name || !bytes.Equal(first[index].body, second[index].body) {
-			return fmt.Errorf("fresh PDF renders differ for %s", first[index].name)
+			mismatch := fmt.Errorf("fresh PDF renders differ for %s", first[index].name)
+			location, err := retainGenerationMismatch(repositoryRoot, [2][]renderedArtifact{first, second})
+			if err != nil {
+				return nil, errors.Join(mismatch, err)
+			}
+			return nil, fmt.Errorf("%w; exact compared renders retained at %s", mismatch, location)
 		}
 	}
-	return publishRenderPair(repositoryRoot, second)
+	return second, nil
 }
 
 func readRenderPair(directory string) ([]renderedArtifact, error) {
