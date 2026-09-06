@@ -7,6 +7,13 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- The Markdown maths renderer and Pages stylesheet share one pinned KaTeX
+  version. Their previous versions used incompatible internal class names.
+  A version-scoped adapter override and an installed-package regression guard
+  keep renderer and stylesheet resolution aligned. The long factual-memory
+  status set retains its exact equation in a display block, so the existing
+  local scrolling handles narrow screens without widening the whole book.
+
 - The printed book uses its white page canvas without a redundant body fill.
   That fill's final-page extent differed between two otherwise identical PDF
   renders. Content surfaces and screen styles retain their existing owners;

@@ -6,10 +6,10 @@
   "artifact": {
     "pdf": "public/downloads/20-watts-was-enough-full-concept-book.pdf",
     "manifest": "public/downloads/book-manifest.json",
-    "pdf_sha256": "898f2d25889cf69dbf02502b8a4b1096def13be1d2aa114ac1d9c121179a6eaf",
-    "manifest_sha256": "07aa5f9332ee491229f206cb85dc706a7f5c45b0130a8522f6f8bbed49f28c2c",
-    "size_bytes": 12781593,
-    "pages": 412,
+    "pdf_sha256": "0bfe3f4fe76a27433c7294b9c14d0b4b3f5f4ea3b5c5a51ff01b1dec363bb662",
+    "manifest_sha256": "e8c5991f99997699cf770ba19dcba3362a84c90dc36210284993cc2c7b4b3b1e",
+    "size_bytes": 12798435,
+    "pages": 414,
     "page_size_name": "A4",
     "page_size_points": {
       "width": 594.96,
@@ -18,7 +18,7 @@
     "pdf_version": "1.4",
     "tagged": true,
     "source_ref": "main",
-    "source_digest": "7f1bb6e9783a978b2233c9ce9026cd843415bab3649bd3f690189de09ee98091",
+    "source_digest": "1762bb418ca4f2940dd61f16b41639ce7b3d573e955a75ae78988b8226b60b01",
     "version": "0.3.0"
   },
   "tools": {
@@ -40,7 +40,7 @@
       },
       "stdout": {
         "bytes": 627,
-        "sha256": "c806c3bffc626c43ca49487d26aeefeef4d6cad273e4fbdda2d5cb80b39b7266"
+        "sha256": "a63f840e47344b6e3416fb2af2f24095fe4941a56f03889c05745c159b8f2add"
       }
     },
     "structure": {
@@ -50,8 +50,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "stdout": {
-        "bytes": 1090758,
-        "sha256": "0f3a49c775397d8de6799f9c004d2a286bb134043a9a633a46cc343f149c8649"
+        "bytes": 1090980,
+        "sha256": "ec3101a6307ce96677939459f5721fae0b245db9319f34ad16a63a017da5676f"
       }
     },
     "structure_text": {
@@ -61,8 +61,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "stdout": {
-        "bytes": 2457989,
-        "sha256": "dcc143c0561ddd5f9d39ad7be392f577e524dfca6d6b52c8c6b6035255585a50"
+        "bytes": 2456976,
+        "sha256": "5c4cc659c7d6bda527685ef42055f074f88c1dbf0796f8aba668d12c55752728"
       }
     },
     "default_text": {
@@ -72,8 +72,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "stdout": {
-        "bytes": 1119566,
-        "sha256": "ab5a35bd74774cc3214307990dd578d7e79d46d23b768f969c3961d461856c73"
+        "bytes": 1119591,
+        "sha256": "a128ddacc654eb6fc280ad4ebbc36f639d5a522c1e355b3ab370b593950c3274"
       }
     },
     "raw_text": {
@@ -83,8 +83,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "stdout": {
-        "bytes": 1110241,
-        "sha256": "629476538a600994d1bb8c8771a236820747285da157d29910d2f37a2f5d96eb"
+        "bytes": 1110186,
+        "sha256": "0c9048832f9a37895d218a96b641427c5d3dd5de4cdb45ece8f252af04d25cef"
       }
     }
   },
@@ -181,7 +181,7 @@
     {
       "id": "admissible-action-equation-late",
       "class": "table-displayed-equation",
-      "recorded_page": 129,
+      "recorded_page": 130,
       "default_anchor": "The held translation assigns controller i an admissible action set",
       "default_fragments": [
         "The held translation assigns controller i an admissible action set",
@@ -201,7 +201,7 @@
         "The held translation assigns controller an admissible action set",
         "where is observation age in seconds",
         "the notation does not make them interchangeable.\ni\nU",
-        "(t) ∈ U"
+        "(t) ∈ i( i i i i i ) i U ​ (t), i"
       ],
       "state": "known-debt",
       "defect": "The admissible-action equation moves behind its explanation in raw content-stream extraction and is absent from tagged structure text."
@@ -209,7 +209,7 @@
     {
       "id": "adiabatic-equation-fragmented",
       "class": "diagram-figure",
-      "recorded_page": 377,
+      "recorded_page": 379,
       "default_anchor": "Four normalized adiabatic energy curves form different U-shaped crossovers",
       "default_fragments": [
         "Four normalized adiabatic energy curves form different U-shaped crossovers",
@@ -236,7 +236,7 @@
     {
       "id": "field-coverage-heading-merged",
       "class": "diagram-figure",
-      "recorded_page": 386,
+      "recorded_page": 388,
       "default_anchor": "This is the repository's breadth control",
       "default_fragments": [
         "This is the repository's breadth control",
