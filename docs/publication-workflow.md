@@ -114,6 +114,15 @@ known warnings for a missing epoch or failed layer rewrite. Compatibility 30 is
 review metadata, not a passed Docker-exporter attribute; changing BuildKit
 requires a fresh review and two-builder comparison.
 
+Ordinary `render-pdf` generation also compares two complete PDF/manifest pairs
+before publishing. If they differ, it retains the exact compared bytes under
+`build/evidence/pdf-generation-mismatch-<identity>/`, with a maximum of 132 MiB
+per complete bundle. The error reports that location and identifies incomplete
+retention if a write fails. The previous public pair stays unchanged. These
+local diagnostics have no proof receipt or automatic upload; their retention
+and explicit cleanup follow
+[decision 0081](../decisions/0081-retain-ordinary-pdf-generation-mismatches.md).
+
 `20w publication verify-pdf-reproducibility` makes that comparison a real
 release acceptance rather than a mock-only unit check. It hashes one exact
 normalized schema-3 build context, builds it without cache in two separate

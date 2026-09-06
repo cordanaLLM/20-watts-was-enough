@@ -121,8 +121,8 @@ func renderWithDependencies(
 		return Result{}, fmt.Errorf("create PDF renderer staging root: %w", err)
 	}
 	defer func() {
-		if removeError := os.RemoveAll(temporaryRoot); returnError == nil && removeError != nil {
-			returnError = fmt.Errorf("remove PDF renderer staging root: %w", removeError)
+		if removeError := os.RemoveAll(temporaryRoot); removeError != nil {
+			returnError = errors.Join(returnError, fmt.Errorf("remove PDF renderer staging root: %w", removeError))
 		}
 	}()
 	contextRoot := filepath.Join(temporaryRoot, "context")
@@ -192,6 +192,10 @@ func renderWithDependencies(
 		}
 		renderDirectories[index] = outputDirectory
 	}
+	artifacts, err := compareRenderPairs(configuration.RepositoryRoot, renderDirectories[0], renderDirectories[1])
+	if err != nil {
+		return Result{}, err
+	}
 	if err := removeBuilder(executor, builderName, configuration.Lock.Limits.OutputBytes); err != nil {
 		return Result{}, err
 	}
@@ -199,7 +203,7 @@ func renderWithDependencies(
 	if err := checkAuthorityUnchanged(ctx, configuration); err != nil {
 		return Result{}, err
 	}
-	if err := compareAndPublishRenderPairs(configuration.RepositoryRoot, renderDirectories[0], renderDirectories[1]); err != nil {
+	if err := publishRenderPair(configuration.RepositoryRoot, artifacts); err != nil {
 		return Result{}, err
 	}
 	return Result{ImageID: imageID, LockSHA256: configuration.LockSHA256, Platform: configuration.Lock.Platform}, nil
