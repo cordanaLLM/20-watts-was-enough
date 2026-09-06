@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"testing/synctest"
+	"time"
 
 	"github.com/lusoris/20-watts-was-enough/tooling/internal/specialistcontrol"
 )
@@ -15,7 +17,13 @@ import (
 func TestRunAndCheckAllFrozenCasesWithoutChangingInputs(t *testing.T) {
 	options := fixtureOptions(t)
 	before := snapshot(t, options.DatasetDirectory)
-	report, err := Run(context.Background(), options)
+	var report Report
+	var err error
+	// Only the semantic run uses fake time; fixture lifetime and Check remain
+	// outside the bubble. Host filesystem latency is not this test's subject.
+	synctest.Test(t, func(*testing.T) {
+		report, err = Run(context.Background(), options)
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -23,11 +31,7 @@ func TestRunAndCheckAllFrozenCasesWithoutChangingInputs(t *testing.T) {
 		len(report.Cases) != 48 || len(report.Events) != 192 || report.Energy.State != "unavailable" || report.Energy.Joules != nil || !report.InputsRechecked {
 		t.Fatalf("misleading report: %+v", report)
 	}
-	for _, c := range report.Cases {
-		if !c.Exact || c.Answer.SizeBytes <= 0 {
-			t.Fatalf("incomplete case: %+v", c)
-		}
-	}
+	requireCompleteSyntheticExecution(t, report)
 	if !reflect.DeepEqual(before, snapshot(t, options.DatasetDirectory)) {
 		t.Fatal("run changed fixture bytes")
 	}
@@ -110,16 +114,60 @@ func TestDecisionRecordFailurePreventsEverySpecialistEffect(t *testing.T) {
 
 func TestInputMutationDuringRunInvalidatesCompletedWork(t *testing.T) {
 	options := fixtureOptions(t)
-	report, err := run(context.Background(), options, func(bound *boundInputs, _ *journal) {
-		path := filepath.Join(options.DatasetDirectory, bound.tree.Files[0].Path)
-		body, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		writeTestFile(t, path, append(body, '\n'))
+	var changedPath string
+	var original []byte
+	var report Report
+	var err error
+	synctest.Test(t, func(t *testing.T) {
+		report, err = run(context.Background(), options, func(bound *boundInputs, _ *journal) {
+			changedPath = bound.tree.Files[0].Path
+			path := filepath.Join(options.DatasetDirectory, changedPath)
+			body, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			original = append([]byte(nil), body...)
+			writeTestFile(t, path, append(body, '\n'))
+		})
 	})
 	if err == nil || report.State != "incomplete" || report.InputsRechecked || len(report.Cases) != 48 {
 		t.Fatalf("changed input accepted: %+v %v", report, err)
+	}
+	requireCompleteSyntheticExecution(t, report)
+	wantError := "fixture file " + changedPath + " changed after comparison"
+	if err.Error() != wantError || report.Error != wantError {
+		t.Fatalf("run did not reach the final input recheck: %+v %v", report, err)
+	}
+	requireCheckHashesMatch(t, options, report)
+	var retained Report
+	readCheckJSON(t, filepath.Join(options.OutputDirectory, "receipt.json"), &retained)
+	if !reflect.DeepEqual(retained, report) {
+		t.Fatalf("invalidation was not retained: %+v", retained)
+	}
+	// Restore the input so Check must reject the incomplete receipt itself.
+	writeTestFile(t, filepath.Join(options.DatasetDirectory, changedPath), original)
+	before := snapshot(t, options.OutputDirectory)
+	if _, err := Check(context.Background(), options); err == nil || err.Error() != "shakedown receipt is incomplete or changes the closed execution boundary" {
+		t.Fatalf("invalidated receipt passed or failed before receipt validation: %v", err)
+	}
+	if !reflect.DeepEqual(before, snapshot(t, options.OutputDirectory)) {
+		t.Fatal("checker changed invalidated evidence")
+	}
+}
+
+func requireCompleteSyntheticExecution(t *testing.T, report Report) {
+	t.Helper()
+	start := time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC)
+	if !report.Started.Equal(start) || !report.Finished.Equal(start) {
+		t.Fatalf("semantic execution left the synthetic clock: %s to %s", report.Started, report.Finished)
+	}
+	if report.Authority != "NO_RESULT" || report.ImageAdmitted || report.ScientificResult || len(report.Cases) != 48 || len(report.Events) != 192 {
+		t.Fatalf("incomplete or promoted execution: %+v", report)
+	}
+	for _, c := range report.Cases {
+		if !c.Exact || c.Answer.SizeBytes <= 0 || c.ElapsedNanoseconds != 0 {
+			t.Fatalf("incomplete or non-synthetic case: %+v", c)
+		}
 	}
 }
 
