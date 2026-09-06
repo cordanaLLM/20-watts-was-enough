@@ -7,6 +7,11 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- PDF generation forwards SIGINT and SIGTERM into the existing renderer
+  cancellation path so interrupted commands can finish bounded cleanup of
+  their owned resources. Renderer budgets and exact-pair publication checks
+  remain unchanged.
+
 - The Markdown maths renderer and Pages stylesheet share one pinned KaTeX
   version. Their previous versions used incompatible internal class names.
   A version-scoped adapter override and an installed-package regression guard
