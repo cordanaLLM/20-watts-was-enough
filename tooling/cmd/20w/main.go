@@ -348,6 +348,10 @@ func runReleaseVerifyTag(arguments []string, stdout, stderr io.Writer) int {
 }
 
 func runPublicationRenderPDF(arguments []string, stdout, stderr io.Writer) int {
+	return runPublicationRenderPDFWithRenderer(arguments, stdout, stderr, pdfrender.Render)
+}
+
+func runPublicationRenderPDFWithRenderer(arguments []string, stdout, stderr io.Writer, render func(context.Context, pdfrender.Options) (pdfrender.Result, error)) int {
 	flags := flag.NewFlagSet("publication render-pdf", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	root := flags.String("root", ".", "repository root")
@@ -378,7 +382,9 @@ func runPublicationRenderPDF(arguments []string, stdout, stderr io.Writer) int {
 		)
 		return 0
 	}
-	result, err := pdfrender.Render(context.Background(), pdfrender.Options{
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+	result, err := render(ctx, pdfrender.Options{
 		RepositoryRoot: *root,
 		SourceRef:      *sourceRef,
 		SourceRevision: *sourceRevision,
