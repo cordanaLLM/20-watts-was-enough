@@ -31,6 +31,7 @@ func run(ctx context.Context, options Options, beforeCases func(*boundInputs, *j
 	}
 	ctx, cancel := context.WithTimeout(ctx, runTimeout)
 	defer cancel()
+	started := time.Now().UTC()
 	tree, err := clrsfixture.LoadFixtureTree(ctx, clrsfixture.FixtureTreeOptions{RepositoryRoot: options.RepositoryRoot,
 		DatasetDirectory: options.DatasetDirectory, ExpectedTreeSHA256: options.ExpectedTreeSHA256})
 	if err != nil {
@@ -45,7 +46,7 @@ func run(ctx context.Context, options Options, beforeCases func(*boundInputs, *j
 	if err != nil {
 		return report, err
 	}
-	report = newReport(options, tree, executable)
+	report = newReport(options, tree, executable, started)
 	root, err := newBundle(options)
 	if err != nil {
 		return report, err

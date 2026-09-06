@@ -7,6 +7,11 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- CLRS development receipts start their diagnostic run interval before fixture
+  loading, task binding and executable hashing. Deadlines and `NO_RESULT`
+  authority stay unchanged. Final receipt writing and output-root closing remain
+  outside this interval; it is not complete task-resource accounting.
+
 - Successful PDF renderer runs preserve bounded retry warnings on standard
   error, with a separate identity for each render. Warning delivery errors
   are reported after comparison and cleanup. The reproducibility proof keeps
