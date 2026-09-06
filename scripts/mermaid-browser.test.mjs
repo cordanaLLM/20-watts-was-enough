@@ -6,6 +6,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import vm from "node:vm";
+import ts from "typescript";
 import { createServer as createViteServer } from "vite";
 
 import {
@@ -22,6 +24,137 @@ const profileRemovalOptions = Object.freeze({
   maxRetries: 5,
   recursive: true,
   retryDelay: 100,
+});
+
+function keyboardTraceFixture() {
+  const listeners = [];
+  const region = {
+    nodeName: "DIV", isConnected: true, scrollLeft: 0, clientWidth: 246, scrollWidth: 480,
+    getAttribute: (name) => name === "data-overflow-kind" ? "table" : "x".repeat(1_000),
+  };
+  const view = {
+    performance: { now: () => 10 },
+    document: {
+      activeElement: region, visibilityState: "visible",
+      hasFocus: () => true, querySelector: () => region,
+    },
+    addEventListener: (type, listener, options) => listeners.push({ type, listener, options }),
+    removeEventListener: (type, listener, options) => {
+      const index = listeners.findIndex((item) => (
+        item.type === type && item.listener === listener && item.options === options
+      ));
+      if (index !== -1) listeners.splice(index, 1);
+    },
+  };
+  return { view, region, listeners };
+}
+
+test("keyboard diagnostics remain bounded, self-contained and removable", () => {
+  const { view, region, listeners } = keyboardTraceFixture();
+  const create = vm.runInNewContext("(" + createOverflowKeyboardTrace.toString() + ")");
+  const trace = create(view, region, "region");
+  const emit = (key) => {
+    for (const { listener } of listeners.filter((item) => item.type === "keydown")) {
+      listener({
+        type: "keydown", key, code: key, keyCode: 39, isTrusted: false,
+        defaultPrevented: false, target: region, currentTarget: view,
+      });
+    }
+  };
+  emit("Unrelated");
+  assert.equal(trace.snapshot().events.length, 0);
+  for (let index = 0; index < 100; index += 1) emit("ArrowRight");
+  const snapshot = trace.snapshot();
+  assert.equal(snapshot.events.length, 64);
+  assert.ok(snapshot.dropped > 0);
+  assert.equal(snapshot.events[0].isTrusted, false);
+  assert.equal(snapshot.events[0].targetIsOriginal, true);
+  assert.ok(snapshot.events[0].target.label.length <= 192);
+  view.document.querySelector = () => ({});
+  region.isConnected = false;
+  assert.equal(trace.snapshot().selectorStillOriginal, false);
+  assert.equal(trace.snapshot().originalConnected, false);
+  let removed = 0;
+  trace.sentinel = { remove: () => { removed += 1; } };
+  trace.dispose();
+  trace.dispose();
+  assert.equal(listeners.length, 0);
+  assert.equal(removed, 1);
+});
+
+test("keyboard diagnostics preserve the primary failure when cleanup fails", async () => {
+  let calls = 0;
+  const cdp = {
+    send: async () => {
+      calls += 1;
+      if (calls === 1) return { result: { value: false } };
+      if (calls === 2) return { result: { value: { observed: "retained" } } };
+      throw new Error("diagnostic cleanup failed");
+    },
+  };
+  await assert.rejects(assertArrowKeyScrollsRegion(cdp, "table"), (error) => {
+    assert.match(error.message, /table focus sentinel was not ready/u);
+    assert.match(error.message, /retained/u);
+    assert.match(error.message, /diagnostic cleanup failed/u);
+    return true;
+  });
+  assert.equal(calls, 3);
+});
+
+test("keyboard diagnostics bound failure text without replacing the original stack", () => {
+  const error = new Error("original failure");
+  const originalStack = error.stack;
+  appendKeyboardDiagnostic(error, "trace", { text: "x".repeat(40_000) });
+  assert.ok(error.message.length < 33_000);
+  assert.match(error.message, /\[truncated\]$/u);
+  assert.ok(error.stack.startsWith(originalStack));
+});
+
+function keyboardSyntaxNodes(fn) {
+  const source = ts.createSourceFile("keyboard.js", fn.toString(), ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
+  assert.equal(source.parseDiagnostics.length, 0);
+  const nodes = [];
+  const pending = [source];
+  while (pending.length > 0) {
+    assert.ok(nodes.length < 4_096);
+    const node = pending.pop();
+    nodes.push(node);
+    const children = [];
+    ts.forEachChild(node, (child) => { children.push(child); });
+    pending.push(...children.reverse());
+  }
+  return { source, nodes };
+}
+
+test("keyboard diagnostics preserve the exact key protocol and five-second bound", () => {
+  const { source, nodes } = keyboardSyntaxNodes(exerciseArrowKeyScrollsRegion);
+  const keyCalls = nodes.filter((node) => (
+    ts.isCallExpression(node) && node.expression.getText(source) === "cdp.send"
+      && node.arguments[0]?.text === "Input.dispatchKeyEvent"
+  ));
+  const values = keyCalls.map((node) => Object.fromEntries(node.arguments[1].properties.map((property) => {
+    assert.ok(ts.isPropertyAssignment(property));
+    const value = property.initializer;
+    assert.ok(ts.isStringLiteral(value) || ts.isNumericLiteral(value));
+    return [property.name.getText(source), ts.isNumericLiteral(value) ? Number(value.text) : value.text];
+  })));
+  assert.deepEqual(values, [
+    { type: "rawKeyDown", key: "Tab", code: "Tab", windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 },
+    { type: "keyUp", key: "Tab", code: "Tab", windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 },
+    { type: "rawKeyDown", key: "ArrowRight", code: "ArrowRight", windowsVirtualKeyCode: 39, nativeVirtualKeyCode: 39 },
+    { type: "keyUp", key: "ArrowRight", code: "ArrowRight", windowsVirtualKeyCode: 39, nativeVirtualKeyCode: 39 },
+  ]);
+  const deadline = nodes.find((node) => ts.isVariableDeclaration(node) && node.name.getText(source) === "scrollDeadline");
+  assert.ok(ts.isBinaryExpression(deadline.initializer));
+  assert.equal(deadline.initializer.left.getText(source), "Date.now()");
+  assert.equal(deadline.initializer.operatorToken.kind, ts.SyntaxKind.PlusToken);
+  assert.equal(Number(deadline.initializer.right.text), 5_000);
+  const timers = nodes.filter((node) => ts.isCallExpression(node) && node.expression.getText(source) === "setTimeout");
+  assert.equal(timers.length, 1);
+  assert.equal(Number(timers[0].arguments[1].text), 50);
+  const { source: overflowSource, nodes: overflowNodes } = keyboardSyntaxNodes(assertBookOverflowRegions);
+  const kinds = overflowNodes.find((node) => ts.isVariableDeclaration(node) && node.name.getText(overflowSource) === "requiredKinds");
+  assert.deepEqual(kinds.initializer.elements.map((node) => node.text), ["code", "equation", "table", "diagram"]);
 });
 
 test("browser process shutdown waits for a stubborn child before profile cleanup", async () => {
@@ -184,17 +317,126 @@ function assertConditionalOverflowSemantics(snapshot) {
   assert.equal(new Set(labels).size, labels.length, "Overflow-region labels must be unique");
 }
 
+// Serialized into the test page; keep this collector independent of Node scope.
+// Handlers observe metadata only. Geometry is read only when a failure is reported.
+// A phase's defaultPrevented value does not expose Blink's default-handled state.
+function createOverflowKeyboardTrace(view, original, selector) {
+  const events = [];
+  const listeners = [];
+  const identities = new WeakMap();
+  let nextIdentity = 0;
+  let dropped = 0;
+  let disposed = false;
+  const describe = (node) => {
+    if (!node || typeof node !== "object") return null;
+    if (!identities.has(node)) identities.set(node, ++nextIdentity);
+    return {
+      id: identities.get(node),
+      node: node === view ? "window" : String(node.nodeName ?? "").slice(0, 32),
+      kind: node.getAttribute?.("data-overflow-kind")?.slice(0, 32) ?? null,
+      label: node.getAttribute?.("aria-label")?.slice(0, 192) ?? null,
+    };
+  };
+  const originalIdentity = describe(original);
+  const record = (event, phase) => {
+    if (disposed) return;
+    if (["keydown", "keyup"].includes(event.type) && !["Tab", "ArrowRight"].includes(event.key)) return;
+    if (events.length >= 64) { dropped += 1; return; }
+    events.push({
+      time: view.performance.now(), type: event.type, phase,
+      target: describe(event.target), currentTarget: describe(event.currentTarget),
+      targetIsOriginal: event.target === original,
+      activeIsOriginal: view.document.activeElement === original,
+      isTrusted: event.isTrusted, defaultPrevented: event.defaultPrevented,
+      key: event.key?.slice(0, 32) ?? null, code: event.code?.slice(0, 32) ?? null,
+      keyCode: event.keyCode ?? null, hasFocus: view.document.hasFocus(),
+    });
+  };
+  for (const type of ["keydown", "keyup", "focus", "blur", "focusin", "focusout", "scroll", "scrollend"]) {
+    for (const capture of [true, false]) {
+      const listener = (event) => record(event, capture ? "capture" : "bubble");
+      view.addEventListener(type, listener, capture);
+      listeners.push({ type, listener, capture });
+    }
+  }
+  const trace = {
+    sentinel: null,
+    snapshot: () => ({
+      original: originalIdentity, originalConnected: original.isConnected,
+      selectorStillOriginal: view.document.querySelector(selector) === original,
+      activeIsOriginal: view.document.activeElement === original,
+      hasFocus: view.document.hasFocus(), visibility: view.document.visibilityState,
+      clientWidth: original.clientWidth, scrollWidth: original.scrollWidth,
+      scrollLeft: original.scrollLeft, events: [...events], dropped,
+    }),
+    dispose: () => {
+      if (disposed) return;
+      disposed = true;
+      for (const { type, listener, capture } of listeners) {
+        view.removeEventListener(type, listener, capture);
+      }
+      trace.sentinel?.remove();
+    },
+  };
+  return trace;
+}
+
+function appendKeyboardDiagnostic(error, label, value) {
+  const text = JSON.stringify(value);
+  const bounded = text.length > 32_768 ? text.slice(0, 32_768) + " [truncated]" : text;
+  const detail = label + ": " + bounded;
+  const originalStack = error.stack;
+  error.message += "\n" + detail;
+  if (originalStack) error.stack = originalStack + "\n" + detail;
+}
+
+async function disposeOverflowKeyboardTrace(cdp, primary) {
+  try {
+    const cleanup = await cdp.send("Runtime.evaluate", {
+      expression: "try { window.__20wOverflowKeyboardTrace?.dispose(); } finally { delete window.__20wOverflowKeyboardTrace; }",
+    }, 2_000);
+    if (cleanup.exceptionDetails) throw new Error("Page-side keyboard diagnostic cleanup failed");
+  } catch (cleanupError) {
+    if (!primary) throw cleanupError;
+    appendKeyboardDiagnostic(primary, "Keyboard diagnostic cleanup failed", String(cleanupError).slice(0, 240));
+  }
+}
+
 async function assertArrowKeyScrollsRegion(cdp, kind) {
+  let primary;
+  try {
+    await exerciseArrowKeyScrollsRegion(cdp, kind);
+  } catch (error) {
+    primary = error;
+    try {
+      const diagnostic = await cdp.send("Runtime.evaluate", {
+        expression: "window.__20wOverflowKeyboardTrace?.snapshot() ?? null",
+        returnByValue: true,
+      }, 2_000);
+      appendKeyboardDiagnostic(error, kind + " keyboard diagnostic", diagnostic.result?.value ?? diagnostic.exceptionDetails ?? null);
+    } catch (diagnosticError) {
+      appendKeyboardDiagnostic(error, "Keyboard diagnostic unavailable", String(diagnosticError).slice(0, 240));
+    }
+    throw error;
+  } finally {
+    await disposeOverflowKeyboardTrace(cdp, primary);
+  }
+}
+
+async function exerciseArrowKeyScrollsRegion(cdp, kind) {
   const selector = `.book-prose [data-overflow-kind="${kind}"][tabindex="0"]`;
   const prepared = (await cdp.send("Runtime.evaluate", {
     expression: `(() => {
       const region = document.querySelector(${JSON.stringify(selector)});
       if (!region) return null;
+      if (window.__20wOverflowKeyboardTrace) throw new Error('Previous keyboard trace was not disposed');
+      window.__20wOverflowKeyboardTrace = (${createOverflowKeyboardTrace.toString()})(window, region, ${JSON.stringify(selector)});
       region.scrollLeft = 0;
       const sentinel = document.createElement('button');
       sentinel.id = 'overflow-focus-sentinel';
       sentinel.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0';
       region.before(sentinel);
+      window.__20wOverflowKeyboardTrace.sentinel = sentinel;
       sentinel.focus();
       return document.activeElement === sentinel;
     })()`,
@@ -785,6 +1027,13 @@ test("browser rendering keeps Mermaid stable and wide publication content keyboa
       await devtoolsPageFromProfile(browserProcess, profile, { signal: t.signal }),
       { signal: t.signal },
     );
+    const version = await cdp.send("Browser.getVersion");
+    t.diagnostic("Browser identity: " + JSON.stringify({
+      path: browser.slice(0, 512),
+      product: String(version.product ?? "").slice(0, 192),
+      revision: String(version.revision ?? "").slice(0, 192),
+      protocolVersion: String(version.protocolVersion ?? "").slice(0, 64),
+    }));
     await cdp.send("Page.enable");
     await cdp.send("Runtime.enable");
     const navigation = await cdp.send("Page.navigate", { url: bookUrl });
