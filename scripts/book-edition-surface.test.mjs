@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, realpath } from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import postcss from "postcss";
+import ts from "typescript";
 import {
   bookEditionIdentity,
   bookSurfaceFromLocation,
@@ -24,6 +26,170 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 async function source(relative) {
   return readFile(path.join(repositoryRoot, relative), "utf8");
 }
+
+async function parsedSource(relative) {
+  return ts.createSourceFile(relative, await source(relative), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+}
+
+function moduleImport(syntax, name) {
+  const declarations = syntax.statements.filter((node) => (
+    ts.isImportDeclaration(node) && node.moduleSpecifier.text === name
+  ));
+  assert.equal(declarations.length, 1, `${syntax.fileName}: expected one ${name} import`);
+  return declarations[0];
+}
+
+async function productionMathPlugin() {
+  const owner = "app/components/markdown-document.tsx";
+  const syntax = await parsedSource(owner);
+  const declaration = moduleImport(syntax, "rehype-katex");
+  const binding = declaration.importClause?.name?.text;
+  assert.ok(binding, "production math plugin must retain its default import");
+  const pending = [syntax];
+  let visited = 0;
+  let enabled = 0;
+  while (pending.length > 0) {
+    assert.ok(++visited <= 16_384, "production Markdown syntax traversal exceeds its bound");
+    const node = pending.pop();
+    if (ts.isJsxAttribute(node) && node.name.text === "rehypePlugins") {
+      const expression = node.initializer?.expression;
+      assert.ok(expression && ts.isArrayLiteralExpression(expression), "review changed production plugin options");
+      enabled += expression.elements.filter((element) => ts.isIdentifier(element) && element.text === binding).length;
+    }
+    ts.forEachChild(node, (child) => { pending.push(child); });
+  }
+  assert.equal(enabled, 1, "the imported math plugin must occur in the actual rehypePlugins pipeline");
+  const require = createRequire(path.join(repositoryRoot, owner));
+  return require.resolve(declaration.moduleSpecifier.text);
+}
+
+async function installedKatex(require, lock) {
+  const filename = await realpath(require.resolve("katex/package.json"));
+  const relative = path.relative(repositoryRoot, path.dirname(filename)).replaceAll("\\", "/");
+  assert.ok(relative.startsWith("node_modules/") && !relative.includes("../"), "KaTeX must belong to this installation");
+  const metadata = JSON.parse(await readFile(filename, "utf8"));
+  const identity = lock.packages[relative];
+  assert.equal(metadata.name, "katex");
+  assert.equal(metadata.version, identity?.version, `${relative}: installed KaTeX differs from the lock`);
+  assert.ok(identity.integrity && identity.resolved, `${relative}: missing locked package identity`);
+  return { metadata, identity };
+}
+
+test("production KaTeX renderer and public styles share the exact locked package", async () => {
+  const manifest = JSON.parse(await source("package.json"));
+  const lock = JSON.parse(await source("package-lock.json"));
+  const pluginEntry = await productionMathPlugin();
+  const renderer = await installedKatex(createRequire(pluginEntry), lock);
+  assert.match(manifest.dependencies.katex, /^\d+\.\d+\.\d+$/u);
+  assert.equal(lock.packages[""].dependencies.katex, manifest.dependencies.katex);
+  for (const owner of ["github-pages/main.tsx", "github-pages/book.tsx"]) {
+    const declaration = moduleImport(await parsedSource(owner), "katex/dist/katex.min.css");
+    assert.equal(declaration.importClause, undefined, `${owner}: stylesheet must remain a side-effect import`);
+    const require = createRequire(path.join(repositoryRoot, owner));
+    const stylesheet = await installedKatex(require, lock);
+    assert.equal(renderer.metadata.version, stylesheet.metadata.version, `${owner}: renderer/style version mismatch`);
+    assert.equal(stylesheet.metadata.version, manifest.dependencies.katex, `${owner}: stylesheet differs from direct pin`);
+    for (const key of ["integrity", "resolved"]) assert.equal(renderer.identity[key], stylesheet.identity[key], `${owner}: ${key} mismatch`);
+    const css = postcss.parse(await readFile(require.resolve(declaration.moduleSpecifier.text), "utf8"));
+    const selectors = [];
+    css.walkRules((rule) => { selectors.push(...rule.selectors); });
+    assert.ok(selectors.some((selector) => /\.katex-strut\b/u.test(selector)), `${owner}: missing aligned structural styles`);
+  }
+  assert.equal(manifest.dependencies["rehype-katex"], "7.0.1", "review the compatibility override when the plugin changes");
+  assert.deepEqual(manifest.overrides?.["rehype-katex@7.0.1"], { katex: "$katex" });
+});
+
+function mathElements(tree) {
+  const pending = [tree];
+  const elements = [];
+  let visited = 0;
+  while (pending.length > 0) {
+    assert.ok(++visited <= 8_192, "bounded math fixture produced excessive HAST");
+    const node = pending.pop();
+    if (node.type === "element") elements.push(node);
+    if (node.children) pending.push(...node.children);
+  }
+  return elements;
+}
+
+test("the actual production math plugin preserves display, MathML, errors and untrusted input", async () => {
+  const pluginEntry = await productionMathPlugin();
+  const { default: plugin } = await import(pathToFileURL(pluginEntry).href);
+  const { VFile } = await import(pathToFileURL(createRequire(pluginEntry).resolve("vfile")).href);
+  const cases = [
+    { name: "inline", value: String.raw`\frac{a_1}{\sqrt{b}}`, display: false },
+    { name: "display", value: String.raw`\frac{a_1}{\sqrt{b}} \tag{A}`, display: true },
+    { name: "malformed", value: String.raw`\frac{`, display: true, error: true },
+    { name: "untrusted", value: String.raw`\href{javascript:alert(1)}{unsafe}`, display: false },
+  ];
+  for (const fixture of cases) {
+    const file = new VFile();
+    const tree = { type: "root", children: [{
+      type: "element", tagName: "span", properties: { className: [fixture.display ? "math-display" : "math-inline"] },
+      children: [{ type: "text", value: fixture.value }],
+    }] };
+    plugin()(tree, file);
+    const elements = mathElements(tree);
+    const classes = elements.flatMap((node) => node.properties.className ?? []);
+    assert.ok(elements.every((node) => !["script", "a"].includes(node.tagName)), `${fixture.name}: unsafe element`);
+    if (fixture.error) {
+      assert.ok(classes.includes("katex-error"), "malformed input must retain visible error output");
+      assert.equal(file.messages.length, 1, "malformed input must retain its parse diagnostic");
+      assert.equal(file.messages[0].ruleId, "parseerror");
+      continue;
+    }
+    assert.equal(file.messages.length, 0, `${fixture.name}: unexpected parse diagnostic`);
+    assert.ok(elements.some((node) => node.tagName === "math"), `${fixture.name}: MathML missing`);
+    const annotations = elements.filter((node) => node.tagName === "annotation");
+    assert.equal(annotations.length, 1, `${fixture.name}: expected one source annotation`);
+    assert.equal(annotations[0].properties.encoding, "application/x-tex");
+    assert.equal(annotations[0].children.length, 1, `${fixture.name}: split source annotation`);
+    assert.equal(annotations[0].children[0].type, "text");
+    assert.equal(annotations[0].children[0].value, fixture.value);
+    if (["inline", "display"].includes(fixture.name)) {
+      for (const tag of ["mfrac", "msqrt", "msub"]) {
+        assert.ok(elements.some((node) => node.tagName === tag), `${fixture.name}: ${tag} meaning missing`);
+      }
+    }
+    assert.ok(classes.includes("katex-html"), `${fixture.name}: visual HTML missing`);
+    assert.equal(classes.includes("katex-display"), fixture.display, `${fixture.name}: display mode changed`);
+    assert.ok(classes.includes("katex-strut"), `${fixture.name}: old renderer structural classes`);
+  }
+});
+
+test("the factual-record status domain remains exact display math within its list item", async () => {
+  const [{ unified }, { default: remarkParse }, { default: remarkMath }] = await Promise.all([
+    import("unified"), import("remark-parse"), import("remark-math"),
+  ]);
+  const domain = String.raw`\sigma\in\{\text{active},\text{superseded},\text{revoked},\text{disputed}\}`;
+  const parser = unified().use(remarkParse).use(remarkMath);
+  const assertStatusDisplay = (markdown) => {
+    assert.ok(Buffer.byteLength(markdown) <= 2 * 1024 * 1024, "bounded status source");
+    const pending = [{ node: parser.parse(markdown), item: null }];
+    const matches = [];
+    let visited = 0;
+    while (pending.length > 0) {
+      assert.ok(++visited <= 16_384, "bounded status Markdown traversal");
+      const { node, item } = pending.pop();
+      const owner = node.type === "listItem" ? node : item;
+      if (["math", "inlineMath"].includes(node.type) && node.value === domain) matches.push({ node, owner });
+      for (const child of node.children ?? []) pending.push({ node: child, item: owner });
+    }
+    assert.equal(matches.length, 1, "preserve the exact four-state domain once");
+    const { node, owner } = matches[0];
+    assert.equal(node.type, "math", "the wide status domain needs the existing display overflow owner");
+    assert.ok(owner, "the status equation must remain within its definition list item");
+    assert.ok(owner.children.some((paragraph) => paragraph.type === "paragraph"
+      && paragraph.children.some((child) => child.type === "inlineMath" && child.value === String.raw`\sigma`)),
+    "retain the status symbol in the list-item introduction");
+  };
+  assertStatusDisplay(await source("concept/60-hardening-and-factual-memory.md"));
+  const fixture = `- $\\sigma$ identifies the allowed states.\n\n  $$\n  ${domain}\n  $$\n`;
+  assertStatusDisplay(fixture);
+  assert.throws(() => assertStatusDisplay(`- $${domain}$ is record status.\n`), /existing display overflow owner/u);
+  assert.throws(() => assertStatusDisplay(fixture.replace("revoked", "withdrawn")), /exact four-state domain/u);
+  assert.throws(() => assertStatusDisplay(fixture.replace("$\\sigma$", "$s$")), /status symbol/u);
+});
 
 test("book editions retain their ref while source links bind an available exact commit", () => {
   const releasePdfRef = repositoryRefForSurface("public-pdf", "v0.2.0", "0.2.0");
