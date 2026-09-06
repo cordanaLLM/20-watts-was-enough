@@ -7,6 +7,12 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- Successful PDF renderer runs preserve bounded retry warnings on standard
+  error, with a separate identity for each render. Warning delivery errors
+  are reported after comparison and cleanup. The reproducibility proof keeps
+  its original outcome and retained mismatch artifacts if delivery fails.
+  Rendering settings, receipt formats and the existing retry limit stay unchanged.
+
 - The printed book uses its white page canvas without a redundant body fill.
   That fill's final-page extent differed between two otherwise identical PDF
   renders. Content surfaces and screen styles retain their existing owners;

@@ -47,6 +47,7 @@ func runVerifyReproducibility(arguments []string, stdout, stderr io.Writer, veri
 		ReceiptPath:    *receiptPath,
 		RenderPairOnly: *proof == "render-pair",
 		CacheDirectory: *cacheDirectory,
+		Diagnostics:    stderr,
 	})
 	if err != nil {
 		fmt.Fprintf(stderr, "Verify PDF renderer reproducibility: %v\n", err)
