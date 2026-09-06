@@ -114,7 +114,7 @@ func validateReport(report Report, options Options, tree clrsfixture.FixtureTree
 		report.Executable.SizeBytes <= 0 || report.Executable.SizeBytes > 128<<20 || !validDigest(report.Executable.SHA256) {
 		return errors.New("shakedown receipt has invalid time or executable bounds")
 	}
-	want := newReport(options, tree, report.Executable)
+	want := newReport(options, tree, report.Executable, report.Started)
 	if !reflect.DeepEqual(report.Energy, want.Energy) || !reflect.DeepEqual(report.Limitations, want.Limitations) {
 		return errors.New("shakedown receipt changes its unavailable measurement or authority limitations")
 	}

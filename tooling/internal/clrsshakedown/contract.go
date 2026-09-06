@@ -123,11 +123,11 @@ func identify(body []byte) FileIdentity {
 	return FileIdentity{hex.EncodeToString(sum[:]), int64(len(body))}
 }
 
-func newReport(options Options, tree clrsfixture.FixtureTree, executable FileIdentity) Report {
+func newReport(options Options, tree clrsfixture.FixtureTree, executable FileIdentity, started time.Time) Report {
 	return Report{SchemaVersion: 1, Authority: clrsfixture.ResultAuthority, State: "incomplete", RunID: options.RunID,
 		SourceID: tree.Plan.SourceID.String(), ContractID: tree.Plan.ContractID.String(), SourceSHA256: tree.SourceSHA256,
 		ContractSHA256: tree.ContractSHA256, TreeSHA256: tree.TreeSHA256, Build: buildinfo.Current(), Executable: executable,
-		Started: time.Now().UTC(), TimeoutSeconds: 60, RequestTimeoutMillis: 1000,
+		Started: started, TimeoutSeconds: 60, RequestTimeoutMillis: 1000,
 		Inputs: tree.Files, Cases: []Case{}, Events: []Artifact{},
 		Energy: UnavailableMeasurement{State: "unavailable", Reason: "No qualified whole-task energy measurement is collected."},
 		Limitations: []string{
