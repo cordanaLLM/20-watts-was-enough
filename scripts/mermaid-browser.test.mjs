@@ -157,6 +157,89 @@ test("keyboard diagnostics preserve the exact key protocol and five-second bound
   assert.deepEqual(kinds.initializer.elements.map((node) => node.text), ["code", "equation", "table", "diagram"]);
 });
 
+function overflowAccessibilityFixture(kind = "code", mutate = (value) => value) {
+  const role = ["code", "equation"].includes(kind) ? "group" : "region";
+  const label = `Scrollable ${kind} fixture`;
+  const node = {
+    nodeId: 12, backendNodeId: 34,
+    attributes: ["data-overflow-kind", kind, "tabindex", "0", "role", role, "aria-label", label],
+  };
+  const calls = [];
+  const cdp = {
+    send: async (method, params, timeout) => {
+      calls.push({ method, params, timeout });
+      const responses = {
+        "DOM.querySelector": { nodeId: 12 },
+        "DOM.describeNode": { node },
+        "Accessibility.getPartialAXTree": {
+          nodes: [{ ignored: false, backendDOMNodeId: 34, role: { value: role }, name: { value: label } }],
+        },
+      };
+      assert.ok(Object.hasOwn(responses, method), `Unexpected AX command ${method}`);
+      return mutate(structuredClone(responses[method]), method, calls.length);
+    },
+  };
+  return { cdp, calls, label };
+}
+
+test("focused overflow AX binds all four roles to their original DOM owners", async () => {
+  for (const kind of ["code", "equation", "table", "diagram"]) {
+    const { cdp, calls, label } = overflowAccessibilityFixture(kind);
+    await assertOverflowAccessibility(cdp, 1, kind, label);
+    assert.deepEqual(calls.map((call) => call.method), [
+      "DOM.querySelector", "DOM.describeNode", "Accessibility.getPartialAXTree",
+      "DOM.querySelector", "DOM.describeNode",
+    ]);
+    assert.deepEqual(calls[2].params, { nodeId: 12, fetchRelatives: false });
+    assert.equal(calls[0].params.selector, `.book-prose [data-overflow-kind="${kind}"][tabindex="0"]`);
+    assert.ok(calls.every((call) => Number.isSafeInteger(call.timeout) && call.timeout > 0 && call.timeout <= 20_000));
+  }
+  const { nodes: owner } = keyboardSyntaxNodes(assertBookOverflowRegions);
+  assert.equal(owner.some((node) => ts.isStringLiteral(node) && node.text === "Accessibility.getFullAXTree"), false);
+  const disable = owner.find((node) => ts.isCallExpression(node) && node.arguments[0]?.text === "DOM.disable");
+  const keyboard = owner.find((node) => ts.isCallExpression(node) && node.expression.getText() === "assertArrowKeyScrollsRegion");
+  assert.ok(disable && keyboard && disable.pos < keyboard.pos, "DOM inspection must end before keyboard checks");
+});
+
+test("focused overflow AX rejects missing, ambiguous, stale and oversized responses", async (t) => {
+  const cases = [
+    ["missing DOM owner", "DOM.querySelector", (value) => { value.nodeId = 0; }, /DOM owner/u],
+    ["missing backend", "DOM.describeNode", (value) => { delete value.node.backendNodeId; }, /backend/u],
+    ["wrong DOM label", "DOM.describeNode", (value) => { value.node.attributes[7] = "Wrong label"; }, /label/u],
+    ["wrong DOM kind", "DOM.describeNode", (value) => { value.node.attributes[1] = "table"; }, /kind/u],
+    ["oversized attributes", "DOM.describeNode", (value) => { value.node.attributes = Array(130).fill("x"); }, /attributes/u],
+    ["missing AX target", "Accessibility.getPartialAXTree", (value) => { value.nodes = []; }, /exactly one/u],
+    ["ambiguous AX target", "Accessibility.getPartialAXTree", (value) => { value.nodes.push(value.nodes[0]); }, /exactly one/u],
+    ["ignored AX target", "Accessibility.getPartialAXTree", (value) => { value.nodes[0].ignored = true; }, /ignored/u],
+    ["wrong AX role", "Accessibility.getPartialAXTree", (value) => { value.nodes[0].role.value = "button"; }, /role/u],
+    ["wrong AX name", "Accessibility.getPartialAXTree", (value) => { value.nodes[0].name.value = "Wrong name"; }, /name/u],
+    ["wrong AX backend", "Accessibility.getPartialAXTree", (value) => { value.nodes[0].backendDOMNodeId = 35; }, /backend/u],
+    ["oversized AX response", "Accessibility.getPartialAXTree", (value) => { value.padding = "x".repeat(65_536); }, /64 KiB/u],
+  ];
+  for (const [name, method, alter, message] of cases) {
+    await t.test(name, async () => {
+      const { cdp, label } = overflowAccessibilityFixture("code", (value, called) => {
+        if (called === method) alter(value);
+        return value;
+      });
+      await assert.rejects(assertOverflowAccessibility(cdp, 1, "code", label), message);
+    });
+  }
+  for (const [name, callNumber, alter] of [
+    ["replaced DOM owner", 4, (value) => { value.nodeId = 13; }],
+    ["changed backend", 5, (value) => { value.node.backendNodeId = 35; }],
+    ["changed attributes", 5, (value) => { value.node.attributes[7] = "New label"; }],
+  ]) {
+    await t.test(name, async () => {
+      const { cdp, label } = overflowAccessibilityFixture("code", (value, method, index) => {
+        if (index === callNumber) alter(value);
+        return value;
+      });
+      await assert.rejects(assertOverflowAccessibility(cdp, 1, "code", label), /changed/u);
+    });
+  }
+});
+
 test("browser process shutdown waits for a stubborn child before profile cleanup", async () => {
   const profile = await mkdtemp(path.join(os.tmpdir(), "20w-browser-stop-"));
   const browserProcess = spawn(process.execPath, [
@@ -633,6 +716,58 @@ async function assertPrintRetiresOverflowSemantics(cdp, expectedRegionCount) {
   await setEmulatedMediaAfterTransition(cdp, "screen");
 }
 
+function boundedAccessibilityResponse(response, method) {
+  assert.ok(response && typeof response === "object" && !Array.isArray(response), `${method} returned no object`);
+  // CDP has already parsed the response; this is an accepted-payload bound,
+  // not a transport allocation limit or an accessibility-conformance check.
+  assert.ok(Buffer.byteLength(JSON.stringify(response)) <= 65_536, `${method} response exceeded 64 KiB`);
+  return response;
+}
+
+async function assertOverflowAccessibility(cdp, documentNodeId, kind, label) {
+  assert.ok(["code", "equation", "table", "diagram"].includes(kind), "Unknown overflow kind");
+  assert.ok(Number.isSafeInteger(documentNodeId) && documentNodeId > 0, "Missing AX document owner");
+  assert.ok(typeof label === "string" && label.length > 0 && label.length <= 512, "Missing or oversized AX label");
+  const deadline = Date.now() + 20_000;
+  const send = async (method, params) => {
+    const remaining = deadline - Date.now();
+    assert.ok(remaining > 0, `${kind} AX inspection deadline expired`);
+    return boundedAccessibilityResponse(await cdp.send(method, params, remaining), method);
+  };
+  const selector = `.book-prose [data-overflow-kind="${kind}"][tabindex="0"]`;
+  const { nodeId } = await send("DOM.querySelector", { nodeId: documentNodeId, selector });
+  assert.ok(Number.isSafeInteger(nodeId) && nodeId > 0, `${kind} DOM owner is missing`);
+  const { node } = await send("DOM.describeNode", { nodeId, depth: 0 });
+  assert.ok(Number.isSafeInteger(node?.backendNodeId) && node.backendNodeId > 0, `${kind} backend identity is missing`);
+  assert.equal(node.nodeId, nodeId, `${kind} DOM owner identity differs`);
+  assert.ok(
+    Array.isArray(node.attributes) && node.attributes.length <= 128
+      && node.attributes.length % 2 === 0 && node.attributes.every((value) => typeof value === "string"),
+    `${kind} DOM attributes are invalid`,
+  );
+  const attributes = new Map(Array.from({ length: node.attributes.length / 2 }, (_, index) => (
+    node.attributes.slice(index * 2, index * 2 + 2)
+  )));
+  assert.equal(attributes.size * 2, node.attributes.length, `${kind} DOM attributes are ambiguous`);
+  assert.equal(attributes.get("data-overflow-kind"), kind, `${kind} DOM kind differs`);
+  assert.equal(attributes.get("aria-label"), label, `${kind} DOM label differs`);
+  assert.equal(attributes.get("tabindex"), "0", `${kind} DOM owner is not focusable`);
+  const role = ["code", "equation"].includes(kind) ? "group" : "region";
+  assert.equal(attributes.get("role"), role, `${kind} DOM role differs`);
+  const partial = await send("Accessibility.getPartialAXTree", { nodeId, fetchRelatives: false });
+  assert.ok(Array.isArray(partial.nodes) && partial.nodes.length === 1, `${kind} AX response must contain exactly one owner`);
+  const ax = partial.nodes[0];
+  assert.equal(ax?.ignored, false, `${kind} AX owner is ignored or missing`);
+  assert.equal(ax.backendDOMNodeId, node.backendNodeId, `${kind} AX backend identity differs`);
+  assert.equal(ax.role?.value, role, `${kind} AX role differs`);
+  assert.equal(ax.name?.value, label, `${kind} AX name differs`);
+  const repeated = await send("DOM.querySelector", { nodeId: documentNodeId, selector });
+  assert.equal(repeated.nodeId, nodeId, `${kind} DOM owner changed during AX inspection`);
+  const after = await send("DOM.describeNode", { nodeId, depth: 0 });
+  assert.equal(after.node?.backendNodeId, node.backendNodeId, `${kind} backend changed during AX inspection`);
+  assert.deepEqual(after.node?.attributes, node.attributes, `${kind} attributes changed during AX inspection`);
+}
+
 async function assertBookOverflowRegions(cdp) {
   const requiredKinds = ["code", "equation", "table", "diagram"];
   let narrow;
@@ -655,21 +790,18 @@ async function assertBookOverflowRegions(cdp) {
       `No overflowing ${kind} region was exercised: ${JSON.stringify(narrow)}`,
     );
   }
-  const accessibilityTree = await cdp.send("Accessibility.getFullAXTree");
+  const accessibilityDocument = boundedAccessibilityResponse(
+    await cdp.send("DOM.getDocument", { depth: 0 }), "DOM.getDocument",
+  );
   for (const kind of requiredKinds) {
     const label = narrow.regions.find(
       (region) => region.kind === kind && region.overflows,
     )?.label;
     assert.ok(label, `No overflowing ${kind} label was available`);
-    const role = ["code", "equation"].includes(kind) ? "group" : "region";
-    assert.equal(
-      accessibilityTree.nodes.some((node) => (
-        !node.ignored && node.role?.value === role && node.name?.value === label
-      )),
-      true,
-      `${kind} overflow ${role} was absent from the accessibility tree`,
-    );
+    await assertOverflowAccessibility(cdp, accessibilityDocument.root?.nodeId, kind, label);
   }
+  // getDocument enables DOM events; the later interaction checks do not need them.
+  await cdp.send("DOM.disable", {}, 10_000);
   assert.ok(narrow.scrollWidth <= narrow.clientWidth, JSON.stringify(narrow));
   for (const kind of requiredKinds) await assertArrowKeyScrollsRegion(cdp, kind);
 
