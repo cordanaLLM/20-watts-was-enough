@@ -13,7 +13,8 @@ import (
 
 func TestProofPreservesOptionsAndSuccessBytes(t *testing.T) {
 	for _, sourceRef := range []string{"main", "v1.2.3"} {
-		want := pdfrender.ReproducibilityOptions{RepositoryRoot: "chosen-root", SourceRef: sourceRef, SourceRevision: strings.Repeat("a", 40), ReceiptPath: "build/evidence/proof.json"}
+		var stdout, stderr bytes.Buffer
+		want := pdfrender.ReproducibilityOptions{RepositoryRoot: "chosen-root", SourceRef: sourceRef, SourceRevision: strings.Repeat("a", 40), ReceiptPath: "build/evidence/proof.json", Diagnostics: &stderr}
 		calls := 0
 		verify := func(_ context.Context, got pdfrender.ReproducibilityOptions) (pdfrender.ReproducibilityReceipt, error) {
 			calls++
@@ -22,7 +23,6 @@ func TestProofPreservesOptionsAndSuccessBytes(t *testing.T) {
 			}
 			return proofReceipt(), nil
 		}
-		var stdout, stderr bytes.Buffer
 		code := runVerifyReproducibility([]string{"--root", want.RepositoryRoot, "--ref", want.SourceRef, "--revision", want.SourceRevision, "--receipt", want.ReceiptPath}, &stdout, &stderr, verify)
 		output := "PDF renderer reproducibility passed for " + sourceRef + ": image-id, manifest-id, complete PDF/manifest pair pair-id; receipt build/evidence/proof.json.\n"
 		if code != 0 || calls != 1 || stderr.Len() != 0 || stdout.String() != output {
@@ -34,7 +34,7 @@ func TestProofPreservesOptionsAndSuccessBytes(t *testing.T) {
 func TestProofPreservesDefaultMainOptions(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := runVerifyReproducibility([]string{"--receipt", "proof.json"}, &stdout, &stderr, func(_ context.Context, got pdfrender.ReproducibilityOptions) (pdfrender.ReproducibilityReceipt, error) {
-		want := pdfrender.ReproducibilityOptions{RepositoryRoot: ".", SourceRef: "main", ReceiptPath: "proof.json"}
+		want := pdfrender.ReproducibilityOptions{RepositoryRoot: ".", SourceRef: "main", ReceiptPath: "proof.json", Diagnostics: &stderr}
 		if !reflect.DeepEqual(got, want) {
 			t.Fatalf("options=%#v, want %#v", got, want)
 		}
@@ -48,6 +48,7 @@ func TestProofPreservesDefaultMainOptions(t *testing.T) {
 func TestProofCachePreservesOptionsForBothProofModes(t *testing.T) {
 	for _, proof := range []string{"image-build", "render-pair"} {
 		t.Run(proof, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
 			want := pdfrender.ReproducibilityOptions{
 				RepositoryRoot: "chosen-root",
 				SourceRef:      "main",
@@ -55,9 +56,9 @@ func TestProofCachePreservesOptionsForBothProofModes(t *testing.T) {
 				ReceiptPath:    "build/evidence/proof.json",
 				RenderPairOnly: proof == "render-pair",
 				CacheDirectory: "build/cache/pdf-renderer",
+				Diagnostics:    &stderr,
 			}
 			calls := 0
-			var stdout, stderr bytes.Buffer
 			code := runVerifyReproducibility([]string{
 				"--root", want.RepositoryRoot, "--ref", want.SourceRef,
 				"--revision", want.SourceRevision, "--receipt", want.ReceiptPath,
@@ -84,9 +85,14 @@ func TestProofEmptyCacheMatchesOmittedCache(t *testing.T) {
 			arguments := []string{"--receipt", "proof.json", "--ref", test.ref, "--revision", strings.Repeat("a", 40), "--proof", test.proof}
 			var options []pdfrender.ReproducibilityOptions
 			var output []string
+			var stdout, stderr bytes.Buffer
 			for _, cacheArguments := range [][]string{nil, {"--cache-dir", ""}} {
-				var stdout, stderr bytes.Buffer
+				stdout.Reset()
+				stderr.Reset()
 				code := runVerifyReproducibility(append(append([]string(nil), arguments...), cacheArguments...), &stdout, &stderr, func(_ context.Context, got pdfrender.ReproducibilityOptions) (pdfrender.ReproducibilityReceipt, error) {
+					if got.Diagnostics != &stderr {
+						t.Fatal("diagnostics do not use the caller's stderr")
+					}
 					options = append(options, got)
 					return proofReceipt(), nil
 				})

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -19,6 +20,9 @@ type ReproducibilityOptions struct {
 	ReceiptPath    string
 	RenderPairOnly bool
 	CacheDirectory string
+	// Diagnostics receives bounded retry warnings, not raw subprocess output.
+	// Delivery errors do not change the proof receipt or prevent its retention.
+	Diagnostics io.Writer
 }
 
 // VerifyReproducibility records a non-publishing comparison. By default it
@@ -50,7 +54,7 @@ func VerifyReproducibility(ctx context.Context, options ReproducibilityOptions) 
 		options.SourceRevision,
 		options.ReceiptPath,
 		remoteBuildContextPreparer{},
-		localReproducibilityExecutor{},
+		&rendererDiagnosticExecutor{commandExecutor: localReproducibilityExecutor{}, writer: options.Diagnostics},
 		options.RenderPairOnly,
 		options.CacheDirectory,
 	)
@@ -86,6 +90,7 @@ func verifyCachedProofWithDependencies(
 	renderPairOnly bool,
 	cacheDirectory string,
 ) (_ ReproducibilityReceipt, returnError error) {
+	defer func() { returnError = joinRendererDiagnostics(executor, returnError) }()
 	if renderPairOnly && sourceRef != "main" {
 		return ReproducibilityReceipt{}, errors.New("render-pair proof is restricted to main; releases require independent image builds")
 	}
@@ -344,7 +349,7 @@ func reproducibilityRender(
 			return result, fmt.Errorf("create isolated PDF reproducibility directory: %w", err)
 		}
 	}
-	if err := runRendererOnce(ctx, configuration, executor, result.ImageID, sourceRef, sourceRevision, outputDirectory, workspaceDirectory); err != nil {
+	if err := runRendererOnce(ctx, configuration, executor, result.ImageID, sourceRef, sourceRevision, outputDirectory, workspaceDirectory, index+1); err != nil {
 		return result, err
 	}
 	pair, err := inspectReproducibilityPair(outputDirectory)

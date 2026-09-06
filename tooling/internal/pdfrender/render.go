@@ -26,6 +26,9 @@ type Options struct {
 	RepositoryRoot string
 	SourceRef      string
 	SourceRevision string
+	// Diagnostics receives bounded retry warnings, not raw subprocess output.
+	// Nil is silent. A delivery error is returned after publication and cleanup.
+	Diagnostics io.Writer
 }
 
 // Result records the exact local image and checked-in lock used for rendering.
@@ -55,7 +58,7 @@ func Render(ctx context.Context, options Options) (Result, error) {
 		options.SourceRef,
 		options.SourceRevision,
 		remoteBuildContextPreparer{},
-		localCommandExecutor{},
+		&rendererDiagnosticExecutor{commandExecutor: localCommandExecutor{}, writer: options.Diagnostics},
 	)
 }
 
@@ -89,6 +92,7 @@ func renderWithDependencies(
 	preparer buildContextPreparer,
 	executor commandExecutor,
 ) (result Result, returnError error) {
+	defer func() { returnError = joinRendererDiagnostics(executor, returnError) }()
 	if err := ValidateSourceRevision(sourceRef, sourceRevision); err != nil {
 		return Result{}, err
 	}
@@ -183,7 +187,7 @@ func renderWithDependencies(
 		if err := os.MkdirAll(temporaryDirectory, 0o755); err != nil {
 			return Result{}, fmt.Errorf("create isolated PDF temporary directory: %w", err)
 		}
-		if err := runRendererOnce(ctx, configuration, executor, imageID, sourceRef, sourceRevision, outputDirectory, temporaryDirectory); err != nil {
+		if err := runRendererOnce(ctx, configuration, executor, imageID, sourceRef, sourceRevision, outputDirectory, temporaryDirectory, index+1); err != nil {
 			return Result{}, err
 		}
 		renderDirectories[index] = outputDirectory
@@ -252,6 +256,7 @@ func runRendererOnce(
 	configuration Configuration,
 	executor commandExecutor,
 	imageID, sourceRef, sourceRevision, outputDirectory, temporaryDirectory string,
+	renderSequence int,
 ) error {
 	if err := checkAuthorityUnchanged(ctx, configuration); err != nil {
 		return err
@@ -261,10 +266,11 @@ func runRendererOnce(
 		return err
 	}
 	_, err = executor.run(ctx, commandRequest{
-		operation:  "run pinned PDF renderer image",
-		directory:  configuration.RepositoryRoot,
-		timeout:    time.Duration(configuration.Lock.Limits.RenderSeconds) * time.Second,
-		outputSize: configuration.Lock.Limits.OutputBytes,
+		operation:      "run pinned PDF renderer image",
+		renderSequence: renderSequence,
+		directory:      configuration.RepositoryRoot,
+		timeout:        time.Duration(configuration.Lock.Limits.RenderSeconds) * time.Second,
+		outputSize:     configuration.Lock.Limits.OutputBytes,
 		arguments: runArguments(
 			configuration, imageID, containerName, sourceRef, sourceRevision, outputDirectory, temporaryDirectory,
 		),

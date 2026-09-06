@@ -5,8 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -19,11 +22,12 @@ const (
 )
 
 type commandRequest struct {
-	operation  string
-	directory  string
-	timeout    time.Duration
-	outputSize int
-	arguments  []string
+	operation      string
+	directory      string
+	timeout        time.Duration
+	outputSize     int
+	arguments      []string
+	renderSequence int
 }
 
 type commandExecutor interface {
@@ -31,6 +35,110 @@ type commandExecutor interface {
 }
 
 type localCommandExecutor struct{}
+
+// The serial renderer pipeline has two executions. Diagnostics are observations,
+// never receipt fields or an alternative proof result. Keep write errors until
+// the pipeline has retained its evidence and finished cleanup.
+type rendererDiagnosticExecutor struct {
+	commandExecutor
+	writer   io.Writer
+	seen     [2]bool
+	failures [2]error
+}
+
+func (executor *rendererDiagnosticExecutor) run(ctx context.Context, request commandRequest) ([]byte, error) {
+	body, err := executor.commandExecutor.run(ctx, request)
+	if err != nil || executor.writer == nil {
+		return body, err
+	}
+	if request.renderSequence == 0 && request.operation != "run pinned PDF renderer image" {
+		return body, nil
+	}
+	index := request.renderSequence - 1
+	if index < 0 || index >= len(executor.seen) || request.operation != "run pinned PDF renderer image" {
+		executor.rememberFailure(0, errors.New("invalid PDF renderer diagnostic identity"))
+		return body, nil
+	}
+	if executor.seen[index] {
+		executor.rememberFailure(index, errors.New("repeated PDF renderer diagnostic identity"))
+		return body, nil
+	}
+	executor.seen[index] = true
+	warning, diagnosticErr := rendererRetryWarning(body, request.outputSize)
+	if diagnosticErr == nil && warning != "" {
+		line := fmt.Sprintf("PDF renderer render-%d: %s\n", request.renderSequence, warning)
+		written, writeErr := io.WriteString(executor.writer, line)
+		if writeErr == nil && written != len(line) {
+			writeErr = io.ErrShortWrite
+		}
+		if writeErr != nil {
+			diagnosticErr = fmt.Errorf("write PDF renderer retry diagnostic: %w", writeErr)
+		}
+	}
+	executor.rememberFailure(index, diagnosticErr)
+	return body, nil
+}
+
+func (executor *rendererDiagnosticExecutor) rememberFailure(index int, err error) {
+	if err != nil && executor.failures[index] == nil {
+		executor.failures[index] = err
+	}
+}
+
+func (executor *rendererDiagnosticExecutor) diagnosticError() error {
+	return errors.Join(executor.failures[0], executor.failures[1])
+}
+
+func joinRendererDiagnostics(executor commandExecutor, primary error) error {
+	if observer, ok := executor.(*rendererDiagnosticExecutor); ok {
+		if err := observer.diagnosticError(); err != nil {
+			return errors.Join(primary, err)
+		}
+	}
+	return primary
+}
+
+func (executor *rendererDiagnosticExecutor) inspectImageArchive(ctx context.Context, configuration Configuration, imageID, manifestDigest string) (ImageConfigProof, error) {
+	observer, ok := executor.commandExecutor.(imageArchiveExecutor)
+	if !ok {
+		return ImageConfigProof{}, errors.New("renderer executor has no bounded image-config proof adapter")
+	}
+	return observer.inspectImageArchive(ctx, configuration, imageID, manifestDigest)
+}
+
+// Match only the source-bound generator's single retry warning, never arbitrary
+// subprocess prose, URLs, terminal controls or workflow commands. No recognised
+// warning is not proof of zero print retries.
+var rendererRetryWarningPattern = regexp.MustCompile(`^Headless Chrome returned "Printing failed"; retrying Page\.printToPDF once after ([1-9][0-9]{0,4}) ms with ([1-9][0-9]{0,5}) ms left in the original print budget\.$`)
+
+func rendererRetryWarning(body []byte, limit int) (string, error) {
+	if limit <= 0 || limit > 64*1024*1024 || len(body) > limit {
+		return "", errors.New("PDF renderer diagnostic output exceeded its bound")
+	}
+	warning := ""
+	for len(body) > 0 {
+		line, rest, _ := bytes.Cut(body, []byte{'\n'})
+		body = rest
+		line = bytes.TrimSuffix(line, []byte{'\r'})
+		if len(line) > 256 {
+			continue
+		}
+		fields := rendererRetryWarningPattern.FindSubmatch(line)
+		if len(fields) == 0 {
+			continue
+		}
+		delay, delayErr := strconv.Atoi(string(fields[1]))
+		remaining, remainingErr := strconv.Atoi(string(fields[2]))
+		if delayErr != nil || remainingErr != nil || delay > 10_000 || remaining > 300_000 || remaining <= delay {
+			continue
+		}
+		if warning != "" {
+			return "", errors.New("PDF renderer retry warnings exceeded one per render")
+		}
+		warning = string(line)
+	}
+	return warning, nil
+}
 
 // verifySourceRevision rejects a revision-bound render unless the checked-out
 // repository HEAD is the exact commit already verified by release preflight.

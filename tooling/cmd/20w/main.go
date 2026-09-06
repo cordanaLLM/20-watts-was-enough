@@ -382,6 +382,7 @@ func runPublicationRenderPDF(arguments []string, stdout, stderr io.Writer) int {
 		RepositoryRoot: *root,
 		SourceRef:      *sourceRef,
 		SourceRevision: *sourceRevision,
+		Diagnostics:    stderr,
 	})
 	if err != nil {
 		fmt.Fprintf(stderr, "Render PDF publication: %v\n", err)
