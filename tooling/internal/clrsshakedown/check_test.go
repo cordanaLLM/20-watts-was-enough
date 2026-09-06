@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/lusoris/20-watts-was-enough/tooling/internal/clrsfixture"
@@ -19,9 +20,19 @@ import (
 func retainedCheckFixture(t *testing.T) (Options, Report) {
 	t.Helper()
 	options := fixtureOptions(t)
-	report, err := Run(context.Background(), options)
-	if err != nil {
-		t.Fatal(err)
+	var report Report
+	// Semantic tampering needs a complete synthetic bundle, not a measurement of
+	// host fsync latency. Keep its real files alive outside the clock bubble;
+	// production execution and cancellation tests retain their real-time clocks.
+	synctest.Test(t, func(t *testing.T) {
+		var err error
+		report, err = Run(context.Background(), options)
+		if err != nil {
+			t.Fatalf("synthetic fixture: state=%s cases=%d events=%d: %v", report.State, len(report.Cases), len(report.Events), err)
+		}
+	})
+	if t.Failed() {
+		t.Fatal("synthetic fixture construction failed")
 	}
 	if checked, err := Check(context.Background(), options); err != nil || checked.State != "bundle-consistent-unadmitted" {
 		t.Fatalf("unmodified control failed: %s %v", checked.State, err)
