@@ -1,7 +1,9 @@
-# Extend the maintained gitleaks defaults without broad path exclusions. GitHub
-# secret scanning and push protection remain the first line of defense; this
-# file is ready for local or CI full-history scans using an integrity-pinned
-# implementation. Add only exact-value allowlists after verifying a false
-# positive is a public fixture rather than a credential.
 [extend]
 useDefault = true
+
+[[allowlists]]
+description = "Public root keys in system family registry fixture and research markdown tokens"
+regexes = [
+  '''ac0b22dec2d1875d606033f4aa0c2da70f9ee9a5be3b956b7a2951465d0c7bab''',
+  '''policy/evaluation''',
+]
