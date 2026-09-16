@@ -376,7 +376,7 @@ export function BookEdition({
       <footer className="book-legal" aria-label="Legal information">
         <strong>Licences and notices</strong>
         <span>
-          Source: github.com/lusoris/20-watts-was-enough @ {identity.repositoryRef}
+          Source: github.com/cordanaLLM/20-watts-was-enough @ {identity.repositoryRef}
           {identity.sourceRevision ? ` · commit ${identity.sourceRevision}` : ""}
         </span>
         {[

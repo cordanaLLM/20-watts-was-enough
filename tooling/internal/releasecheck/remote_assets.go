@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/ocimanifest"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/ocimanifest"
 )
 
 const (

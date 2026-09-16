@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/specialistcontrol"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/specialistcontrol"
 )
 
 func TestImageDefinitionKeepsPinnedStaticRuntimeAndHardenedSmoke(t *testing.T) {

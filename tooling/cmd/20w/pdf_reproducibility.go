@@ -3,7 +3,7 @@ package main
 import (
 	"io"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/pdfrendercli"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/pdfrendercli"
 )
 
 func runPublicationVerifyPDFReproducibility(arguments []string, stdout, stderr io.Writer) int {

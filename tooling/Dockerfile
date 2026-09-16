@@ -22,7 +22,7 @@ COPY tooling/internal ./internal
 RUN GOARCH="${TARGETARCH}" GOOS="${TARGETOS}" go build \
     -trimpath \
     -buildvcs=false \
-    -ldflags="-s -w -X github.com/lusoris/20-watts-was-enough/tooling/internal/buildinfo.version=${IMAGE_VERSION} -X github.com/lusoris/20-watts-was-enough/tooling/internal/buildinfo.revision=${SOURCE_REVISION} -X github.com/lusoris/20-watts-was-enough/tooling/internal/buildinfo.builtAt=${SOURCE_TIMESTAMP}" \
+    -ldflags="-s -w -X github.com/cordanaLLM/20-watts-was-enough/tooling/internal/buildinfo.version=${IMAGE_VERSION} -X github.com/cordanaLLM/20-watts-was-enough/tooling/internal/buildinfo.revision=${SOURCE_REVISION} -X github.com/cordanaLLM/20-watts-was-enough/tooling/internal/buildinfo.builtAt=${SOURCE_TIMESTAMP}" \
     -o /out/20w \
     ./cmd/20w
 

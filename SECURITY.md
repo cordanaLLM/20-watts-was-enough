@@ -4,7 +4,7 @@
 
 Do not disclose exploitable details, secrets, personal data, private datasets,
 or machine credentials in a public issue or discussion. Use GitHub's
-[private vulnerability reporting form](https://github.com/lusoris/20-watts-was-enough/security/advisories/new).
+[private vulnerability reporting form](https://github.com/cordanaLLM/20-watts-was-enough/security/advisories/new).
 
 Private vulnerability reporting was verified as enabled through the GitHub API
 on 2026-08-28. This document and the link do not enable the setting by

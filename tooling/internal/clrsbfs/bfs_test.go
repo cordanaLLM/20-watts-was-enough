@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/clrsfixture"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsfixture"
 )
 
 const tiePrompt = "bfs:\ns: 5, A: [[0 0 0 1 1 0 0], [0 0 1 0 0 1 0], [0 1 0 1 0 0 1], [1 0 1 0 0 0 0], [1 0 0 0 0 1 1], [0 1 0 0 1 0 0], [0 0 1 0 1 0 0]]\npi:\n"

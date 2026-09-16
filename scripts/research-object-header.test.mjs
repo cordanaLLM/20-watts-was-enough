@@ -65,11 +65,11 @@ test("research-object identity binds one exact source revision to every route", 
   );
   assert.equal(
     identity.sourceHref,
-    `https://github.com/lusoris/20-watts-was-enough/blob/${sourceRevision}/${document.path}#scope-and-boundary`,
+    `https://github.com/cordanaLLM/20-watts-was-enough/blob/${sourceRevision}/${document.path}#scope-and-boundary`,
   );
   assert.equal(
     identity.historyHref,
-    `https://github.com/lusoris/20-watts-was-enough/commits/${sourceRevision}/${document.path}`,
+    `https://github.com/cordanaLLM/20-watts-was-enough/commits/${sourceRevision}/${document.path}`,
   );
   for (const href of [identity.citationHref, identity.licenceHref]) {
     assert.ok(href.includes(`/blob/${sourceRevision}/`));

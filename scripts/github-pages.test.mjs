@@ -1052,7 +1052,7 @@ test("the sole public reader names its Git source and release identity", async (
     source("app/lib/book-release-identity.mjs"),
   ]);
 
-  assert.equal(publication.repository, "https://github.com/lusoris/20-watts-was-enough");
+  assert.equal(publication.repository, "https://github.com/cordanaLLM/20-watts-was-enough");
   assert.match(portal, /const repositoryUrl = publication\.repository/);
   assert.doesNotMatch(portal, /Owner-only|private Git source/);
   assert.match(identity, /Git main snapshot/);

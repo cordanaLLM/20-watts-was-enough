@@ -4,7 +4,7 @@ package main
 import (
 	"os"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/ciplancli"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/ciplancli"
 )
 
 func main() {

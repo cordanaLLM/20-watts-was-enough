@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/ciplancli"
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/pdfrendercli"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/ciplancli"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/pdfrendercli"
 )
 
 func TestPublicAndPrivateCIPlanAgree(t *testing.T) {

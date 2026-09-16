@@ -7,7 +7,7 @@ authors:
 abstract: >-
   A biologically inspired research blueprint and evidence framework for sparse,
   grounded, continual, and energy-efficient artificial intelligence.
-repository-code: "https://github.com/lusoris/20-watts-was-enough"
+repository-code: "https://github.com/cordanaLLM/20-watts-was-enough"
 url: "https://www.cordana.dev/"
 version: 0.3.0
 date-released: 2026-08-30

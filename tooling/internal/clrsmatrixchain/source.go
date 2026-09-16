@@ -6,7 +6,7 @@ package clrsmatrixchain
 import (
 	"fmt"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/clrsfixture"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsfixture"
 )
 
 // SourceFile binds one upstream file used to derive this vertical's grammar or

@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const toolingImport = "github.com/lusoris/20-watts-was-enough/tooling/"
+const toolingImport = "github.com/cordanaLLM/20-watts-was-enough/tooling/"
 
 // Both workflow executables must remain outside experiment package initialisation.
 // List production dependencies, not test imports; reject every unknown non-standard

@@ -195,7 +195,7 @@ the output. This receipt is execution provenance; it is deliberately outside
 the scientific `run_id`.
 
 When reporting a defect through the
-[experiment issue form](https://github.com/lusoris/20-watts-was-enough/issues/new?template=experiment-protocol-problem.yml),
+[experiment issue form](https://github.com/cordanaLLM/20-watts-was-enough/issues/new?template=experiment-protocol-problem.yml),
 include the exact identity copied from `oci-images.json`, release tag, source
 revision and architecture, exact commands, output volume or bind path and the
 `NO_RESULT` receipt. Do not

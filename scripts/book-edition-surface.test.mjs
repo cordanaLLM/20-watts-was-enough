@@ -35,15 +35,15 @@ test("book editions retain their ref while source links bind an available exact 
   assert.equal(pagesRef, "main");
   assert.equal(
     repositoryDocumentHref(releasePdfRef, "concept/01-core-thesis.md", "efficiency model"),
-    "https://github.com/lusoris/20-watts-was-enough/blob/v0.2.0/concept/01-core-thesis.md#efficiency%20model",
+    "https://github.com/cordanaLLM/20-watts-was-enough/blob/v0.2.0/concept/01-core-thesis.md#efficiency%20model",
   );
   assert.equal(
     repositoryDocumentHref(pagesRef, "concept/01-core-thesis.md"),
-    "https://github.com/lusoris/20-watts-was-enough/blob/main/concept/01-core-thesis.md",
+    "https://github.com/cordanaLLM/20-watts-was-enough/blob/main/concept/01-core-thesis.md",
   );
   assert.equal(
     repositoryTreeHref(releasePdfRef),
-    "https://github.com/lusoris/20-watts-was-enough/tree/v0.2.0",
+    "https://github.com/cordanaLLM/20-watts-was-enough/tree/v0.2.0",
   );
   assert.throws(
     () => repositoryRefForSurface("public-pdf", "v0.3.0", "0.2.0"),

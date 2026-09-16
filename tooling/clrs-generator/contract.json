@@ -2,7 +2,7 @@
   "schema_version": 1,
   "authority": "NO_RESULT",
   "purpose": "controller_shakedown",
-  "issue": "https://github.com/lusoris/20-watts-was-enough/issues/12",
+  "issue": "https://github.com/cordanaLLM/20-watts-was-enough/issues/12",
   "source_id": "sha256:7ec3b6b7528d04f517c4e9b7c3e0cd0f7034a775d225d469d1aca5c00fec10d1",
   "generation_state": "blocked_on_generator_image",
   "split_name": "shakedown",

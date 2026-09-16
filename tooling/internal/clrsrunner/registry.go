@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/buildinfo"
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/clrsbellmanford"
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/clrsbinary"
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/clrsinsertion"
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/clrskmp"
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/clrsmatrixchain"
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/clrssegments"
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/specialistcontrol"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/buildinfo"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsbellmanford"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsbinary"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsinsertion"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrskmp"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsmatrixchain"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrssegments"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/specialistcontrol"
 )
 
 const (

@@ -1,4 +1,4 @@
-# Paperclip Operating Rules (lusoris/20-watts-was-enough)
+# Paperclip Operating Rules (cordanaLLM/20-watts-was-enough)
 
 ## Operating Contract
 - Pushing a branch is NOT shipping: an open PR is required, but still not shipped work until merged.

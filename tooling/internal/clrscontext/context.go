@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/clrsfixture"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsfixture"
 )
 
 const maximumContextBytes int64 = 2 << 30

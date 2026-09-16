@@ -7,7 +7,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/publictransport"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/publictransport"
 )
 
 func runPublicationVerifyPublicTransport(arguments []string, stdout, stderr io.Writer) int {

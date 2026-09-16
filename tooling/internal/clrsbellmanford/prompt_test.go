@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/clrsfixture"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsfixture"
 )
 
 const pinnedGraphPrompt = "bellman_ford:\ns: 0, A: [[0.0 0.2 0.9 0.0 0.95], [0.2 0.0 0.2 0.8 0.0], [0.9 0.2 0.0 0.2 0.0], [0.0 0.8 0.2 0.0 0.2], [0.95 0.0 0.0 0.2 0.0]]\npi:\n"

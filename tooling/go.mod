@@ -1,4 +1,4 @@
-module github.com/lusoris/20-watts-was-enough/tooling
+module github.com/cordanaLLM/20-watts-was-enough/tooling
 
 go 1.27.1
 

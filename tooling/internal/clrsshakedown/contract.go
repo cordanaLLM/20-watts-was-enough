@@ -7,9 +7,9 @@ import (
 	"encoding/hex"
 	"time"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/buildinfo"
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/clrsfixture"
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/specialistcontrol"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/buildinfo"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsfixture"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/specialistcontrol"
 )
 
 const (
