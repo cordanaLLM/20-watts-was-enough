@@ -27,6 +27,7 @@ const EXCLUDED_PATHS = Object.freeze([
   "dist/**",
   "dist-github-pages/**",
   "node_modules/**",
+  ".claude/worktrees/**",
   "out/**",
   "tmp/**",
 ]);
