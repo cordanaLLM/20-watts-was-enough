@@ -55,15 +55,17 @@ the lock cannot currently identify which Praetor governed this repository
 (cordanaLLM/praetor#119). Regenerate the lock once the governing build is a
 tagged release.
 
-Adoption also offers a HISS-16 badge and a "Standards & Governance" command
-table for `README.md`. That injection is declined. The README is public brand
-expression, which [`research-design`](../.agents/skills/research-design/SKILL.md)
-governs, and the generated table teaches `standardsctl` — the name Praetor has
-itself superseded with `praetorctl` (cordanaLLM/praetor#118, #120). Praetor's
-audit does not require the badge, so declining it produces no drift.
+Adoption injects a HISS-16 badge and a "Standards & Governance" command table
+into `README.md`, and that injection is accepted. Adopting governance means
+taking what the generator produces; carving out exceptions per repository
+recreates the drift the single canonical source exists to prevent.
 
-`README.md` is also part of the book source set, so accepting cosmetic
-generated text there would invalidate the published PDF's provenance digest.
+Two consequences are recorded rather than avoided. The generated table tells
+readers to run `standardsctl`, while the harness Praetor installs invokes
+`praetorctl`; that split is Praetor's to close (cordanaLLM/praetor#118, #120).
+And `README.md` belongs to the book source set, so the injection changes the
+published PDF's provenance digest and requires the book to be re-rendered as
+part of adoption.
 
 Documentation validation skips files carrying the compiled-harness banner.
 A vendor target restates `AGENTS.md`, so validating it re-validates the same
