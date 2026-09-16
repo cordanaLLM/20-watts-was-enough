@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -23,7 +24,7 @@ func Read(root, relativePath string, maximumBytes int64) ([]byte, error) {
 	}
 	normalized := filepath.ToSlash(relativePath)
 	parts := strings.Split(normalized, "/")
-	if filepath.IsAbs(relativePath) || filepath.Clean(relativePath) != relativePath ||
+	if filepath.IsAbs(relativePath) || path.Clean(normalized) != normalized ||
 		len(parts) != 2 || parts[0] != ".github" || parts[1] == "" || parts[1] == "." || parts[1] == ".." {
 		return nil, errors.New("manifest path must name one file directly beneath .github")
 	}
