@@ -24,3 +24,7 @@ public/repository-files/
 experiments/workstation/runs/
 experiments/workstation/fixture-012/configs/*.local.json
 *.tsbuildinfo
+/.workingdir/
+.next/
+.vinext/
+.wrangler/

@@ -2,6 +2,7 @@
 package docscheck
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -35,6 +36,22 @@ var (
 	bibliographyKeyPattern = regexp.MustCompile(`(?m)^@[[:alnum:]_]+\{([^,]+),`)
 	backtickPattern        = regexp.MustCompile("`([^`]+)`")
 )
+
+// compiledHarnessMarker identifies a vendor agent target generated from
+// AGENTS.md. Such a file restates the canonical contract, so validating it
+// re-validates AGENTS.md from a directory where its repository-relative links
+// no longer resolve, and counts its diagrams a second time.
+var compiledHarnessMarker = []byte("compile-context from AGENTS.md")
+
+// compiledHarnessProbeBytes bounds how far the generated banner is sought.
+const compiledHarnessProbeBytes = 4096
+
+func isCompiledAgentHarness(content []byte) bool {
+	if len(content) > compiledHarnessProbeBytes {
+		content = content[:compiledHarnessProbeBytes]
+	}
+	return bytes.Contains(content, compiledHarnessMarker)
+}
 
 var excludedDirectories = map[string]struct{}{
 	".cache": {}, ".git": {}, ".next": {}, ".openai": {}, ".vinext": {},
@@ -136,6 +153,30 @@ func Validate(repositoryRoot string) Result {
 	}
 }
 
+// readMarkdownDocument reads one bounded Markdown file and reports whether it
+// belongs in the inventory. A generated agent harness is read but excluded.
+func readMarkdownDocument(root, path string, entry fs.DirEntry, totalBytes *int64) (markdownDocument, bool, error) {
+	info, infoErr := entry.Info()
+	if infoErr != nil {
+		return markdownDocument{}, false, fmt.Errorf("inspect %s: %w", relativePath(root, path), infoErr)
+	}
+	if info.Size() > maxMarkdownFileBytes {
+		return markdownDocument{}, false, fmt.Errorf("Markdown file exceeds %d bytes: %s", maxMarkdownFileBytes, relativePath(root, path))
+	}
+	*totalBytes += info.Size()
+	if *totalBytes > maxMarkdownTotal {
+		return markdownDocument{}, false, fmt.Errorf("Markdown input exceeds %d bytes", maxMarkdownTotal)
+	}
+	content, readErr := os.ReadFile(path)
+	if readErr != nil {
+		return markdownDocument{}, false, fmt.Errorf("read %s: %w", relativePath(root, path), readErr)
+	}
+	if isCompiledAgentHarness(content) {
+		return markdownDocument{}, false, nil
+	}
+	return markdownDocument{absolute: path, relative: relativePath(root, path), content: content}, true, nil
+}
+
 func loadMarkdown(root string, report *collector) ([]markdownDocument, bool) {
 	documents := make([]markdownDocument, 0, 512)
 	var totalBytes int64
@@ -163,26 +204,13 @@ func loadMarkdown(root string, report *collector) ([]markdownDocument, bool) {
 		if len(documents) >= maxMarkdownFiles {
 			return fmt.Errorf("Markdown file limit exceeded (%d)", maxMarkdownFiles)
 		}
-		info, infoErr := entry.Info()
-		if infoErr != nil {
-			return fmt.Errorf("inspect %s: %w", relativePath(root, path), infoErr)
-		}
-		if info.Size() > maxMarkdownFileBytes {
-			return fmt.Errorf("Markdown file exceeds %d bytes: %s", maxMarkdownFileBytes, relativePath(root, path))
-		}
-		totalBytes += info.Size()
-		if totalBytes > maxMarkdownTotal {
-			return fmt.Errorf("Markdown input exceeds %d bytes", maxMarkdownTotal)
-		}
-		content, readErr := os.ReadFile(path)
+		document, include, readErr := readMarkdownDocument(root, path, entry, &totalBytes)
 		if readErr != nil {
-			return fmt.Errorf("read %s: %w", relativePath(root, path), readErr)
+			return readErr
 		}
-		documents = append(documents, markdownDocument{
-			absolute: path,
-			relative: relativePath(root, path),
-			content:  content,
-		})
+		if include {
+			documents = append(documents, document)
+		}
 		return nil
 	})
 	if err != nil {

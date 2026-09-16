@@ -7,6 +7,27 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- Documentation validation skips generated agent harnesses, identified by the
+  compiled-from-`AGENTS.md` banner they carry. Their repository-relative links
+  resolve against their own directory rather than the repository root, and the
+  harness diagram would otherwise be counted once per vendor target. The
+  canonical `AGENTS.md` is validated unchanged.
+
+- Repository manifest paths are compared slash-normalised, so every manifest
+  beneath `.github` was rejected on Windows where `filepath.Clean` returns the
+  host separator. Path confinement, traversal refusal and absolute-path refusal
+  are unchanged; only the separator comparison moved.
+
+- Directory synchronisation after an atomic write is skipped on Windows, where
+  flushing a directory handle fails with a permission error. POSIX keeps its
+  `fsync` on the containing directory; on Windows the rename itself carries the
+  ordering guarantee. Affects CLRS fixture generation and shakedown writes.
+
+- Framework build output under `.next`, `.vinext` and `.wrangler` is excluded
+  from linting and from version control, alongside the existing `dist` and
+  `build` exclusions. Generated route types are not project source, and were
+  both gating the lint run and offered for commit.
+
 - Ordinary PDF generation retains both exact PDF/manifest pairs when they
   disagree, without replacing the public edition. Completed evidence survives
   a later retention or cleanup failure; incomplete bundles are reported as
@@ -153,6 +174,15 @@ the exact diff; this file records why the project changed.
   output.
 
 ### Added
+
+- Praetor repository governance, with `AGENTS.md` compiled to six vendor agent
+  harnesses. The canonical contract is unchanged and keeps its authority;
+  `CLAUDE.md` is now generated from it and must not be edited directly. The
+  `planning-artifacts` archetype is pinned explicitly because auto-detection
+  selects a backend-service profile from `package.json`. Existing HISS
+  infractions are baselined so current code stays legal while new code is
+  gated; a baseline records what was already present, not quality. See
+  [decision 0082](decisions/0082-adopt-praetor-repository-governance.md).
 
 - `run-clrs-shakedown` executes the frozen 48-example local Go development
   tree through the existing controller, specialists and held verifiers. It

@@ -1,5 +1,7 @@
 # 20 Watts Was Enough
 
+[![HISS-16 Compliant](https://img.shields.io/badge/Standards-HISS--16%20Compliant-brightgreen)](AGENTS.md)
+
 [![CI](https://github.com/lusoris/20-watts-was-enough/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lusoris/20-watts-was-enough/actions/workflows/ci.yml)
 [![GitHub Pages](https://github.com/lusoris/20-watts-was-enough/actions/workflows/github-pages.yml/badge.svg?branch=main)](https://github.com/lusoris/20-watts-was-enough/actions/workflows/github-pages.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/lusoris/20-watts-was-enough/badge)](https://scorecard.dev/viewer/?uri=github.com/lusoris/20-watts-was-enough)
@@ -212,3 +214,14 @@ workflows are licensed under the EUPL v1.2 or later. Original project prose,
 mathematics, diagrams, plots, and presentation are licensed under CC BY-SA 4.0.
 Third-party and source material retains its own terms. Read
 [`LICENSING.md`](LICENSING.md) for the controlling boundary.
+
+## Standards & Governance
+
+This repository conforms to High-Integrity Systems Standards (HISS-16)
+and modernized NASA JPL Power-of-10 rules.
+
+| Gate | Command | Description |
+| :--- | :--- | :--- |
+| **Verification** | `make verify-all` | Runs full audit, test suite, and context integrity check |
+| **HISS Audit** | `standardsctl audit` | Enforces zero technical debt regression against baseline |
+| **Context Sync** | `standardsctl compile-context` | Transpiles canonical `AGENTS.md` to all AI targets |
