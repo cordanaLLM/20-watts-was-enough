@@ -17,7 +17,7 @@ const temporaryRoot = path.join(root, "tmp");
 function releaseEnvironment(artifact) {
   return {
     EXPERIMENT_ARTIFACT: artifact,
-    EXPERIMENT_IMAGE_NAME: `ghcr.io/lusoris/20-watts-was-enough-${artifact}`,
+    EXPERIMENT_IMAGE_NAME: `ghcr.io/cordanallm/20-watts-was-enough-${artifact}`,
     EXPERIMENT_IMAGE_VERSION: "v1.2.3",
     EXPERIMENT_SOURCE_REVISION: "a".repeat(40),
     EXPERIMENT_RESULT_AUTHORITY: "NO_RESULT",

@@ -5,7 +5,7 @@
   "distribution": {
     "state": "release-image",
     "runtime_class": "transitional-node",
-    "image": "ghcr.io/lusoris/20-watts-was-enough-fixture-007",
+    "image": "ghcr.io/cordanallm/20-watts-was-enough-fixture-007",
     "platforms": ["linux/amd64"],
     "build_context": "closed-go-package",
     "dockerfile": "experiments/workstation/Dockerfile.node-artifact",

@@ -3,7 +3,7 @@ FROM golang:1.27.1-trixie@sha256:9baa6b4187bbb98d240372a8a235ac0bb6b5ddd52bba143
 ARG TARGETARCH
 ARG TARGETOS
 ARG IMAGE_VERSION=development
-ARG IMAGE_NAME=ghcr.io/lusoris/20-watts-was-enough-20w
+ARG IMAGE_NAME=ghcr.io/cordanallm/20-watts-was-enough-20w
 ARG SOURCE_REVISION=unknown
 ARG SOURCE_TIMESTAMP=unknown
 
@@ -29,7 +29,7 @@ RUN GOARCH="${TARGETARCH}" GOOS="${TARGETOS}" go build \
 FROM scratch
 
 ARG IMAGE_VERSION=development
-ARG IMAGE_NAME=ghcr.io/lusoris/20-watts-was-enough-20w
+ARG IMAGE_NAME=ghcr.io/cordanallm/20-watts-was-enough-20w
 ARG SOURCE_REVISION=unknown
 
 LABEL org.opencontainers.image.title="20 Watts Was Enough command" \

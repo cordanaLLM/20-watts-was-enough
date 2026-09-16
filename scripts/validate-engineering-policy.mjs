@@ -42,7 +42,7 @@ const fixture007ImagePolicy = Object.freeze({
   cacheTo: "type=gha,mode=max,scope=fixture-007-image",
   ciBuildArgs: [
     "EXPERIMENT_ARTIFACT=fixture-007",
-    "IMAGE_NAME=ghcr.io/${{ github.repository }}-fixture-007",
+    "IMAGE_NAME=ghcr.io/${{ env.IMAGE_REPOSITORY }}-fixture-007",
     "IMAGE_VERSION=development",
     "SOURCE_REVISION=${{ github.sha }}",
   ].join("\n") + "\n",
@@ -50,11 +50,11 @@ const fixture007ImagePolicy = Object.freeze({
   condition: `${releaseMutationGuard} && steps.image-status.outputs.fixture007_publish == 'true'`,
   context: "build/container-contexts/fixture-007",
   dockerfile: "experiments/workstation/Dockerfile.node-artifact",
-  imageName: "ghcr.io/${{ github.repository }}-fixture-007",
+  imageName: "ghcr.io/${{ env.IMAGE_REPOSITORY }}-fixture-007",
   packageCommand: "go -C tooling run ./cmd/20w experiment package-node-image --root .. --artifact fixture-007 --output ../build/container-contexts/fixture-007",
   releaseBuildArgs: [
     "EXPERIMENT_ARTIFACT=fixture-007",
-    "IMAGE_NAME=ghcr.io/${{ github.repository }}-fixture-007",
+    "IMAGE_NAME=ghcr.io/${{ env.IMAGE_REPOSITORY }}-fixture-007",
     "IMAGE_VERSION=${{ needs.verify.outputs.release-tag }}",
     "SOURCE_REVISION=${{ needs.verify.outputs.release-commit }}",
   ].join("\n") + "\n",
@@ -2492,11 +2492,68 @@ function loadReleaseImageDeclarations(root, findings) {
 }
 
 function workflowImageName(artifact) {
-  return `ghcr.io/\${{ github.repository }}-${artifact}`;
+  return `ghcr.io/\${{ env.IMAGE_REPOSITORY }}-${artifact}`;
 }
 
 function untaggedRegistryOutput(imageName) {
   return `type=registry,name=${imageName},push-by-digest=true,name-canonical=true`;
+}
+
+const registryRepositoryDerivation = Object.freeze({
+  diagnostic: "repository identity does not lowercase to a bounded OCI owner/name",
+  name: "Derive the lowercase registry repository",
+  rawImageNames: ["ghcr.io/${GITHUB_REPOSITORY}", "ghcr.io/${{ github.repository }}"],
+  runFragments: [
+    "set -euo pipefail",
+    'image_repository="${GITHUB_REPOSITORY,,}"',
+    'if [[ ! "$image_repository" =~ ^[a-z0-9]([a-z0-9._-]{0,99}[a-z0-9])?/[a-z0-9]([a-z0-9._-]{0,99}[a-z0-9])?$ ]]; then',
+    'printf \'IMAGE_REPOSITORY=%s\\n\' "$image_repository" >> "$GITHUB_ENV"',
+  ],
+});
+
+function validateRegistryRepositoryDerivation(steps, relativePath, findings, firstConsumer) {
+  const derivation = findStepByName(steps, registryRepositoryDerivation.name);
+  const position = stepPosition(steps, registryRepositoryDerivation.name);
+  const consumerPosition = stepPosition(steps, firstConsumer);
+  recordExpectation(
+    findings,
+    derivation?.if === undefined
+      && derivation?.uses === undefined
+      && stringIncludesAll(derivation?.run, registryRepositoryDerivation.runFragments)
+      && diagnosticImmediatelyExits(derivation?.run, registryRepositoryDerivation.diagnostic)
+      && position >= 0
+      && consumerPosition > position,
+    `${relativePath}: registry image names must derive from one validated lowercase IMAGE_REPOSITORY before the first image step`,
+  );
+  const serialized = JSON.stringify(steps);
+  recordExpectation(
+    findings,
+    registryRepositoryDerivation.rawImageNames.every((fragment) => !serialized.includes(fragment)),
+    `${relativePath}: registry image names must not interpolate the case-preserving repository identity`,
+  );
+}
+
+function validateReleaseRepositoryIdentityConsumers(steps, relativePath, findings) {
+  const lowercaseRepository = '--repository "$IMAGE_REPOSITORY"';
+  const preservedRepository = '--repository "$GITHUB_REPOSITORY"';
+  const accepted = [
+    ["Preflight the remote release without mutation", 1, 3],
+    ["Materialize the immutable OCI image authority", 2, 0],
+    ["Resolve the immutable OCI image authority", 1, 0],
+    ["Publish or validate the immutable GitHub release", 0, 3],
+  ].every(([name, lowercase, preserved]) => {
+    const run = findStepByName(steps, name)?.run;
+    const manifestCommands = countOccurrences(run, "release write-oci-images")
+      + countOccurrences(run, "release validate-oci-images");
+    return countOccurrences(run, lowercaseRepository) === lowercase
+      && manifestCommands === lowercase
+      && countOccurrences(run, preservedRepository) === preserved;
+  });
+  recordExpectation(
+    findings,
+    accepted,
+    `${relativePath}: OCI image manifests must bind the lowercase IMAGE_REPOSITORY while GitHub release lookups keep the case-preserving repository`,
+  );
 }
 
 function stepPosition(steps, name) {
@@ -2581,7 +2638,7 @@ function validateCiFixtureImageSteps(steps, relativePath, findings) {
   recordExpectation(
     findings,
     stringIncludesAll(inputs?.["build-args"], [
-      "IMAGE_NAME=ghcr.io/${{ github.repository }}-fixture-019",
+      "IMAGE_NAME=ghcr.io/${{ env.IMAGE_REPOSITORY }}-fixture-019",
       "IMAGE_VERSION=development",
       "SOURCE_REVISION=${{ github.sha }}",
     ]),
@@ -2746,6 +2803,7 @@ export function validateCiExperimentImageWorkflowObject(
     return [`${relativePath}: container-smoke job must validate the scoped Fixture 007 and Fixture 019 images`];
   }
   validateBuildxSetup(steps, relativePath, findings);
+  validateRegistryRepositoryDerivation(steps, relativePath, findings, "Build the CLRS shakedown specialist image");
   validateCiManifestReleaseImageParity(root, workflow, relativePath, findings);
   validateCiFixture007Image(steps, relativePath, findings);
   validateCiFixture019Context(steps, relativePath, findings);
@@ -2783,7 +2841,7 @@ function validateReleaseTimestamp(verifyJob, relativePath, findings) {
 
 function validateReleaseToolingImage(steps, relativePath, findings) {
   const condition = `${releaseMutationGuard} && steps.image-status.outputs.tooling_publish == 'true'`;
-  const imageName = "ghcr.io/${{ github.repository }}-20w";
+  const imageName = "ghcr.io/${{ env.IMAGE_REPOSITORY }}-20w";
   const metadata = findStepById(steps, "tooling-image-metadata");
   const build = findStepById(steps, "build-tooling-image");
   const attestation = findRegistryAttestation(steps, imageName);
@@ -2816,7 +2874,7 @@ function validateReleaseToolingImage(steps, relativePath, findings) {
     !Object.hasOwn(build?.with ?? {}, "push"),
     !Object.hasOwn(build?.with ?? {}, "tags"),
     stringIncludesAll(build?.with?.["build-args"], [
-      "IMAGE_NAME=ghcr.io/${{ github.repository }}-20w",
+      "IMAGE_NAME=ghcr.io/${{ env.IMAGE_REPOSITORY }}-20w",
       "IMAGE_VERSION=${{ needs.verify.outputs.release-tag }}",
       "SOURCE_REVISION=${{ needs.verify.outputs.release-commit }}",
       "SOURCE_TIMESTAMP=${{ needs.verify.outputs.release-timestamp }}",
@@ -2851,7 +2909,7 @@ function validateReleaseFixtureStatus(steps, relativePath, findings) {
       "tool=build/release-tools/20w",
       "release inspect-image",
       "for fixture in fixture-007 fixture-019",
-      'ghcr.io/${GITHUB_REPOSITORY}-${fixture}',
+      'ghcr.io/${IMAGE_REPOSITORY}-${fixture}',
       '--revision "$RELEASE_COMMIT"',
       '--expected-label "io.github.lusoris.20-watts-was-enough.result-authority=NO_RESULT"',
       '--github-output-prefix "$prefix"',
@@ -2892,7 +2950,7 @@ function validateReleaseFixtureMetadata(steps, relativePath, findings, condition
 
 function validateReleaseFixtureBuild(steps, relativePath, findings, condition) {
   const build = findStepById(steps, "build-fixture-019-image");
-  const imageName = "ghcr.io/${{ github.repository }}-fixture-019";
+  const imageName = "ghcr.io/${{ env.IMAGE_REPOSITORY }}-fixture-019";
   const accepted = [
     propertiesMatch(build, { if: condition }),
     actionUses(build, "docker/build-push-action"),
@@ -2910,7 +2968,7 @@ function validateReleaseFixtureBuild(steps, relativePath, findings, condition) {
     !Object.hasOwn(build?.with ?? {}, "push"),
     !Object.hasOwn(build?.with ?? {}, "tags"),
     stringIncludesAll(build?.with?.["build-args"], [
-      "IMAGE_NAME=ghcr.io/${{ github.repository }}-fixture-019",
+      "IMAGE_NAME=ghcr.io/${{ env.IMAGE_REPOSITORY }}-fixture-019",
       "IMAGE_VERSION=${{ needs.verify.outputs.release-tag }}",
       "SOURCE_REVISION=${{ needs.verify.outputs.release-commit }}",
     ]),
@@ -2954,7 +3012,7 @@ function validateReleaseFixtureAttestation(steps, relativePath, findings, imageN
 
 function validateReleaseFixtureImage(steps, relativePath, findings) {
   const condition = fixture019ImagePolicy.condition;
-  const imageName = "ghcr.io/${{ github.repository }}-fixture-019";
+  const imageName = "ghcr.io/${{ env.IMAGE_REPOSITORY }}-fixture-019";
   validateReleaseFixtureStatus(steps, relativePath, findings);
   validateReleaseFixture019Context(steps, relativePath, findings);
   validateReleaseFixtureMetadata(steps, relativePath, findings, condition, imageName);
@@ -2975,7 +3033,7 @@ function validateReleaseFixture007Status(steps, relativePath, findings) {
     stringIncludesAll(status?.run, [
       "release inspect-image",
       "for fixture in fixture-007 fixture-019",
-      'ghcr.io/${GITHUB_REPOSITORY}-${fixture}',
+      'ghcr.io/${IMAGE_REPOSITORY}-${fixture}',
       '--expected-label "io.github.lusoris.20-watts-was-enough.result-authority=NO_RESULT"',
       '--github-output-prefix "$prefix"',
     ]),
@@ -3112,8 +3170,8 @@ function validateReleaseDigestAdmission(steps, relativePath, findings) {
       '--digest "$TOOLING_DIGEST"',
       '--digest "$digest"',
       "--require-existing",
-      'ghcr.io/${GITHUB_REPOSITORY}-20w',
-      'ghcr.io/${GITHUB_REPOSITORY}-${fixture}',
+      'ghcr.io/${IMAGE_REPOSITORY}-20w',
+      'ghcr.io/${IMAGE_REPOSITORY}-${fixture}',
       '--revision "$RELEASE_COMMIT"',
       '--expected-label "io.github.lusoris.20-watts-was-enough.result-authority=NO_RESULT"',
     ])
@@ -3126,9 +3184,9 @@ function validateReleaseDigestAdmission(steps, relativePath, findings) {
   recordExpectation(
     findings,
     stringIncludesAll(execution, [
-      'ghcr.io/${GITHUB_REPOSITORY}-20w@${TOOLING_DIGEST}',
-      'ghcr.io/${GITHUB_REPOSITORY}-fixture-007@${FIXTURE_007_DIGEST}',
-      'ghcr.io/${GITHUB_REPOSITORY}-fixture-019@${FIXTURE_019_DIGEST}',
+      'ghcr.io/${IMAGE_REPOSITORY}-20w@${TOOLING_DIGEST}',
+      'ghcr.io/${IMAGE_REPOSITORY}-fixture-007@${FIXTURE_007_DIGEST}',
+      'ghcr.io/${IMAGE_REPOSITORY}-fixture-019@${FIXTURE_019_DIGEST}',
       '"$tooling" version --json',
       '"go_version":"go1.27.1"',
       '"os":"linux"',
@@ -3163,8 +3221,8 @@ function validateReleaseAttestationAndTagging(steps, relativePath, findings) {
       "gh attestation verify",
       '--source-digest "$RELEASE_COMMIT"',
       '--source-ref "refs/tags/$RELEASE_TAG"',
-      'ghcr.io/${GITHUB_REPOSITORY}-fixture-007',
-      'ghcr.io/${GITHUB_REPOSITORY}-fixture-019',
+      'ghcr.io/${IMAGE_REPOSITORY}-fixture-007',
+      'ghcr.io/${IMAGE_REPOSITORY}-fixture-019',
     ]),
     `${relativePath}: existing image digests must fail closed unless source-bound provenance already verifies`,
   );
@@ -3196,7 +3254,7 @@ function validateReleaseFinalBindingAndNotes(steps, relativePath, findings) {
       "inspect_final_image finaltooling",
       '--github-output-prefix "$prefix"',
       "for fixture in fixture-007 fixture-019",
-      'ghcr.io/${GITHUB_REPOSITORY}-${fixture}',
+      'ghcr.io/${IMAGE_REPOSITORY}-${fixture}',
     ])
       && countOccurrences(final, "--platform linux/amd64") >= 2
       && !final?.includes("linux/arm64"),
@@ -3224,12 +3282,12 @@ function validateReleaseFinalBindingAndNotes(steps, relativePath, findings) {
       'printf \'%s\\n\' \'{"auths":{}}\' > "$anonymous_config/config.json"',
       'rm -rf -- "$anonymous_config"',
       "trap cleanup EXIT",
-      'ghcr.io/${GITHUB_REPOSITORY}-20w@${TOOLING_DIGEST}',
-      'ghcr.io/${GITHUB_REPOSITORY}-fixture-007@${FIXTURE_007_DIGEST}',
-      'ghcr.io/${GITHUB_REPOSITORY}-fixture-019@${FIXTURE_019_DIGEST}',
+      'ghcr.io/${IMAGE_REPOSITORY}-20w@${TOOLING_DIGEST}',
+      'ghcr.io/${IMAGE_REPOSITORY}-fixture-007@${FIXTURE_007_DIGEST}',
+      'ghcr.io/${IMAGE_REPOSITORY}-fixture-019@${FIXTURE_019_DIGEST}',
       'for image in "${images[@]}"',
       'DOCKER_CONFIG="$anonymous_config" docker pull "$image"',
-      "personal-account packages as private",
+      "new packages as private",
       "set all three release packages to Public",
       "manually rerun this exact tag",
     ])
@@ -3258,9 +3316,9 @@ function validateReleaseFinalBindingAndNotes(steps, relativePath, findings) {
   ];
   const positions = orderedNames.map((name) => stepPosition(steps, name));
   const attestationPositions = [
-    "ghcr.io/${{ github.repository }}-20w",
-    "ghcr.io/${{ github.repository }}-fixture-007",
-    "ghcr.io/${{ github.repository }}-fixture-019",
+    "ghcr.io/${{ env.IMAGE_REPOSITORY }}-20w",
+    "ghcr.io/${{ env.IMAGE_REPOSITORY }}-fixture-007",
+    "ghcr.io/${{ env.IMAGE_REPOSITORY }}-fixture-019",
   ].map((imageName) => steps.indexOf(findRegistryAttestation(steps, imageName)));
   recordExpectation(
     findings,
@@ -3291,9 +3349,9 @@ function validateReleaseFinalBindingAndNotes(steps, relativePath, findings) {
     findings,
     stringIncludesAll(notes, [
       "Immutable container images",
-      'ghcr.io/${GITHUB_REPOSITORY}-20w@${TOOLING_DIGEST}',
-      'ghcr.io/${GITHUB_REPOSITORY}-fixture-007@${FIXTURE_007_DIGEST}',
-      'ghcr.io/${GITHUB_REPOSITORY}-fixture-019@${FIXTURE_019_DIGEST}',
+      'ghcr.io/${IMAGE_REPOSITORY}-20w@${TOOLING_DIGEST}',
+      'ghcr.io/${IMAGE_REPOSITORY}-fixture-007@${FIXTURE_007_DIGEST}',
+      'ghcr.io/${IMAGE_REPOSITORY}-fixture-019@${FIXTURE_019_DIGEST}',
       "TOOLING_DIGEST",
       "FIXTURE_007_DIGEST",
       "FIXTURE_019_DIGEST",
@@ -3327,6 +3385,8 @@ export function validateReleaseExperimentImageWorkflowObject(
     `${relativePath}: release job needs packages write permission for per-artifact images`,
   );
   validateBuildxSetup(steps, relativePath, findings);
+  validateRegistryRepositoryDerivation(steps, relativePath, findings, "Preflight the remote release without mutation");
+  validateReleaseRepositoryIdentityConsumers(steps, relativePath, findings);
   validateManifestReleaseImageParity(root, workflow, relativePath, findings);
   validateReleaseTimestamp(workflow?.jobs?.verify, relativePath, findings);
   validateReleaseToolingImage(steps, relativePath, findings);

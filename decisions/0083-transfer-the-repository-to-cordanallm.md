@@ -38,6 +38,56 @@ reproducible pinned image to change a label. Image identity moves when the
 images are next rebuilt and republished, as a separate step with its own
 evidence, not as a text edit.
 
+Registry identity is lowercased once, at the top of each job that touches a
+registry. GitHub preserves the organization's casing in `GITHUB_REPOSITORY`, while
+OCI registry names and `ocimanifest.validateRelease` accept only lowercase. One
+step derives `IMAGE_REPOSITORY` from `GITHUB_REPOSITORY`, bounds it with the same
+owner/name pattern the Go validator uses, and fails closed. Every `ghcr.io`
+image name and every `--repository` that feeds the OCI manifest reads that
+variable. Everything that names the GitHub repository rather than a registry
+stays case-preserving: release-check lookups, attestation `--repo`, the
+signer-workflow identity, and the `image.source` URL labels. The engineering
+policy pins are rewritten in step and two new checks hold the split in place.
+
+Fixture image identity moves to lowercase `cordanallm` in the workstation
+manifests, their schema and the experiment catalogue, together with the
+workflows that build those images. Those images are rebuilt from the repository
+identity on every run and nothing pins their previous names by digest, so a
+manifest that kept the old owner would describe an image the workflows no
+longer build and would ship that name inside the release plan asset.
+
+Merge after the transfer, not before. Repository-metadata synchronisation and
+pull-request labelling compare `GITHUB_REPOSITORY` case-sensitively against
+the owner recorded in `.github/issue-milestones.json`, which this branch already
+sets to `cordanaLLM`; landing on `main` while the repository still lives under
+`lusoris` makes the push-triggered synchronisation fail. The lowercase
+derivation itself is a no-op on the untransferred repository.
+
+After the transfer, in order:
+
+1. Confirm the organization's package settings let the repository token create
+   packages and that public packages are allowed; the first registry write
+   fails with `denied` otherwise.
+2. Expect the first release to stop at the anonymous-pull gate. New packages
+   are created private. Set `20-watts-was-enough-20w`, `-fixture-007` and
+   `-fixture-019` under the organization to Public, then rerun the same tag.
+3. Verify `cordana.dev` under the organization and enable Pages with the
+   Actions source on the moved repository; domain verification is
+   account-scoped and Pages sites are not redirected on transfer.
+4. Confirm the immutable-releases setting survived the transfer before pushing
+   a tag; the release workflow waits for GitHub to report it.
+5. Re-apply the branch ruleset from `.github/rulesets/main.json` and confirm
+   `CODEOWNERS` resolves; a code owner in an organization repository must
+   hold write access there.
+6. Rewrite every clone's `origin` to the exact organization casing; the
+   generated checkpoint hook compares the remote URL case-sensitively.
+
+Tags published before the transfer cannot be rerun: their recorded image
+identities carry the previous owner and the read-only preflight rejects the
+prefix by design. Their released assets remain valid. The PDF-tools and CLRS
+generator contracts keep the previous owner because they pin configuration
+digests; that is unaffected by whether a registry copy of either image exists.
+
 ## Verification and limitations
 
 `lint`, `typecheck`, `check:code-shape`, `check:prose`, `validate:policy`,

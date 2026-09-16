@@ -2080,7 +2080,7 @@ test("release publication requires anonymous pulls of all final image digests", 
     },
     (subject) => {
       const pull = releaseImageStepByName(subject, "Prove final image digests are anonymously pullable");
-      pull.run = pull.run.replace('ghcr.io/${GITHUB_REPOSITORY}-fixture-019@${FIXTURE_019_DIGEST}', "fixture-019:latest");
+      pull.run = pull.run.replace('ghcr.io/${IMAGE_REPOSITORY}-fixture-019@${FIXTURE_019_DIGEST}', "fixture-019:latest");
     },
   ]) {
     assertWorkflowTamper("release", validateReleaseExperimentImageWorkflowObject, mutate, anonymousFinding);
@@ -2349,6 +2349,89 @@ test("oci-images.json is the immutable release-image authority", () => {
   }
 });
 
+test("registry image names derive from one validated lowercase repository", () => {
+  const derivationName = "Derive the lowercase registry repository";
+  for (const [name, validator, jobName, consumerName, registryConsumers] of [
+    [
+      "ci",
+      validateCiExperimentImageWorkflowObject,
+      "container-smoke",
+      "Build the CLRS shakedown specialist image",
+      ["Build the CLRS shakedown specialist image", "Build the Fixture 007 image"],
+    ],
+    [
+      "release",
+      validateReleaseExperimentImageWorkflowObject,
+      "release",
+      "Preflight the remote release without mutation",
+      ["Inspect existing release image tags", "Derive 20w image tags and labels"],
+    ],
+  ]) {
+    const stepsOf = (subject) => subject.jobs[jobName].steps;
+    const derivationOf = (subject) => stepsOf(subject).find((step) => step.name === derivationName);
+    const derivationFinding = `.github/workflows/${name}.yml: registry image names must derive from one validated lowercase IMAGE_REPOSITORY before the first image step`;
+    for (const mutate of [
+      (subject) => {
+        const steps = stepsOf(subject);
+        steps.splice(steps.indexOf(derivationOf(subject)), 1);
+      },
+      (subject) => {
+        const steps = stepsOf(subject);
+        const [derivation] = steps.splice(steps.indexOf(derivationOf(subject)), 1);
+        steps.splice(steps.findIndex((step) => step.name === consumerName) + 1, 0, derivation);
+      },
+      (subject) => {
+        const derivation = derivationOf(subject);
+        derivation.run = derivation.run.replace('"${GITHUB_REPOSITORY,,}"', '"$GITHUB_REPOSITORY"');
+      },
+      (subject) => {
+        derivationOf(subject).if = "github.event_name == 'workflow_dispatch'";
+      },
+      (subject) => disableExitAfterDiagnostic(
+        derivationOf(subject),
+        "does not lowercase to a bounded OCI owner/name",
+      ),
+    ]) {
+      assertWorkflowTamper(name, validator, mutate, derivationFinding);
+    }
+    const rawFinding = `.github/workflows/${name}.yml: registry image names must not interpolate the case-preserving repository identity`;
+    for (const registryConsumer of registryConsumers) {
+      assertWorkflowTamper(
+        name,
+        validator,
+        (subject) => {
+          const consumer = stepsOf(subject).find((step) => step.name === registryConsumer);
+          const source = JSON.stringify(consumer).replaceAll("${{ env.IMAGE_REPOSITORY }}", "${{ github.repository }}")
+            .replaceAll("${IMAGE_REPOSITORY}", "${GITHUB_REPOSITORY}");
+          assert.notEqual(source, JSON.stringify(consumer), `${registryConsumer} carries no registry image name`);
+          Object.assign(consumer, JSON.parse(source));
+        },
+        rawFinding,
+      );
+    }
+  }
+
+  const consumerFinding = ".github/workflows/release.yml: OCI image manifests must bind the lowercase IMAGE_REPOSITORY while GitHub release lookups keep the case-preserving repository";
+  for (const [stepName, from, to] of [
+    ["Preflight the remote release without mutation", '--repository "$IMAGE_REPOSITORY"', '--repository "$GITHUB_REPOSITORY"'],
+    ["Preflight the remote release without mutation", '--repository "$GITHUB_REPOSITORY"', '--repository "$IMAGE_REPOSITORY"'],
+    ["Materialize the immutable OCI image authority", '--repository "$IMAGE_REPOSITORY"', '--repository "$GITHUB_REPOSITORY"'],
+    ["Resolve the immutable OCI image authority", '--repository "$IMAGE_REPOSITORY"', '--repository "$GITHUB_REPOSITORY"'],
+    ["Publish or validate the immutable GitHub release", '--repository "$GITHUB_REPOSITORY"', '--repository "$IMAGE_REPOSITORY"'],
+  ]) {
+    assertWorkflowTamper(
+      "release",
+      validateReleaseExperimentImageWorkflowObject,
+      (subject) => {
+        const step = releaseImageStepByName(subject, stepName);
+        assert.ok(step.run.includes(from), `${stepName} lacks ${from}`);
+        step.run = step.run.replace(from, to);
+      },
+      consumerFinding,
+    );
+  }
+});
+
 test("CI and release image policy preserve separate tooling and experiment identities", () => {
   const ciWorkflow = workflow("ci");
   const releaseWorkflow = workflow("release");
@@ -2369,7 +2452,7 @@ test("CI and release image policy preserve separate tooling and experiment ident
     step.with?.tags === "20w-fixture-019:test"
   ));
   unnamedCiBuild.with["build-args"] = unnamedCiBuild.with["build-args"].replace(
-    "IMAGE_NAME=ghcr.io/${{ github.repository }}-fixture-019\n",
+    "IMAGE_NAME=ghcr.io/${{ env.IMAGE_REPOSITORY }}-fixture-019\n",
     "",
   );
   assert.ok(validateCiExperimentImageWorkflowObject(unnamedCiImage).includes(
@@ -2390,7 +2473,7 @@ test("CI and release image policy preserve separate tooling and experiment ident
     step.id === "build-fixture-019-image"
   ));
   unnamedReleaseBuild.with["build-args"] = unnamedReleaseBuild.with["build-args"].replace(
-    "IMAGE_NAME=ghcr.io/${{ github.repository }}-fixture-019\n",
+    "IMAGE_NAME=ghcr.io/${{ env.IMAGE_REPOSITORY }}-fixture-019\n",
     "",
   );
   assert.ok(validateReleaseExperimentImageWorkflowObject(unnamedReleaseImage).includes(
@@ -2469,7 +2552,7 @@ test("container policy withholds arm64 and enforces exact-digest runtime identit
     validateReleaseExperimentImageWorkflowObject,
     (subject) => {
       const attestation = subject.jobs.release.steps.find(
-        (step) => step.with?.["subject-name"] === "ghcr.io/${{ github.repository }}-20w",
+        (step) => step.with?.["subject-name"] === "ghcr.io/${{ env.IMAGE_REPOSITORY }}-20w",
       );
       attestation.with["subject-digest"] = "${{ steps.admission-images.outputs.tooling_digest }}";
     },

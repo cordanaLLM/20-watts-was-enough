@@ -29,7 +29,7 @@ assignment exactly.
 
 A v0.3.0 or later release whose source contains and passes the release workflow
 publishes the scoped Linux `amd64` image at
-`ghcr.io/lusoris/20-watts-was-enough-fixture-019`. It binds Node.js 26.8.1,
+`ghcr.io/cordanallm/20-watts-was-enough-fixture-019`. It binds Node.js 26.8.1,
 CPython 3.14.7 and NumPy 2.5.2 for this fixture only. The Go packager gives the
 build only the declared Fixture 019 files and a checked closure manifest; it
 does not send the repository root as container context. Follow the

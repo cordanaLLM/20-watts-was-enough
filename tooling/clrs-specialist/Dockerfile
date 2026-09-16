@@ -40,7 +40,7 @@ RUN test "${TARGETOS}/${TARGETARCH}" = "linux/amd64" \
 FROM scratch
 
 ARG IMAGE_VERSION=development
-ARG IMAGE_NAME=ghcr.io/lusoris/20-watts-was-enough-clrs-shakedown
+ARG IMAGE_NAME=ghcr.io/cordanallm/20-watts-was-enough-clrs-shakedown
 ARG SOURCE_REVISION=unknown
 
 LABEL org.opencontainers.image.title="20 Watts Was Enough CLRS shakedown specialists" \

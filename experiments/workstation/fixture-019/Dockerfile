@@ -3,7 +3,7 @@ FROM node:26.8.1-trixie-slim@sha256:c0753125a3789977aefe869cbebccf70e3cfd7ea84ca
 FROM python:3.14.7-slim-trixie@sha256:cae66f2ef0ec51a9891263eeee7f987dacf0a9879e8aa9353d5606e0530619a5
 
 ARG IMAGE_VERSION=development
-ARG IMAGE_NAME=ghcr.io/lusoris/20-watts-was-enough-fixture-019
+ARG IMAGE_NAME=ghcr.io/cordanallm/20-watts-was-enough-fixture-019
 ARG SOURCE_REVISION=unknown
 
 LABEL org.opencontainers.image.title="20 Watts Was Enough Fixture 019 runtime" \

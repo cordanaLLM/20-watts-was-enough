@@ -10,7 +10,7 @@ import {
 const runtime = Object.freeze({ version: "v26.8.1", platform: "linux", arch: "x64" });
 const releaseEnvironment = Object.freeze({
   EXPERIMENT_ARTIFACT: "fixture-007",
-  EXPERIMENT_IMAGE_NAME: "ghcr.io/lusoris/20-watts-was-enough-fixture-007",
+  EXPERIMENT_IMAGE_NAME: "ghcr.io/cordanallm/20-watts-was-enough-fixture-007",
   EXPERIMENT_IMAGE_VERSION: "v1.2.3",
   EXPERIMENT_SOURCE_REVISION: "a".repeat(40),
   EXPERIMENT_RESULT_AUTHORITY: "NO_RESULT",
@@ -56,7 +56,7 @@ test("release image records the caller-supplied exact digest", () => {
   assert.equal(actual.execution_mode, "release-image");
   assert.deepEqual(actual.image.name, {
     state: "declared",
-    value: "ghcr.io/lusoris/20-watts-was-enough-fixture-007",
+    value: "ghcr.io/cordanallm/20-watts-was-enough-fixture-007",
   });
   assert.deepEqual(actual.image.digest, {
     state: "explicit",

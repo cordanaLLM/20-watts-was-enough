@@ -182,6 +182,17 @@ the exact diff; this file records why the project changed.
   and published container images keep their pinned identity until they are next
   rebuilt. See [decision 0083](decisions/0083-transfer-the-repository-to-cordanallm.md).
 
+- Registry image names in CI and release derive from one validated lowercase
+  `IMAGE_REPOSITORY` instead of the case-preserving `github.repository`,
+  because GHCR, BuildKit and the `20w` image validators reject an upper-case
+  owner such as `cordanaLLM`. GitHub release lookups and attestation
+  verification keep the case-preserving identity, and the policy validator pins
+  which consumer receives which form. The Fixture 007 and Fixture 019
+  manifests, schema and catalogue now declare `ghcr.io/cordanallm/...`, the
+  only identity the transferred repository can publish; the digest-pinned
+  PDF-tools and CLRS generator contracts and the `io.github.lusoris.*` label
+  namespace are unchanged.
+
 - Praetor repository governance, with `AGENTS.md` compiled to six vendor agent
   harnesses. The canonical contract is unchanged and keeps its authority;
   `CLAUDE.md` is now generated from it and must not be edited directly. The
