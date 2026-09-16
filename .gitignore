@@ -28,3 +28,4 @@ experiments/workstation/fixture-012/configs/*.local.json
 .next/
 .vinext/
 .wrangler/
+.claude/worktrees/
