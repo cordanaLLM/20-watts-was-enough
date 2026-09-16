@@ -16,8 +16,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/githubissuemilestones"
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/githublabels"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/githubissuemilestones"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/githublabels"
 )
 
 const (

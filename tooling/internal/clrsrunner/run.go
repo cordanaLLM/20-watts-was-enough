@@ -7,7 +7,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/specialistcontrol"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/specialistcontrol"
 )
 
 const (

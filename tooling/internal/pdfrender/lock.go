@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/pdfrenderlock"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/pdfrenderlock"
 )
 
 const (

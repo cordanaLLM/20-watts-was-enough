@@ -413,7 +413,7 @@ export function buildSpdxDocument({ tag, version, packageLock, packageLockSha256
     dataLicense: "CC0-1.0",
     SPDXID: "SPDXRef-DOCUMENT",
     name: `${packageLock.name}-${version}`,
-    documentNamespace: `https://github.com/lusoris/20-watts-was-enough/releases/download/${tag}/sbom.${packageLockSha256}.spdx.json`,
+    documentNamespace: `https://github.com/cordanaLLM/20-watts-was-enough/releases/download/${tag}/sbom.${packageLockSha256}.spdx.json`,
     creationInfo: {
       created: spdxTimestamp(releaseDate),
       creators: [
@@ -550,7 +550,7 @@ export async function prepareReleaseAssets({
     "",
     "## Research-output disclosure",
     "",
-    `[Research-output disclosure for ${tag}](https://github.com/lusoris/20-watts-was-enough/releases/download/${tag}/${disclosureAssetName})`,
+    `[Research-output disclosure for ${tag}](https://github.com/cordanaLLM/20-watts-was-enough/releases/download/${tag}/${disclosureAssetName})`,
     "",
   ].join("\n");
   const bookManifest = parseJson(bytesByPath.get(bookManifestRelativePath), bookManifestRelativePath);

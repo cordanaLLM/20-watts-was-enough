@@ -134,11 +134,11 @@ async function assertHydratedResearchObject(cdp, origin) {
   assert.equal(snapshot.disclosureLinks, 0);
   assert.equal(
     snapshot.source,
-    `https://github.com/lusoris/20-watts-was-enough/blob/${sourceRevision}/concept/05-biology-is-a-launchpad.md#scope`,
+    `https://github.com/cordanaLLM/20-watts-was-enough/blob/${sourceRevision}/concept/05-biology-is-a-launchpad.md#scope`,
   );
   assert.equal(
     snapshot.history,
-    `https://github.com/lusoris/20-watts-was-enough/commits/${sourceRevision}/concept/05-biology-is-a-launchpad.md`,
+    `https://github.com/cordanaLLM/20-watts-was-enough/commits/${sourceRevision}/concept/05-biology-is-a-launchpad.md`,
   );
   assert.equal(snapshot.book, `${origin}${pagesBasePath}book/`);
   assert.equal(
@@ -147,15 +147,15 @@ async function assertHydratedResearchObject(cdp, origin) {
   );
   assert.equal(
     snapshot.citation,
-    `https://github.com/lusoris/20-watts-was-enough/blob/${sourceRevision}/CITATION.cff`,
+    `https://github.com/cordanaLLM/20-watts-was-enough/blob/${sourceRevision}/CITATION.cff`,
   );
   assert.equal(
     snapshot.licence,
-    `https://github.com/lusoris/20-watts-was-enough/blob/${sourceRevision}/LICENSING.md`,
+    `https://github.com/cordanaLLM/20-watts-was-enough/blob/${sourceRevision}/LICENSING.md`,
   );
   assert.equal(
     snapshot.c018,
-    `https://github.com/lusoris/20-watts-was-enough/blob/${sourceRevision}/research/claims.md#c-018`,
+    `https://github.com/cordanaLLM/20-watts-was-enough/blob/${sourceRevision}/research/claims.md#c-018`,
   );
   const expectedLocator = [
     "Canonical path: concept/05-biology-is-a-launchpad.md",
@@ -339,7 +339,7 @@ async function assertContinuousBook(cdp, origin, edition) {
   assert.equal(snapshot.source, `Git main snapshot · commit ${sourceRevision}`);
   assert.equal(
     snapshot.sourceHref,
-    `https://github.com/lusoris/20-watts-was-enough/tree/${sourceRevision}`,
+    `https://github.com/cordanaLLM/20-watts-was-enough/tree/${sourceRevision}`,
   );
   assert.equal(
     snapshot.reportLocator,
@@ -373,7 +373,7 @@ async function assertReleaseBook(cdp, origin) {
   );
   assert.equal(
     releaseSnapshot.sourceHref,
-    `https://github.com/lusoris/20-watts-was-enough/tree/${sourceRevision}`,
+    `https://github.com/cordanaLLM/20-watts-was-enough/tree/${sourceRevision}`,
   );
   assert.equal(
     releaseSnapshot.reportLocator,
@@ -407,7 +407,7 @@ async function assertPublicBookIgnoresRendererQuery(cdp, origin, edition) {
   assert.equal(publicSnapshot.source, `Git main snapshot · commit ${sourceRevision}`);
   assert.equal(
     publicSnapshot.sourceHref,
-    `https://github.com/lusoris/20-watts-was-enough/tree/${sourceRevision}`,
+    `https://github.com/cordanaLLM/20-watts-was-enough/tree/${sourceRevision}`,
   );
 }
 

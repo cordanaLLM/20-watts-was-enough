@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/translationbundle"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/translationbundle"
 )
 
 func runTranslationExportCandidate(arguments []string, stdout, stderr io.Writer) int {

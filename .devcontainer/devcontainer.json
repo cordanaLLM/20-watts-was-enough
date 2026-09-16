@@ -1,5 +1,5 @@
 {
-  "name": "lusoris/20-watts-was-enough",
+  "name": "cordanaLLM/20-watts-was-enough",
   "build": {
     "dockerfile": "Dockerfile.praetor",
     "context": "."

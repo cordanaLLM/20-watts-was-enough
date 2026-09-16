@@ -20,7 +20,7 @@ because its audit is interesting.
 
 This document owns the stage order, gate meaning and exit conditions. The
 canonical [milestone manifest](../.github/milestones.json) projects Stages 0–5
-into [GitHub milestones](https://github.com/lusoris/20-watts-was-enough/milestones),
+into [GitHub milestones](https://github.com/cordanaLLM/20-watts-was-enough/milestones),
 where issues and pull requests can be assigned, discussed and closed. The Go
 metadata command recreates that projection from the manifest; GitHub is not a
 second roadmap source.

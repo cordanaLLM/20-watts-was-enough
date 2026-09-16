@@ -11,7 +11,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/clrsfixture"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsfixture"
 )
 
 func TestCLRSInvocationCLIUsageAndAuthorityFailures(t *testing.T) {

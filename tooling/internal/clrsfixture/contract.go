@@ -12,7 +12,7 @@ const (
 	generationContractSchemaVersion = 1
 	maximumGenerationContractBytes  = 32 << 10
 	generationPurpose               = "controller_shakedown"
-	generationIssue                 = "https://github.com/lusoris/20-watts-was-enough/issues/12"
+	generationIssue                 = "https://github.com/cordanaLLM/20-watts-was-enough/issues/12"
 	generationSplit                 = "shakedown"
 	generationState                 = "blocked_on_generator_image"
 )

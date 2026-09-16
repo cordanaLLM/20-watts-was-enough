@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/releaseimage"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/releaseimage"
 )
 
 func TestRunRejectsUnknown20WCommand(t *testing.T) {
@@ -239,9 +239,9 @@ func TestRunGitHubSyncPullRequestMetadataRejectsIncompleteEventAsUsage(t *testin
 	t.Parallel()
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	for _, arguments := range [][]string{
-		{"github", "sync-pr-metadata", "--root", root, "--repository", "lusoris/20-watts-was-enough", "--pull-request", "40"},
-		{"github", "sync-pr-metadata", "--root", root, "--repository", "lusoris/20-watts-was-enough", "--pull-request", "40", "--event-action", "closed"},
-		{"github", "sync-pr-metadata", "--root", root, "--repository", "lusoris/20-watts-was-enough", "--pull-request", "40", "--event-action", "reopened", "--merged", "true"},
+		{"github", "sync-pr-metadata", "--root", root, "--repository", "cordanaLLM/20-watts-was-enough", "--pull-request", "40"},
+		{"github", "sync-pr-metadata", "--root", root, "--repository", "cordanaLLM/20-watts-was-enough", "--pull-request", "40", "--event-action", "closed"},
+		{"github", "sync-pr-metadata", "--root", root, "--repository", "cordanaLLM/20-watts-was-enough", "--pull-request", "40", "--event-action", "reopened", "--merged", "true"},
 	} {
 		var stdout bytes.Buffer
 		var stderr bytes.Buffer
@@ -396,7 +396,7 @@ func TestRunReleaseVerifyTagRejectsInvalidLocalIdentityBeforeNetwork(t *testing.
 	var stderr bytes.Buffer
 	exitCode := run([]string{
 		"release", "verify-tag",
-		"--repository", "lusoris/20-watts-was-enough",
+		"--repository", "cordanaLLM/20-watts-was-enough",
 		"--tag", "latest",
 		"--commit", strings.Repeat("a", 40),
 	}, &stdout, &stderr)
@@ -427,7 +427,7 @@ func TestRunReleaseOCIImageManifestRoundTrip(t *testing.T) {
 	arguments := []string{
 		"release", "write-oci-images",
 		"--output", path,
-		"--repository", "lusoris/20-watts-was-enough",
+		"--repository", "cordanaLLM/20-watts-was-enough",
 		"--tag", "v0.3.0",
 		"--revision", commit,
 		"--tooling-digest", "sha256:" + strings.Repeat("1", 64),
@@ -444,7 +444,7 @@ func TestRunReleaseOCIImageManifestRoundTrip(t *testing.T) {
 	if exitCode := run([]string{
 		"release", "validate-oci-images",
 		"--input", path,
-		"--repository", "lusoris/20-watts-was-enough",
+		"--repository", "cordanaLLM/20-watts-was-enough",
 		"--tag", "v0.3.0",
 		"--revision", commit,
 		"--github-output",
@@ -460,7 +460,7 @@ func TestRunReleaseOCIImageManifestRejectsIncompleteIdentity(t *testing.T) {
 	exitCode := run([]string{
 		"release", "write-oci-images",
 		"--output", filepath.Join(t.TempDir(), "oci-images.json"),
-		"--repository", "lusoris/20-watts-was-enough",
+		"--repository", "cordanaLLM/20-watts-was-enough",
 		"--tag", "v0.3.0",
 		"--revision", strings.Repeat("a", 40),
 	}, &stdout, &stderr)

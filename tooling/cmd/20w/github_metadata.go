@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/githubissuelifecycle"
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/githubissuemilestones"
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/githublabels"
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/githubmilestones"
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/githubprmetadata"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/githubissuelifecycle"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/githubissuemilestones"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/githublabels"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/githubmilestones"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/githubprmetadata"
 )
 
 type githubMetadataManifests struct {

@@ -252,4 +252,4 @@ execution; licence review; an SBOM; source-bound provenance; and the repository'
 image-admission checks. Until that separate change revises the fixed release
 image manifest, report this local image tag plus its `docker image inspect` ID,
 source revision, request, response, engine version, and host platform on
-[issue 12](https://github.com/lusoris/20-watts-was-enough/issues/12).
+[issue 12](https://github.com/cordanaLLM/20-watts-was-enough/issues/12).

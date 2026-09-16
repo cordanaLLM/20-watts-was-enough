@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/clrsfixture"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsfixture"
 )
 
 func clrsOCIFixtureJSON(t *testing.T, value any) []byte {

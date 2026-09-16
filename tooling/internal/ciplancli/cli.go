@@ -9,7 +9,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/ciplan"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/ciplan"
 )
 
 // Run dispatches only the private plan and project commands.

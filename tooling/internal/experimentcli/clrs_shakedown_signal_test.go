@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/clrsshakedown"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsshakedown"
 )
 
 func TestShakedownCLISignalsRetainIncompleteMachineReport(t *testing.T) {

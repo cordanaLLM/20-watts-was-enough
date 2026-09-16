@@ -12,7 +12,7 @@ import (
 	"strings"
 	"sync"
 
-	projectbuildinfo "github.com/lusoris/20-watts-was-enough/tooling/internal/buildinfo"
+	projectbuildinfo "github.com/cordanaLLM/20-watts-was-enough/tooling/internal/buildinfo"
 )
 
 type boundedOutput struct {

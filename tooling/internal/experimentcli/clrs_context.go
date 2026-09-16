@@ -9,7 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/clrscontext"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrscontext"
 )
 
 func runExperimentCLRSContext(arguments []string, stdout, stderr io.Writer) int {

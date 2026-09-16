@@ -12,7 +12,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/strictjson"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
 var spdxTopLevelKeys = []string{

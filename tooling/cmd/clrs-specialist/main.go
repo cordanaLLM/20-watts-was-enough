@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/clrsrunner"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsrunner"
 )
 
 func main() {

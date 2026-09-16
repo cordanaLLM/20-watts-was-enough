@@ -59,7 +59,7 @@ func TestVerifyTagBindingAcceptsDirectAndBoundedAnnotatedTags(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			if err := VerifyTagBinding(context.Background(), "lusoris/20-watts-was-enough", "v0.3.0", expectedTagCommit, test.resolver); err != nil {
+			if err := VerifyTagBinding(context.Background(), "cordanaLLM/20-watts-was-enough", "v0.3.0", expectedTagCommit, test.resolver); err != nil {
 				t.Fatalf("VerifyTagBinding() error = %v", err)
 			}
 		})
@@ -131,7 +131,7 @@ func TestVerifyTagBindingRejectsUntrustedRemoteObjects(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			err := VerifyTagBinding(context.Background(), "lusoris/20-watts-was-enough", "v0.3.0", expectedTagCommit, test.resolver)
+			err := VerifyTagBinding(context.Background(), "cordanaLLM/20-watts-was-enough", "v0.3.0", expectedTagCommit, test.resolver)
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("VerifyTagBinding() error = %v, want %q", err, test.want)
 			}
@@ -150,8 +150,8 @@ func TestVerifyTagBindingRejectsInvalidLocalAuthority(t *testing.T) {
 		{"../owner/repository", "v0.3.0", expectedTagCommit},
 		{"./repository", "v0.3.0", expectedTagCommit},
 		{"owner/..", "v0.3.0", expectedTagCommit},
-		{"lusoris/20-watts-was-enough", "latest", expectedTagCommit},
-		{"lusoris/20-watts-was-enough", "v0.3.0", strings.ToUpper(expectedTagCommit)},
+		{"cordanaLLM/20-watts-was-enough", "latest", expectedTagCommit},
+		{"cordanaLLM/20-watts-was-enough", "v0.3.0", strings.ToUpper(expectedTagCommit)},
 	}
 	for _, test := range tests {
 		if err := VerifyTagBinding(context.Background(), test.repository, test.tag, test.commit, resolver); err == nil {

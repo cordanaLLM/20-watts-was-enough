@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/ciplan"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/ciplan"
 )
 
 const fullJSON = `{"schema":2,"mode":"full","reason":"explicit-full","changed_paths":[],"lanes":["full","renderer"]}` + "\n"

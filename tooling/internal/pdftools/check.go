@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/pdfrender"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/pdfrender"
 )
 
 const contractRelativePath = "tooling/pdf-tools/contract.json"

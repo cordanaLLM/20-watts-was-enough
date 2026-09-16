@@ -32,7 +32,7 @@ const (
 const (
 	goSBOMName      = "20w-go-modules.spdx.json"
 	goNoticesName   = "20w-third-party-notices.txt"
-	toolingModule   = "github.com/lusoris/20-watts-was-enough/tooling"
+	toolingModule   = "github.com/cordanaLLM/20-watts-was-enough/tooling"
 	goldmarkModule  = "github.com/yuin/goldmark/v2"
 	goldmarkVersion = "v2.0.1"
 )
@@ -124,7 +124,7 @@ func Build(ctx context.Context, options Options) (artifacts []Artifact, returnEr
 		return nil, fmt.Errorf("resolve Go binary: %w", err)
 	}
 	linkerFlags := fmt.Sprintf(
-		"-s -w -buildid= -X github.com/lusoris/20-watts-was-enough/tooling/internal/buildinfo.version=%s -X github.com/lusoris/20-watts-was-enough/tooling/internal/buildinfo.revision=%s -X github.com/lusoris/20-watts-was-enough/tooling/internal/buildinfo.builtAt=%s",
+		"-s -w -buildid= -X github.com/cordanaLLM/20-watts-was-enough/tooling/internal/buildinfo.version=%s -X github.com/cordanaLLM/20-watts-was-enough/tooling/internal/buildinfo.revision=%s -X github.com/cordanaLLM/20-watts-was-enough/tooling/internal/buildinfo.builtAt=%s",
 		options.Version,
 		options.Revision,
 		options.BuiltAt,
@@ -432,7 +432,7 @@ func renderGoSBOM(options Options, dependencies []dependency) ([]byte, error) {
 		"dataLicense":       "CC0-1.0",
 		"SPDXID":            "SPDXRef-DOCUMENT",
 		"name":              "20w-native-" + strings.TrimPrefix(options.Version, "v"),
-		"documentNamespace": "https://github.com/lusoris/20-watts-was-enough/releases/download/" + options.Version + "/" + goSBOMName,
+		"documentNamespace": "https://github.com/cordanaLLM/20-watts-was-enough/releases/download/" + options.Version + "/" + goSBOMName,
 		"creationInfo": map[string]any{
 			"created": created.UTC().Format(time.RFC3339),
 			"creators": []string{

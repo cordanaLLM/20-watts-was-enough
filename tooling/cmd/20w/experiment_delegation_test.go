@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/experimentcli"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/experimentcli"
 )
 
 func TestRunExperimentUsesOneHelpFragmentAndPublicUnknownFallback(t *testing.T) {

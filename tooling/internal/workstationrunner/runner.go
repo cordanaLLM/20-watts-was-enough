@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/ciplan"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/ciplan"
 )
 
 const (

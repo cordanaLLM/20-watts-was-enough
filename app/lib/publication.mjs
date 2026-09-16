@@ -1,6 +1,6 @@
 export const publication = Object.freeze({
   canonicalSite: "https://www.cordana.dev/",
-  repository: "https://github.com/lusoris/20-watts-was-enough",
+  repository: "https://github.com/cordanaLLM/20-watts-was-enough",
   siteName: "20 Watts Was Enough",
   locale: "en-GB",
   htmlLanguage: "en",

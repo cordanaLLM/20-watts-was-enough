@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: Pick up an existing bounded task
-    url: https://github.com/lusoris/20-watts-was-enough/issues?q=is%3Aissue%20state%3Aopen%20label%3Ahelp-wanted
+    url: https://github.com/cordanaLLM/20-watts-was-enough/issues?q=is%3Aissue%20state%3Aopen%20label%3Ahelp-wanted
     about: Browse work that already has a scope and acceptance boundary before opening a duplicate issue.
   - name: Report a security vulnerability privately
-    url: https://github.com/lusoris/20-watts-was-enough/security/advisories/new
+    url: https://github.com/cordanaLLM/20-watts-was-enough/security/advisories/new
     about: Do not disclose exploitable details, secrets, or personal data in a public issue.
   - name: Read support and issue routing
-    url: https://github.com/lusoris/20-watts-was-enough/blob/main/SUPPORT.md
+    url: https://github.com/cordanaLLM/20-watts-was-enough/blob/main/SUPPORT.md
     about: Choose the correct route for evidence, experiments, documentation, tooling, or security.

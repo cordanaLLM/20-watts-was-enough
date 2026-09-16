@@ -175,6 +175,13 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- The repository is prepared for transfer to `cordanaLLM/20-watts-was-enough`.
+  The Go module path, repository URLs, `CITATION.cff` and the standards manifest
+  owner follow the new owner; the name is unchanged so published citations keep
+  resolving. Historical decision records keep the owner they were written with,
+  and published container images keep their pinned identity until they are next
+  rebuilt. See [decision 0083](decisions/0083-transfer-the-repository-to-cordanallm.md).
+
 - Praetor repository governance, with `AGENTS.md` compiled to six vendor agent
   harnesses. The canonical contract is unchanged and keeps its authority;
   `CLAUDE.md` is now generated from it and must not be edited directly. The

@@ -11,7 +11,7 @@ status barrier. A new reader who can identify the sentence where an argument
 became opaque may provide more useful evidence than a large rewrite.
 
 The [research roadmap](../concept/90-research-roadmap.md) defines six
-dependency stages. The [GitHub milestone view](https://github.com/lusoris/20-watts-was-enough/milestones)
+dependency stages. The [GitHub milestone view](https://github.com/cordanaLLM/20-watts-was-enough/milestones)
 shows the issues and pull requests currently attached to each stage. Use it to
 see what is next and what has closed, but read a closed issue only as completed
 work: evidence status changes through the claim ledger and qualifying result
@@ -22,9 +22,9 @@ path, not through the milestone percentage.
 The workstream forms below are for a new, reproducible gap. To continue work
 that is already bounded, start with the live queues:
 
-- [good first issues](https://github.com/lusoris/20-watts-was-enough/issues?q=is%3Aissue%20state%3Aopen%20label%3Agood-first-issue) need relatively little project context;
-- [help-wanted issues](https://github.com/lusoris/20-watts-was-enough/issues?q=is%3Aissue%20state%3Aopen%20label%3Ahelp-wanted) already name a contribution boundary and acceptance conditions; and
-- [all open issues](https://github.com/lusoris/20-watts-was-enough/issues?q=is%3Aissue%20state%3Aopen) show blocked decisions and work already in progress.
+- [good first issues](https://github.com/cordanaLLM/20-watts-was-enough/issues?q=is%3Aissue%20state%3Aopen%20label%3Agood-first-issue) need relatively little project context;
+- [help-wanted issues](https://github.com/cordanaLLM/20-watts-was-enough/issues?q=is%3Aissue%20state%3Aopen%20label%3Ahelp-wanted) already name a contribution boundary and acceptance conditions; and
+- [all open issues](https://github.com/cordanaLLM/20-watts-was-enough/issues?q=is%3Aissue%20state%3Aopen) show blocked decisions and work already in progress.
 
 Claim the smallest suitable issue with a comment before doing substantial
 work. If its evidence, authority boundary, or completion condition is unclear,
@@ -34,14 +34,14 @@ ask there instead of opening a parallel task.
 
 | Workstream | Useful first contribution | Entry context | Authority boundary | Start here |
 | --- | --- | --- | --- | --- |
-| Readability and Pages | Name one broken route, inaccessible control, dense passage or missing definition and explain where your interpretation diverged | Low; no local setup required for a report | Presentation may change; evidence status and scientific meaning may not | [Site or documentation form](https://github.com/lusoris/20-watts-was-enough/issues/new?template=site-documentation-problem.yml) |
-| Reviewed translation | Review one source-bound document, settle domain terminology, or correct a stale translation | Medium; fluent target-language review and enough domain context to check qualifications | English Git source remains canonical; machine output alone is not publishable | [Translation form](https://github.com/lusoris/20-watts-was-enough/issues/new?template=translation-problem.yml) |
-| Release-image testing | After a passing v0.3.0 or later release publishes Fixture 007 and Fixture 019, run one on a Linux `amd64` host and report a minimal reproducible runtime, mount or receipt defect | Low to medium; Docker and the [image instructions](../experiments/workstation/README.md#run-a-released-experiment-image) | A passing container run remains `NO_RESULT`; it is not confirmation or an energy result | [Short failed-run form](https://github.com/lusoris/20-watts-was-enough/issues/new?template=experiment-run-failure.yml) |
-| Experiment contracts and runners | Close one named protocol ambiguity, failure path, bound, comparator or test gap | High; read the fixture, linked claims, manifest and nearest `AGENTS.md` | Development and confirmation identities stay disjoint; the manifest and claim ledger control readiness | [Experiment form](https://github.com/lusoris/20-watts-was-enough/issues/new?template=experiment-protocol-problem.yml) |
-| Evidence correction | Check one claim against a primary or authoritative source and state the exact supported scope | Medium to high; source and methods literacy in the affected field | Sources support only what they tested; citation does not grant redistribution rights | [Evidence correction form](https://github.com/lusoris/20-watts-was-enough/issues/new?template=evidence-correction.yml) |
-| Mechanism proposal | Describe one causal mechanism, map its nearest `P-` bundles, and define the strongest ordinary null and rejecting test | High; cross-domain comparison and experimental design | An analogy or issue does not create a principle or promote a claim | [Mechanism proposal form](https://github.com/lusoris/20-watts-was-enough/issues/new?template=mechanism-principle-proposal.yml) |
-| Go, validation and release tooling | Fix one reproducible defect, remove one duplicate path, or add one bounded failure test | Medium to high; Go 1.27 and the affected policy or workflow contract | Generated output is not edited by hand; releases and settings are not claimed from local tests | [Repository or tooling form](https://github.com/lusoris/20-watts-was-enough/issues/new?template=repository-tooling-problem.yml) |
-| Security | Report a vulnerability with the smallest safe private reproduction | Any; do not investigate beyond systems and data you are authorised to test | Exploitable details, credentials and personal data never enter a public issue | [Private vulnerability report](https://github.com/lusoris/20-watts-was-enough/security/advisories/new) |
+| Readability and Pages | Name one broken route, inaccessible control, dense passage or missing definition and explain where your interpretation diverged | Low; no local setup required for a report | Presentation may change; evidence status and scientific meaning may not | [Site or documentation form](https://github.com/cordanaLLM/20-watts-was-enough/issues/new?template=site-documentation-problem.yml) |
+| Reviewed translation | Review one source-bound document, settle domain terminology, or correct a stale translation | Medium; fluent target-language review and enough domain context to check qualifications | English Git source remains canonical; machine output alone is not publishable | [Translation form](https://github.com/cordanaLLM/20-watts-was-enough/issues/new?template=translation-problem.yml) |
+| Release-image testing | After a passing v0.3.0 or later release publishes Fixture 007 and Fixture 019, run one on a Linux `amd64` host and report a minimal reproducible runtime, mount or receipt defect | Low to medium; Docker and the [image instructions](../experiments/workstation/README.md#run-a-released-experiment-image) | A passing container run remains `NO_RESULT`; it is not confirmation or an energy result | [Short failed-run form](https://github.com/cordanaLLM/20-watts-was-enough/issues/new?template=experiment-run-failure.yml) |
+| Experiment contracts and runners | Close one named protocol ambiguity, failure path, bound, comparator or test gap | High; read the fixture, linked claims, manifest and nearest `AGENTS.md` | Development and confirmation identities stay disjoint; the manifest and claim ledger control readiness | [Experiment form](https://github.com/cordanaLLM/20-watts-was-enough/issues/new?template=experiment-protocol-problem.yml) |
+| Evidence correction | Check one claim against a primary or authoritative source and state the exact supported scope | Medium to high; source and methods literacy in the affected field | Sources support only what they tested; citation does not grant redistribution rights | [Evidence correction form](https://github.com/cordanaLLM/20-watts-was-enough/issues/new?template=evidence-correction.yml) |
+| Mechanism proposal | Describe one causal mechanism, map its nearest `P-` bundles, and define the strongest ordinary null and rejecting test | High; cross-domain comparison and experimental design | An analogy or issue does not create a principle or promote a claim | [Mechanism proposal form](https://github.com/cordanaLLM/20-watts-was-enough/issues/new?template=mechanism-principle-proposal.yml) |
+| Go, validation and release tooling | Fix one reproducible defect, remove one duplicate path, or add one bounded failure test | Medium to high; Go 1.27 and the affected policy or workflow contract | Generated output is not edited by hand; releases and settings are not claimed from local tests | [Repository or tooling form](https://github.com/cordanaLLM/20-watts-was-enough/issues/new?template=repository-tooling-problem.yml) |
+| Security | Report a vulnerability with the smallest safe private reproduction | Any; do not investigate beyond systems and data you are authorised to test | Exploitable details, credentials and personal data never enter a public issue | [Private vulnerability report](https://github.com/cordanaLLM/20-watts-was-enough/security/advisories/new) |
 
 The detailed routing rules, including research-integrity concerns that must not
 be posted publicly, are in [`SUPPORT.md`](../SUPPORT.md). Check existing issues
@@ -86,7 +86,7 @@ and add the book generation and validation commands when a book source changes.
 ## What a useful container report looks like
 
 A released image that did not start or finish belongs in the
-[short failed-run form](https://github.com/lusoris/20-watts-was-enough/issues/new?template=experiment-run-failure.yml).
+[short failed-run form](https://github.com/cordanaLLM/20-watts-was-enough/issues/new?template=experiment-run-failure.yml).
 It asks only for the experiment, image identity, platform, command and smallest
 useful error excerpt. Use the full experiment form when the problem concerns a
 protocol, analysis, evidence status or authority boundary.

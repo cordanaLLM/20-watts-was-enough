@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/pdfrender"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/pdfrender"
 )
 
 // RunVerifyReproducibility retains the public proof flags and uses the existing

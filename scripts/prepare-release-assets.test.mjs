@@ -193,7 +193,7 @@ test("release preparation binds versions, the locked graph, licence material, no
   assert.doesNotMatch(await readFile(path.join(outputRoot, "release-notes.md"), "utf8"), /0\.0\.9/u);
   assert.match(
     await readFile(path.join(outputRoot, "release-notes.md"), "utf8"),
-    new RegExp(`https://github\\.com/lusoris/20-watts-was-enough/releases/download/${tag}/${disclosureAssetName}`, "u"),
+    new RegExp(`https://github\\.com/cordanaLLM/20-watts-was-enough/releases/download/${tag}/${disclosureAssetName}`, "u"),
   );
 
   const assetsRoot = path.join(outputRoot, "assets");

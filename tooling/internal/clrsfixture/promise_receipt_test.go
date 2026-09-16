@@ -13,7 +13,7 @@ import (
 	"testing"
 	"text/template"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/buildinfo"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/buildinfo"
 )
 
 func copyPromiseProcedureRoot(t *testing.T, version string) string {
