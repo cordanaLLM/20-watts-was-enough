@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/clrsfixture"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsfixture"
 )
 
 func requirements(wheels clrsfixture.GeneratorWheelhouseManifest) []byte {

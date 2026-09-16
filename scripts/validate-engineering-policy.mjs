@@ -3419,8 +3419,8 @@ export function validateIssueConfig(config, relativePath = ".github/ISSUE_TEMPLA
   }
 
   const requiredUrls = new Set([
-    "https://github.com/lusoris/20-watts-was-enough/security/advisories/new",
-    "https://github.com/lusoris/20-watts-was-enough/blob/main/SUPPORT.md",
+    "https://github.com/cordanaLLM/20-watts-was-enough/security/advisories/new",
+    "https://github.com/cordanaLLM/20-watts-was-enough/blob/main/SUPPORT.md",
   ]);
   const seenUrls = new Set();
   for (const [index, link] of links.entries()) {
@@ -3751,7 +3751,7 @@ export function validateRetiredHostingPaths(root = defaultRoot) {
 function validateGoModule(root, findings) {
   const relativePath = "tooling/go.mod";
   const expected = [
-    "module github.com/lusoris/20-watts-was-enough/tooling",
+    "module github.com/cordanaLLM/20-watts-was-enough/tooling",
     "",
     `go ${runtimePolicy.goVersion}`,
     "",
@@ -4248,7 +4248,7 @@ function validateCitationAndOwnership(root, findings) {
   if (citation?.["cff-version"] !== "1.2.0") {
     findings.push("CITATION.cff: cff-version must be 1.2.0");
   }
-  if (citation?.["repository-code"] !== "https://github.com/lusoris/20-watts-was-enough") {
+  if (citation?.["repository-code"] !== "https://github.com/cordanaLLM/20-watts-was-enough") {
     findings.push("CITATION.cff: repository-code must name the canonical repository");
   }
 

@@ -9,7 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/clrsfixture"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsfixture"
 )
 
 type clrsGenerationAction func(context.Context, clrsfixture.GeneratorFixtureRunOptions) (clrsfixture.GeneratorFixtureRun, error)

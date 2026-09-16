@@ -10,7 +10,7 @@ nested `AGENTS.md` before editing an authority or executable boundary.
 ## Start with one bounded task
 
 The [research roadmap](concept/90-research-roadmap.md) defines the dependency
-order. [GitHub milestones](https://github.com/lusoris/20-watts-was-enough/milestones)
+order. [GitHub milestones](https://github.com/cordanaLLM/20-watts-was-enough/milestones)
 turn its stages into live issue and pull-request queues. Check those queues
 before opening another issue, then claim the smallest task whose finish
 condition you can state. Closing the task records operational progress; it does
@@ -63,7 +63,7 @@ looks compatible.
 
 Fork the repository for an external contribution, clone the fork, create one
 short-lived branch for the smallest coherent change, and open a pull request
-against `lusoris/20-watts-was-enough:main`. Keep the branch current with
+against `cordanaLLM/20-watts-was-enough:main`. Keep the branch current with
 `main`, use a Conventional Commit title, and complete the pull-request
 traceability and validation fields. Do not commit generated dependency
 directories, build output, workstation evidence, private source material, or
@@ -198,7 +198,7 @@ authoritative PDF generation, not prose-only contribution checks.
 ## Translations
 
 Coordinate new or corrected translations through the
-[translation issue form](https://github.com/lusoris/20-watts-was-enough/issues/new?template=translation-problem.yml).
+[translation issue form](https://github.com/cordanaLLM/20-watts-was-enough/issues/new?template=translation-problem.yml).
 Translated Markdown mirrors its canonical path under `translations/<language>/`.
 Its `translations/manifest.json` entry must record the exact canonical and
 translated repository paths, the SHA-256 digest of the English source, the

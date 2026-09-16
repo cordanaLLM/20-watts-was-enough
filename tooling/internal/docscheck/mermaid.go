@@ -15,7 +15,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/strictjson"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 	"github.com/yuin/goldmark/v2/ast"
 	"github.com/yuin/goldmark/v2/extension"
 	"github.com/yuin/goldmark/v2/parser"

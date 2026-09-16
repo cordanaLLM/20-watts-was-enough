@@ -1908,16 +1908,16 @@ test("issue configuration requires private-security and support routes", () => {
   assert.deepEqual(validateIssueConfig({
     blank_issues_enabled: false,
     contact_links: [
-      validLink("Security", "https://github.com/lusoris/20-watts-was-enough/security/advisories/new"),
-      validLink("Support", "https://github.com/lusoris/20-watts-was-enough/blob/main/SUPPORT.md"),
+      validLink("Security", "https://github.com/cordanaLLM/20-watts-was-enough/security/advisories/new"),
+      validLink("Support", "https://github.com/cordanaLLM/20-watts-was-enough/blob/main/SUPPORT.md"),
     ],
   }), []);
   assert.deepEqual(
     validateIssueConfig({ blank_issues_enabled: true, contact_links: [] }),
     [
       ".github/ISSUE_TEMPLATE/config.yml: blank issues must remain disabled",
-      ".github/ISSUE_TEMPLATE/config.yml: missing required contact link https://github.com/lusoris/20-watts-was-enough/security/advisories/new",
-      ".github/ISSUE_TEMPLATE/config.yml: missing required contact link https://github.com/lusoris/20-watts-was-enough/blob/main/SUPPORT.md",
+      ".github/ISSUE_TEMPLATE/config.yml: missing required contact link https://github.com/cordanaLLM/20-watts-was-enough/security/advisories/new",
+      ".github/ISSUE_TEMPLATE/config.yml: missing required contact link https://github.com/cordanaLLM/20-watts-was-enough/blob/main/SUPPORT.md",
     ],
   );
 });

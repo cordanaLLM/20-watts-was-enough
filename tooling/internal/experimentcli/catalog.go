@@ -7,7 +7,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/experiment"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/experiment"
 )
 
 func runExperimentList(arguments []string, stdout, stderr io.Writer) int {

@@ -3,7 +3,7 @@
   "contract": "experiment.clrs-generator-image.v1",
   "authority": "NO_RESULT",
   "state": "blocked",
-  "issue": "https://github.com/lusoris/20-watts-was-enough/issues/12",
+  "issue": "https://github.com/cordanaLLM/20-watts-was-enough/issues/12",
   "image": "ghcr.io/lusoris/20-watts-was-enough-clrs-generator",
   "platform": "linux/amd64",
   "source_id": "sha256:7ec3b6b7528d04f517c4e9b7c3e0cd0f7034a775d225d469d1aca5c00fec10d1",

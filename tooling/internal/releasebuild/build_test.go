@@ -245,7 +245,7 @@ func TestGoReleaseMetadataIsDeterministicAndVersionBound(t *testing.T) {
 	if err := json.Unmarshal(first, &document); err != nil {
 		t.Fatalf("decode rendered SPDX: %v", err)
 	}
-	if document.DocumentNamespace != "https://github.com/lusoris/20-watts-was-enough/releases/download/v1.2.3/20w-go-modules.spdx.json" {
+	if document.DocumentNamespace != "https://github.com/cordanaLLM/20-watts-was-enough/releases/download/v1.2.3/20w-go-modules.spdx.json" {
 		t.Fatalf("unexpected namespace %q", document.DocumentNamespace)
 	}
 	if document.CreationInfo.Created != "2026-08-29T10:30:00Z" {

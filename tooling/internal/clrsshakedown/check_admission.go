@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/specialistcontrol"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/specialistcontrol"
 )
 
 // Replay only the canonical admission state machine, never specialist effects.

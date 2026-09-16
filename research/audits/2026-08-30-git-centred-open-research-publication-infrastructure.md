@@ -142,7 +142,7 @@ does not justify a new generator or parallel research store.
 | Public research object with visible source and correction path | [Decision 0039](../../decisions/0039-make-pages-a-research-publication-surface.md) and typed issue forms | Add research-object metadata at document and experiment boundaries without turning the landing page back into a dashboard. |
 | Digest-bound experiment distribution | workstation manifests, Go release plan and release workflow | Keep the anonymous exact-digest pull as the public-access gate. Make release records expose exact invocation, resource limits, receipt schema and final digests. Compare per-experiment images with compatible-runtime-family images empirically before changing the current rule. |
 | Human-reviewed translation | [Decision 0035](../../decisions/0035-publish-only-reviewed-source-bound-translations.md) and `translations/manifest.json` | Choose a German language lead, glossary and authoring interface. A Weblate or po4a pilot must still produce reviewed Git changes. |
-| Discussion and actionable correction | issue forms and [how to help](../../docs/how-to-help.md) | The short [“experiment did not run” route](https://github.com/lusoris/20-watts-was-enough/issues/new?template=experiment-run-failure.yml) now covers immediate execution failures. Decide whether public Discussions has an owner and moderation policy. |
+| Discussion and actionable correction | issue forms and [how to help](../../docs/how-to-help.md) | The short [“experiment did not run” route](https://github.com/cordanaLLM/20-watts-was-enough/issues/new?template=experiment-run-failure.yml) now covers immediate execution failures. Decide whether public Discussions has an owner and moderation policy. |
 | Durable archival identity | GitHub Releases, CFF and release attestations | Decide whether to connect a specific approved release to Zenodo or Software Heritage. Do not claim an archive before remote identity and licensing are checked. |
 | Run provenance interchange | execution receipts and manifests | Map one mature receipt to Workflow Run RO-Crate only when a consumer or archive requires it. |
 
@@ -259,7 +259,7 @@ The comparison supports different intake contracts for different work:
 | --- | --- |
 | Ask how to interpret an idea | moderated Discussion, if enabled; otherwise a support issue that names the page and anchor |
 | Report unclear prose, citation, layout or translation | typed issue with canonical path, anchor, viewed commit or release, interpretation and expected correction |
-| Report “I tried this and it did not run” | [short failed-run form](https://github.com/lusoris/20-watts-was-enough/issues/new?template=experiment-run-failure.yml) with experiment/ref, optional digest or tag, platform, exact command and the shortest relevant failure excerpt |
+| Report “I tried this and it did not run” | [short failed-run form](https://github.com/cordanaLLM/20-watts-was-enough/issues/new?template=experiment-run-failure.yml) with experiment/ref, optional digest or tag, platform, exact command and the shortest relevant failure excerpt |
 | Submit a complete rerun | structured report with image digest, source, platform, command, config, seed, receipt or log hash, expected and observed outcome, and disclosure |
 | Challenge evidence or a claim | claim ID, primary-source locator, applicability, contrary evidence and licence |
 | Report security, misuse or research-integrity concern | private route rather than a public issue |

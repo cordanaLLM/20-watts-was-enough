@@ -5,7 +5,7 @@
   "license": "SEE LICENSE IN LICENSING.md",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lusoris/20-watts-was-enough.git"
+    "url": "git+https://github.com/cordanaLLM/20-watts-was-enough.git"
   },
   "engines": {
     "node": "26.8.1"

@@ -10,7 +10,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/clrsfixture"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsfixture"
 )
 
 // Check rechecks retained bytes and policy/reference consistency without running

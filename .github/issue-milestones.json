@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "repository": "lusoris/20-watts-was-enough",
+  "repository": "cordanaLLM/20-watts-was-enough",
   "assignments": [
     { "issue": 7, "milestone": "M0" },
     { "issue": 8, "milestone": "M0" },

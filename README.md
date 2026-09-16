@@ -2,10 +2,10 @@
 
 [![HISS-16 Compliant](https://img.shields.io/badge/Standards-HISS--16%20Compliant-brightgreen)](AGENTS.md)
 
-[![CI](https://github.com/lusoris/20-watts-was-enough/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lusoris/20-watts-was-enough/actions/workflows/ci.yml)
-[![GitHub Pages](https://github.com/lusoris/20-watts-was-enough/actions/workflows/github-pages.yml/badge.svg?branch=main)](https://github.com/lusoris/20-watts-was-enough/actions/workflows/github-pages.yml)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/lusoris/20-watts-was-enough/badge)](https://scorecard.dev/viewer/?uri=github.com/lusoris/20-watts-was-enough)
-[![Latest release](https://img.shields.io/github/v/release/lusoris/20-watts-was-enough?sort=semver)](https://github.com/lusoris/20-watts-was-enough/releases/latest)
+[![CI](https://github.com/cordanaLLM/20-watts-was-enough/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/cordanaLLM/20-watts-was-enough/actions/workflows/ci.yml)
+[![GitHub Pages](https://github.com/cordanaLLM/20-watts-was-enough/actions/workflows/github-pages.yml/badge.svg?branch=main)](https://github.com/cordanaLLM/20-watts-was-enough/actions/workflows/github-pages.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/cordanaLLM/20-watts-was-enough/badge)](https://scorecard.dev/viewer/?uri=github.com/cordanaLLM/20-watts-was-enough)
+[![Latest release](https://img.shields.io/github/v/release/cordanaLLM/20-watts-was-enough?sort=semver)](https://github.com/cordanaLLM/20-watts-was-enough/releases/latest)
 [![Code: EUPL 1.2](https://img.shields.io/badge/code-EUPL--1.2-315c9b.svg)](LICENSING.md)
 [![Original content: CC BY-SA 4.0](https://img.shields.io/badge/original%20content-CC%20BY--SA%204.0-b85c00.svg)](LICENSING.md)
 <p align="center">
@@ -83,7 +83,7 @@ dependency order. Its stages run from evidence and experiment contracts through
 isolated mechanisms, adaptation, grounding, structural maturation and substrate
 co-design. They are gates, not promised dates.
 
-[GitHub milestones](https://github.com/lusoris/20-watts-was-enough/milestones)
+[GitHub milestones](https://github.com/cordanaLLM/20-watts-was-enough/milestones)
 project those stages into issues and pull requests. They answer *what work is
 open and who is doing it*; they do not decide whether a scientific claim is
 established. The authorities remain separate:
@@ -91,7 +91,7 @@ established. The authorities remain separate:
 | Question | Authority |
 | --- | --- |
 | What should happen next? | [Research roadmap](concept/90-research-roadmap.md) |
-| Which bounded tasks are open or finished? | [GitHub milestones](https://github.com/lusoris/20-watts-was-enough/milestones) projected from [the milestone manifest](.github/milestones.json) and [repository-bound issue map](.github/issue-milestones.json) |
+| Which bounded tasks are open or finished? | [GitHub milestones](https://github.com/cordanaLLM/20-watts-was-enough/milestones) projected from [the milestone manifest](.github/milestones.json) and [repository-bound issue map](.github/issue-milestones.json) |
 | What does the evidence support? | [Claim ledger](research/claims.md) |
 | Which experiment paths are actually ready? | [Coverage report](experiments/test-coverage.md) and [readiness summary](experiments/test-readiness-summary.json) |
 

@@ -208,7 +208,7 @@ executor, and a per-shot oracle under identical encoder, data, latency, memory,
 and measured wall-energy opportunities.
 
 That track has two safeguards. First, it remains distinct from the
-[CLRS-Text shakedown](https://github.com/lusoris/20-watts-was-enough/issues/12),
+[CLRS-Text shakedown](https://github.com/cordanaLLM/20-watts-was-enough/issues/12),
 which tests typed algorithmic specialists without the shared authorship,
 metrics, and video pipeline of these donor repositories. Second, no Pelorus or
 VMAFx result enters as a project result: source code, models, corpus licences,

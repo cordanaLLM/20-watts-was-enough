@@ -9,7 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/clrsshakedown"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsshakedown"
 )
 
 type clrsShakedownAction func(context.Context, clrsshakedown.Options) (clrsshakedown.Report, error)

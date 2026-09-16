@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/clrsfixture"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsfixture"
 )
 
 const pinnedSeed3Prompt = `segments_intersect:

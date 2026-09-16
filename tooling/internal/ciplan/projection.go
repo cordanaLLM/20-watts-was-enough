@@ -11,7 +11,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/lusoris/20-watts-was-enough/tooling/internal/strictjson"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
 const (
