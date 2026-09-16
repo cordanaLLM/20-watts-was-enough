@@ -88,8 +88,8 @@ workflow publish the two Linux `amd64` images below:
 
 | Artifact | Image | Runtime boundary |
 | --- | --- | --- |
-| Fixture 007 | `ghcr.io/lusoris/20-watts-was-enough-fixture-007` | Node.js 26.8.1 and the closed Fixture 007 runtime files |
-| Fixture 019 | `ghcr.io/lusoris/20-watts-was-enough-fixture-019` | Node.js 26.8.1, CPython 3.14.7, NumPy 2.5.2 and the closed Fixture 019 runtime files |
+| Fixture 007 | `ghcr.io/cordanallm/20-watts-was-enough-fixture-007` | Node.js 26.8.1 and the closed Fixture 007 runtime files |
+| Fixture 019 | `ghcr.io/cordanallm/20-watts-was-enough-fixture-019` | Node.js 26.8.1, CPython 3.14.7, NumPy 2.5.2 and the closed Fixture 019 runtime files |
 
 For an admitted release, download its checksum-bound and attested
 `oci-images.json` asset and copy the complete `image@sha256:...` identity from
@@ -98,7 +98,7 @@ tag or substitute `latest`. Release notes may repeat the identity but are not
 its authority:
 
 ```bash
-image='ghcr.io/lusoris/20-watts-was-enough-fixture-007@sha256:...'
+image='ghcr.io/cordanallm/20-watts-was-enough-fixture-007@sha256:...'
 docker pull "$image"
 digest=${image##*@}
 docker image inspect \
@@ -151,7 +151,7 @@ Copy Fixture 019's complete identity separately from the same
 Fixture 007:
 
 ```bash
-image='ghcr.io/lusoris/20-watts-was-enough-fixture-019@sha256:...'
+image='ghcr.io/cordanallm/20-watts-was-enough-fixture-019@sha256:...'
 docker pull "$image"
 digest=${image##*@}
 docker image inspect \

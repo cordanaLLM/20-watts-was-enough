@@ -24,7 +24,7 @@ const (
 
 var (
 	artifactPattern = regexp.MustCompile(`^(candidate|fixture)-[0-9]{3}$`)
-	imagePattern    = regexp.MustCompile(`^ghcr\.io/lusoris/20-watts-was-enough-(candidate|fixture)-[0-9]{3}$`)
+	imagePattern    = regexp.MustCompile(`^ghcr\.io/cordanallm/20-watts-was-enough-(candidate|fixture)-[0-9]{3}$`)
 	lockfilePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]{0,511}$`)
 	platformPattern = regexp.MustCompile(`^linux/(amd64|arm64)$`)
 	readinessLevels = map[string]bool{
@@ -264,7 +264,7 @@ func hasImageFields(distribution Distribution) bool {
 }
 
 func validateReleaseImage(root, artifact string, distribution Distribution) error {
-	if !imagePattern.MatchString(distribution.Image) || distribution.Image != "ghcr.io/lusoris/20-watts-was-enough-"+artifact {
+	if !imagePattern.MatchString(distribution.Image) || distribution.Image != "ghcr.io/cordanallm/20-watts-was-enough-"+artifact {
 		return errors.New("release image name does not match its artifact")
 	}
 	if distribution.RuntimeClass != "transitional-node" && distribution.RuntimeClass != "node-python" {

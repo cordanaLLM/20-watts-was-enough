@@ -167,7 +167,7 @@ provide the exact isolated commands. For example, the static validation image
 runs without network access:
 
 ```bash
-image='ghcr.io/lusoris/20-watts-was-enough-20w@sha256:...'
+image='ghcr.io/cordanallm/20-watts-was-enough-20w@sha256:...'
 docker pull "$image"
 docker run --rm --network none \
   --pull never \

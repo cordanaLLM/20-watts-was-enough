@@ -66,7 +66,7 @@ body:
     attributes:
       label: Released image digest
       description: If you used an experiment image, paste its complete immutable image@sha256 identity. A release tag alone is not sufficient.
-      placeholder: "ghcr.io/lusoris/20-watts-was-enough-fixture-007@sha256:..."
+      placeholder: "ghcr.io/cordanallm/20-watts-was-enough-fixture-007@sha256:..."
 
   - type: input
     id: release_tag

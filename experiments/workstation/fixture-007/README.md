@@ -33,7 +33,7 @@ analytical consequences of the smoke configuration, not measured performance.
 
 A v0.3.0 or later release whose source contains and passes the release workflow
 publishes the scoped Linux `amd64` image at
-`ghcr.io/lusoris/20-watts-was-enough-fixture-007`. It contains Node.js 26.8.1
+`ghcr.io/cordanallm/20-watts-was-enough-fixture-007`. It contains Node.js 26.8.1
 and only the closed runtime files needed by this fixture. Follow the
 [digest-first container instructions](../README.md#fixture-007-optical-null-space-diagnostic)
 to retain the smoke output, run analysis and validation, and report the exact
