@@ -388,7 +388,7 @@ performance results.
 
 There is deliberately no `Dockerfile`, committed wheel payload, generated
 fixture, admitted image digest or publication step in this foundation.
-[Issue 12](https://github.com/cordanaLLM/20-watts-was-enough/issues/12) tracks the
+[Issue 12](https://github.com/lusoris/20-watts-was-enough/issues/12) tracks the
 remaining acceptance work.
 
 ## Prepare an already-loaded candidate for generation
