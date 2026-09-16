@@ -1,0 +1,15 @@
+version: 1
+repository:
+    owner: lusoris
+    name: 20-watts-was-enough
+    visibility: public
+    description: ""
+    homepage: ""
+    topics: []
+profiles:
+    - planning-artifacts
+facets:
+    - security:high
+    - api:public-contract
+    - docs:seo-portal
+    - agent:sandboxed
