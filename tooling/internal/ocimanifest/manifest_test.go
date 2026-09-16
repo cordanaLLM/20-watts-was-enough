@@ -10,7 +10,7 @@ import (
 
 func validOptions() Options {
 	return Options{
-		Repository:       "cordanaLLM/20-watts-was-enough",
+		Repository:       "lusoris/20-watts-was-enough",
 		Tag:              "v0.3.0",
 		Commit:           strings.Repeat("a", 40),
 		ToolingDigest:    "sha256:" + strings.Repeat("1", 64),
