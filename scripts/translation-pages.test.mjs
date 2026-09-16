@@ -119,7 +119,7 @@ test("a reviewed non-English manifest entry produces a static locale route", asy
   assert.match(html, /href="#abschnitt"/u);
   assert.match(
     html,
-    /href="https:\/\/github\.com\/lusoris\/20-watts-was-enough\/blob\/main\/README\.md"/u,
+    /href="https:\/\/github\.com\/cordanaLLM\/20-watts-was-enough\/blob\/main\/README\.md"/u,
   );
   assert.match(html, /src="\/plots\/example\.svg"/u);
   assert.doesNotMatch(html, /<script\b[^>]*\bsrc=/u);
