@@ -37,15 +37,33 @@ nested `AGENTS.md` delegation remain the governing text and start below the
 merged section. `CLAUDE.md` becomes a compiled artifact and must not be edited
 directly; change `AGENTS.md` and recompile.
 
-Record the 221 existing HISS infractions in `.standards-baseline.json` so
+Record the 222 existing HISS infractions in `.standards-baseline.json` so
 existing code remains legal while new code is gated. A baseline is not a
 quality claim: it states what was already present on adoption.
+
+One of those 222 is recorded through the explicit `--allow-increase` exception.
+The Linux scan reports 221 and the Windows scan 222 on an identical tree; the
+extra finding is a real mutual-recursion cycle in
+`tooling/internal/strictjson/validate.go`, so Linux is producing a false
+negative (cordanaLLM/praetor#140). The baseline records the larger set, which
+both platforms then satisfy, and the rationale travels in the file. No new debt
+was written to obtain it.
 
 `.standards.lock` pins profile and facet digests. Its `pinned_version` reads
 `v1.0.0` for every entry because non-release builds do not carry a version, so
 the lock cannot currently identify which Praetor governed this repository
 (cordanaLLM/praetor#119). Regenerate the lock once the governing build is a
 tagged release.
+
+Adoption also offers a HISS-16 badge and a "Standards & Governance" command
+table for `README.md`. That injection is declined. The README is public brand
+expression, which [`research-design`](../.agents/skills/research-design/SKILL.md)
+governs, and the generated table teaches `standardsctl` — the name Praetor has
+itself superseded with `praetorctl` (cordanaLLM/praetor#118, #120). Praetor's
+audit does not require the badge, so declining it produces no drift.
+
+`README.md` is also part of the book source set, so accepting cosmetic
+generated text there would invalidate the published PDF's provenance digest.
 
 Documentation validation skips files carrying the compiled-harness banner.
 A vendor target restates `AGENTS.md`, so validating it re-validates the same
