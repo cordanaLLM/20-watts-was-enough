@@ -292,15 +292,15 @@ release-tag identity.
 
 GitHub Release publication starts only after all three final image digests can
 be pulled without credentials from a fresh, empty Docker configuration. GitHub
-[creates a personal-account package as private by
+[creates a new package as private by
 default](https://docs.github.com/en/packages/learn-github-packages/configuring-a-packages-access-control-and-visibility),
 even when its linked repository is public. GitHub also warns that changing a
 package from private to public is irreversible. For the v0.3.0 release, this
 one-time settings action is limited to these three package identities:
 
-- `ghcr.io/lusoris/20-watts-was-enough-20w`
-- `ghcr.io/lusoris/20-watts-was-enough-fixture-007`
-- `ghcr.io/lusoris/20-watts-was-enough-fixture-019`
+- `ghcr.io/cordanallm/20-watts-was-enough-20w`
+- `ghcr.io/cordanallm/20-watts-was-enough-fixture-007`
+- `ghcr.io/cordanallm/20-watts-was-enough-fixture-019`
 
 The first run that creates them can therefore stop at this gate. Set only these
 packages to **Public** in GitHub's package settings, then manually rerun the
@@ -323,6 +323,8 @@ identities of the tooling, Fixture 007 and Fixture 019 images. The workflow
 adds that file to `SHA256SUMS`, verifies the complete checksum inventory, and
 attests every asset before publication. Release notes remain presentation;
 editing prose cannot change the persisted container authority.
+
+Tags published before the transfer to `cordanaLLM` (`v0.2.0`, `v0.3.0`) cannot be rerun: their recorded image identities carry the previous owner, and the read-only preflight rejects the identity prefix by design. Their published assets and digests remain valid as released.
 
 A same-tag run begins with a read-only preflight. The Go release command reads
 every source asset twice, binds initial and final directory snapshots, and

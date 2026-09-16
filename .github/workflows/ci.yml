@@ -465,6 +465,15 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Derive the lowercase registry repository
+        run: |
+          set -euo pipefail
+          image_repository="${GITHUB_REPOSITORY,,}"
+          if [[ ! "$image_repository" =~ ^[a-z0-9]([a-z0-9._-]{0,99}[a-z0-9])?/[a-z0-9]([a-z0-9._-]{0,99}[a-z0-9])?$ ]]; then
+            echo "::error::repository identity does not lowercase to a bounded OCI owner/name"
+            exit 1
+          fi
+          printf 'IMAGE_REPOSITORY=%s\n' "$image_repository" >> "$GITHUB_ENV"
       - name: Use Go 1.27 for closed image contexts
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -514,7 +523,7 @@ jobs:
           network: none
           tags: 20w-clrs-shakedown:test
           build-args: |
-            IMAGE_NAME=ghcr.io/${{ github.repository }}-clrs-shakedown
+            IMAGE_NAME=ghcr.io/${{ env.IMAGE_REPOSITORY }}-clrs-shakedown
             IMAGE_VERSION=development
             SOURCE_REVISION=${{ github.sha }}
             SOURCE_TIMESTAMP=unknown
@@ -557,7 +566,7 @@ jobs:
           tags: 20w-fixture-007:test
           build-args: |
             EXPERIMENT_ARTIFACT=fixture-007
-            IMAGE_NAME=ghcr.io/${{ github.repository }}-fixture-007
+            IMAGE_NAME=ghcr.io/${{ env.IMAGE_REPOSITORY }}-fixture-007
             IMAGE_VERSION=development
             SOURCE_REVISION=${{ github.sha }}
           cache-from: type=gha,scope=fixture-007-image
@@ -598,7 +607,7 @@ jobs:
           push: false
           tags: 20w-fixture-019:test
           build-args: |
-            IMAGE_NAME=ghcr.io/${{ github.repository }}-fixture-019
+            IMAGE_NAME=ghcr.io/${{ env.IMAGE_REPOSITORY }}-fixture-019
             IMAGE_VERSION=development
             SOURCE_REVISION=${{ github.sha }}
           cache-from: type=gha,scope=fixture-019-image
