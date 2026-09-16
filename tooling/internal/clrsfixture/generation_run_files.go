@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"strings"
 )
@@ -70,6 +71,12 @@ func syncGenerationDirectory(root *os.Root, path string) error {
 	directory, err := root.Open(path)
 	if err != nil {
 		return err
+	}
+	// Windows has no directory fsync: FlushFileBuffers on a directory handle
+	// returns ERROR_ACCESS_DENIED. The rename carries the ordering guarantee that
+	// fsync(dir) provides on POSIX.
+	if runtime.GOOS == "windows" {
+		return directory.Close()
 	}
 	return errors.Join(directory.Sync(), directory.Close())
 }

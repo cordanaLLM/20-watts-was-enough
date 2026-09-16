@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/lusoris/20-watts-was-enough/tooling/internal/strictjson"
@@ -96,6 +97,12 @@ func syncDirectory(root *os.Root, path string) error {
 	file, err := root.Open(path)
 	if err != nil {
 		return err
+	}
+	// Windows has no directory fsync: FlushFileBuffers on a directory handle
+	// returns ERROR_ACCESS_DENIED. The rename carries the ordering guarantee that
+	// fsync(dir) provides on POSIX.
+	if runtime.GOOS == "windows" {
+		return file.Close()
 	}
 	return errors.Join(file.Sync(), file.Close())
 }

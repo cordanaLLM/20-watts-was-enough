@@ -8,6 +8,9 @@ import tseslint from "typescript-eslint";
 
 const eslintConfig = defineConfig([
   globalIgnores([
+    ".next/**",
+    ".vinext/**",
+    ".wrangler/**",
     "dist/**",
     "dist-github-pages/**",
     "out/**",
