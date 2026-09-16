@@ -86,7 +86,7 @@ test("help metadata and fallback come from the canonical contribution map", () =
   assert.match(fallback, /Current workstreams/);
   assert.match(fallback, /template=experiment-run-failure\.yml/);
   assert.match(fallback, /Short failed-run form/);
-  assert.match(fallback, /href="https:\/\/github\.com\/lusoris\/20-watts-was-enough\/blob\/main\/experiments\/workstation\/README\.md/);
+  assert.match(fallback, /href="https:\/\/github\.com\/cordanaLLM\/20-watts-was-enough\/blob\/main\/experiments\/workstation\/README\.md/);
   assert.match(fallback, /<details class="portal-mobile-menu"><summary>Menu<\/summary><nav aria-label="Mobile navigation">/);
   assert.match(fallback, /<nav aria-label="Primary navigation">/);
   assert.match(
