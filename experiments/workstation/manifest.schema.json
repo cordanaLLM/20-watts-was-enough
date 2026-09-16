@@ -45,7 +45,7 @@
           "properties": {
             "state": { "const": "release-image" },
             "runtime_class": { "enum": ["transitional-node", "node-python"] },
-            "image": { "type": "string", "pattern": "^ghcr\\.io/cordanaLLM/20-watts-was-enough-(?:candidate|fixture)-[0-9]{3}$" },
+            "image": { "type": "string", "pattern": "^ghcr\\.io/lusoris/20-watts-was-enough-(?:candidate|fixture)-[0-9]{3}$" },
             "platforms": {
               "type": "array",
               "minItems": 1,
