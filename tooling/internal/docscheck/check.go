@@ -57,6 +57,9 @@ var excludedDirectories = map[string]struct{}{
 	".cache": {}, ".git": {}, ".next": {}, ".openai": {}, ".vinext": {},
 	".vite": {}, ".workingdir2": {}, ".wrangler": {}, "build": {}, "dist": {},
 	"dist-github-pages": {}, "node_modules": {}, "tmp": {},
+	// worktrees holds agent-harness checkouts of this repository; scanning them would
+	// count every document twice.
+	"worktrees": {},
 }
 
 var requiredChapterSections = []string{
