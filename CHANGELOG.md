@@ -175,6 +175,14 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- A proposed decision record for hosting several research topics in one
+  repository. New topics would live under `topics/<slug>/` behind a topic
+  registry, claims would keep one integer namespace across topics, the
+  principle registry would stay single, and the founding topic's published
+  paths, identifiers and routes would not move. The record awaits maintainer
+  review and changes no file location. See
+  [decision 0084](decisions/0084-multi-topic-research-repository.md).
+
 - The repository is prepared for transfer to `cordanaLLM/20-watts-was-enough`.
   The Go module path, repository URLs, `CITATION.cff` and the standards manifest
   owner follow the new owner; the name is unchanged so published citations keep
