@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -173,7 +174,7 @@ func assertPackageWritesOnlyRuntimeClosure(t *testing.T, artifact string) {
 		path := filepath.Join(outputRoot, filepath.FromSlash(relativePath))
 		information, err := os.Stat(path)
 		wantTimestamp, timestampError := deterministicFileTimestamp(path)
-		if err != nil || timestampError != nil || !information.ModTime().Equal(wantTimestamp) {
+		if err != nil || timestampError != nil || !information.ModTime().Equal(storedTimestamp(wantTimestamp)) {
 			t.Fatalf("%s mtime = %v, %v; timestamp error = %v; want %v", relativePath, information, err, timestampError, wantTimestamp)
 		}
 	}
@@ -407,10 +408,7 @@ func assertContextModes(t *testing.T, root string) {
 		if err != nil {
 			return err
 		}
-		want := os.FileMode(0o755)
-		if information.Mode().IsRegular() {
-			want = 0o644
-		}
+		want := expectedContextMode(information)
 		if information.Mode().Perm() != want {
 			return fmt.Errorf("%s mode = %04o, want %04o", path, information.Mode().Perm(), want)
 		}
@@ -419,6 +417,33 @@ func assertContextModes(t *testing.T, root string) {
 	if err != nil {
 		t.Fatalf("verify context modes: %v", err)
 	}
+}
+
+// expectedContextMode returns the permission bits Package must leave on a
+// context entry. Windows has no POSIX mode bits: os.Stat reports 0777 for a
+// directory and 0666 for a regular file unless the read-only attribute is set,
+// which Package's Chmod clears, so those values still assert the portable part
+// of the contract: the entry type and that nothing was left read-only.
+func expectedContextMode(information os.FileInfo) os.FileMode {
+	directory, regular := os.FileMode(0o755), os.FileMode(0o644)
+	if runtime.GOOS == "windows" {
+		directory, regular = 0o777, 0o666
+	}
+	if information.Mode().IsRegular() {
+		return regular
+	}
+	return directory
+}
+
+// storedTimestamp returns a deterministic timestamp as the platform filesystem
+// keeps it. Windows FILETIME has 100 ns resolution and os.Chtimes truncates
+// toward it, so the nanosecond derivation is only observable byte-for-byte on
+// POSIX filesystems; the content-derived, deterministic part still holds.
+func storedTimestamp(timestamp time.Time) time.Time {
+	if runtime.GOOS == "windows" {
+		return timestamp.Truncate(100 * time.Nanosecond)
+	}
+	return timestamp
 }
 
 func TestPackageMissingRuntimeFileLeavesNoOutput(t *testing.T) {
