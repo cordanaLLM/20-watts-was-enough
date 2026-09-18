@@ -33,7 +33,9 @@ async function git(repositoryRoot, ...arguments_) {
     encoding: "utf8",
     env: {
       ...process.env,
-      GIT_CONFIG_GLOBAL: os.devNull,
+      // Git's documented "skip this level" literal; Git for Windows maps it to
+      // NUL, whereas the `os.devNull` spelling `\\.\nul` is unopenable for Git.
+      GIT_CONFIG_GLOBAL: "/dev/null",
       GIT_CONFIG_NOSYSTEM: "1",
     },
     maxBuffer: 64 * 1024,

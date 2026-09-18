@@ -359,6 +359,7 @@ func TestDigestGeneratorWheelIsBoundedAndRejectsNamedSymlinkReplacement(t *testi
 		}
 		return os.Symlink(target, filename)
 	})
+	skipWindowsPinnedName(t, err, "stable-read interlock")
 	if err != nil && strings.Contains(err.Error(), "operation not permitted") {
 		t.Skipf("symlink unavailable: %v", err)
 	}
@@ -399,9 +400,15 @@ func TestWriteNewGeneratorWheelhouseManifestIsNewOutsideAndIdentityChecked(t *te
 		t.Fatalf("writeNewGeneratorWheelhouseManifest() = %q, %d, %v", digest, size, err)
 	}
 	information, err := os.Lstat(output)
-	if err != nil || !information.Mode().IsRegular() || information.Mode().Perm() != 0o644 {
-		t.Fatalf("written manifest mode/state = %v, %v", information, err)
+	if err != nil || !information.Mode().IsRegular() {
+		t.Fatalf("written manifest state = %v, %v", information, err)
 	}
+	t.Run("mode", func(t *testing.T) {
+		requirePOSIXModeBits(t, "the published manifest mode")
+		if information.Mode().Perm() != 0o644 {
+			t.Fatalf("written manifest mode = %v", information.Mode())
+		}
+	})
 	if _, _, err := writeNewGeneratorWheelhouseManifest(wheelhouse, output, body); err == nil {
 		t.Fatal("writeNewGeneratorWheelhouseManifest overwrote an existing path")
 	}
@@ -428,6 +435,7 @@ func TestWriteNewGeneratorWheelhouseManifestAnchorsParentAndPreservesReplacement
 			}
 			return os.Mkdir(parent, 0o755)
 		})
+		skipWindowsPinnedName(t, err, "manifest write interlock")
 		if err == nil || !strings.Contains(err.Error(), "output parent changed") {
 			t.Fatalf("write after parent replacement error = %v", err)
 		}

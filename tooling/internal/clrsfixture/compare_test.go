@@ -299,11 +299,14 @@ func TestComparisonTreeFramingAndReportBounds(t *testing.T) {
 func comparisonTestInventory(t *testing.T, root string) map[string]string {
 	t.Helper()
 	inventory := map[string]string{}
-	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+	err := filepath.WalkDir(root, func(path string, _ os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		info, err := entry.Info()
+		// Lstat reads each entry's own record. DirEntry.Info comes from the
+		// parent's listing, which NTFS refreshes lazily when a child handle
+		// closes, so a read-only pass would appear to change directory mtimes.
+		info, err := os.Lstat(path)
 		if err != nil {
 			return err
 		}

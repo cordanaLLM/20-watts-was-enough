@@ -4,7 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -142,7 +144,7 @@ func TestValidateRejectsMermaidBaselineBoundaryViolations(t *testing.T) {
 					t.Fatalf("Remove() error = %v", err)
 				}
 			},
-			diagnostic: "no such file",
+			diagnostic: notExistText(t),
 		},
 		{
 			name: "trailing data",
@@ -450,6 +452,19 @@ func assertMermaidDiagnostic(t *testing.T, result Result, substring string) {
 	if !containsDiagnostic(result.Errors, substring) {
 		t.Fatalf("Validate() errors = %v, want diagnostic containing %q", result.Errors, substring)
 	}
+}
+
+// notExistText returns the operating system's own wording for a missing path.
+// inspectMermaidRepositoryPath wraps the os.Lstat error verbatim, so the
+// boundary test asserts the not-exist cause without hard-coding POSIX text.
+func notExistText(t *testing.T) string {
+	t.Helper()
+	_, err := os.Lstat(filepath.Join(t.TempDir(), "missing"))
+	var pathError *fs.PathError
+	if !errors.As(err, &pathError) || !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("Lstat(missing) error = %v, want *fs.PathError wrapping fs.ErrNotExist", err)
+	}
+	return pathError.Err.Error()
 }
 
 func assertNoMermaidDebtDiagnostic(t *testing.T, result Result) {

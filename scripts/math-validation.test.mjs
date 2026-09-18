@@ -31,6 +31,11 @@ async function fixture(t, files) {
   return root;
 }
 
+// The inventory reports root-relative paths with "/" on every platform; mirror that here.
+function relativePosix(root, file) {
+  return path.relative(root, file).split(path.sep).join("/");
+}
+
 function command(root, script = "validate-math.mjs", args = []) {
   const result = spawnSync(process.execPath, [path.join(scriptRoot, script), ...args], {
     cwd: root, encoding: "utf8", timeout: 10_000, maxBuffer: 64 * 1024,
@@ -99,7 +104,7 @@ test("generated-output exclusions are root-relative, not generic documentation f
   };
   const root = await fixture(t, files);
   const inventory = await collectMathMarkdown(root);
-  assert.deepEqual(inventory.files.map((file) => path.relative(root, file)), [
+  assert.deepEqual(inventory.files.map((file) => relativePosix(root, file)), [
     "README.md", "docs/.cache/a.md", "docs/coverage/a.md", "docs/sources/a.md", "docs/tmp/a.md", "research/build/a.md",
   ]);
   const result = command(root);
@@ -214,7 +219,7 @@ test("canonical inventory is sorted and prunes ignored links without following t
   const root = await fixture(t, { "tooling/README.md": "x", "README.md": "x", "docs/z.md": "x", "docs/a.md": "x" });
   await symlink(path.join(root, "missing"), path.join(root, ".workingdir2"), "dir");
   const inventory = await collectMathMarkdown(root);
-  assert.deepEqual(inventory.files.map((file) => path.relative(root, file)), ["README.md", "docs/a.md", "docs/z.md", "tooling/README.md"]);
+  assert.deepEqual(inventory.files.map((file) => relativePosix(root, file)), ["README.md", "docs/a.md", "docs/z.md", "tooling/README.md"]);
   await symlink(path.join(root, "README.md"), path.join(root, "linked.md"));
   await assert.rejects(collectMathMarkdown(root), /must not be linked/);
   await rm(path.join(root, "linked.md"));
@@ -252,9 +257,16 @@ test("normalizer preserves file mode, BOM, and has an idempotent write", async (
   const root = await fixture(t, { "README.md": "\ufeff\\(x\\)\r\n\r\n`\\(literal\\) $HOME 🧪`\r\n" });
   const file = path.join(root, "README.md");
   await chmod(file, 0o640);
+  const before = (await lstat(file)).mode & 0o777;
   assert.deepEqual(await normalizeMathRepository(root, { write: true }), ["README.md"]);
   assert.equal(await readFile(file, "utf8"), "\ufeff$x$\r\n\r\n`\\(literal\\) $HOME 🧪`\r\n");
-  assert.equal((await lstat(file)).mode & 0o777, 0o640);
+  const after = (await lstat(file)).mode & 0o777;
+  assert.equal(after, before);
+  await t.test("POSIX permission bits survive the write", {
+    skip: process.platform === "win32" && "Windows chmod keeps only the owner write bit; 0o640 reads back as 0o666",
+  }, () => {
+    assert.equal(after, 0o640);
+  });
   assert.deepEqual(await normalizeMathRepository(root, { write: true }), []);
 });
 
