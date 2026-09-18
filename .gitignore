@@ -29,3 +29,7 @@ experiments/workstation/fixture-012/configs/*.local.json
 .vinext/
 .wrangler/
 .claude/worktrees/
+
+# Praetor gate receipt: rewritten by the pre-push hook on every push, so a tracked
+# copy is stale by construction (cordanaLLM/praetor#136); the PR template has no receipt fence.
+.standards-receipt.json
