@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -114,6 +114,21 @@ function disableExitAfterDiagnostic(step, diagnostic) {
   step.run = lines.join("\n");
 }
 
+function resolveBash() {
+  if (process.platform !== "win32") {
+    return "/bin/bash";
+  }
+  // Windows lists the WSL launcher (System32\bash.exe) ahead of Git's bash on
+  // PATH; a bash.exe that ships beside sh.exe is a real POSIX shell install.
+  const directories = (process.env.PATH ?? "").split(path.delimiter).filter(Boolean).slice(0, 256);
+  const directory = directories.find((candidate) => (
+    existsSync(path.join(candidate, "bash.exe")) && existsSync(path.join(candidate, "sh.exe"))
+  ));
+  return directory === undefined ? "bash" : path.join(directory, "bash.exe");
+}
+
+const BASH = resolveBash();
+
 function runCiSuccessGate(source, overrides = {}) {
   const environment = {
     EVENT_NAME: "push",
@@ -140,7 +155,7 @@ function runCiSuccessGate(source, overrides = {}) {
     RESULT_DEPENDENCY_REVIEW: "skipped",
     ...overrides,
   };
-  return spawnSync("/bin/bash", ["-c", source], { encoding: "utf8", env: environment });
+  return spawnSync(BASH, ["-c", source], { encoding: "utf8", env: environment });
 }
 
 test("the repository satisfies its engineering policy", () => {
@@ -1100,7 +1115,7 @@ test("the executed PDF cache guard allows exact hits and cold misses but rejects
     ["", "", 0], ["", "false", 0], ["exact-key", "true", 0],
     ["partial-key", "false", 1], ["partial-key", "", 1], ["partial-key", "TRUE", 1],
   ]) {
-    const child = spawnSync("/bin/bash", ["-c", guard.run], {
+    const child = spawnSync(BASH, ["-c", guard.run], {
       env: { CACHE_MATCHED_KEY: matched, CACHE_HIT: hit }, encoding: "utf8", timeout: 1000, maxBuffer: 1024,
     });
     assert.equal(child.error, undefined);
