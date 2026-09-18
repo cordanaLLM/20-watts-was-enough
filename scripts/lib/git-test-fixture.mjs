@@ -21,6 +21,14 @@ const gitEnvironment = Object.freeze({
   PATH: process.env.PATH ?? "",
 });
 
+function fixtureFailureDetail(result) {
+  if (result.error) {
+    return result.error.message ?? "";
+  }
+  const stderr = (result.stderr ?? "").trim();
+  return stderr === "" ? (result.stdout ?? "").trim() : stderr;
+}
+
 export function runFixtureGit(root, arguments_, input = undefined) {
   const result = spawnSync("git", ["-C", root, ...arguments_], {
     encoding: "utf8",
@@ -32,7 +40,7 @@ export function runFixtureGit(root, arguments_, input = undefined) {
     windowsHide: true,
   });
   if (result.error || result.signal !== null || result.status !== 0) {
-    const detail = result.error?.message ?? (result.stderr?.trim() || result.stdout?.trim() || "");
+    const detail = fixtureFailureDetail(result);
     throw new Error(
       `Fixture Git command failed: git ${arguments_.join(" ")}${detail === "" ? "" : `: ${detail}`}`,
     );
