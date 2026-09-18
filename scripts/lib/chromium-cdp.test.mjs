@@ -107,16 +107,20 @@ test("PDF printing does not retry a different protocol failure", async () => {
 });
 
 test("PDF printing reports typed exhaustion after the sole retry also fails", async () => {
+  // A controlled clock keeps both attempts inside the 10 ms budget. With the wall clock a
+  // loaded host can spend the budget before the retry, which correctly yields one attempt.
+  const clock = controlledClock();
   let calls = 0;
   const cdp = {
     async send() {
       calls += 1;
+      clock.advance(1);
       throw printingFailed();
     },
   };
 
   await assert.rejects(
-    printPageToPdf(cdp, {}, { retryDelayMs: 1, totalTimeoutMs: 10 }),
+    printPageToPdf(cdp, {}, { clock, retryDelayMs: 1, totalTimeoutMs: 10 }),
     (error) => {
       assert.ok(error instanceof PdfPrintRetryExhaustedError);
       assert.equal(error.attempts, 2);
