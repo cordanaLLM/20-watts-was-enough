@@ -28,6 +28,30 @@ const launchpadDocument = portalSourceDocuments(repositoryRoot).find(
 assert.ok(launchpadDocument);
 const launchpadWords = launchpadDocument.words;
 
+// The portal declares platform font stacks, so Windows renders the toolbar
+// title in Palatino Linotype and wraps it one line deeper than the Liberation
+// Serif fallback of the Linux gate. The layout contracts below measure glyph
+// metrics, so the session pins the design tokens to the core families that
+// Windows and macOS ship and that Liberation reproduces metric for metric.
+const measurementFontTokens = Object.freeze({
+  "--font-serif": '"Times New Roman", serif',
+  "--font-sans": "Arial, sans-serif",
+  "--font-mono": '"Courier New", monospace',
+});
+
+async function pinMeasurementFonts(cdp) {
+  const declarations = Object.entries(measurementFontTokens)
+    .map(([token, value]) => `${token}: ${value};`)
+    .join(" ");
+  await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `(() => {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(${JSON.stringify(`:root { ${declarations} }`)});
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+    })()`,
+  });
+}
+
 async function navigate(cdp, url) {
   const result = await cdp.send("Page.navigate", { url });
   assert.equal(result.errorText, undefined);
@@ -209,6 +233,10 @@ async function assertFocusedDocumentEntry(cdp, origin) {
         firstParagraphLineBottom:
           firstParagraphTop + Number.parseFloat(firstParagraphStyle.lineHeight),
         firstParagraphTop,
+        fontTokens: Object.fromEntries(
+          ${JSON.stringify(Object.keys(measurementFontTokens))}.map((token) =>
+            [token, getComputedStyle(root).getPropertyValue(token).trim()]),
+        ),
         identityLabels: labels('dl > div > dt'),
         minimumHeaderActionHeight: Math.min(...headerActionLinks.map(
           (link) => link.getBoundingClientRect().height,
@@ -228,6 +256,7 @@ async function assertFocusedDocumentEntry(cdp, origin) {
   })).result?.value;
 
   assert.equal(snapshot.scrollY, 0, JSON.stringify(snapshot));
+  assert.deepEqual(snapshot.fontTokens, measurementFontTokens);
   assert.deepEqual(
     snapshot.identityLabels,
     ["Edition", "Source revision", "Extent", "Public route"],
@@ -466,6 +495,7 @@ test("hydrated research objects and the book preserve the static Pages identity"
     );
     await cdp.send("Page.enable");
     await cdp.send("Runtime.enable");
+    await pinMeasurementFonts(cdp);
     await cdp.send("Emulation.setDeviceMetricsOverride", {
       width: 375,
       height: 844,
