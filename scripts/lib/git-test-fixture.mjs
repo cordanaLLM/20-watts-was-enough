@@ -1,5 +1,10 @@
 import { spawnSync } from "node:child_process";
-import { devNull } from "node:os";
+
+// Git documents the literal `/dev/null` as the value that skips a configuration
+// level, and Git for Windows maps that literal to the NUL device itself. The
+// platform spelling from `os.devNull` (`\\.\nul` on Windows) is not a path Git
+// can open: `git init` then fails with "unable to access '\\.\nul'".
+const gitConfigNone = "/dev/null";
 
 const gitEnvironment = Object.freeze({
   GIT_AUTHOR_DATE: "2026-09-05T00:00:00Z",
@@ -8,7 +13,7 @@ const gitEnvironment = Object.freeze({
   GIT_COMMITTER_DATE: "2026-09-05T00:00:00Z",
   GIT_COMMITTER_EMAIL: "fixture@example.invalid",
   GIT_COMMITTER_NAME: "Translation fixture",
-  GIT_CONFIG_GLOBAL: devNull,
+  GIT_CONFIG_GLOBAL: gitConfigNone,
   GIT_CONFIG_NOSYSTEM: "1",
   GIT_OPTIONAL_LOCKS: "0",
   LANG: "C",
@@ -27,7 +32,10 @@ export function runFixtureGit(root, arguments_, input = undefined) {
     windowsHide: true,
   });
   if (result.error || result.signal !== null || result.status !== 0) {
-    throw new Error(`Fixture Git command failed: git ${arguments_.join(" ")}`);
+    const detail = result.error?.message ?? (result.stderr?.trim() || result.stdout?.trim() || "");
+    throw new Error(
+      `Fixture Git command failed: git ${arguments_.join(" ")}${detail === "" ? "" : `: ${detail}`}`,
+    );
   }
   return result.stdout.trim();
 }

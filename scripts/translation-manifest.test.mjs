@@ -135,7 +135,15 @@ test("source revision resolves to the reviewed source in publication history", a
     ]);
     runFixtureGit(root, ["commit", "--quiet", "-m", "linked source fixture"]);
     entry.sourceRevision = runFixtureGit(root, ["rev-parse", "HEAD"]);
-    runFixtureGit(root, ["add", "--", entry.source]);
+    // Restore the regular-file mode through the index as well: with
+    // `core.symlinks=false` (Git for Windows default) `git add` keeps the
+    // symbolic-link mode of the existing index entry, so the follow-up commit
+    // would have nothing to record. The tree is the one `git add` writes on POSIX.
+    runFixtureGit(root, [
+      "update-index",
+      "--cacheinfo",
+      `100644,${sourceBlob},${entry.source}`,
+    ]);
     runFixtureGit(root, ["commit", "--quiet", "-m", "regular source fixture"]);
     await writeManifest(root, manifest);
     assert.throws(
