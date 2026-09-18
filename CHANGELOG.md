@@ -541,6 +541,16 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- `AGENTS.md` carries a compiled "Text Register" section between Praetor's
+  `praetor:register` markers, and the six vendor harnesses restate it. The
+  block is rendered from `.standards.yaml` by `praetorctl compile-context`
+  (Praetor c99f7c2, ADR-0010), so a hand edit between the markers is
+  overwritten on the next compile and reported by `--verify` and `audit`. The
+  repository keeps Praetor's default register rows; no `register:` section is
+  written, and the effective complexity policy digest is unchanged. The
+  `caveman` and `social-text` skills the block names ship with Praetor, not
+  with this repository.
+
 - Selected experiment-source provenance now has one bounded book inventory.
   Its exact CI owner selects release and site checks alongside other changed
   sources, while the parser, strict JSON helper and renderer dependencies stay
