@@ -1,5 +1,6 @@
 # Lefthook Configuration (Go 1.27+ & HISS-16 Governance)
 # Governance commands fail closed: a failing or missing praetorctl blocks the commit or push.
+# The Go module lives in tooling/, so the Go scanners run there (Praetor generates root-only commands; cordanaLLM/praetor#242).
 agent-checkpoint-tool:
   commands:
     checkpoint:
@@ -17,7 +18,7 @@ pre-commit:
       stage_fixed: true
     govet:
       glob: "*.go"
-      run: go vet ./...
+      run: go -C tooling vet ./...
     context-check:
       run: if command -v praetorctl >/dev/null 2>&1; then praetorctl compile-context --verify; elif [ -d ./cmd/standardsctl ]; then go run ./cmd/standardsctl compile-context --verify; else echo HISS-16 governance hook cannot run because praetorctl is not installed >&2; exit 1; fi
     hiss-audit:
@@ -34,7 +35,7 @@ pre-push:
   parallel: false
   commands:
     security:
-      run: if command -v govulncheck >/dev/null 2>&1; then govulncheck ./...; else echo govulncheck is not installed, skipping >&2; fi
+      run: if command -v govulncheck >/dev/null 2>&1; then govulncheck -C tooling ./...; else echo govulncheck is not installed, skipping >&2; fi
     flavor-audit:
       run: if command -v praetorctl >/dev/null 2>&1; then praetorctl flavor audit .; elif [ -d ./cmd/standardsctl ]; then go run ./cmd/standardsctl flavor audit .; else echo HISS-16 governance hook cannot run because praetorctl is not installed >&2; exit 1; fi
     audit:
