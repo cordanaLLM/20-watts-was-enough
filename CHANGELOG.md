@@ -7,6 +7,19 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- The local gate runs on Windows. Test fixtures that assumed POSIX now
+  resolve `bash` from `PATH`, compile `.cmd` shims for fake tools, name fake
+  executables the way `LookPath` resolves them on Windows, give Git the
+  environment it needs under Git for Windows, compare inventories with `/`
+  separators, and keep POSIX permission-bit assertions as named subtests that
+  skip on Windows with a stated reason while every portable assertion still
+  runs. The browser layout test pins the measurement fonts so the toolbar fold
+  reads the same under Windows and Linux font fallbacks. No production code
+  changed and no assertion was loosened on Linux. The portable-operation
+  scanner ignores `.claude/worktrees/` like the other scanners, so an agent
+  worktree with its own `node_modules` no longer exhausts its 20,000-entry
+  bound. Tracks #134.
+
 - Documentation validation skips generated agent harnesses, identified by the
   compiled-from-`AGENTS.md` banner they carry. Their repository-relative links
   resolve against their own directory rather than the repository root, and the
