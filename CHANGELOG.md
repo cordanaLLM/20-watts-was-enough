@@ -554,6 +554,17 @@ the exact diff; this file records why the project changed.
   lives; the root-only commands Praetor writes fail every push otherwise
   (cordanaLLM/praetor#242).
 
+- The Praetor bootstrap carried by `.devcontainer/` is rebuilt from the
+  c99f7c2 source, so the container compiles the same harness as the
+  workstation instead of rewriting it with a pre-#146 build (praetor#237).
+  `Makefile` and the README governance table name `praetorctl` and resolve
+  whichever binary is installed, as Praetor now generates them. `.node-version`
+  pins the Node.js 26.8.1 runtime the gate already requires so version managers
+  select it. The gate receipt `.standards-receipt.json` is ignored: the pre-push
+  hook rewrites it on every push and this repository's pull-request template
+  has no receipt fence (praetor#136). The Praetor-written `.eslintrc.json` is
+  removed; ESLint 9 reads only `eslint.config.mjs`.
+
 - Selected experiment-source provenance now has one bounded book inventory.
   Its exact CI owner selects release and site checks alongside other changed
   sources, while the parser, strict JSON helper and renderer dependencies stay
