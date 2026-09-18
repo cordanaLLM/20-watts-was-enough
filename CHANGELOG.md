@@ -550,6 +550,9 @@ the exact diff; this file records why the project changed.
   written, and the effective complexity policy digest is unchanged. The
   `caveman` and `social-text` skills the block names ship with Praetor, not
   with this repository.
+  The generated Lefthook Go jobs run in `tooling/`, where the Go module
+  lives; the root-only commands Praetor writes fail every push otherwise
+  (cordanaLLM/praetor#242).
 
 - Selected experiment-source provenance now has one bounded book inventory.
   Its exact CI owner selects release and site checks alongside other changed
