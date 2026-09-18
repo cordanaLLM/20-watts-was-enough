@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import {
   chmod,
+  copyFile,
   mkdir,
   mkdtemp,
   readFile,
@@ -270,14 +273,105 @@ else process.stdout.write("Dashboard anchor default tail\\nEquation anchor defau
 `;
 }
 
+// Windows cannot execute the shebang script above: spawnSync reports ENOENT for
+// it, and Node refuses .cmd and .bat files without a shell, which the audited
+// code deliberately never uses. The same fake is therefore compiled into a real
+// executable with the C# compiler that ships in the .NET Framework directory of
+// every Windows installation. It mirrors the script's arguments, exit codes,
+// output bytes, and JSONL log line for line; POSIX mode bits have no Windows
+// representation and are logged as null.
+const WINDOWS_FAKE_POPPLER_SOURCE = String.raw`using System;
+using System.IO;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading;
+
+static class FakePoppler {
+  static int Main(string[] args) {
+    string executable = System.Reflection.Assembly.GetExecutingAssembly().Location;
+    string name = Path.GetFileNameWithoutExtension(executable);
+    string[] fixture = File.ReadAllLines(Path.Combine(Path.GetDirectoryName(executable), "fixture.txt"));
+    string behavior = fixture[0];
+    string first = args.Length > 0 ? args[0] : "";
+    if (first == "-v") {
+      Write(Console.OpenStandardError(), name + " version " + (behavior == "wrong-version" ? "99.0.0" : "26.08.0") + "\n");
+      return 0;
+    }
+    byte[] bytes = File.ReadAllBytes("book.pdf");
+    string sha256;
+    using (SHA256 hash = SHA256.Create()) {
+      sha256 = BitConverter.ToString(hash.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant();
+    }
+    File.AppendAllText(fixture[1], "{\"name\":" + Json(name) + ",\"args\":[" + string.Join(",", Array.ConvertAll(args, Json))
+      + "],\"directory_mode\":null,\"file_mode\":null,\"sha256\":" + Json(sha256) + "}\n");
+    if (behavior == "timeout" && first == "-struct") Thread.Sleep(2000);
+    if (behavior == "nonzero" && first == "-struct") return 7;
+    Stream stdout = Console.OpenStandardOutput();
+    if (behavior == "oversize") Write(stdout, new string('x', 4096));
+    else if (name == "pdfinfo" && first == "book.pdf") {
+      Write(stdout, "Tagged: yes\nPages: 1\nPage size: 594.96 x 841.92 pts (A4)\nPDF version: 1.4\n");
+    } else if (name == "pdfinfo") Write(stdout, "Document\n");
+    else Write(stdout, "Dashboard anchor default tail\nEquation anchor default tail\nFigure anchor default tail\f");
+    return 0;
+  }
+
+  static void Write(Stream stream, string text) {
+    byte[] bytes = new UTF8Encoding(false).GetBytes(text);
+    stream.Write(bytes, 0, bytes.Length);
+    stream.Flush();
+  }
+
+  static string Json(string value) {
+    return "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+  }
+}
+`;
+
+async function compileWindowsFakePoppler(root, executable) {
+  const source = path.join(root, "fake-poppler.cs");
+  await writeFile(source, WINDOWS_FAKE_POPPLER_SOURCE, "utf8");
+  const compiler = path.join(
+    process.env.SystemRoot ?? "C:\\Windows",
+    "Microsoft.NET",
+    "Framework64",
+    "v4.0.30319",
+    "csc.exe",
+  );
+  const result = spawnSync(compiler, ["/nologo", "/target:exe", `/out:${executable}`, source], {
+    encoding: "utf8",
+    timeout: 120_000,
+    windowsHide: true,
+  });
+  if (result.error || result.status !== 0) {
+    throw new Error(
+      `fake Poppler executable did not compile: ${result.error?.message ?? `${result.stdout}${result.stderr}`}`,
+    );
+  }
+}
+
+async function windowsFakePopplerTools(root, bin, log, behavior) {
+  const executable = path.join(root, "fake-poppler.exe");
+  if (!existsSync(executable)) await compileWindowsFakePoppler(root, executable);
+  await writeFile(path.join(bin, "fixture.txt"), `${behavior}\n${log}\n`, "utf8");
+  for (const name of ["pdfinfo", "pdftotext"]) {
+    await copyFile(executable, path.join(bin, `${name}.exe`));
+  }
+}
+
 async function fakePopplerTools(root, behavior = "normal") {
   const bin = path.join(root, `bin-${behavior}`);
   const log = path.join(root, `${behavior}.jsonl`);
   await mkdir(bin);
-  for (const name of ["pdfinfo", "pdftotext"]) {
-    const command = path.join(bin, name);
-    await writeFile(command, fakePopplerSource(log, behavior), "utf8");
-    await chmod(command, 0o700);
+  if (process.platform === "win32") {
+    // The extensionless command below resolves to the .exe beside it, exactly
+    // as a bare "pdfinfo" resolves to pdfinfo.exe on PATH in production.
+    await windowsFakePopplerTools(root, bin, log, behavior);
+  } else {
+    for (const name of ["pdfinfo", "pdftotext"]) {
+      const command = path.join(bin, name);
+      await writeFile(command, fakePopplerSource(log, behavior), "utf8");
+      await chmod(command, 0o700);
+    }
   }
   return Object.freeze({
     log,
@@ -767,7 +861,7 @@ test("semantic artifact paths cannot escape the repository root", () => {
   );
 });
 
-test("Poppler receives one private exact-byte snapshot by stable basename", async () => {
+test("Poppler receives one private exact-byte snapshot by stable basename", async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), "20w-semantic-capture-test-"));
   const temporaryRoot = path.join(root, "snapshots");
   await mkdir(temporaryRoot);
@@ -790,10 +884,17 @@ test("Poppler receives one private exact-byte snapshot by stable basename", asyn
     for (const invocation of invocations) {
       assert.equal(invocation.args.includes("book.pdf"), true);
       assert.equal(invocation.args.some((argument) => argument.includes("/")), false);
-      assert.equal(invocation.directory_mode, "700");
-      assert.equal(invocation.file_mode, "600");
       assert.equal(invocation.sha256, sha256(pdfBytes));
     }
+    await t.test("the snapshot directory and file carry owner-only POSIX modes", {
+      skip: process.platform === "win32"
+        && "POSIX mode bits have no Windows representation; the fake logs them as null",
+    }, () => {
+      for (const invocation of invocations) {
+        assert.equal(invocation.directory_mode, "700");
+        assert.equal(invocation.file_mode, "600");
+      }
+    });
     assert.deepEqual(await readdir(temporaryRoot), []);
   } finally {
     await rm(root, { recursive: true, force: true });
