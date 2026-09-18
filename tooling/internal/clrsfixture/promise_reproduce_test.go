@@ -204,12 +204,20 @@ func TestPromiseStagingUsesPrivateParentAndReadonlyWheels(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for path, want := range map[string]os.FileMode{".": 0o700, "wheelhouse": 0o755, "wheelhouse/" + inputs.manifest.SourceBuild.BuildRequirements[0].Filename: 0o444} {
-		info, err := staging.Stat(path)
-		if err != nil || info.Mode().Perm() != want {
-			t.Fatalf("mode %s: %v %v", path, info, err)
-		}
+	// The read-only wheel is portable: Windows reports its attribute as 0o444.
+	wheel := "wheelhouse/" + inputs.manifest.SourceBuild.BuildRequirements[0].Filename
+	if info, err := staging.Stat(wheel); err != nil || info.Mode().Perm() != 0o444 {
+		t.Fatalf("mode %s: %v %v", wheel, info, err)
 	}
+	t.Run("private directories", func(t *testing.T) {
+		requirePOSIXModeBits(t, "the staging parent and wheelhouse directory modes")
+		for path, want := range map[string]os.FileMode{".": 0o700, "wheelhouse": 0o755} {
+			info, err := staging.Stat(path)
+			if err != nil || info.Mode().Perm() != want {
+				t.Fatalf("mode %s: %v %v", path, info, err)
+			}
+		}
+	})
 	if err := removePromiseStaging(bundle, name, staging); err != nil {
 		t.Fatal(err)
 	}

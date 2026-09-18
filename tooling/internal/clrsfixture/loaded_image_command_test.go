@@ -13,7 +13,7 @@ import (
 // The fake "docker" is this Go test executable. Its testing flag parser rejects
 // --host with exit 2 before any test runs; no Docker executable is invoked.
 func TestLoadedImageAdapterPinsOneResolvedExecutable(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "docker")
+	path := filepath.Join(t.TempDir(), fakeDockerExecutableName())
 	if err := os.Symlink(os.Args[0], path); err != nil {
 		t.Fatal(err)
 	}
@@ -24,12 +24,14 @@ func TestLoadedImageAdapterPinsOneResolvedExecutable(t *testing.T) {
 	defer cancel()
 	args := []string{"version", "--format", "{{.Client.Version}} {{.Server.Version}}"}
 	first, err := execute(ctx, args, nil, 64<<10)
-	if err == nil || first.ExitCode != 2 || len(first.Arguments) < 3 || first.Arguments[0] != os.Args[0] || first.Arguments[1] != "--host" || first.Arguments[2] != generationDockerEndpoint {
+	fakeDockerInvocationExit(t, first, err)
+	if len(first.Arguments) < 3 || first.Arguments[0] != os.Args[0] || first.Arguments[1] != "--host" || first.Arguments[2] != generationDockerEndpoint {
 		t.Fatalf("fake executable invocation: %+v %v", first, err)
 	}
 	t.Setenv("PATH", t.TempDir())
 	second, err := execute(ctx, args, nil, 64<<10)
-	if err == nil || second.ExitCode != 2 || second.Arguments[0] != first.Arguments[0] {
+	fakeDockerInvocationExit(t, second, err)
+	if second.Arguments[0] != first.Arguments[0] {
 		t.Fatalf("PATH drift changed selected executable: %+v %v", second, err)
 	}
 }
@@ -39,7 +41,7 @@ func TestLoadedImageAdapterRejectsChangedExecutableBeforeAnotherCall(t *testing.
 	if err != nil || len(body) > 128<<20 {
 		t.Fatalf("bounded test executable fixture: %v", err)
 	}
-	path := filepath.Join(t.TempDir(), "docker")
+	path := filepath.Join(t.TempDir(), fakeDockerExecutableName())
 	if err := os.WriteFile(path, body, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -48,16 +50,15 @@ func TestLoadedImageAdapterRejectsChangedExecutableBeforeAnotherCall(t *testing.
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	args := []string{"version", "--format", "{{.Client.Version}} {{.Server.Version}}"}
-	if record, err := execute(ctx, args, nil, 64<<10); err == nil || record.ExitCode != 2 {
-		t.Fatalf("first fake call: %+v %v", record, err)
-	}
+	record, err := execute(ctx, args, nil, 64<<10)
+	fakeDockerInvocationExit(t, record, err)
 	if err := os.WriteFile(path+".replacement", append(body, '\n'), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Rename(path+".replacement", path); err != nil {
 		t.Fatal(err)
 	}
-	record, err := execute(ctx, args, nil, 64<<10)
+	record, err = execute(ctx, args, nil, 64<<10)
 	if err == nil || record.ExitCode != -1 || len(record.Arguments) != 0 || !strings.Contains(err.Error(), "executable changed") {
 		t.Fatalf("changed executable reached a process: %+v %v", record, err)
 	}

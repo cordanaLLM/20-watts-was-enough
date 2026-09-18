@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -19,7 +20,29 @@ func generationSuccessfulTestBundle(t *testing.T) (GeneratorFixtureRunOptions, g
 	if err != nil {
 		t.Fatal(err)
 	}
+	generationLinuxTestReceipt(t, options, inputs, &report)
 	return options, inputs, report
+}
+
+// generationLinuxTestReceipt rewrites the bundle's producer platform to the
+// Linux amd64 identity that validateGenerationReceipt demands: production
+// generates only there, while the fake executor completes an otherwise
+// identical bundle on any host. Every other receipt check stays in force.
+func generationLinuxTestReceipt(t *testing.T, options GeneratorFixtureRunOptions, inputs generationRunInputs, report *GeneratorFixtureRun) {
+	t.Helper()
+	if runtime.GOOS == "linux" && runtime.GOARCH == "amd64" {
+		return
+	}
+	report.Producer.Build.OperatingSys, report.Producer.Build.Architecture = "linux", "amd64"
+	prepared := generationPreparedReport(inputs, report.ContainerName, promiseProducer{
+		Build: report.Producer.Build, ExecutableSHA256: report.Producer.ExecutableSHA256, ExecutableSizeBytes: report.Producer.ExecutableSizeBytes})
+	prepared.Started = report.Started
+	start, err := MarshalGeneratorFixtureRun(prepared)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeComparisonTestFile(t, options.OutputDirectory, "run-start.json", start)
+	rewriteGenerationTestReceipt(t, options, *report)
 }
 
 func rewriteGenerationTestReceipt(t *testing.T, options GeneratorFixtureRunOptions, report GeneratorFixtureRun) {
