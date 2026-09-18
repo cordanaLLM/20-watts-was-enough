@@ -88,7 +88,7 @@ type generationFake struct {
 
 func (fake *generationFake) execute(ctx context.Context, args []string, sink io.Writer, limit int64) (generationCommandEvidence, error) {
 	fake.calls = append(fake.calls, slices.Clone(args))
-	record := generationCommandEvidence{Arguments: append([]string{"/usr/bin/docker", "--host", generationDockerEndpoint}, args...)}
+	record := generationCommandEvidence{Arguments: append([]string{testAbsolutePath("usr", "bin", "docker"), "--host", generationDockerEndpoint}, args...)}
 	switch {
 	case args[0] == "version":
 		record.Stdout = []byte("29.7.2 29.7.2\n")
@@ -184,6 +184,7 @@ func TestGenerationRunAndReadOnlyCheck(t *testing.T) {
 		report.ImportedExamples != 48 || len(report.Files) != 6 || fake.exists || len(fake.calls) != 19 {
 		t.Fatalf("invalid successful run: %#v, calls=%d", report, len(fake.calls))
 	}
+	generationLinuxTestReceipt(t, options, inputs, &report)
 	before := comparisonTestInventory(t, options.OutputDirectory)
 	first, err := CheckGeneratorFixtureRun(context.Background(), options)
 	if err != nil {
