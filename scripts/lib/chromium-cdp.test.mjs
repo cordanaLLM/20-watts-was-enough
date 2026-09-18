@@ -426,6 +426,37 @@ test("Chrome-assigned debugging port is read from one bounded profile file", asy
   );
 });
 
+test("a busy DevTools port file is retried inside the bounded wait", async (t) => {
+  const profile = await mkdtemp(path.join(os.tmpdir(), "20w-devtools-port-busy-test-"));
+  t.after(() => rm(profile, { recursive: true, force: true }));
+  await writeFile(
+    path.join(profile, "DevToolsActivePort"),
+    "37587\n/devtools/browser/01234567-89ab-cdef-0123-456789abcdef\n",
+  );
+  const browserProcess = { exitCode: null, signalCode: null };
+  const { open } = await import("node:fs/promises");
+  let attempts = 0;
+  const busyTwice = (file, flags) => {
+    attempts += 1;
+    if (attempts <= 2) throw Object.assign(new Error("resource busy or locked"), { code: "EBUSY" });
+    return open(file, flags);
+  };
+  assert.equal(await waitForDevtoolsPort(profile, browserProcess, { openFile: busyTwice }), 37_587);
+  assert.equal(attempts, 3);
+
+  const alwaysBusy = () => { throw Object.assign(new Error("resource busy or locked"), { code: "EBUSY" }); };
+  await assert.rejects(
+    waitForDevtoolsPort(profile, browserProcess, { openFile: alwaysBusy, timeoutMs: 250 }),
+    /Timed out waiting for Chrome to publish its DevTools port/u,
+  );
+
+  const denied = () => { throw Object.assign(new Error("operation not permitted"), { code: "EACCES" }); };
+  await assert.rejects(
+    waitForDevtoolsPort(profile, browserProcess, { openFile: denied }),
+    (error) => error.code === "EACCES",
+  );
+});
+
 test("caller cancellation closes DevTools and rejects pending commands", async () => {
   class FakeSocket extends EventTarget {
     readyState = 0;

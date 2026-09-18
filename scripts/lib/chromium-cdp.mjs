@@ -235,10 +235,15 @@ export async function waitForUrl(url, process, timeoutMs = 60_000, signal) {
   throw new Error(`Timed out waiting for ${localUrlDiagnosticLabel(url)}. Last attempt: ${lastFailure}.`);
 }
 
+// Chrome publishes the file with an exclusive handle on Windows, so a reader can
+// observe a sharing violation (EBUSY) before the content is complete. Both mean
+// "not published yet" and stay inside the same bounded wait.
+const unpublishedDevtoolsPortErrorCodes = new Set(["ENOENT", "EBUSY"]);
+
 export async function waitForDevtoolsPort(
   profile,
   browserProcess,
-  { signal, timeoutMs = 60_000 } = {},
+  { signal, timeoutMs = 60_000, openFile = open } = {},
 ) {
   if (typeof profile !== "string" || !path.isAbsolute(profile)) {
     throw new Error("Chrome profile path must be absolute.");
@@ -255,7 +260,7 @@ export async function waitForDevtoolsPort(
     }
     let handle;
     try {
-      handle = await open(activePortPath, "r");
+      handle = await openFile(activePortPath, "r");
       const information = await handle.stat();
       if (!information.isFile() || information.size > maximumDevtoolsActivePortBytes) {
         throw new Error("Chrome DevTools active-port file is invalid or oversized.");
@@ -274,7 +279,10 @@ export async function waitForDevtoolsPort(
         && /^\/devtools\/browser\/[A-Za-z0-9-]{1,128}$/u.test(lines[1])
       ) return port;
     } catch (error) {
-      if (error?.code !== "ENOENT" && !String(error?.message).includes("active-port file")) {
+      if (
+        !unpublishedDevtoolsPortErrorCodes.has(error?.code)
+        && !String(error?.message).includes("active-port file")
+      ) {
         throw error;
       }
       if (String(error?.message).includes("oversized") || String(error?.message).includes("byte limit")) {

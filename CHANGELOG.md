@@ -18,7 +18,9 @@ the exact diff; this file records why the project changed.
   changed and no assertion was loosened on Linux. The portable-operation
   scanner ignores `.claude/worktrees/` like the other scanners, so an agent
   worktree with its own `node_modules` no longer exhausts its 20,000-entry
-  bound. Tracks #134.
+  bound. The browser harness treats a sharing violation (`EBUSY`) on Chrome's
+  `DevToolsActivePort` file as not yet published and retries inside the same
+  bounded wait; every other error still fails immediately. Tracks #134.
 
 - Documentation validation skips generated agent harnesses, identified by the
   compiled-from-`AGENTS.md` banner they carry. Their repository-relative links
