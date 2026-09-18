@@ -87,7 +87,7 @@ func (fake *loadedImageFake) execute(ctx context.Context, args []string, sink io
 		fake.t.Fatal("executor received an unbounded or mutating operation")
 	}
 	fake.calls = append(fake.calls, slices.Clone(args))
-	record := generationCommandEvidence{Arguments: append([]string{"/test/docker", "--host", generationDockerEndpoint}, args...)}
+	record := generationCommandEvidence{Arguments: append([]string{testAbsolutePath("test", "docker"), "--host", generationDockerEndpoint}, args...)}
 	var err error
 	switch args[0] {
 	case "version":

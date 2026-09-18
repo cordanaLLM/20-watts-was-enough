@@ -3,7 +3,6 @@ package clrsfixture
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,8 +49,11 @@ func TestLoadedImageInvalidInputsHaveNoDockerOrOutput(t *testing.T) {
 				t.Fatal("invalid input reached Docker")
 			}
 			if mode != "existing-output" && options.OutputDirectory != "" {
-				if _, err := os.Lstat(options.OutputDirectory); !errors.Is(err, os.ErrNotExist) {
-					t.Fatalf("invalid input made output: %v", err)
+				// Windows cannot address the newline name at all, so the fresh
+				// parent staying empty is the portable evidence of no output.
+				entries, err := os.ReadDir(filepath.Dir(options.OutputDirectory))
+				if err != nil || len(entries) != 0 {
+					t.Fatalf("invalid input made output: %v %v", entries, err)
 				}
 			}
 		})
