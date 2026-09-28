@@ -71,32 +71,84 @@ async function fragmentSnapshot(cdp, targetId) {
   })).result?.value;
 }
 
-async function waitForVisibleFragment(cdp, targetId, timeoutMs = 30_000) {
-  const deadline = Date.now() + timeoutMs;
-  let previous;
-  let stableSamples = 0;
+// Cold hydration can block each Runtime.evaluate for seconds. A single
+// deadline for loading and settling let a heading that became visible late run
+// out of time before its stability count finished (#142). The load deadline
+// therefore covers only the first visible observation; stability is then a
+// count of consecutive unmoved observations with its own scalar bound.
+const fragmentWaitPolicy = Object.freeze({
+  intervalMs: 100,
+  readyTimeoutMs: 30_000,
+  requiredStableObservations: 5,
+  stableObservationLimit: 50,
+});
+const systemClock = Object.freeze({
+  now: () => Date.now(),
+  sleep: (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+});
+
+function isVisibleFragment(snapshot, targetId) {
+  return snapshot?.readyState === "complete"
+    && snapshot.hash === `#${targetId}`
+    && /^H[1-6]$/u.test(snapshot.tagName ?? "")
+    && snapshot.targetBottom > 0
+    && snapshot.targetTop >= snapshot.obstructionBottom
+    && snapshot.targetTop < snapshot.viewportHeight;
+}
+
+function isUnmovedFragment(snapshot, previous) {
+  return previous !== undefined && previous !== null
+    && Math.abs(snapshot.targetTop - previous.targetTop) < 0.5
+    && Math.abs(snapshot.scrollY - previous.scrollY) < 0.5;
+}
+
+async function firstVisibleObservation(observer, clock, policy) {
+  const deadline = clock.now() + policy.readyTimeoutMs;
   let snapshot;
-
-  while (Date.now() < deadline) {
-    snapshot = await fragmentSnapshot(cdp, targetId);
-    const visible =
-      snapshot?.readyState === "complete"
-      && snapshot.hash === `#${targetId}`
-      && /^H[1-6]$/u.test(snapshot.tagName ?? "")
-      && snapshot.targetBottom > 0
-      && snapshot.targetTop >= snapshot.obstructionBottom
-      && snapshot.targetTop < snapshot.viewportHeight;
-    const stable = visible
-      && previous
-      && Math.abs(snapshot.targetTop - previous.targetTop) < 0.5
-      && Math.abs(snapshot.scrollY - previous.scrollY) < 0.5;
-    stableSamples = stable ? stableSamples + 1 : 0;
-    if (stableSamples >= 5) return snapshot;
-    previous = snapshot;
-    await new Promise((resolve) => setTimeout(resolve, 100));
+  while (clock.now() < deadline) {
+    snapshot = await observer.sample();
+    if (observer.accepts(snapshot)) return { accepted: true, snapshot };
+    await clock.sleep(policy.intervalMs);
   }
+  return { accepted: false, snapshot };
+}
 
-  assert.fail(`Fragment did not become stably visible: ${JSON.stringify(snapshot)}`);
+async function stableVisibleObservation(observer, clock, policy, first) {
+  let previous = first;
+  let stableObservations = 0;
+  for (let observation = 0; observation < policy.stableObservationLimit; observation += 1) {
+    await clock.sleep(policy.intervalMs);
+    const snapshot = await observer.sample();
+    const stable = observer.accepts(snapshot) && observer.unmoved(snapshot, previous);
+    stableObservations = stable ? stableObservations + 1 : 0;
+    previous = snapshot;
+    if (stableObservations >= policy.requiredStableObservations) {
+      return { accepted: true, snapshot };
+    }
+  }
+  return { accepted: false, snapshot: previous };
+}
+
+async function observeStableVisibility(observer, clock = systemClock, policy = fragmentWaitPolicy) {
+  const ready = await firstVisibleObservation(observer, clock, policy);
+  if (!ready.accepted) return { ...ready, phase: "visibility" };
+  const settled = await stableVisibleObservation(observer, clock, policy, ready.snapshot);
+  return { ...settled, phase: "stability" };
+}
+
+async function waitForVisibleFragment(cdp, targetId) {
+  const result = await observeStableVisibility({
+    sample: () => fragmentSnapshot(cdp, targetId),
+    accepts: (snapshot) => isVisibleFragment(snapshot, targetId),
+    unmoved: isUnmovedFragment,
+  });
+  if (result.accepted) return result.snapshot;
+  const failure = result.phase === "visibility"
+    ? `Fragment did not become visible within ${fragmentWaitPolicy.readyTimeoutMs} ms`
+    : `Fragment did not stay visible and unmoved for ${fragmentWaitPolicy.requiredStableObservations} `
+      + `consecutive observations within ${fragmentWaitPolicy.stableObservationLimit} `
+      + "observations after it first became visible";
+  assert.fail(`${failure}: ${JSON.stringify(result.snapshot)}`);
 }
 
 function assertFragmentClearance(snapshot, viewport, mode) {
@@ -444,6 +496,121 @@ async function exerciseStaticBook(cdp) {
   await exerciseStaticNavigation(cdp);
   await exerciseStaticTable(cdp);
 }
+
+function fragmentAt(scrollY, overrides = {}) {
+  return {
+    hash: `#${coldTarget}`,
+    obstructionBottom: 76,
+    readyState: "complete",
+    scrollY,
+    tagName: "H4",
+    targetBottom: 117,
+    targetTop: 96,
+    viewportHeight: 900,
+    ...overrides,
+  };
+}
+
+const hydratingFragment = fragmentAt(0, {
+  readyState: "interactive",
+  tagName: null,
+  targetBottom: null,
+  targetTop: null,
+});
+
+function scriptedFragmentObservation(snapshots, sampleCostsMs = []) {
+  let now = 0;
+  let samples = 0;
+  const clock = {
+    now: () => now,
+    sleep: async (milliseconds) => { now += milliseconds; },
+  };
+  const observer = {
+    sample: async () => {
+      now += sampleCostsMs[samples] ?? 0;
+      samples += 1;
+      return snapshots[Math.min(samples, snapshots.length) - 1];
+    },
+    accepts: (snapshot) => isVisibleFragment(snapshot, coldTarget),
+    unmoved: isUnmovedFragment,
+  };
+  return { clock, observer, elapsedMs: () => now, samples: () => samples };
+}
+
+function movingThenSettled(movingObservations) {
+  const moving = Array.from({ length: movingObservations + 1 }, (_, index) => fragmentAt(index));
+  return [...moving, ...Array(5).fill(fragmentAt(movingObservations))];
+}
+
+test("fragment visibility accepts heading geometry exactly at the documented bounds", () => {
+  assert.equal(isVisibleFragment(fragmentAt(0, { targetTop: 76 }), coldTarget), true);
+  assert.equal(isVisibleFragment(fragmentAt(0, { targetTop: 899.9 }), coldTarget), true);
+  assert.equal(isVisibleFragment(fragmentAt(0, { targetTop: 75.9 }), coldTarget), false);
+  assert.equal(isVisibleFragment(fragmentAt(0, { targetTop: 900 }), coldTarget), false);
+  assert.equal(isVisibleFragment(fragmentAt(0, { targetBottom: 0 }), coldTarget), false);
+  assert.equal(isVisibleFragment(fragmentAt(0, { tagName: "P" }), coldTarget), false);
+  assert.equal(isVisibleFragment(fragmentAt(0, { hash: `#${hashTarget}` }), coldTarget), false);
+  assert.equal(isVisibleFragment(hydratingFragment, coldTarget), false);
+  assert.equal(isVisibleFragment(undefined, coldTarget), false);
+  assert.equal(isUnmovedFragment(fragmentAt(0.49, { targetTop: 96.49 }), fragmentAt(0)), true);
+  assert.equal(isUnmovedFragment(fragmentAt(0.5), fragmentAt(0)), false);
+  assert.equal(isUnmovedFragment(fragmentAt(0, { targetTop: 96.5 }), fragmentAt(0)), false);
+  assert.equal(isUnmovedFragment(fragmentAt(0), undefined), false);
+});
+
+test("fragment stability is counted after a slow cold load reaches the heading", async () => {
+  const run = scriptedFragmentObservation(
+    [hydratingFragment, ...Array(6).fill(fragmentAt(22_532))],
+    [20_000, 9_850],
+  );
+  const result = await observeStableVisibility(run.observer, run.clock);
+
+  assert.deepEqual(result, { accepted: true, phase: "stability", snapshot: fragmentAt(22_532) });
+  assert.equal(run.samples(), 7);
+  assert.ok(run.elapsedMs() > fragmentWaitPolicy.readyTimeoutMs, `${run.elapsedMs()} ms`);
+});
+
+test("fragment stability needs consecutive unmoved observations within its limit", async () => {
+  const limit = fragmentWaitPolicy.stableObservationLimit;
+  const lastChance = scriptedFragmentObservation(movingThenSettled(limit - 5));
+  const settled = await observeStableVisibility(lastChance.observer, lastChance.clock);
+  assert.equal(settled.accepted, true);
+  assert.equal(lastChance.samples(), limit + 1);
+
+  const tooLate = scriptedFragmentObservation(movingThenSettled(limit - 4));
+  const drifting = await observeStableVisibility(tooLate.observer, tooLate.clock);
+  assert.equal(drifting.accepted, false);
+  assert.equal(drifting.phase, "stability");
+  assert.equal(tooLate.samples(), limit + 1);
+
+  const obscured = fragmentAt(10, { targetTop: 70 });
+  const interrupted = scriptedFragmentObservation([
+    ...Array(5).fill(fragmentAt(10)),
+    obscured,
+    ...Array(6).fill(fragmentAt(10)),
+  ]);
+  assert.equal((await observeStableVisibility(interrupted.observer, interrupted.clock)).accepted, true);
+  assert.equal(interrupted.samples(), 12);
+
+  const unanswered = scriptedFragmentObservation([
+    fragmentAt(10),
+    undefined,
+    ...Array(6).fill(fragmentAt(10)),
+  ]);
+  assert.equal((await observeStableVisibility(unanswered.observer, unanswered.clock)).accepted, true);
+  assert.equal(unanswered.samples(), 8);
+});
+
+test("fragment visibility fails at the load deadline when the heading never appears", async () => {
+  const run = scriptedFragmentObservation([hydratingFragment]);
+  const result = await observeStableVisibility(run.observer, run.clock);
+
+  assert.deepEqual(result, { accepted: false, phase: "visibility", snapshot: hydratingFragment });
+  assert.equal(
+    run.samples(),
+    fragmentWaitPolicy.readyTimeoutMs / fragmentWaitPolicy.intervalMs,
+  );
+});
 
 test("the full book preserves fragment, semantic, and keyboard contracts", {
   timeout: 120_000,

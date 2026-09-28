@@ -13,6 +13,15 @@ the exact diff; this file records why the project changed.
   scalar bound. Linux `PATH_MAX` admits at most 2048 levels, so no Linux path
   reaches the bound; paths within it are inspected as before.
 
+- The book fragment browser test no longer lets a slow cold load consume the
+  time its stability check needs (#142). One 30-second deadline covered both
+  the load and the five consecutive unmoved observations, so a heading that
+  reached its correct position late still failed, with correct geometry in the
+  failure report. The load deadline now ends at the first visible observation;
+  the stability count then has its own bound of 50 observations. The
+  visibility geometry, the 0.5-pixel movement tolerance and the
+  five-observation requirement are unchanged.
+
 - The local gate runs on Windows. Test fixtures that assumed POSIX now
   resolve `bash` from `PATH`, compile `.cmd` shims for fake tools, name fake
   executables the way `LookPath` resolves them on Windows, give Git the
