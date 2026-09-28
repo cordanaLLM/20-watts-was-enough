@@ -257,16 +257,11 @@ test("normalizer preserves file mode, BOM, and has an idempotent write", async (
   const root = await fixture(t, { "README.md": "\ufeff\\(x\\)\r\n\r\n`\\(literal\\) $HOME 🧪`\r\n" });
   const file = path.join(root, "README.md");
   await chmod(file, 0o640);
-  const before = (await lstat(file)).mode & 0o777;
+  // Windows chmod keeps only the owner write bit, so 0o640 reads back as 0o666 there.
+  const expectedMode = process.platform === "win32" ? 0o666 : 0o640;
   assert.deepEqual(await normalizeMathRepository(root, { write: true }), ["README.md"]);
   assert.equal(await readFile(file, "utf8"), "\ufeff$x$\r\n\r\n`\\(literal\\) $HOME 🧪`\r\n");
-  const after = (await lstat(file)).mode & 0o777;
-  assert.equal(after, before);
-  await t.test("POSIX permission bits survive the write", {
-    skip: process.platform === "win32" && "Windows chmod keeps only the owner write bit; 0o640 reads back as 0o666",
-  }, () => {
-    assert.equal(after, 0o640);
-  });
+  assert.equal((await lstat(file)).mode & 0o777, expectedMode);
   assert.deepEqual(await normalizeMathRepository(root, { write: true }), []);
 });
 
