@@ -87,10 +87,10 @@ The repository now treats the following as executable gates:
 The governance documents do not claim that a GitHub repository setting is
 active. Settings are recorded as active only after an API check.
 
-Host controls verified through the GitHub API on 2026-08-28 are:
+Host controls verified through the GitHub API on
+`cordanaLLM/20-watts-was-enough` on 2026-09-28 are:
 
-- public repository visibility and the `https://www.cordana.dev/` project
-  homepage;
+- public repository visibility;
 - squash and rebase merges enabled, merge commits disabled, auto-merge and
   post-merge branch deletion enabled;
 - the unused wiki and Projects surfaces disabled;
@@ -98,15 +98,20 @@ Host controls verified through the GitHub API on 2026-08-28 are:
 - secret scanning enabled;
 - push protection enabled;
 - workflow-token permissions read-only by default, without pull-request review
-  approval; and
+  approval;
 - immutable full-SHA pinning required for every GitHub Action; and
 - active immutable release-tag ruleset `21727474` for `refs/tags/v*`, with tag
   update and deletion blocked and no bypass actor.
 
-The `main` ruleset was read back through the API on 2026-09-04. Active ruleset
-`21746706` has no bypass actor, requires a pull
-request, strict `CI success`, resolved review threads, linear history, and
-CodeQL with no high-or-higher security alert or analysis error. Squash and
+The repository homepage field reads `http://www.cordana.dev/`. Cloudflare
+answers that address with a 301 redirect to `https://www.cordana.dev/`, so the
+link works, but the field has not yet been set to the HTTPS address.
+
+The `main` ruleset was read back through the API on 2026-09-28. Active ruleset
+`21746706` was last changed on 2026-09-04 and carried over unchanged in the
+transfer. It has no bypass actor, requires a pull request, the strict
+`CI success` and `PR title` checks, resolved review threads, linear history,
+and CodeQL with no high-or-higher security alert or analysis error. Squash and
 rebase are the admitted merge methods. The approval count remains zero because
 the repository has one human maintainer; GitHub's [ruleset
 guidance](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets)
@@ -130,10 +135,14 @@ API still lacks its own origin certificate for the proxied hostname.
 ## Main protection
 
 The active `main` ruleset blocks branch deletion and non-fast-forward updates,
-requires the exact strict `CI success` context and a pull request, and requires
-CodeQL to report no high-or-higher security alert or analysis error. No actor,
-including the maintainer, can bypass it. The GitHub rulesets API is
-authoritative for its current activation state.
+requires the exact strict `CI success` and `PR title` contexts and a pull
+request, and requires CodeQL to report no high-or-higher security alert or
+analysis error. No actor, including the maintainer, can bypass it. The GitHub
+rulesets API is authoritative for its current activation state. The Praetor
+scaffold in [`.github/rulesets/main.json`](../.github/rulesets/main.json) is
+not this ruleset and is not applied;
+[decision 0085](../decisions/0085-keep-the-live-main-ruleset-across-the-transfer.md)
+records why.
 
 ## Staged controls and exit conditions
 
@@ -143,7 +152,7 @@ authoritative for its current activation state.
 | Broader property, fuzz, mutation, and hostile-input testing | The strict JSON parser now has a bounded Go fuzz target in required CI; wider adoption remains staged. | Extend it to the next parser or promotion boundary only when the target has a concrete invariant and the campaign remains resource-bounded. |
 | Automated dependency merge | Deliberately disabled; branch protection alone does not prove an update safe. | Consider only after repeated dependency PRs demonstrate that the full gate and review policy catch relevant drift. |
 | REUSE lint | Split licences, `sources/`, restricted taxonomy data, and generated mixed works cannot be represented by a copied catch-all annotation. | Complete a file-level licence inventory with truthful third-party and `LicenseRef` mappings before declaring REUSE conformance. |
-| Dedicated Gitleaks CI | Native GitHub secret scanning and push protection are active; an unverified download pipeline would reduce supply-chain quality. | Use a full-SHA action that works for this repository or a checksum-pinned binary and retain only exact-value baseline exceptions. |
+| Dedicated Gitleaks CI | Native GitHub secret scanning and push protection are active (API check 2026-09-28); an unverified download pipeline would reduce supply-chain quality. | Use a full-SHA action that works for this repository or a checksum-pinned binary and retain only exact-value baseline exceptions. |
 
 ## Deliberate non-goals
 

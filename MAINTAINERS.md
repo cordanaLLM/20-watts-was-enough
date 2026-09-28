@@ -8,9 +8,10 @@ rule is enabled.
 
 ### [`@lusoris`](https://github.com/lusoris)
 
-Repository owner and maintainer for project scope, merges, releases, security
-handling, research and experiment authority review, licensing, and host
-settings.
+Maintainer for project scope, merges, releases, security handling, research
+and experiment authority review, licensing, and host settings. The repository
+belongs to the [`cordanaLLM`](https://github.com/cordanaLLM) organization, in
+which `@lusoris` holds the organization and repository admin roles.
 
 ## Responsibilities
 

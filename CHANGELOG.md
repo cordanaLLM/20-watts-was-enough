@@ -36,6 +36,13 @@ the exact diff; this file records why the project changed.
   PDF-tools and CLRS generator contracts and the `io.github.lusoris.*` label
   keys are unchanged.
 
+- `SECURITY.md`, `MAINTAINERS.md` and the repository-rule crosswalk describe
+  the moved repository as read through the GitHub API on 2026-09-28. Secret
+  scanning and push protection had been reported as enabled from a pre-transfer
+  read; they were found disabled on the moved repository and enabled again the
+  same day. The crosswalk now records the `PR title` check the `main` ruleset
+  requires and the homepage field that still names the HTTP address.
+
 - The local gate runs on Windows. Test fixtures that assumed POSIX now
   resolve `bash` from `PATH`, compile `.cmd` shims for fake tools, name fake
   executables the way `LookPath` resolves them on Windows, give Git the
@@ -239,6 +246,14 @@ the exact diff; this file records why the project changed.
   shared, `/` stays the founding topic's portal, and a smaller hypothesis is a
   topic entry without a book. The record changes no file location. See
   [decision 0084](decisions/0084-multi-topic-research-repository.md).
+
+- The transfer to `cordanaLLM/20-watts-was-enough` is recorded as completed on
+  2026-09-16, with the post-transfer checks decision 0083 left open. Its step 5
+  no longer re-applies `.github/rulesets/main.json`: that Praetor scaffold
+  would require an approval the single maintainer cannot give and would drop
+  the CodeQL rule, so the live `main` ruleset, which survived the transfer,
+  stays authoritative. Package visibility waits for the first release after the
+  transfer. See [decision 0085](decisions/0085-keep-the-live-main-ruleset-across-the-transfer.md).
 
 - The repository is prepared for transfer to `cordanaLLM/20-watts-was-enough`.
   The Go module path, repository URLs, `CITATION.cff` and the standards manifest
