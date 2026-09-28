@@ -49,7 +49,7 @@ place, not a complete inventory.
 | Reader routes | A document's route is its repository path without `.md` plus `/` (`portal-documents.mjs:52` to `:54`), so a chapter publishes at `https://www.cordana.dev/concept/00-thesis-and-principles/`; the sitemap is `canonicalSite` plus route (`pages-seo.mjs:555` to `:559`); translations mirror the canonical path under `/<lang>/` ([`translations/README.md`](../translations/README.md)); the only redirects are client-side rewrites of `?doc=` and `#book-` in [`github-pages/main.tsx`](../github-pages/main.tsx) lines 18 to 33; `validate-github-pages-build.mjs` line 48 rejects any `/20-watts-was-enough/{assets,book,documents,downloads,plots,repository-files}` reference as a legacy subpath deployment, and lines 326 to 352 require the built portal documents and research-object records to equal the `concept/` and `math/` corpus exactly | Repository paths are public URLs. Any move of the founding chapters changes URLs that the v0.3.0 PDF and external citations already carry, a topic prefix equal to the repository name would fail the build validator, and a new topic's documents would fail the corpus equality. |
 | Translations | The reader route pattern at `scripts/lib/translation-pages.mjs:17` and the Go source pattern at `tooling/internal/translationbundle/bundle.go:35` admit only `concept/` and `math/`; `translationbundle/files.go:81` and `:172` enforce the Go pattern, and the flag help at `tooling/cmd/20w/translation.go:15`, `:47` and `:83` describes it; `translations/manifest.json` lists no published document | Both patterns reject `topics/<slug>/...`. With no published translation, widening them moves no reader route. |
 | CI impact map | Rule `research` in [`.github/ci-impact.json`](../.github/ci-impact.json) (line 312) maps `concept/**`, `math/**`, `research/**` and the experiment contracts to the `research` and `site` lanes; each executable artifact has its own `workstation-<artifact>` lane, listed in `tooling/internal/ciplan/workstation-catalogue.json` and run by the `workstation-artifacts` matrix job at `.github/workflows/ci.yml:412`; the other lanes are closed in `tooling/internal/ciplan/workstation_catalogue.go:111` and `:112`; `ci.yml` runs one job per such lane (`lane-research` at line 325, `lane-site` at line 357) | Paths under a new topic root match no rule, so `20w ci plan` selects the full lane by the rule in [decision 0080](0080-impact-scope-local-validation.md). Safe, but every topic change would run everything. |
-| Chapter contract | `check.go:65` to `:74` require eight sections, including `## Biological observation`, in every numbered `concept/` chapter; [`concept/README.md`](../concept/README.md) states the same shape; `check.go:76` to `:82` list five phrases inherited from the founding topic's imported material, which `validateUnsupportedPhrases` (`check.go:478`) rejects in all Markdown outside imported sources | The required sections describe the founding topic's argument. A topic without a biological observation cannot satisfy them, and a generic validator carries one topic's phrase list. |
+| Chapter contract | `check.go:65` to `:74` require eight sections, including `## Biological observation`, in every numbered `concept/` chapter; [`concept/README.md`](../concept/README.md) states the same shape; `check.go:76` to `:82` list five phrases inherited from the founding topic's imported material, which `validateUnsupportedPhrases` (`check.go:479`) rejects in all Markdown outside imported sources | The required sections describe the founding topic's argument. A topic without a biological observation cannot satisfy them, and a generic validator carries one topic's phrase list. |
 | GitHub metadata | `.github/labels.json` holds 35 labels with an `area:` dimension and no topic dimension; `.github/labeler.yml` maps founding root paths to `area:` labels; `.github/milestones.json` binds six milestones, `M0` to `M5`, to `concept/90-research-roadmap.md#stage-N`, which `tooling/internal/githubmilestones/manifest.go:26` requires and `:97` reports; `manifest.go:25` limits identifiers to `M0` to `M15` | Issues and pull requests cannot be filtered by topic, and a second topic has no roadmap a milestone can bind. |
 | Sources allowlist | `PINNED_SOURCE_FILES` at `scripts/lib/source-boundary.mjs:13` pins the 17 files of `sources/` by byte count and SHA-256 in code; no rule in `.github/ci-impact.json` names that script | A provenance record added for any topic edits a script, and that change falls to the full lane. |
 | Release and citation | `package.json:3` and `CITATION.cff:12` carry one version, 0.3.0; `CITATION.cff:3` titles the repository; `.github/workflows/release.yml:1384` and `:1399` title every release `20 Watts Was Enough <tag>`; release v0.3.0 carries one book PDF | One tag names one version and one title for the whole repository. Nothing yet says what a tag covers once a second topic exists. |
@@ -124,9 +124,12 @@ names:
   founding title is `20 Watts Was Enough`.
 - `root`: `.` for the founding topic, `topics/<slug>` otherwise.
 - `authorities`: the relative paths of chapters, mathematics, claim ledger,
-  candidate and fixture contracts and workstation manifests. Absent
-  authorities are declared absent, not assumed. Audits are not a per-topic
-  authority (see [Topic-neutral surfaces](#topic-neutral-surfaces)).
+  and candidate and fixture contracts. Absent authorities are declared absent,
+  not assumed. Audits are not a per-topic authority (see
+  [Topic-neutral surfaces](#topic-neutral-surfaces)). Nor are workstation
+  manifests: they stay in `experiments/workstation/manifests/`, the one
+  directory `catalog.go:92` reads, and name their topic in the manifest
+  `topic` field (see [Identifiers](#identifiers)).
 - `chapterSections`: the required H2 headings for that topic's chapters. The
   founding entry lists the eight current sections verbatim.
 - `unsupportedPhrases`: phrases `docscheck` rejects in the topic's canonical
@@ -237,8 +240,11 @@ Topics enter the map as rules, not as new lane kinds. A rule
 `topic-<slug>` maps `topics/<slug>/**` to the existing `research` and `site`
 lanes. Each executable artifact of a new topic gets a `workstation-<artifact>`
 lane in `workstation-catalogue.json`, run by the `workstation-artifacts`
-matrix job as each founding artifact is today; global numbering keeps those
-lane names unique without a topic prefix. The founding rules do not change.
+matrix job as each founding artifact is today. It also takes the two impact
+rules each founding artifact has, `workstation-<artifact>` and
+`workstation-<artifact>-manifest`; without them its changes select the full
+lane. Global numbering keeps those lane and rule names unique without a topic
+prefix. The founding rules do not change.
 Until a topic has a rule, its paths select the full lane by the existing
 fallback, which is the safe direction.
 
@@ -256,8 +262,10 @@ under `.github/`.
 
 `research/audits/` is one audit library. An audit written for any topic lands
 there and any topic may cite it. The founding book digests the whole
-directory (`book-source.mjs:209`), so until audit membership is read from the
-registry, an audit added for another topic re-renders the founding book.
+directory (`book-source.mjs:209`), so an audit added for another topic
+re-renders the founding book. The registry has no audit field; whether a book
+should digest only the audits its topic cites is decided with the
+`book-source.mjs` change in migration step 3.
 
 The sources allowlist becomes data before a second topic adds a source.
 Moving the byte counts and digests of `PINNED_SOURCE_FILES` into a manifest
@@ -390,11 +398,14 @@ draft locator and corrected two statements: the claim patterns sit at
 rather than one job each. The v0.3.0 release title and asset list come from
 `gh release view`, read on 2026-09-28.
 
-For this record, `check:prose`, `validate:docs` and
-`node scripts/validate-math.mjs` are the selected checks under decision 0080,
-and the book source digest was compared before and after the edit to confirm
-the record lies outside the book set. The full `npm run check` gate was not
-run for a documentation-only record.
+Under decision 0080, `20w ci plan` selects the `research`, `site` and
+`release` lanes for this record: rule `research` in `.github/ci-impact.json`
+matches `decisions/**`, and rule `publication` matches `CHANGELOG.md`.
+`check:prose` and all three lanes (`check:lane-research`, `check:lane-site`
+and `check:lane-release`) passed on the amended record. The book source
+digest was compared before and after the edit to confirm the record lies
+outside the book set. The full `npm run check` gate was not run for a
+documentation-only record.
 
 Claude (Fable 5.1) drafted this record as a proposal on 2026-09-18 from a read
 of the repository and the maintainer's direction. Claude (Opus 5.5) amended
