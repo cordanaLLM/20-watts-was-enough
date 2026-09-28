@@ -10,8 +10,8 @@ the exact diff; this file records why the project changed.
 - The CLRS generator's repository-root check inspects at most 4096 directory
   levels, counting the root and the volume root, and refuses a deeper path.
   It previously looped until `filepath.Dir` reached a fixed point, with no
-  scalar bound. Linux `PATH_MAX` admits at most 2048 levels, so every path
-  within the bound is inspected as before.
+  scalar bound. Linux `PATH_MAX` admits at most 2048 levels, so no Linux path
+  reaches the bound; paths within it are inspected as before.
 
 - The local gate runs on Windows. Test fixtures that assumed POSIX now
   resolve `bash` from `PATH`, compile `.cmd` shims for fake tools, name fake
