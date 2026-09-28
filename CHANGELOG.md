@@ -32,12 +32,14 @@ the exact diff; this file records why the project changed.
 - The four container definitions that no digest contract pins now label
   `org.opencontainers.image.source` with `cordanaLLM/20-watts-was-enough`.
   CI smoke and local builds still carried the previous owner; release builds
-  already overrode the label from `github.repository`. The digest-pinned
-  PDF-tools and CLRS generator contracts and the `io.github.lusoris.*` label
-  keys are unchanged.
+  already overrode the label from `github.repository`. The engineering-policy
+  validator now fails when any of the four names another source. The
+  digest-pinned PDF-tools and CLRS generator contracts and the
+  `io.github.lusoris.*` label keys are unchanged.
 
-- `SECURITY.md`, `MAINTAINERS.md` and the repository-rule crosswalk describe
-  the moved repository as read through the GitHub API on 2026-09-28. Secret
+- `SECURITY.md` and the repository-rule crosswalk describe the moved
+  repository as read through the GitHub API on 2026-09-28, and
+  `MAINTAINERS.md` no longer calls `@lusoris` the repository owner. Secret
   scanning and push protection had been reported as enabled from a pre-transfer
   read; they were found disabled on the moved repository and enabled again the
   same day. The crosswalk now records the `PR title` check the `main` ruleset

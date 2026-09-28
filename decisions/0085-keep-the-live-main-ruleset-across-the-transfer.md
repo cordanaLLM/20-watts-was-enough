@@ -32,7 +32,7 @@ ruleset that protects `main`:
 
 Applying the scaffold would demand an approval that the only maintainer cannot
 give to their own pull request, and it would drop the CodeQL rule.
-[`docs/repository-rule-crosswalk.md`](../docs/repository-rule-crosswalk.md#main-protection)
+[`docs/repository-rule-crosswalk.md`](../docs/repository-rule-crosswalk.md#enforcement-now)
 explains why the approval count is zero. Rulesets belong to the repository and
 survived the transfer, so there was nothing to re-apply.
 
@@ -54,9 +54,10 @@ Container definitions that no digest contract pins follow the repository. The
 `cordanaLLM/20-watts-was-enough`. Before this change, CI smoke builds and local
 builds carried the previous owner; release builds were already correct, because
 `release.yml` overrides the label from `github.repository`. No lock, contract
-or book-support inventory records the bytes of these four files. The PDF-tools
-and CLRS generator contracts and the `io.github.lusoris.*` label keys stay as
-decision 0083 left them.
+or book-support inventory records the bytes of these four files, so the
+engineering-policy validator now checks the label in each of them instead. The
+PDF-tools and CLRS generator contracts and the `io.github.lusoris.*` label keys
+stay as decision 0083 left them.
 
 ## Post-transfer verification
 
@@ -104,12 +105,14 @@ These need owner or organization rights and are not performed by this record:
 - install the Renovate app, since `GET orgs/cordanaLLM/installations` reports
   no installation and `renovate.json` is inert until then;
 - after the first release, set the new organization packages to Public and
-  rerun that tag, as 0083 step 2 describes;
-- replace links that still name the previous owner in other repositories; and
-- align `.github/rulesets/main.json` with the live ruleset, here or in the
-  Praetor template.
+  rerun that tag, as 0083 step 2 describes; and
+- replace links that still name the previous owner in other repositories.
 
-Claude Code ran the API reads, drafted this record and edited the four labels
-and the governance documents under maintainer direction. Those are engineering
-checks, not independent human review, and no scientific claim, experiment or
-acceptance criterion changes.
+Aligning `.github/rulesets/main.json` with the live ruleset, here or in the
+Praetor template, is also still open. It is an ordinary file change and needs
+no owner rights.
+
+Claude Code ran the API reads, drafted this record, edited the four labels and
+the governance documents, and added the label policy check under maintainer
+direction. Those are engineering checks, not independent human review, and no
+scientific claim, experiment or acceptance criterion changes.
