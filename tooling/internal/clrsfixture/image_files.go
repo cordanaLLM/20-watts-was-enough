@@ -228,8 +228,9 @@ func inspectGeneratorRootPath(root string) (os.FileInfo, error) {
 }
 
 // walkGeneratorRootPath inspects root and every ancestor up to the volume root,
-// visiting at most maximumGeneratorRootPathLevels directories. A path that
-// needs more levels is refused rather than partly inspected.
+// visiting at most maximumGeneratorRootPathLevels directories. A deeper path
+// is refused after its first maximumGeneratorRootPathLevels levels, never
+// accepted.
 func walkGeneratorRootPath(root string, lstat func(string) (os.FileInfo, error)) (os.FileInfo, error) {
 	current := root
 	var rootInformation os.FileInfo
