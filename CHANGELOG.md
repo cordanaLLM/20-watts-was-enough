@@ -190,12 +190,13 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
-- A proposed decision record for hosting several research topics in one
-  repository. New topics would live under `topics/<slug>/` behind a topic
-  registry, claims would keep one integer namespace across topics, the
-  principle registry would stay single, and the founding topic's published
-  paths, identifiers and routes would not move. The record awaits maintainer
-  review and changes no file location. See
+- An accepted decision record for hosting several research topics in one
+  repository. The founding topic keeps its published paths, identifiers and
+  routes as registry entry `20w`; new topics go under `topics/<slug>/` behind
+  a topic registry. Claims, candidates and fixtures each keep one number
+  sequence across topics, the principle registry and `research/audits/` stay
+  shared, `/` stays the founding topic's portal, and a smaller hypothesis is a
+  topic entry without a book. The record changes no file location. See
   [decision 0084](decisions/0084-multi-topic-research-repository.md).
 
 - The repository is prepared for transfer to `cordanaLLM/20-watts-was-enough`.
