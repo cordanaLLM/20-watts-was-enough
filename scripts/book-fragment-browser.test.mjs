@@ -550,6 +550,7 @@ test("fragment visibility accepts heading geometry exactly at the documented bou
   assert.equal(isVisibleFragment(fragmentAt(0, { targetBottom: 0 }), coldTarget), false);
   assert.equal(isVisibleFragment(fragmentAt(0, { tagName: "P" }), coldTarget), false);
   assert.equal(isVisibleFragment(fragmentAt(0, { hash: `#${hashTarget}` }), coldTarget), false);
+  assert.equal(isVisibleFragment(fragmentAt(0, { readyState: "interactive" }), coldTarget), false);
   assert.equal(isVisibleFragment(hydratingFragment, coldTarget), false);
   assert.equal(isVisibleFragment(undefined, coldTarget), false);
   assert.equal(isUnmovedFragment(fragmentAt(0.49, { targetTop: 96.49 }), fragmentAt(0)), true);
