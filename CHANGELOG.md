@@ -29,6 +29,13 @@ the exact diff; this file records why the project changed.
   visibility geometry, the 0.5-pixel movement tolerance and the
   five-observation requirement are unchanged.
 
+- The four container definitions that no digest contract pins now label
+  `org.opencontainers.image.source` with `cordanaLLM/20-watts-was-enough`.
+  CI smoke and local builds still carried the previous owner; release builds
+  already overrode the label from `github.repository`. The digest-pinned
+  PDF-tools and CLRS generator contracts and the `io.github.lusoris.*` label
+  keys are unchanged.
+
 - The local gate runs on Windows. Test fixtures that assumed POSIX now
   resolve `bash` from `PATH`, compile `.cmd` shims for fake tools, name fake
   executables the way `LookPath` resolves them on Windows, give Git the

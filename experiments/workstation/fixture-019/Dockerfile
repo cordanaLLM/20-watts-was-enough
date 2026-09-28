@@ -8,7 +8,7 @@ ARG SOURCE_REVISION=unknown
 
 LABEL org.opencontainers.image.title="20 Watts Was Enough Fixture 019 runtime" \
       org.opencontainers.image.description="Scoped CPython and NumPy runtime for the bounded Fixture 019 NO_RESULT harness" \
-      org.opencontainers.image.source="https://github.com/lusoris/20-watts-was-enough" \
+      org.opencontainers.image.source="https://github.com/cordanaLLM/20-watts-was-enough" \
       org.opencontainers.image.version="${IMAGE_VERSION}" \
       org.opencontainers.image.revision="${SOURCE_REVISION}" \
       org.opencontainers.image.licenses="EUPL-1.2" \

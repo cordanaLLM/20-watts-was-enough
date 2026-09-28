@@ -34,7 +34,7 @@ ARG SOURCE_REVISION=unknown
 
 LABEL org.opencontainers.image.title="20 Watts Was Enough command" \
       org.opencontainers.image.description="Static repository validation and experiment catalogue command" \
-      org.opencontainers.image.source="https://github.com/lusoris/20-watts-was-enough" \
+      org.opencontainers.image.source="https://github.com/cordanaLLM/20-watts-was-enough" \
       org.opencontainers.image.version="${IMAGE_VERSION}" \
       org.opencontainers.image.revision="${SOURCE_REVISION}" \
       org.opencontainers.image.licenses="EUPL-1.2" \
