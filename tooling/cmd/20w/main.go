@@ -81,97 +81,75 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 	switch arguments[0] {
-	case "ci":
-		if len(arguments) >= 2 && arguments[1] == "plan" {
-			return runCIPlan(arguments[2:], stdout, stderr)
-		}
-		if len(arguments) >= 2 && arguments[1] == "project" {
-			return runCIProject(arguments[2:], os.Stdin, stdout, stderr)
-		}
-		if len(arguments) >= 2 && arguments[1] == "run-workstation" {
-			return runCIWorkstation(arguments[2:], stdout, stderr)
-		}
-	case "validate":
-		if len(arguments) >= 2 && arguments[1] == "docs" {
-			return runValidateDocs(arguments[2:], stdout, stderr)
-		}
 	case "experiment":
 		if code, handled := experimentcli.Run(arguments[1:], stdout, stderr); handled {
 			return code
 		}
-	case "release":
-		if len(arguments) >= 2 && arguments[1] == "inspect-image" {
-			return runReleaseInspectImage(arguments[2:], stdout, stderr)
-		}
-		if len(arguments) >= 2 && arguments[1] == "asset-inventory" {
-			return runReleaseAssetInventory(arguments[2:], stdout, stderr)
-		}
-		if len(arguments) >= 2 && arguments[1] == "fetch-assets" {
-			return runReleaseFetchAssets(arguments[2:], stdout, stderr)
-		}
-		if len(arguments) >= 2 && arguments[1] == "state" {
-			return runReleaseState(arguments[2:], stdout, stderr)
-		}
-		if len(arguments) >= 2 && arguments[1] == "compare-publication-manifest" {
-			return runReleaseComparePublicationManifest(arguments[2:], stdout, stderr)
-		}
-		if len(arguments) >= 2 && arguments[1] == "verify-tag" {
-			return runReleaseVerifyTag(arguments[2:], stdout, stderr)
-		}
-		if len(arguments) >= 2 && arguments[1] == "write-oci-images" {
-			return runReleaseWriteOCIImages(arguments[2:], stdout, stderr)
-		}
-		if len(arguments) >= 2 && arguments[1] == "validate-oci-images" {
-			return runReleaseValidateOCIImages(arguments[2:], stdout, stderr)
-		}
-	case "publication":
-		if len(arguments) >= 2 && arguments[1] == "render-pdf" {
-			return runPublicationRenderPDF(arguments[2:], stdout, stderr)
-		}
-		if len(arguments) >= 2 && arguments[1] == "verify-pdf-tools" {
-			return runPublicationVerifyPDFTools(arguments[2:], stdout, stderr)
-		}
-		if len(arguments) >= 2 && arguments[1] == "reproduce-pdf-tools-image" {
-			return runPublicationReproducePDFToolsImage(arguments[2:], stdout, stderr)
-		}
-		if len(arguments) >= 2 && arguments[1] == "verify-pdf-tools-candidate-bundle" {
-			return runPublicationVerifyPDFToolsCandidateBundle(arguments[2:], stdout, stderr)
-		}
-		if len(arguments) >= 2 && arguments[1] == "verify-pdf-reproducibility" {
-			return runPublicationVerifyPDFReproducibility(arguments[2:], stdout, stderr)
-		}
-		if len(arguments) >= 2 && arguments[1] == "verify-public-transport" {
-			return runPublicationVerifyPublicTransport(arguments[2:], stdout, stderr)
-		}
-	case "translation":
-		if len(arguments) >= 2 && arguments[1] == "export-candidate" {
-			return runTranslationExportCandidate(arguments[2:], stdout, stderr)
-		}
-		if len(arguments) >= 2 && arguments[1] == "validate-candidate" {
-			return runTranslationValidateCandidate(arguments[2:], stdout, stderr)
-		}
-		if len(arguments) >= 2 && arguments[1] == "import-candidate" {
-			return runTranslationImportCandidate(arguments[2:], stdout, stderr)
-		}
-	case "github":
-		if len(arguments) >= 2 && arguments[1] == "sync-metadata" {
-			return runGitHubSyncMetadata(arguments[2:], stdout, stderr)
-		}
-		if len(arguments) >= 2 && arguments[1] == "sync-pr-metadata" {
-			return runGitHubSyncPullRequestMetadata(arguments[2:], stdout, stderr)
-		}
-		if len(arguments) >= 2 && arguments[1] == "sync-issue-lifecycle" {
-			return runGitHubSyncIssueLifecycle(arguments[2:], stdout, stderr)
-		}
-		if len(arguments) >= 2 && arguments[1] == "sync-labels" {
-			return runGitHubSyncLabels(arguments[2:], stdout, stderr)
-		}
 	case "version":
 		return runVersion(arguments[1:], stdout, stderr)
+	default:
+		if handler, ok := lookupSubcommand(arguments); ok {
+			return handler(arguments[2:], stdout, stderr)
+		}
 	}
 	fmt.Fprintf(stderr, "Unknown 20w command: %s\n", arguments[0])
 	usage(stderr)
 	return 2
+}
+
+// subcommand runs one two-word 20w command with the arguments after its name.
+type subcommand func(arguments []string, stdout, stderr io.Writer) int
+
+// lookupSubcommand resolves "<group> <name>"; an unknown group or name is
+// reported by the caller exactly as before.
+func lookupSubcommand(arguments []string) (subcommand, bool) {
+	if len(arguments) < 2 {
+		return nil, false
+	}
+	handler, ok := subcommands()[arguments[0]][arguments[1]]
+	return handler, ok
+}
+
+func subcommands() map[string]map[string]subcommand {
+	return map[string]map[string]subcommand{
+		"ci": {
+			"plan": runCIPlan,
+			"project": func(arguments []string, stdout, stderr io.Writer) int {
+				return runCIProject(arguments, os.Stdin, stdout, stderr)
+			},
+			"run-workstation": runCIWorkstation,
+		},
+		"validate": {"docs": runValidateDocs},
+		"release": {
+			"inspect-image":                runReleaseInspectImage,
+			"asset-inventory":              runReleaseAssetInventory,
+			"fetch-assets":                 runReleaseFetchAssets,
+			"state":                        runReleaseState,
+			"compare-publication-manifest": runReleaseComparePublicationManifest,
+			"verify-tag":                   runReleaseVerifyTag,
+			"write-oci-images":             runReleaseWriteOCIImages,
+			"validate-oci-images":          runReleaseValidateOCIImages,
+		},
+		"publication": {
+			"render-pdf":                        runPublicationRenderPDF,
+			"verify-pdf-tools":                  runPublicationVerifyPDFTools,
+			"reproduce-pdf-tools-image":         runPublicationReproducePDFToolsImage,
+			"verify-pdf-tools-candidate-bundle": runPublicationVerifyPDFToolsCandidateBundle,
+			"verify-pdf-reproducibility":        runPublicationVerifyPDFReproducibility,
+			"verify-public-transport":           runPublicationVerifyPublicTransport,
+		},
+		"translation": {
+			"export-candidate":   runTranslationExportCandidate,
+			"validate-candidate": runTranslationValidateCandidate,
+			"import-candidate":   runTranslationImportCandidate,
+		},
+		"github": {
+			"sync-metadata":        runGitHubSyncMetadata,
+			"sync-pr-metadata":     runGitHubSyncPullRequestMetadata,
+			"sync-issue-lifecycle": runGitHubSyncIssueLifecycle,
+			"sync-labels":          runGitHubSyncLabels,
+		},
+	}
 }
 
 func runCIProject(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int {
@@ -422,29 +400,8 @@ func runGitHubSyncMetadata(arguments []string, stdout, stderr io.Writer) int {
 	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 {
 		return 2
 	}
-	labels, err := githublabels.Load(*root)
-	if err != nil {
-		fmt.Fprintf(stderr, "Load GitHub label manifest: %v\n", err)
-		return 1
-	}
-	milestones, err := githubmilestones.Load(*root)
-	if err != nil {
-		fmt.Fprintf(stderr, "Load GitHub milestone manifest: %v\n", err)
-		return 1
-	}
-	issues, err := githubissuemilestones.Load(*root)
-	if err != nil {
-		fmt.Fprintf(stderr, "Load GitHub issue-assignment manifest: %v\n", err)
-		return 1
-	}
-	if err := githubprmetadata.ValidateAuthorities(githubprmetadata.Authorities{
-		Labels: labels, Milestones: milestones, Issues: issues,
-	}); err != nil {
-		fmt.Fprintf(stderr, "Validate pull-request metadata authorities: %v\n", err)
-		return 1
-	}
-	if _, err := githubissuelifecycle.NewPolicy(labels); err != nil {
-		fmt.Fprintf(stderr, "Validate GitHub issue lifecycle policy: %v\n", err)
+	manifests, ok := loadValidatedGitHubMetadataManifests(*root, stderr)
+	if !ok {
 		return 1
 	}
 	if *check {
@@ -455,24 +412,60 @@ func runGitHubSyncMetadata(arguments []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(
 			stdout,
 			"GitHub repository metadata validation passed: %d managed labels, %d managed milestones, and %d managed issue assignments.\n",
-			len(labels.Labels),
-			len(milestones.Milestones),
-			len(issues.Assignments),
+			len(manifests.labels.Labels),
+			len(manifests.milestones.Milestones),
+			len(manifests.issues.Assignments),
 		)
 		return 0
 	}
 	client := githubMetadataHTTPClient()
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 	defer cancel()
-	result, err := syncGitHubMetadata(ctx, client, githubMetadataManifests{
-		labels: labels, milestones: milestones, issues: issues,
-	}, githubMetadataOptions{
+	result, err := syncGitHubMetadata(ctx, client, manifests, githubMetadataOptions{
 		Repository: *repository, Token: os.Getenv("GH_TOKEN"),
 	})
 	if err != nil {
 		fmt.Fprintf(stderr, "Synchronize GitHub repository metadata: %v\n", err)
 		return 1
 	}
+	printGitHubMetadataSyncResult(stdout, result)
+	return 0
+}
+
+// loadValidatedGitHubMetadataManifests loads the label, milestone and
+// issue-assignment manifests and validates the pull-request and issue
+// lifecycle authorities built from them. It reports the first failure on
+// stderr and returns false.
+func loadValidatedGitHubMetadataManifests(root string, stderr io.Writer) (githubMetadataManifests, bool) {
+	labels, err := githublabels.Load(root)
+	if err != nil {
+		fmt.Fprintf(stderr, "Load GitHub label manifest: %v\n", err)
+		return githubMetadataManifests{}, false
+	}
+	milestones, err := githubmilestones.Load(root)
+	if err != nil {
+		fmt.Fprintf(stderr, "Load GitHub milestone manifest: %v\n", err)
+		return githubMetadataManifests{}, false
+	}
+	issues, err := githubissuemilestones.Load(root)
+	if err != nil {
+		fmt.Fprintf(stderr, "Load GitHub issue-assignment manifest: %v\n", err)
+		return githubMetadataManifests{}, false
+	}
+	if err := githubprmetadata.ValidateAuthorities(githubprmetadata.Authorities{
+		Labels: labels, Milestones: milestones, Issues: issues,
+	}); err != nil {
+		fmt.Fprintf(stderr, "Validate pull-request metadata authorities: %v\n", err)
+		return githubMetadataManifests{}, false
+	}
+	if _, err := githubissuelifecycle.NewPolicy(labels); err != nil {
+		fmt.Fprintf(stderr, "Validate GitHub issue lifecycle policy: %v\n", err)
+		return githubMetadataManifests{}, false
+	}
+	return githubMetadataManifests{labels: labels, milestones: milestones, issues: issues}, true
+}
+
+func printGitHubMetadataSyncResult(stdout io.Writer, result githubMetadataResult) {
 	fmt.Fprintf(
 		stdout,
 		"GitHub repository metadata synchronization passed: labels %d created/%d updated/%d unchanged; milestones %d created/%d updated/%d unchanged; issues %d assignments updated/%d unchanged; issue lifecycle %d updated/%d unchanged; pull-request lifecycle %d candidates/%d updated/%d unchanged/%d skipped.\n",
@@ -491,7 +484,6 @@ func runGitHubSyncMetadata(arguments []string, stdout, stderr io.Writer) int {
 		result.pullRequests.Unchanged,
 		result.pullRequests.Skipped,
 	)
-	return 0
 }
 
 func runGitHubSyncIssueLifecycle(arguments []string, stdout, stderr io.Writer) int {
@@ -590,32 +582,32 @@ func runGitHubSyncPullRequestMetadata(arguments []string, stdout, stderr io.Writ
 		fmt.Fprintf(stderr, "Synchronize GitHub pull-request metadata: %v\n", err)
 		return 1
 	}
+	printPullRequestMetadataResult(stdout, event.Action == githubprmetadata.Closed, result)
+	return 0
+}
+
+func printPullRequestMetadataResult(stdout io.Writer, closed bool, result githubprmetadata.Result) {
 	if result.Skipped {
 		fmt.Fprintf(stdout, "GitHub pull-request metadata synchronization skipped: %s.\n", result.Reason)
-		return 0
+		return
 	}
-	if event.Action == githubprmetadata.Closed {
-		state := "unchanged"
-		if result.Updated {
-			state = "updated"
-		}
+	state := "unchanged"
+	if result.Updated {
+		state = "updated"
+	}
+	if closed {
 		fmt.Fprintf(
 			stdout,
 			"GitHub pull-request lifecycle synchronization passed: %s for managed issue #%d with milestone %d preserved and %d labels.\n",
 			state, result.Issue, result.Milestone, len(result.Labels),
 		)
-		return 0
-	}
-	state := "unchanged"
-	if result.Updated {
-		state = "updated"
+		return
 	}
 	fmt.Fprintf(
 		stdout,
 		"GitHub pull-request metadata synchronization passed: %s from managed issue #%d with milestone %d and %d labels.\n",
 		state, result.Issue, result.Milestone, len(result.Labels),
 	)
-	return 0
 }
 
 func runGitHubSyncLabels(arguments []string, stdout, stderr io.Writer) int {
