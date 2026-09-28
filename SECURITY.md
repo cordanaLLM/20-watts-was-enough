@@ -6,9 +6,10 @@ Do not disclose exploitable details, secrets, personal data, private datasets,
 or machine credentials in a public issue or discussion. Use GitHub's
 [private vulnerability reporting form](https://github.com/cordanaLLM/20-watts-was-enough/security/advisories/new).
 
-Private vulnerability reporting was verified as enabled through the GitHub API
-on 2026-08-28. This document and the link do not enable the setting by
-themselves. If the form is unavailable, do not publish the report; notify
+Private vulnerability reporting was verified as enabled on
+`cordanaLLM/20-watts-was-enough` through the GitHub API on 2026-09-28. This
+document and the link do not enable the setting by themselves. If the form is
+unavailable, do not publish the report; notify
 [`@lusoris`](https://github.com/lusoris) publicly only that the private channel
 is unavailable, without vulnerability details.
 
@@ -103,6 +104,12 @@ for credentials, and ensure exception messages and subprocess output do not
 echo them. Collect personal data only for a documented purpose and lawful
 basis, minimize it, define retention and access, and keep it outside public
 research artifacts unless publication is lawful and intentional.
+
+GitHub secret scanning and push protection were verified as enabled through the
+GitHub API on 2026-09-28. They look only for the token formats that service
+providers register with GitHub. Non-provider patterns and validity checks are
+off, so a push that passes them can still carry a private key, password, or
+personal record.
 
 If a secret or personal record is exposed, stop further publication, preserve
 only the minimum evidence needed for response, rotate or revoke the affected

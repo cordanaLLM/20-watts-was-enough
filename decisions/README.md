@@ -87,5 +87,6 @@ than silently changing its outcome.
 | [0080](0080-impact-scope-local-validation.md) | Impact-scope local validation | accepted |
 | [0081](0081-retain-ordinary-pdf-generation-mismatches.md) | Retain ordinary PDF generation mismatches | accepted |
 | [0082](0082-adopt-praetor-repository-governance.md) | Adopt Praetor repository governance | accepted |
-| [0083](0083-transfer-the-repository-to-cordanallm.md) | Transfer the repository to cordanaLLM | accepted |
+| [0083](0083-transfer-the-repository-to-cordanallm.md) | Transfer the repository to cordanaLLM | accepted; post-transfer step 5 partly superseded by [0085](0085-keep-the-live-main-ruleset-across-the-transfer.md) |
 | [0084](0084-multi-topic-research-repository.md) | Host several research topics in one repository | accepted |
+| [0085](0085-keep-the-live-main-ruleset-across-the-transfer.md) | Keep the live main ruleset across the transfer | accepted |
