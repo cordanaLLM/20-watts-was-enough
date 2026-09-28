@@ -68,6 +68,17 @@ const fixture019ImagePolicy = Object.freeze({
   packageCommand: "go -C tooling run ./cmd/20w experiment package-node-image --root .. --artifact fixture-019 --output ../build/container-contexts/fixture-019",
 });
 
+const canonicalRepositoryUrl = "https://github.com/cordanaLLM/20-watts-was-enough";
+
+// Container definitions whose bytes no digest contract pins (decision 0085).
+// The pinned PDF-tools and CLRS generator contracts are deliberately absent.
+const unpinnedImageDefinitions = [
+  "tooling/Dockerfile",
+  "tooling/clrs-specialist/Dockerfile",
+  "experiments/workstation/Dockerfile.node-artifact",
+  "experiments/workstation/fixture-019/Dockerfile",
+];
+
 const approvedActionPins = new Map([
   ["actions/attest-build-provenance", "4d101475d8b20a2381f78447822ac1eab6504dd8"],
   ["actions/cache/restore", "55cc8345863c7cc4c66a329aec7e433d2d1c52a9"],
@@ -3808,6 +3819,21 @@ export function validateRetiredHostingPaths(root = defaultRoot) {
     .map((relativePath) => `${relativePath}: retired ChatGPT Site path must remain absent`);
 }
 
+export function validateUnpinnedImageSourceLabels(root = defaultRoot) {
+  const findings = [];
+  for (const relativePath of unpinnedImageDefinitions) {
+    const source = fs.existsSync(path.join(root, relativePath)) ? readText(root, relativePath) : "";
+    const values = [...source.matchAll(/org\.opencontainers\.image\.source=(?:"([^"]*)"|(\S*))/gu)]
+      .map((match) => match[1] ?? match[2]);
+    if (values.length !== 1 || values[0] !== canonicalRepositoryUrl) {
+      findings.push(
+        `${relativePath}: org.opencontainers.image.source must be ${canonicalRepositoryUrl} exactly once`,
+      );
+    }
+  }
+  return findings;
+}
+
 function validateGoModule(root, findings) {
   const relativePath = "tooling/go.mod";
   const expected = [
@@ -4392,6 +4418,7 @@ export function validateRepositoryPolicy(root = defaultRoot) {
   findings.push(...validateWorkflowTree(root, scientificRuntimeLock));
   validateIssuePolicy(root, findings);
   validateCitationAndOwnership(root, findings);
+  findings.push(...validateUnpinnedImageSourceLabels(root));
 
   return findings;
 }

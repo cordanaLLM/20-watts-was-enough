@@ -42,6 +42,7 @@ import {
   validateScientificRuntimeLock,
   validateScientificRuntimeWorkflowObject,
   validateToolingValidationScript,
+  validateUnpinnedImageSourceLabels,
   validateWorkstationShardScriptsObject,
   validateWorkflowObject,
   validateWorkflowTree,
@@ -1861,6 +1862,40 @@ test("retired ChatGPT Site paths remain forbidden", (t) => {
   writeFileSync(path.join(root, ".openai", "hosting.json"), "{}\n");
   assert.deepEqual(validateRetiredHostingPaths(root), [
     ".openai/hosting.json: retired ChatGPT Site path must remain absent",
+  ]);
+});
+
+test("unpinned image definitions label the canonical repository source", (t) => {
+  assert.deepEqual(validateUnpinnedImageSourceLabels(), []);
+
+  const root = mkdtempSync(path.join(tmpdir(), "20w-image-source-"));
+  t.after(() => rmSync(root, { force: true, recursive: true }));
+  const label = (url) => `LABEL org.opencontainers.image.source="${url}" \\\n      org.opencontainers.image.licenses="EUPL-1.2"\n`;
+  const canonical = label("https://github.com/cordanaLLM/20-watts-was-enough");
+  const definitions = [
+    "tooling/Dockerfile",
+    "tooling/clrs-specialist/Dockerfile",
+    "experiments/workstation/Dockerfile.node-artifact",
+    "experiments/workstation/fixture-019/Dockerfile",
+  ];
+  for (const relativePath of definitions) {
+    mkdirSync(path.dirname(path.join(root, relativePath)), { recursive: true });
+    writeFileSync(path.join(root, relativePath), canonical);
+  }
+  assert.deepEqual(validateUnpinnedImageSourceLabels(root), []);
+
+  writeFileSync(path.join(root, definitions[0]), label("https://github.com/lusoris/20-watts-was-enough"));
+  writeFileSync(
+    path.join(root, definitions[1]),
+    `${canonical}LABEL org.opencontainers.image.source=https://github.com/lusoris/20-watts-was-enough\n`,
+  );
+  rmSync(path.join(root, definitions[3]));
+  const finding = (relativePath) =>
+    `${relativePath}: org.opencontainers.image.source must be https://github.com/cordanaLLM/20-watts-was-enough exactly once`;
+  assert.deepEqual(validateUnpinnedImageSourceLabels(root), [
+    finding(definitions[0]),
+    finding(definitions[1]),
+    finding(definitions[3]),
   ]);
 });
 
