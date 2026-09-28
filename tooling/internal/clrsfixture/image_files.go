@@ -24,6 +24,12 @@ const (
 	trackedGeneratorDependencyLockPath = "tooling/clrs-generator/uv.lock"
 	trackedGeneratorWheelhousePath     = "tooling/clrs-generator/wheelhouse.json"
 	maximumGeneratorWheelLicenseBytes  = 4 << 10
+	// maximumGeneratorRootPathLevels bounds the ancestor walk, counting the
+	// root and the volume root. Linux PATH_MAX is 4096 bytes, so a path that
+	// Lstat accepts there has at most 2048 levels; 4096 keeps a factor-of-two
+	// margin and covers any Windows path within MAX_PATH (260 characters).
+	// Deeper Windows extended-length paths are refused.
+	maximumGeneratorRootPathLevels = 4096
 )
 
 // CheckGeneratorImageFoundation validates the complete committed foundation
@@ -33,81 +39,130 @@ func CheckGeneratorImageFoundation(repositoryRoot string) (GeneratorImageFoundat
 	if err != nil {
 		return GeneratorImageFoundation{}, err
 	}
-	sourceBody, err := readGeneratorFile(root, trackedSourcePath, maximumSourceRecordBytes)
+	contracts, err := readGeneratorImageContracts(root)
 	if err != nil {
 		return GeneratorImageFoundation{}, err
 	}
-	source, err := ParseSourceRecord(sourceBody)
+	if err := checkGeneratorBuilderAuthority(root, contracts.image.Builder); err != nil {
+		return GeneratorImageFoundation{}, err
+	}
+	dependencyLockBody, err := readGeneratorDependencyLock(root, contracts)
 	if err != nil {
 		return GeneratorImageFoundation{}, err
+	}
+	wheelhouseBody, err := readGeneratorWheelhouse(root, contracts, dependencyLockBody)
+	if err != nil {
+		return GeneratorImageFoundation{}, err
+	}
+	if err := requireMissingGeneratorFile(root, contracts.image.BuildContext.DockerfilePath); err != nil {
+		return GeneratorImageFoundation{}, err
+	}
+	sourceID, _ := contracts.source.Identity()
+	generationID, _ := contracts.generation.Identity(contracts.source)
+	return GeneratorImageFoundation{
+		Authority:            ResultAuthority,
+		State:                contracts.image.State,
+		SourceID:             sourceID,
+		GenerationContract:   generationID,
+		LockInputSHA256:      rawSHA256(contracts.lockBody),
+		DependencyLockSHA256: rawSHA256(dependencyLockBody),
+		WheelhouseSHA256:     rawSHA256(wheelhouseBody),
+		ImageContractSHA256:  rawSHA256(contracts.imageBody),
+	}, nil
+}
+
+// generatorImageContracts holds the four committed contracts that bind the
+// dependency lock, wheelhouse and image checks.
+type generatorImageContracts struct {
+	source     SourceRecord
+	generation GenerationContract
+	lockBody   []byte
+	lockInput  GeneratorLockInput
+	imageBody  []byte
+	image      GeneratorImageContract
+}
+
+func readGeneratorImageContracts(root string) (generatorImageContracts, error) {
+	var contracts generatorImageContracts
+	sourceBody, err := readGeneratorFile(root, trackedSourcePath, maximumSourceRecordBytes)
+	if err != nil {
+		return generatorImageContracts{}, err
+	}
+	if contracts.source, err = ParseSourceRecord(sourceBody); err != nil {
+		return generatorImageContracts{}, err
 	}
 	generationBody, err := readGeneratorFile(root, trackedGenerationPath, maximumGenerationContractBytes)
 	if err != nil {
-		return GeneratorImageFoundation{}, err
+		return generatorImageContracts{}, err
 	}
-	generation, err := ParseGenerationContract(generationBody, source)
+	if contracts.generation, err = ParseGenerationContract(generationBody, contracts.source); err != nil {
+		return generatorImageContracts{}, err
+	}
+	contracts.lockBody, err = readGeneratorFile(root, trackedLockInputPath, maximumGeneratorLockInputBytes)
 	if err != nil {
-		return GeneratorImageFoundation{}, err
+		return generatorImageContracts{}, err
 	}
-	lockBody, err := readGeneratorFile(root, trackedLockInputPath, maximumGeneratorLockInputBytes)
+	if contracts.lockInput, err = ParseGeneratorLockInput(contracts.lockBody, contracts.source); err != nil {
+		return generatorImageContracts{}, err
+	}
+	contracts.imageBody, err = readGeneratorFile(root, trackedImageContractPath, maximumGeneratorImageContractBytes)
 	if err != nil {
-		return GeneratorImageFoundation{}, err
+		return generatorImageContracts{}, err
 	}
-	lockInput, err := ParseGeneratorLockInput(lockBody, source)
-	if err != nil {
-		return GeneratorImageFoundation{}, err
-	}
-	imageBody, err := readGeneratorFile(root, trackedImageContractPath, maximumGeneratorImageContractBytes)
-	if err != nil {
-		return GeneratorImageFoundation{}, err
-	}
-	imageContract, err := ParseGeneratorImageContract(imageBody, lockBody, source, generation)
-	if err != nil {
-		return GeneratorImageFoundation{}, err
-	}
-	if err := checkGeneratorBuilderAuthority(root, imageContract.Builder); err != nil {
-		return GeneratorImageFoundation{}, err
-	}
-	projectBody, err := readGeneratorFile(root, imageContract.DependencyLock.ProjectPath, maximumGeneratorProjectBytes)
-	if err != nil {
-		return GeneratorImageFoundation{}, err
-	}
-	dependencyLockBody, err := readGeneratorFile(
-		root,
-		imageContract.DependencyLock.Path,
-		maximumGeneratorDependencyLockBytes,
+	contracts.image, err = ParseGeneratorImageContract(
+		contracts.imageBody,
+		contracts.lockBody,
+		contracts.source,
+		contracts.generation,
 	)
 	if err != nil {
-		return GeneratorImageFoundation{}, err
+		return generatorImageContracts{}, err
+	}
+	return contracts, nil
+}
+
+func readGeneratorDependencyLock(root string, contracts generatorImageContracts) ([]byte, error) {
+	dependencyLock := contracts.image.DependencyLock
+	projectBody, err := readGeneratorFile(root, dependencyLock.ProjectPath, maximumGeneratorProjectBytes)
+	if err != nil {
+		return nil, err
+	}
+	dependencyLockBody, err := readGeneratorFile(root, dependencyLock.Path, maximumGeneratorDependencyLockBytes)
+	if err != nil {
+		return nil, err
 	}
 	if err := validateGeneratorDependencyFiles(
-		imageContract.DependencyLock,
+		dependencyLock,
 		projectBody,
 		dependencyLockBody,
-		lockInput,
-		imageContract.Limits,
+		contracts.lockInput,
+		contracts.image.Limits,
 	); err != nil {
-		return GeneratorImageFoundation{}, err
+		return nil, err
 	}
+	return dependencyLockBody, nil
+}
+
+func readGeneratorWheelhouse(root string, contracts generatorImageContracts, dependencyLockBody []byte) ([]byte, error) {
 	wheelhouseBody, err := readGeneratorFile(
 		root,
-		imageContract.BuildContext.WheelhouseManifestPath,
-		imageContract.Limits.WheelhouseManifestBytes,
+		contracts.image.BuildContext.WheelhouseManifestPath,
+		contracts.image.Limits.WheelhouseManifestBytes,
 	)
 	if err != nil {
-		return GeneratorImageFoundation{}, err
+		return nil, err
 	}
-	if rawSHA256(wheelhouseBody) != imageContract.BuildContext.WheelhouseManifestSHA256 {
-		return GeneratorImageFoundation{}, errors.New("CLRS generator wheelhouse manifest digest is invalid")
+	if rawSHA256(wheelhouseBody) != contracts.image.BuildContext.WheelhouseManifestSHA256 {
+		return nil, errors.New("CLRS generator wheelhouse manifest digest is invalid")
 	}
 	wheelhouseManifest, err := ParseGeneratorWheelhouseManifest(
 		wheelhouseBody,
 		dependencyLockBody,
-		lockInput,
-		imageContract,
+		contracts.lockInput,
+		contracts.image,
 	)
 	if err != nil {
-		return GeneratorImageFoundation{}, err
+		return nil, err
 	}
 	promiseProvenance := wheelhouseManifest.SourceBuild.Provenance
 	promiseLicenseBody, err := readGeneratorFile(
@@ -116,27 +171,13 @@ func CheckGeneratorImageFoundation(repositoryRoot string) (GeneratorImageFoundat
 		maximumGeneratorWheelLicenseBytes,
 	)
 	if err != nil {
-		return GeneratorImageFoundation{}, err
+		return nil, err
 	}
 	if rawSHA256(promiseLicenseBody) != promiseProvenance.LicenseSHA256 ||
 		int64(len(promiseLicenseBody)) != promiseProvenance.LicenseSizeBytes {
-		return GeneratorImageFoundation{}, errors.New("CLRS generator promise licence identity is invalid")
+		return nil, errors.New("CLRS generator promise licence identity is invalid")
 	}
-	if err := requireMissingGeneratorFile(root, imageContract.BuildContext.DockerfilePath); err != nil {
-		return GeneratorImageFoundation{}, err
-	}
-	sourceID, _ := source.Identity()
-	generationID, _ := generation.Identity(source)
-	return GeneratorImageFoundation{
-		Authority:            ResultAuthority,
-		State:                imageContract.State,
-		SourceID:             sourceID,
-		GenerationContract:   generationID,
-		LockInputSHA256:      rawSHA256(lockBody),
-		DependencyLockSHA256: rawSHA256(dependencyLockBody),
-		WheelhouseSHA256:     rawSHA256(wheelhouseBody),
-		ImageContractSHA256:  rawSHA256(imageBody),
-	}, nil
+	return wheelhouseBody, nil
 }
 
 func decodeCanonicalGeneratorJSON[T any](body []byte, depth int, destination *T) error {
@@ -183,10 +224,17 @@ func cleanGeneratorRoot(value string) (string, error) {
 }
 
 func inspectGeneratorRootPath(root string) (os.FileInfo, error) {
+	return walkGeneratorRootPath(root, os.Lstat)
+}
+
+// walkGeneratorRootPath inspects root and every ancestor up to the volume root,
+// visiting at most maximumGeneratorRootPathLevels directories. A path that
+// needs more levels is refused rather than partly inspected.
+func walkGeneratorRootPath(root string, lstat func(string) (os.FileInfo, error)) (os.FileInfo, error) {
 	current := root
 	var rootInformation os.FileInfo
-	for {
-		information, err := os.Lstat(current)
+	for level := 0; level < maximumGeneratorRootPathLevels; level++ {
+		information, err := lstat(current)
 		if err != nil || !information.IsDir() || information.Mode()&os.ModeSymlink != 0 {
 			return nil, errors.New("repository root path must contain only real directories")
 		}
@@ -195,11 +243,11 @@ func inspectGeneratorRootPath(root string) (os.FileInfo, error) {
 		}
 		parent := filepath.Dir(current)
 		if parent == current {
-			break
+			return rootInformation, nil
 		}
 		current = parent
 	}
-	return rootInformation, nil
+	return nil, fmt.Errorf("repository root path exceeds %d directory levels", maximumGeneratorRootPathLevels)
 }
 
 func readGeneratorFile(root, relative string, maximumBytes int64) ([]byte, error) {
@@ -255,20 +303,26 @@ func readGeneratorFileWithInterlock(root, relative string, maximumBytes int64, a
 		!unchangedGeneratorFile(readState, confirmedState) {
 		return nil, fmt.Errorf("CLRS generator file %s changed while it was read", relative)
 	}
-	if err := rejectGeneratorSymlink(root, absolute); err != nil {
-		return nil, err
-	}
-	namedState, err := os.Lstat(absolute)
-	if err != nil || namedState.Mode()&os.ModeSymlink != 0 || !unchangedGeneratorFile(confirmedState, namedState) {
-		return nil, fmt.Errorf("CLRS generator file %s changed while it was read", relative)
-	}
-	if err := rejectGeneratorSymlink(root, absolute); err != nil {
+	if err := confirmGeneratorNamedFile(root, absolute, relative, confirmedState); err != nil {
 		return nil, err
 	}
 	if int64(len(body)) != confirmedState.Size() || len(body) == 0 {
 		return nil, fmt.Errorf("CLRS generator file %s changed while it was read", relative)
 	}
 	return body, nil
+}
+
+// confirmGeneratorNamedFile checks that absolute still names the file that was
+// read, with no symlink on its path before or after that comparison.
+func confirmGeneratorNamedFile(root, absolute, relative string, confirmedState os.FileInfo) error {
+	if err := rejectGeneratorSymlink(root, absolute); err != nil {
+		return err
+	}
+	namedState, err := os.Lstat(absolute)
+	if err != nil || namedState.Mode()&os.ModeSymlink != 0 || !unchangedGeneratorFile(confirmedState, namedState) {
+		return fmt.Errorf("CLRS generator file %s changed while it was read", relative)
+	}
+	return rejectGeneratorSymlink(root, absolute)
 }
 
 func rejectGeneratorSymlink(root, target string) error {
