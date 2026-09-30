@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cordanaLLM/20-watts-was-enough/blob/main/research/engineering-relations.schema.json",
+  "title": "20w engineering relations",
+  "description": "Number-free relations between 20w contracts and code in other repositories. A relation carries no evidential authority (decisions/0087-record-engineering-relations-without-evidential-authority.md). `20w validate relations` is the authoritative check; this schema documents the shape and cannot express the cross-file rules: target resolution, heading slugs, metric quotation, canonical bytes, the absence of JSON numbers, qualified identifiers in free text and the claims-ledger guard.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "result_authority", "decision", "relations"],
+  "properties": {
+    "schema": { "const": "20w-engineering-relations/1" },
+    "result_authority": { "const": "NO_RESULT" },
+    "decision": { "const": "decisions/0087-record-engineering-relations-without-evidential-authority.md" },
+    "relations": {
+      "type": "array",
+      "maxItems": 1024,
+      "items": { "$ref": "#/$defs/relation" }
+    }
+  },
+  "$defs": {
+    "shortText": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "target", "relation", "role", "subject", "repository", "visibility",
+        "commit", "paths", "evidence_ref", "related_party", "recorded", "does_not_establish"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^ER-[0-9]{4}$" },
+        "target": {
+          "type": "string",
+          "pattern": "^(candidate-[0-9]{3}|fixture-[0-9]{3}|P-[0-9]{3}|energy:H-E[0-9])$"
+        },
+        "target_section": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,127}$" },
+        "relation": { "enum": ["feasibility", "implements", "measures", "motivated-by"] },
+        "role": {
+          "enum": ["candidate-arm", "fixture-stressor", "harness", "metric-instrument", "motivation", "null-arm"]
+        },
+        "residual": { "$ref": "#/$defs/shortText" },
+        "metric": { "$ref": "#/$defs/shortText" },
+        "subject": { "$ref": "#/$defs/shortText" },
+        "repository": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9._-]{1,100}$",
+          "not": { "const": "cordanaLLM/20-watts-was-enough" }
+        },
+        "visibility": {
+          "const": "public",
+          "description": "The first slice admits public repositories only."
+        },
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[^/\\\\:]" }
+        },
+        "evidence_ref": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "pattern": "^research/audits/[a-z0-9][a-z0-9.-]{0,160}\\.md$" },
+            {
+              "type": "string",
+              "pattern": "^https://github\\.com/[A-Za-z0-9-]+/[A-Za-z0-9._-]+/(issues/[1-9][0-9]{0,9}|pull/[1-9][0-9]{0,9}|actions/runs/[1-9][0-9]{0,19}|releases/tag/[A-Za-z0-9._+-]{1,128}|blob/[0-9a-f]{40}/.+)$"
+            }
+          ]
+        },
+        "related_party": { "type": "boolean" },
+        "recorded": { "type": "string", "format": "date", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "does_not_establish": { "type": "string", "minLength": 1, "maxLength": 300 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "relation": { "const": "implements" } } },
+          "then": { "properties": { "role": { "enum": ["candidate-arm", "fixture-stressor", "harness", "null-arm"] } } }
+        },
+        {
+          "if": { "properties": { "relation": { "const": "measures" } } },
+          "then": {
+            "required": ["metric"],
+            "properties": {
+              "role": { "enum": ["metric-instrument", "null-arm"] },
+              "evidence_ref": { "type": "string" }
+            }
+          },
+          "else": { "not": { "required": ["metric"] } }
+        },
+        {
+          "if": { "properties": { "relation": { "const": "motivated-by" } } },
+          "then": { "properties": { "role": { "const": "motivation" } } },
+          "else": { "properties": { "role": { "not": { "const": "motivation" } } } }
+        },
+        {
+          "if": { "properties": { "role": { "const": "candidate-arm" } } },
+          "then": { "required": ["residual"], "properties": { "target": { "type": "string", "pattern": "^candidate-" } } },
+          "else": { "not": { "required": ["residual"] } }
+        },
+        {
+          "if": { "properties": { "role": { "const": "fixture-stressor" } } },
+          "then": { "properties": { "target": { "type": "string", "pattern": "^fixture-" } } }
+        },
+        {
+          "if": { "required": ["target_section"] },
+          "then": { "properties": { "target": { "type": "string", "pattern": "^(candidate|fixture)-" } } }
+        }
+      ]
+    }
+  }
+}
