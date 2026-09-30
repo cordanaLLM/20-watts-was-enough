@@ -2321,6 +2321,10 @@ function validateOCIImageAssetBoundary(releaseSteps, relativePath, findings) {
         'printf \'%s\\n\' \'{"auths":{}}\' > "$anonymous_config/config.json"',
         'DOCKER_CONFIG="$anonymous_config" docker pull "$image"',
         "persisted release image", "exit 1",
+        'registry_manifest_is_anonymous "$image"',
+        'https://ghcr.io/token?scope=repository:${repository}:pull',
+        'https://ghcr.io/v2/${repository}/manifests/${digest}',
+        "--max-time 30",
       ])
       && ![
         "docker login", "GHCR_TOKEN", "GHCR_USERNAME", "github.token",
@@ -3299,6 +3303,10 @@ function validateReleaseFinalBindingAndNotes(steps, relativePath, findings) {
       'for image in "${images[@]}"',
       'DOCKER_CONFIG="$anonymous_config" docker pull "$image"',
       "new packages as private",
+      'registry_manifest_is_anonymous "$image"',
+      'https://ghcr.io/token?scope=repository:${repository}:pull',
+      'https://ghcr.io/v2/${repository}/manifests/${digest}',
+      "--max-time 30",
       "set all three release packages to Public",
       "manually rerun this exact tag",
     ])
