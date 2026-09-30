@@ -7,6 +7,14 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- Releases are archived on Zenodo, which assigns each version a DOI and keeps
+  one concept DOI across versions. `.zenodo.json` supplies the archive
+  metadata: title, description, keywords, EUPL-1.2 as the record licence with
+  the CC BY-SA 4.0 split for research and book material stated in the notes,
+  and links to the repository and the public reader. The integration was
+  enabled for this repository on 2026-09-30, so `0.4.1` is the first archived
+  version; `0.4.0` has no DOI.
+
 - The topic registry of decision 0084 exists as `topics.json`, holding one
   entry: the founding topic `20w` at root `.`, with its authority paths, the
   eight chapter sections and five unsupported phrases that `docscheck` still
