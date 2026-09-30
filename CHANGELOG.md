@@ -5,6 +5,8 @@ the exact diff; this file records why the project changed.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-09-30
+
 ### Added
 
 - Releases are archived on Zenodo, which assigns each version a DOI and keeps
