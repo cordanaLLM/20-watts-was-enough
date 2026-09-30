@@ -70,6 +70,8 @@
         "scripts/npm-runtime-lock.json",
         "scripts/validate-engineering-policy.mjs",
         "scripts/validate-node-runtime.mjs",
+        "scripts/validate-topics.mjs",
+        "scripts/validate-topics.test.mjs",
         "scripts/validate-workstation.mjs",
         "tooling/AGENTS.md",
         "tooling/cmd/20w/**",
@@ -79,7 +81,8 @@
         "tooling/internal/ciplan/**",
         "tooling/internal/ciplancli/**",
         "tooling/internal/strictjson/**",
-        "tooling/internal/workstationrunner/**"
+        "tooling/internal/workstationrunner/**",
+        "topics.json"
       ],
       "lanes": [
         "full"
