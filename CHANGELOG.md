@@ -5,6 +5,26 @@ the exact diff; this file records why the project changed.
 
 ## [Unreleased]
 
+### Added
+
+- The topic registry of decision 0084 exists as `topics.json`, holding one
+  entry: the founding topic `20w` at root `.`, with its authority paths, the
+  eight chapter sections and five unsupported phrases that `docscheck` still
+  enforces, and its existing book PDF, `book/` route and `README.md` front
+  matter. `npm run validate:topics` reads the file with the strict JSON parser
+  and rejects unknown or missing fields, more than 32 topics, repeated slugs,
+  titles or PDF names, missing or linked paths, and a candidate or fixture
+  number used twice across topics. A slug must be 2 to 44 lowercase letters,
+  digits or hyphens, must not start with a hyphen, and must not equal an EU
+  language code or the repository name. The command runs in every impact plan
+  and in the full gate. No generator, validator or page reads the registry
+  yet. The new `package.json` script still reaches two outputs: the book's
+  source digest, because `package.json` is a book support input, and the
+  site's script bundle, because `app/project-metadata.ts` imports the whole
+  manifest to read its version. The book is rendered again; no reader-visible
+  text changes. This is migration step 2 of
+  [decision 0084](decisions/0084-multi-topic-research-repository.md).
+
 ### Fixed
 
 - The release workflow's anonymous-pull gates now ask the registry directly.

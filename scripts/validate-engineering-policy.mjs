@@ -3553,7 +3553,7 @@ function workstationShardCommand(files) {
 }
 
 const aggregateTestScripts = Object.freeze([
-  "test:go", "validate:tooling", "validate:policy", "test:runtime", "test:policy",
+  "test:go", "validate:tooling", "validate:policy", "validate:topics", "test:runtime", "test:policy",
   "test:release", "check:code-shape", "test:code-shape", "check:prose", "test:prose",
   "typecheck", "lint", "test:site", "validate:translations", "test:translations",
   "validate:docs", "test:sources", "validate:coverage", "validate:taxonomies", "validate:math",
@@ -3717,6 +3717,26 @@ export function validateWorkstationShardScriptsObject(
   return findings;
 }
 
+/**
+ * Decision 0084 migration step 2: the topic registry validator and its tests
+ * run in every impact plan, because a change to any registered topic path can
+ * break the registry without matching the global impact rule.
+ */
+export function validateTopicRegistryScriptsObject(manifest, relativePath = "package.json") {
+  const scripts = manifest?.scripts ?? {};
+  const findings = [];
+  if (scripts["validate:topics"] !== "node scripts/validate-topics.mjs") {
+    findings.push(`${relativePath}: validate:topics must run node scripts/validate-topics.mjs`);
+  }
+  if (!String(scripts["test:policy"] ?? "").split(" ").includes("scripts/validate-topics.test.mjs")) {
+    findings.push(`${relativePath}: test:policy must run scripts/validate-topics.test.mjs`);
+  }
+  if (!String(scripts["check:impact-common"] ?? "").split(" && ").includes("npm run validate:topics")) {
+    findings.push(`${relativePath}: check:impact-common must run validate:topics for every impact plan`);
+  }
+  return findings;
+}
+
 function validatePackage(root, findings) {
   const relativePath = "package.json";
   let manifest;
@@ -3742,6 +3762,7 @@ function validatePackage(root, findings) {
     workstationManifests,
     relativePath,
   ));
+  findings.push(...validateTopicRegistryScriptsObject(manifest, relativePath));
   for (const script of [
     "check",
     "check:code-shape",
