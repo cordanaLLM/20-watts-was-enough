@@ -25,6 +25,21 @@ the exact diff; this file records why the project changed.
   text changes. This is migration step 2 of
   [decision 0084](decisions/0084-multi-topic-research-repository.md).
 
+- A registry of engineering relations between 20w contracts and code in the
+  maintainer's other repositories, with no evidential authority.
+  `research/engineering-relations.json` declares `NO_RESULT`, holds no JSON
+  number and never targets a `C-` claim. Each row names a relation
+  (`implements`, `measures`, `feasibility` or `motivated-by`) and a role that
+  keeps a candidate's residual apart from its null arms.
+  `20w validate relations` checks it offline: strict JSON in canonical bytes,
+  targets and heading slugs that resolve, metrics quoted from the target
+  contract, 40-character commits, namespaced identifiers in free text, and a
+  claims ledger that does not cite the registry. `npm run validate:docs` now
+  runs it. The first slice holds nine rows from four public repositories, each
+  commit and path read back through the GitHub API on 2026-09-30; a private
+  repository is rejected. See
+  [decision 0087](decisions/0087-record-engineering-relations-without-evidential-authority.md).
+
 ### Fixed
 
 - The release workflow's anonymous-pull gates now ask the registry directly.

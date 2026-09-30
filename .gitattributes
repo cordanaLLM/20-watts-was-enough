@@ -13,6 +13,7 @@ tooling/clrs-generator/*.md text eol=lf
 tooling/clrs-generator/Dockerfile text eol=lf
 tooling/clrs-generator/.dockerignore text eol=lf
 tooling/clrs-generator/uv.lock text eol=lf
+research/engineering-relations.json text eol=lf
 sources/** -text
 LICENSE text eol=lf
 LICENSES/*.txt text eol=lf

@@ -40,7 +40,7 @@
     "test:code-shape": "node --test --experimental-test-isolation=none scripts/audit-code-shape.test.mjs",
     "check:prose": "node scripts/audit-prose-style.mjs",
     "test:prose": "node --test --experimental-test-isolation=none scripts/audit-prose-style.test.mjs",
-    "validate:docs": "go -C tooling run ./cmd/20w validate docs --root ..",
+    "validate:docs": "go -C tooling run ./cmd/20w validate docs --root .. && go -C tooling run ./cmd/20w validate relations --root ..",
     "validate:sources": "node scripts/validate-source-boundary.mjs",
     "test:sources": "node --test --experimental-test-isolation=none scripts/source-boundary.test.mjs",
     "test:math": "node --test --experimental-test-isolation=none scripts/math-validation.test.mjs",

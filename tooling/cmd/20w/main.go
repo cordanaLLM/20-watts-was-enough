@@ -50,6 +50,7 @@ func usage(writer io.Writer) {
 	fmt.Fprintln(writer, "  20w ci project")
 	fmt.Fprintln(writer, "  20w ci run-workstation [--root <repository>]")
 	fmt.Fprintln(writer, "  20w validate docs [--root <repository>]")
+	fmt.Fprintln(writer, "  20w validate relations [--root <repository>]")
 	experimentcli.Usage(writer)
 	fmt.Fprintln(writer, "  20w publication render-pdf [--root <repository>] [--ref main|vMAJOR.MINOR.PATCH] [--revision <commit>] [--check]")
 	fmt.Fprintln(writer, "  20w publication verify-pdf-tools [--root <repository>]")
@@ -119,7 +120,7 @@ func subcommands() map[string]map[string]subcommand {
 			},
 			"run-workstation": runCIWorkstation,
 		},
-		"validate": {"docs": runValidateDocs},
+		"validate": {"docs": runValidateDocs, "relations": runValidateRelations},
 		"release": {
 			"inspect-image":                runReleaseInspectImage,
 			"asset-inventory":              runReleaseAssetInventory,

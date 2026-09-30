@@ -90,3 +90,4 @@ than silently changing its outcome.
 | [0083](0083-transfer-the-repository-to-cordanallm.md) | Transfer the repository to cordanaLLM | accepted; post-transfer step 5 partly superseded by [0085](0085-keep-the-live-main-ruleset-across-the-transfer.md) |
 | [0084](0084-multi-topic-research-repository.md) | Host several research topics in one repository | accepted |
 | [0085](0085-keep-the-live-main-ruleset-across-the-transfer.md) | Keep the live main ruleset across the transfer | accepted |
+| [0087](0087-record-engineering-relations-without-evidential-authority.md) | Record engineering relations without evidential authority | accepted |
