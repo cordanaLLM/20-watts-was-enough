@@ -103,8 +103,8 @@ func RoleNames() []string {
 }
 
 // Validate checks the registry beneath root without network access. It reads
-// only the registry, the decision record, the claims ledger and the files its
-// targets name.
+// only the registry, the decision record, the claims ledger, the workstation
+// manifests and the files its targets name.
 func Validate(root string) Result {
 	report := &collector{}
 	repo, err := openRepository(root)
@@ -120,7 +120,7 @@ func Validate(root string) Result {
 	validateHeader(repo, registry, report)
 	targets := newTargetIndex(repo, report)
 	validateRows(registry.Relations, targets, report)
-	guardClaimsLedger(repo, report)
+	guardEvidenceAuthorities(repo, report)
 	return report.result(len(registry.Relations))
 }
 

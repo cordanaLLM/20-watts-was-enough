@@ -80,22 +80,54 @@ func TestValidateRejectsAmbiguousOrNumericRegistryBytes(t *testing.T) {
 	}
 }
 
-func TestValidateRejectsAClaimsLedgerThatCitesARelation(t *testing.T) {
+func TestValidateRejectsAnEvidenceAuthorityThatCitesARelation(t *testing.T) {
 	t.Parallel()
-	for _, citation := range []string{"see research/engineering-relations.json", "per ER-0003"} {
+	manifest := manifestDirectory + "/fixture-012.json"
+	for _, test := range []struct{ file, content string }{
+		{claimsLedgerPath, "### C-001\n\nsee research/engineering-relations.json\n"},
+		{claimsLedgerPath, "### C-001\n\nper ER-0003\n"},
+		{claimsLedgerPath, "### C-001\n\npraetor-evidence:EV-1\n"},
+		{manifest, "{\"promotion_evidence\": {\"relation\": \"ER-0001\"}}\n"},
+		{manifest, "{\"promotion_evidence\": {\"record\": \"praetor-evidence:EV-1\"}}\n"},
+	} {
 		root := fixtureRepository(t)
 		writeRegistry(t, root, encode(t, validRegistry()))
-		writeFile(t, root, claimsLedgerPath, "### C-001\n\n"+citation+"\n")
-		requireError(t, Validate(root), "a relation is never claim evidence")
+		writeFile(t, root, test.file, test.content)
+		requireError(t, Validate(root), test.file+" cites")
+	}
+}
+
+func TestValidateScansOnlyJSONWorkstationManifests(t *testing.T) {
+	t.Parallel()
+	root := fixtureRepository(t)
+	writeRegistry(t, root, encode(t, validRegistry()))
+	writeFile(t, root, manifestDirectory+"/notes.txt", "ER-0001\n")
+	requireValid(t, Validate(root), len(validRegistry().Relations))
+}
+
+func TestValidateBoundsTheManifestDirectory(t *testing.T) {
+	t.Parallel()
+	for _, extra := range []int{maximumDirectoryEntries - 1, maximumDirectoryEntries} {
+		root := fixtureRepository(t)
+		writeRegistry(t, root, encode(t, validRegistry()))
+		for index := range extra {
+			writeFile(t, root, fmt.Sprintf("%s/extra-%03d.json", manifestDirectory, index), "{}\n")
+		}
+		result := Validate(root)
+		if extra < maximumDirectoryEntries {
+			requireValid(t, result, len(validRegistry().Relations))
+			continue
+		}
+		requireError(t, result, "holds more than 256 entries")
 	}
 }
 
 func TestValidateRejectsMissingAuthorityFiles(t *testing.T) {
 	t.Parallel()
-	for _, relative := range []string{DecisionPath, claimsLedgerPath, principleRegistry, RegistryPath} {
+	for _, relative := range []string{DecisionPath, claimsLedgerPath, principleRegistry, RegistryPath, manifestDirectory} {
 		root := fixtureRepository(t)
 		writeRegistry(t, root, encode(t, validRegistry()))
-		if err := os.Remove(filepath.Join(root, filepath.FromSlash(relative))); err != nil {
+		if err := os.RemoveAll(filepath.Join(root, filepath.FromSlash(relative))); err != nil {
 			t.Fatal(err)
 		}
 		if result := Validate(root); len(result.Errors) == 0 {

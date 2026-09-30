@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -82,9 +83,12 @@ func (repo repository) read(relative string, maximumBytes int64) ([]byte, error)
 	return body, nil
 }
 
-// numberedMarkdown maps each three-digit contract number in one directory to
-// its repository-relative Markdown path.
-func (repo repository) numberedMarkdown(relative string) (map[string]string, error) {
+// entries lists one directory beneath the root in name order and rejects a
+// directory with more than maximumDirectoryEntries entries.
+func (repo repository) entries(relative string) ([]os.DirEntry, error) {
+	if !cleanRelativePath(relative) {
+		return nil, fmt.Errorf("path %q is not a clean repository-relative path", relative)
+	}
 	directory, err := os.Open(filepath.Join(repo.root, filepath.FromSlash(relative)))
 	if err != nil {
 		return nil, fmt.Errorf("open %s: %w", relative, err)
@@ -96,6 +100,17 @@ func (repo repository) numberedMarkdown(relative string) (map[string]string, err
 	}
 	if len(entries) > maximumDirectoryEntries {
 		return nil, fmt.Errorf("%s holds more than %d entries", relative, maximumDirectoryEntries)
+	}
+	sort.Slice(entries, func(left, right int) bool { return entries[left].Name() < entries[right].Name() })
+	return entries, nil
+}
+
+// numberedMarkdown maps each three-digit contract number in one directory to
+// its repository-relative Markdown path.
+func (repo repository) numberedMarkdown(relative string) (map[string]string, error) {
+	entries, err := repo.entries(relative)
+	if err != nil {
+		return nil, err
 	}
 	files := make(map[string]string, len(entries))
 	for _, entry := range entries {
