@@ -6,10 +6,10 @@
   "artifact": {
     "pdf": "public/downloads/20-watts-was-enough-full-concept-book.pdf",
     "manifest": "public/downloads/book-manifest.json",
-    "pdf_sha256": "6667af783f3d7e502887baacbebe8abb953bb45548456701437f96298ef4611b",
-    "manifest_sha256": "08a4b2f2b675c77d1f532a0cc267491a944eb0ebb37a2a4eb55f5c15e8fd3d14",
-    "size_bytes": 12798853,
-    "pages": 412,
+    "pdf_sha256": "e100b6e490fbe9d34befce36d93a3368d98fc30985637c9b8512520c13bc146e",
+    "manifest_sha256": "6fa24e642419e88299bcde1d6d844ef47c5190c8841e7b33a10fd4cba1edb3cb",
+    "size_bytes": 12815481,
+    "pages": 414,
     "page_size_name": "A4",
     "page_size_points": {
       "width": 594.96,
@@ -18,7 +18,7 @@
     "pdf_version": "1.4",
     "tagged": true,
     "source_ref": "main",
-    "source_digest": "0706201da43666065ae7250b93f65dfd97fd5e25dccae7866d81b249d10c88c5",
+    "source_digest": "7758687bdf5b87bb0e1dbdd1ed1ec21007c0a9824a5eae3ebcba658f03ddc99f",
     "version": "0.3.0"
   },
   "tools": {
@@ -181,7 +181,7 @@
     {
       "id": "admissible-action-equation-late",
       "class": "table-displayed-equation",
-      "recorded_page": 129,
+      "recorded_page": 130,
       "default_anchor": "The held translation assigns controller i an admissible action set",
       "default_fragments": [
         "The held translation assigns controller i an admissible action set",
@@ -201,7 +201,7 @@
         "The held translation assigns controller an admissible action set",
         "where is observation age in seconds",
         "the notation does not make them interchangeable.\ni\nU",
-        "(t) ∈ U"
+        "(t) ∈ i( i i i i i ) i U ​ (t), i"
       ],
       "state": "known-debt",
       "defect": "The admissible-action equation moves behind its explanation in raw content-stream extraction and is absent from tagged structure text."
@@ -209,7 +209,7 @@
     {
       "id": "adiabatic-equation-fragmented",
       "class": "diagram-figure",
-      "recorded_page": 377,
+      "recorded_page": 379,
       "default_anchor": "Four normalized adiabatic energy curves form different U-shaped crossovers",
       "default_fragments": [
         "Four normalized adiabatic energy curves form different U-shaped crossovers",
@@ -236,7 +236,7 @@
     {
       "id": "field-coverage-heading-merged",
       "class": "diagram-figure",
-      "recorded_page": 386,
+      "recorded_page": 388,
       "default_anchor": "This is the repository's breadth control",
       "default_fragments": [
         "This is the repository's breadth control",
