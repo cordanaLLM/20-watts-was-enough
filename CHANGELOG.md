@@ -7,6 +7,13 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- The locked npm tree no longer carries two high-severity advisories that the
+  CI dependency gate rejects: `fast-uri` moves from 3.1.6 to 3.1.8
+  (GHSA-58mr-gqgx-xq4g) and both `brace-expansion` copies move within their
+  existing ranges, to 1.1.21 and 5.0.12 (GHSA-q2hr-2g5m-vwhr,
+  GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p). Only `package-lock.json` changes;
+  no declared dependency range moves.
+
 - The CLRS generator's repository-root check inspects at most 4096 directory
   levels, counting the root and the volume root, and refuses a deeper path.
   It previously looped until `filepath.Dir` reached a fixed point, with no
