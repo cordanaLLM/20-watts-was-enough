@@ -1,0 +1,178 @@
+{
+  "schema": "20w-engineering-relations/1",
+  "result_authority": "NO_RESULT",
+  "decision": "decisions/0087-record-engineering-relations-without-evidential-authority.md",
+  "relations": [
+    {
+      "id": "ER-0001",
+      "target": "candidate-017",
+      "target_section": "strongest-nulls",
+      "relation": "measures",
+      "role": "null-arm",
+      "metric": "physical storage and metadata",
+      "subject": "Lossless compression of a management-data manifest, reconstructed exactly and compared across gzip, xz and Zstandard encodings on one small corpus",
+      "repository": "cordanaLLM/praetor",
+      "visibility": "public",
+      "commit": "c0bda855003606a51f970b83a2b8ba5fbae4ec07",
+      "paths": [
+        "docs/research/compact-management-data.md"
+      ],
+      "evidence_ref": "https://github.com/cordanaLLM/praetor/blob/c0bda855003606a51f970b83a2b8ba5fbae4ec07/docs/research/compact-management-data.md",
+      "related_party": true,
+      "recorded": "2026-09-30",
+      "does_not_establish": "Storage behaviour beyond one small corpus and one synthetic edit; any advantage of candidate 017 over its lossless-compression null; any 20w claim"
+    },
+    {
+      "id": "ER-0002",
+      "target": "candidate-010",
+      "target_section": "arms",
+      "relation": "implements",
+      "role": "null-arm",
+      "subject": "Dependency-update canary that runs the configured test command in an isolated worktree and then discards the worktree; it verifies every update and certifies none",
+      "repository": "cordanaLLM/praetor",
+      "visibility": "public",
+      "commit": "c0bda855003606a51f970b83a2b8ba5fbae4ec07",
+      "paths": [
+        "docs/guides/canary-evidence.md",
+        "internal/bump/canary.go"
+      ],
+      "evidence_ref": null,
+      "related_party": true,
+      "recorded": "2026-09-30",
+      "does_not_establish": "That reset-coupled staged verification beats arm 5 (retry plus rollback) or arm 6 of candidate 010; any 20w claim"
+    },
+    {
+      "id": "ER-0003",
+      "target": "candidate-011",
+      "target_section": "arms",
+      "relation": "measures",
+      "role": "null-arm",
+      "metric": "unsafe actions and consequence before containment",
+      "subject": "Kernel build matrix that reported success while the production path wrote empty packages, and a release path that would have checksummed and signed them",
+      "repository": "cordanaLLM/nucleus",
+      "visibility": "public",
+      "commit": "8672247ff1bd22ed6b6b89d498116f20ff00c2ab",
+      "paths": [
+        ".github/workflows/build-matrix.yml",
+        ".github/workflows/publish-release.yml",
+        "scripts/build_kernel.sh"
+      ],
+      "evidence_ref": "https://github.com/cordanaLLM/nucleus/issues/18",
+      "related_party": true,
+      "recorded": "2026-09-30",
+      "does_not_establish": "That candidate 011 would have contained the failure sooner than arm 3, the mature SRE stack; any 20w claim"
+    },
+    {
+      "id": "ER-0004",
+      "target": "candidate-011",
+      "target_section": "arms",
+      "relation": "measures",
+      "role": "null-arm",
+      "metric": "containment and restoration time",
+      "subject": "Scheduled image build that failed on every run before a virtual machine started, while nothing reported the failure to an operator",
+      "repository": "cordanaLLM/imago",
+      "visibility": "public",
+      "commit": "16f964b4dafadac2b1f0a662c7dcbb4b7bb29bee",
+      "paths": [
+        ".github/workflows/release-matrix.yml",
+        "packer/sources.pkr.hcl"
+      ],
+      "evidence_ref": "https://github.com/cordanaLLM/imago/issues/38",
+      "related_party": true,
+      "recorded": "2026-09-30",
+      "does_not_establish": "That candidate 011 shortens containment or recurrence relative to arm 3, the mature SRE stack; any 20w claim"
+    },
+    {
+      "id": "ER-0005",
+      "target": "P-003",
+      "relation": "implements",
+      "role": "null-arm",
+      "subject": "Staging queue that holds a destructive tool call as a pending action with a time-to-live and runs it only after explicit confirmation",
+      "repository": "cordanaLLM/imago",
+      "visibility": "public",
+      "commit": "16f964b4dafadac2b1f0a662c7dcbb4b7bb29bee",
+      "paths": [
+        "pkg/mcp/staging.go",
+        "pkg/mcp/staging_test.go"
+      ],
+      "evidence_ref": null,
+      "related_party": true,
+      "recorded": "2026-09-30",
+      "does_not_establish": "That a design built on 20w:P-003 improves on ordinary two-phase confirmation; any 20w claim"
+    },
+    {
+      "id": "ER-0006",
+      "target": "candidate-009",
+      "target_section": "envelope-contract",
+      "relation": "feasibility",
+      "role": "candidate-arm",
+      "residual": "Graded enforcement states replayed against fixtures in both directions, bound to one rule identity rather than one module identity",
+      "subject": "Coverage catalogue that grades each governance rule per language and fails when a grade is more optimistic or more pessimistic than its fixtures show",
+      "repository": "cordanaLLM/praetor",
+      "visibility": "public",
+      "commit": "c0bda855003606a51f970b83a2b8ba5fbae4ec07",
+      "paths": [
+        ".config/hiss/coverage.yaml"
+      ],
+      "evidence_ref": null,
+      "related_party": true,
+      "recorded": "2026-09-30",
+      "does_not_establish": "That per-module assurance envelopes beat the required null stack of candidate 009; any 20w claim"
+    },
+    {
+      "id": "ER-0007",
+      "target": "fixture-012",
+      "target_section": "arms-and-strongest-nulls",
+      "relation": "measures",
+      "role": "null-arm",
+      "metric": "apparent speedup fraction",
+      "subject": "Throughput comparison of the fork against its upstream at a pinned tag, reported as the ratio of median wall-clock times over repeated runs of one build per side",
+      "repository": "VMAFx/vmafx",
+      "visibility": "public",
+      "commit": "fd25369d4c35ed0ace48a992e4ed6c5140522f5d",
+      "paths": [
+        "docs/benchmarks.md",
+        "testdata/bench_upstream_ab.py"
+      ],
+      "evidence_ref": "https://github.com/VMAFx/vmafx/blob/fd25369d4c35ed0ace48a992e4ed6c5140522f5d/docs/benchmarks.md",
+      "related_party": true,
+      "recorded": "2026-09-30",
+      "does_not_establish": "That the reported speedups survive layout randomisation, which fixture 012 tests; any 20w claim"
+    },
+    {
+      "id": "ER-0008",
+      "target": "fixture-017",
+      "target_section": "arms-baselines-and-strongest-nulls",
+      "relation": "feasibility",
+      "role": "null-arm",
+      "subject": "Int8 post-training and quantisation-aware quantisation paths for small quality-metric models, with accuracy budgets stated against the full-precision model",
+      "repository": "VMAFx/vmafx",
+      "visibility": "public",
+      "commit": "fd25369d4c35ed0ace48a992e4ed6c5140522f5d",
+      "paths": [
+        "docs/research/0006-tinyai-ptq-accuracy-targets.md"
+      ],
+      "evidence_ref": null,
+      "related_party": true,
+      "recorded": "2026-09-30",
+      "does_not_establish": "Any crossover between ternary and INT8 execution; behaviour of the language-model workloads fixture 017 names; any 20w claim"
+    },
+    {
+      "id": "ER-0009",
+      "target": "energy:H-E1",
+      "relation": "feasibility",
+      "role": "null-arm",
+      "subject": "Quality gate that refuses to enable a fast no-reference proxy threshold when its calibration against the full-reference metric is weak",
+      "repository": "VMAFx/vmafx",
+      "visibility": "public",
+      "commit": "fd25369d4c35ed0ace48a992e4ed6c5140522f5d",
+      "paths": [
+        "docs/research/0685-fast-nr-calibration-quality-guard.md"
+      ],
+      "evidence_ref": null,
+      "related_party": true,
+      "recorded": "2026-09-30",
+      "does_not_establish": "Any energy saving from conditional execution; any 20w claim"
+    }
+  ]
+}

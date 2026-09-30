@@ -155,6 +155,7 @@ or consequential remote state.
 | `research/audits/` | Field- and mechanism-level evidence audits |
 | `research/research-integrity-baseline.md` | Deduplicated European research-conduct, disclosure, ethics, correction, and review rules |
 | `research/disclosures/` | Per-output contributors, support, competing interests, material tools, approval, and verification records |
+| `research/engineering-relations.json` | Number-free links from external code to 20w contracts; `NO_RESULT`, never claim evidence |
 | `math/` | Notation, derivations, units, and testable models |
 | `experiments/candidates/` | Architecture-candidate comparison contracts |
 | `experiments/fixtures/` | Candidate-independent stress and falsification fixtures |
