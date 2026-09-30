@@ -42,6 +42,7 @@ import {
   validateScientificRuntimeLock,
   validateScientificRuntimeWorkflowObject,
   validateToolingValidationScript,
+  validateTopicRegistryScriptsObject,
   validateUnpinnedImageSourceLabels,
   validateWorkstationShardScriptsObject,
   validateWorkflowObject,
@@ -236,6 +237,34 @@ test("workstation shard scripts retain their exact disjoint inventories", () => 
   assert.ok(validate(manifest, unshardedRegisteredTest).includes(
     "package.json: Fixture 026 tests and full_tests must match and every registered test must appear in exactly one shard",
   ));
+});
+
+test("the topic registry validator runs in the aggregate gate and every impact plan", () => {
+  const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert.deepEqual(validateTopicRegistryScriptsObject(manifest), []);
+  assert.ok(manifest.scripts.test.split(" && ").includes("npm run validate:topics"));
+  assert.ok(manifest.scripts["check:full-without-workstation"].split(" && ").includes("npm run validate:topics"));
+
+  const skippedGate = structuredClone(manifest);
+  skippedGate.scripts.test = skippedGate.scripts.test.replace("npm run validate:topics && ", "");
+  assert.ok(validateWorkstationShardScriptsObject(skippedGate, {}).includes(
+    "package.json: the local aggregate gate must retain the complete workstation suite",
+  ));
+
+  const cases = [
+    ["validate:topics", "node scripts/validate-topics.mjs --lenient",
+      "package.json: validate:topics must run node scripts/validate-topics.mjs"],
+    ["test:policy", manifest.scripts["test:policy"].replace(" scripts/validate-topics.test.mjs", ""),
+      "package.json: test:policy must run scripts/validate-topics.test.mjs"],
+    ["check:impact-common", manifest.scripts["check:impact-common"].replace("npm run validate:topics && ", ""),
+      "package.json: check:impact-common must run validate:topics for every impact plan"],
+  ];
+  for (const [script, command, finding] of cases) {
+    const tampered = structuredClone(manifest);
+    tampered.scripts[script] = command;
+    assert.deepEqual(validateTopicRegistryScriptsObject(tampered), [finding]);
+  }
+  assert.equal(validateTopicRegistryScriptsObject({}).length, 3);
 });
 
 test("full-book browser probes stay in one bounded process-isolated site-test group", () => {
