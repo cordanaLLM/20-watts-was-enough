@@ -1,0 +1,34 @@
+{
+  "title": "20 Watts Was Enough",
+  "upload_type": "software",
+  "description": "<p>A biologically inspired research blueprint and evidence framework for sparse, grounded, continual, and energy-efficient artificial intelligence. The archive contains the maintained concept chapters, a stable claim ledger, a deduplicated principle registry, experiment candidate and fixture contracts, bounded development harnesses, publication tooling and the tag-bound full-concept book PDF.</p><p>This is a blueprint and evidence framework, not an experimental result: no workstation experiment in this archive is claim-eligible, and every experiment image carries the NO_RESULT authority boundary. The research-output disclosure for each version is in research/disclosures/.</p>",
+  "creators": [
+    {
+      "name": "lusoris contributors"
+    }
+  ],
+  "license": "eupl-1.2",
+  "access_right": "open",
+  "language": "eng",
+  "keywords": [
+    "biologically inspired artificial intelligence",
+    "energy-efficient artificial intelligence",
+    "sparse computation",
+    "continual learning",
+    "sensorimotor grounding",
+    "scientific evidence"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/cordanaLLM/20-watts-was-enough",
+      "relation": "isSupplementTo",
+      "resource_type": "software"
+    },
+    {
+      "identifier": "https://www.cordana.dev/",
+      "relation": "isDocumentedBy",
+      "resource_type": "publication-book"
+    }
+  ],
+  "notes": "Split licence: project-authored software and technical execution material under EUPL-1.2 or later; original research and presentation material, including the book, under CC BY-SA 4.0; third-party material keeps its own terms. See LICENSING.md in the archive."
+}
