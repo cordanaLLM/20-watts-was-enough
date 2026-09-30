@@ -5,6 +5,8 @@ the exact diff; this file records why the project changed.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-30
+
 ### Fixed
 
 - The locked npm tree no longer carries two high-severity advisories that the
@@ -238,7 +240,86 @@ the exact diff; this file records why the project changed.
   so the changed reason and mode contract cannot be mistaken for schema-1
   output.
 
+
+- Trusted repository-metadata repair now has the pull-request write permission
+  required to remove stale lifecycle labels from merged pull requests. Shared
+  GitHub API reads retry only bounded transport failures and 500/502/503/504
+  responses; writes remain single-attempt so an uncertain mutation is never
+  replayed blindly.
+- Release PDF rendering now receives the exact commit produced by the tag
+  preflight and refuses a checkout at any other revision. Policy validation
+  requires the unique reviewed step, its exact tag-and-commit command and only
+  the two verified outputs; missing, ambient, reordered, conditional or
+  failure-tolerant variants fail closed.
+- The locked browser-targeting toolchain now uses Browserslist 4.28.8, closing
+  the two high-severity unbounded-memory advisories reported by Dependabot and
+  OpenSSF Scorecard. The regenerated book manifest and semantic sentinel bind
+  the dependency change without changing the rendered PDF bytes.
+- Portal document changes now focus the destination heading and keep fragment,
+  back and forward navigation aligned with that focus. The document rail uses
+  native links, so new-tab, modifier-click and copied-route behaviour remain
+  available alongside same-tab client navigation.
+- The assembled web book now exposes one title-level heading, nests chapter
+  headings beneath it without shrinking their visual role, and offers a
+  keyboard skip path to the first chapter. Its generated no-JavaScript surface
+  now contains the same canonical manuscript instead of only a link index and
+  gives every table an explicit keyboard-scroll fallback where runtime overflow
+  measurement is unavailable. Hydrated tables remain focusable only when they
+  actually overflow. Shared inventory and real-browser checks bind all 51
+  chapter fragments, heading levels and skip-link continuation to the canonical
+  source corpus. This is a bounded semantic repair, not a WCAG or PDF/UA
+  conformance claim.
+- In the hydrated reader, code blocks, display equations, tables and diagrams
+  now enter the keyboard sequence only when they actually overflow. Each active
+  region has a contextual accessible name, a visible scroll cue and a focus
+  ring; resize observation removes that extra navigation stop when the content
+  fits again. Generated no-JavaScript book and help surfaces retain their
+  explicit keyboard-scroll fallback because they cannot measure runtime
+  overflow.
+- Continuous-book deep links now restore every chapter and heading below the
+  responsive action bar on cold load and later hash navigation. Internal book
+  links remain in the namespaced edition while preserving the current Pages
+  base path, query and route; a real-browser desktop/mobile regression guards
+  the observable clearance.
+- The page-27 biomimetic-transfer figure now uses a print-safe vertical flow.
+  Print hides the screen-only overflow cue and resets the diagram caption from
+  sticky positioning so the caption stays with the figure before the following
+  prose. The diagram's nodes, edges, labels and scientific meaning are unchanged.
+- Long entries in the continuous book's generated field-coverage lists now
+  wrap within the reading column at 320 CSS pixels while wide diagrams retain
+  their labelled local scroll regions. Browser coverage now also verifies the
+  existing action bar in a 720 CSS pixel viewport rendered at DPR 2.
+- Linked operational manifests outside the public reader-artifact allowlist
+  now remain canonical GitHub-source links instead of being copied under
+  hidden static paths that the Pages safety validator rejects.
+- Renderer image identity is now stable across the locked two-fresh-builder
+  comparison. Lock schema 3 requires BuildKit's layer-timestamp rewrite and
+  records compatibility version 30 as the reviewed BuildKit 0.32.2 default;
+  the Go renderer rejects rewrite warnings before it records the image ID. A
+  real-Docker release acceptance now rebuilds the final context without cache
+  in two separate pinned builders, compares the image, config and manifest
+  identities and complete PDF/manifest outputs, and retains a bounded receipt.
+- Release preflight now locates an exact tag through GitHub's GraphQL API and
+  reads the resulting numeric release through REST. Draft releases are no
+  longer misclassified as absent, while malformed, ambiguous and changed
+  identities still fail closed.
+- Candidate 010 source identity now resolves loose and packed branch references
+  through Git's linked-worktree common directory. Its normal checkout and
+  Git-free frozen-capsule verification paths retain their existing authority.
+- Browser verification now waits through a bounded termination grace and
+  forced-exit interval, then retries temporary-profile removal through a
+  bounded filesystem backoff. This covers both a still-running Chromium
+  process and late child-process writes after the main process exits.
+
 ### Added
+
+- The `v0.4.0` research-output disclosure records contributors, support,
+  competing interests and material AI use for this snapshot, including the
+  automated (not human) review of the mycorrhizal audit update. It also
+  corrects the `v0.3.0` record: that release's workflow run failed, and its
+  workflow-created draft was published outside any run, so the approval
+  evidence the `v0.3.0` disclosure names does not exist as stated. The `v0.3.0`
+  record keeps its text and gains a dated pointer to the correction.
 
 - An accepted decision record for hosting several research topics in one
   repository. The founding topic keeps its published paths, identifiers and
@@ -760,78 +841,6 @@ the exact diff; this file records why the project changed.
   document rail uses a two-row filter at compact desktop widths so the full
   Mathematics label remains visible without changing the 68ch prose
   measure or narrow-screen reading order.
-
-### Fixed
-
-- Trusted repository-metadata repair now has the pull-request write permission
-  required to remove stale lifecycle labels from merged pull requests. Shared
-  GitHub API reads retry only bounded transport failures and 500/502/503/504
-  responses; writes remain single-attempt so an uncertain mutation is never
-  replayed blindly.
-- Release PDF rendering now receives the exact commit produced by the tag
-  preflight and refuses a checkout at any other revision. Policy validation
-  requires the unique reviewed step, its exact tag-and-commit command and only
-  the two verified outputs; missing, ambient, reordered, conditional or
-  failure-tolerant variants fail closed.
-- The locked browser-targeting toolchain now uses Browserslist 4.28.8, closing
-  the two high-severity unbounded-memory advisories reported by Dependabot and
-  OpenSSF Scorecard. The regenerated book manifest and semantic sentinel bind
-  the dependency change without changing the rendered PDF bytes.
-- Portal document changes now focus the destination heading and keep fragment,
-  back and forward navigation aligned with that focus. The document rail uses
-  native links, so new-tab, modifier-click and copied-route behaviour remain
-  available alongside same-tab client navigation.
-- The assembled web book now exposes one title-level heading, nests chapter
-  headings beneath it without shrinking their visual role, and offers a
-  keyboard skip path to the first chapter. Its generated no-JavaScript surface
-  now contains the same canonical manuscript instead of only a link index and
-  gives every table an explicit keyboard-scroll fallback where runtime overflow
-  measurement is unavailable. Hydrated tables remain focusable only when they
-  actually overflow. Shared inventory and real-browser checks bind all 51
-  chapter fragments, heading levels and skip-link continuation to the canonical
-  source corpus. This is a bounded semantic repair, not a WCAG or PDF/UA
-  conformance claim.
-- In the hydrated reader, code blocks, display equations, tables and diagrams
-  now enter the keyboard sequence only when they actually overflow. Each active
-  region has a contextual accessible name, a visible scroll cue and a focus
-  ring; resize observation removes that extra navigation stop when the content
-  fits again. Generated no-JavaScript book and help surfaces retain their
-  explicit keyboard-scroll fallback because they cannot measure runtime
-  overflow.
-- Continuous-book deep links now restore every chapter and heading below the
-  responsive action bar on cold load and later hash navigation. Internal book
-  links remain in the namespaced edition while preserving the current Pages
-  base path, query and route; a real-browser desktop/mobile regression guards
-  the observable clearance.
-- The page-27 biomimetic-transfer figure now uses a print-safe vertical flow.
-  Print hides the screen-only overflow cue and resets the diagram caption from
-  sticky positioning so the caption stays with the figure before the following
-  prose. The diagram's nodes, edges, labels and scientific meaning are unchanged.
-- Long entries in the continuous book's generated field-coverage lists now
-  wrap within the reading column at 320 CSS pixels while wide diagrams retain
-  their labelled local scroll regions. Browser coverage now also verifies the
-  existing action bar in a 720 CSS pixel viewport rendered at DPR 2.
-- Linked operational manifests outside the public reader-artifact allowlist
-  now remain canonical GitHub-source links instead of being copied under
-  hidden static paths that the Pages safety validator rejects.
-- Renderer image identity is now stable across the locked two-fresh-builder
-  comparison. Lock schema 3 requires BuildKit's layer-timestamp rewrite and
-  records compatibility version 30 as the reviewed BuildKit 0.32.2 default;
-  the Go renderer rejects rewrite warnings before it records the image ID. A
-  real-Docker release acceptance now rebuilds the final context without cache
-  in two separate pinned builders, compares the image, config and manifest
-  identities and complete PDF/manifest outputs, and retains a bounded receipt.
-- Release preflight now locates an exact tag through GitHub's GraphQL API and
-  reads the resulting numeric release through REST. Draft releases are no
-  longer misclassified as absent, while malformed, ambiguous and changed
-  identities still fail closed.
-- Candidate 010 source identity now resolves loose and packed branch references
-  through Git's linked-worktree common directory. Its normal checkout and
-  Git-free frozen-capsule verification paths retain their existing authority.
-- Browser verification now waits through a bounded termination grace and
-  forced-exit interval, then retries temporary-profile removal through a
-  bounded filesystem backoff. This covers both a still-running Chromium
-  process and late child-process writes after the main process exits.
 
 ## [0.3.0] - 2026-08-30
 
