@@ -24,6 +24,7 @@ var supportFiles = map[string]string{
 	candidateDirectory + "/README.md":                                    "# Candidates\n",
 	fixtureDirectory + "/012-layout-randomized-performance-inference.md": "## Arms and strongest nulls\n\n- apparent speedup fraction (`1`);\n",
 	"research/audits/2026-08-30-example-audit.md":                        "# Audit\n",
+	manifestDirectory + "/fixture-012.json":                              "{\"promotion_evidence\": {}}\n",
 }
 
 func pointer(value string) *string { return &value }

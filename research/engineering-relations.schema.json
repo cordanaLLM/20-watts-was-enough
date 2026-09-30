@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/cordanaLLM/20-watts-was-enough/blob/main/research/engineering-relations.schema.json",
   "title": "20w engineering relations",
-  "description": "Number-free relations between 20w contracts and code in other repositories. A relation carries no evidential authority (decisions/0087-record-engineering-relations-without-evidential-authority.md). `20w validate relations` is the authoritative check; this schema documents the shape and cannot express the cross-file rules: target resolution, heading slugs, metric quotation, canonical bytes, the absence of JSON numbers, qualified identifiers in free text and the claims-ledger guard.",
+  "description": "Number-free relations between 20w contracts and code in other repositories. A relation carries no evidential authority (decisions/0087-record-engineering-relations-without-evidential-authority.md). `20w validate relations` is the authoritative check; this schema documents the shape and cannot express the cross-file rules: target resolution, heading slugs, metric quotation, canonical bytes, the absence of JSON numbers, qualified identifiers in free text and the guard that keeps the claims ledger and workstation manifests from citing a relation.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "result_authority", "decision", "relations"],
