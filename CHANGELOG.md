@@ -5,6 +5,17 @@ the exact diff; this file records why the project changed.
 
 ## [Unreleased]
 
+### Fixed
+
+- The release workflow's anonymous-pull gates now ask the registry directly.
+  The `v0.4.0` run passed both gates while its three new GHCR packages were
+  still private: the runner had already pulled the admitted digests with
+  credentials, so `docker pull` under an empty configuration was answered from
+  the local image store. Each gate now also requests an anonymous registry
+  token and a manifest by digest, bounded to 30 seconds per request, which
+  only a public package answers. The policy validator requires that probe in
+  both steps.
+
 ## [0.4.0] - 2026-09-30
 
 ### Fixed
@@ -239,7 +250,6 @@ the exact diff; this file records why the project changed.
   object modes remain full-plan boundaries. The projected plan schema is now 2
   so the changed reason and mode contract cannot be mistaken for schema-1
   output.
-
 
 - Trusted repository-metadata repair now has the pull-request write permission
   required to remove stale lifecycle labels from merged pull requests. Shared

@@ -912,13 +912,30 @@ jobs:
           }
           trap cleanup EXIT
           printf '%s\n' '{"auths":{}}' > "$anonymous_config/config.json"
+          # A digest the runner already pulled with credentials can satisfy docker pull
+          # from the local image store, so ask the registry itself: an anonymous token
+          # and a manifest HEAD by digest succeed only for a public package.
+          registry_manifest_is_anonymous() {
+            local reference="${1#ghcr.io/}"
+            local repository="${reference%@*}"
+            local digest="${reference#*@}"
+            local token_response token
+            token_response="$(curl --fail --silent --show-error --max-time 30 \
+              "https://ghcr.io/token?scope=repository:${repository}:pull")" || return 1
+            token="$(printf '%s' "$token_response" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')"
+            [[ -n "$token" ]] || return 1
+            curl --fail --silent --show-error --max-time 30 --head --output /dev/null \
+              --header "Authorization: Bearer ${token}" \
+              --header 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json' \
+              "https://ghcr.io/v2/${repository}/manifests/${digest}"
+          }
           images=(
             "ghcr.io/${IMAGE_REPOSITORY}-20w@${TOOLING_DIGEST}"
             "ghcr.io/${IMAGE_REPOSITORY}-fixture-007@${FIXTURE_007_DIGEST}"
             "ghcr.io/${IMAGE_REPOSITORY}-fixture-019@${FIXTURE_019_DIGEST}"
           )
           for image in "${images[@]}"; do
-            if ! DOCKER_CONFIG="$anonymous_config" docker pull "$image"; then
+            if ! registry_manifest_is_anonymous "$image" || ! DOCKER_CONFIG="$anonymous_config" docker pull "$image"; then
               echo "::error::${image} is not anonymously pullable. GitHub creates new packages as private; set all three release packages to Public in their package settings, then manually rerun this exact tag."
               exit 1
             fi
@@ -1091,13 +1108,30 @@ jobs:
           }
           trap cleanup EXIT
           printf '%s\n' '{"auths":{}}' > "$anonymous_config/config.json"
+          # A digest the runner already pulled with credentials can satisfy docker pull
+          # from the local image store, so ask the registry itself: an anonymous token
+          # and a manifest HEAD by digest succeed only for a public package.
+          registry_manifest_is_anonymous() {
+            local reference="${1#ghcr.io/}"
+            local repository="${reference%@*}"
+            local digest="${reference#*@}"
+            local token_response token
+            token_response="$(curl --fail --silent --show-error --max-time 30 \
+              "https://ghcr.io/token?scope=repository:${repository}:pull")" || return 1
+            token="$(printf '%s' "$token_response" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')"
+            [[ -n "$token" ]] || return 1
+            curl --fail --silent --show-error --max-time 30 --head --output /dev/null \
+              --header "Authorization: Bearer ${token}" \
+              --header 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json' \
+              "https://ghcr.io/v2/${repository}/manifests/${digest}"
+          }
           images=(
             "ghcr.io/${IMAGE_REPOSITORY}-20w@${TOOLING_DIGEST}"
             "ghcr.io/${IMAGE_REPOSITORY}-fixture-007@${FIXTURE_007_DIGEST}"
             "ghcr.io/${IMAGE_REPOSITORY}-fixture-019@${FIXTURE_019_DIGEST}"
           )
           for image in "${images[@]}"; do
-            if ! DOCKER_CONFIG="$anonymous_config" docker pull "$image"; then
+            if ! registry_manifest_is_anonymous "$image" || ! DOCKER_CONFIG="$anonymous_config" docker pull "$image"; then
               echo "::error::persisted release image ${image} is not anonymously pullable"
               exit 1
             fi

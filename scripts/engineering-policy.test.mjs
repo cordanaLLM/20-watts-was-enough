@@ -2132,6 +2132,10 @@ test("release publication requires anonymous pulls of all final image digests", 
       const pull = releaseImageStepByName(subject, "Prove final image digests are anonymously pullable");
       pull.run = pull.run.replace('ghcr.io/${IMAGE_REPOSITORY}-fixture-019@${FIXTURE_019_DIGEST}', "fixture-019:latest");
     },
+    (subject) => {
+      const pull = releaseImageStepByName(subject, "Prove final image digests are anonymously pullable");
+      pull.run = pull.run.replace('registry_manifest_is_anonymous "$image" || ', "");
+    },
   ]) {
     assertWorkflowTamper("release", validateReleaseExperimentImageWorkflowObject, mutate, anonymousFinding);
   }
@@ -2393,6 +2397,10 @@ test("oci-images.json is the immutable release-image authority", () => {
         subject,
         "Revalidate persisted image digests anonymously",
       ).run += "\ndocker login ghcr.io";
+    },
+    (subject) => {
+      const pull = releaseImageStepByName(subject, "Revalidate persisted image digests anonymously");
+      pull.run = pull.run.replace('registry_manifest_is_anonymous "$image" || ', "");
     },
   ]) {
     assertWorkflowTamper("release", validateReleaseWorkflowObject, mutate, rerunFinding);
