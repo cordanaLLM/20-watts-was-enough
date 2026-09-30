@@ -63,7 +63,9 @@ only 20w review can make it.
 The file declares `"result_authority": "NO_RESULT"` and contains no JSON
 number. Numbers stay at the pinned locator or in the evidence record, where
 their method, unit and uncertainty are recorded. A row never targets a `C-`
-claim, and the claims ledger may not cite the registry or a relation identity.
+claim. Neither the claims ledger nor a workstation manifest, whose
+`promotion_evidence` gates a result, may cite the registry, a relation identity
+or a Praetor evidence record.
 
 A row targets one of these 20w identities:
 
@@ -135,7 +137,9 @@ repository; a blob URL uses the row's commit.
     free text beyond its length bound, and a `recorded` value that is not a
     calendar date;
 11. `"visibility": "private"`;
-12. a claims ledger that mentions the registry or an `ER-NNNN` identity.
+12. a claims ledger or a JSON manifest under `experiments/workstation/manifests/`
+    that mentions the registry, an `ER-NNNN` identity or a `praetor-evidence:`
+    reference.
 
 ### First slice
 

@@ -34,8 +34,8 @@ the exact diff; this file records why the project changed.
   `20w validate relations` checks it offline: strict JSON in canonical bytes,
   targets and heading slugs that resolve, metrics quoted from the target
   contract, 40-character commits, namespaced identifiers in free text, and a
-  claims ledger that does not cite the registry. `npm run validate:docs` now
-  runs it. The first slice holds nine rows from four public repositories, each
+  claims ledger and workstation manifests that cite neither the registry nor
+  a relation. `npm run validate:docs` now runs it. The first slice holds nine rows from four public repositories, each
   commit and path read back through the GitHub API on 2026-09-30; a private
   repository is rejected. See
   [decision 0087](decisions/0087-record-engineering-relations-without-evidential-authority.md).

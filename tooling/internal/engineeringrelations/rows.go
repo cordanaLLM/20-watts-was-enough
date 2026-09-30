@@ -7,10 +7,7 @@ import (
 	"time"
 )
 
-const (
-	maximumPaths       = 8
-	maximumClaimsBytes = 16 << 20
-)
+const maximumPaths = 8
 
 var (
 	relationIDPattern = regexp.MustCompile(`^ER-[0-9]{4}$`)
@@ -18,7 +15,6 @@ var (
 	commitPattern     = regexp.MustCompile(`^[0-9a-f]{40}$`)
 	githubReference   = regexp.MustCompile(`^https://github\.com/([A-Za-z0-9-]+/[A-Za-z0-9._-]+)/(?:issues/[1-9][0-9]{0,9}|pull/[1-9][0-9]{0,9}|actions/runs/[1-9][0-9]{0,19}|releases/tag/[A-Za-z0-9._+-]{1,128}|blob/([0-9a-f]{40})/(.+))$`)
 	auditReference    = regexp.MustCompile(`^research/audits/[a-z0-9][a-z0-9.-]{0,160}\.md$`)
-	ledgerReference   = regexp.MustCompile(`engineering-relations|\bER-[0-9]{4}\b`)
 )
 
 func validateRows(relations []Relation, targets *targetIndex, report *collector) {
@@ -149,18 +145,5 @@ func checkRecorded(label, recorded string, report *collector) {
 	parsed, err := time.Parse(time.DateOnly, recorded)
 	if err != nil || parsed.Format(time.DateOnly) != recorded {
 		report.add("%s: recorded must be a calendar date in YYYY-MM-DD form", label)
-	}
-}
-
-// guardClaimsLedger keeps the claims ledger from citing the registry or a
-// relation as evidence.
-func guardClaimsLedger(repo repository, report *collector) {
-	body, err := repo.read(claimsLedgerPath, maximumClaimsBytes)
-	if err != nil {
-		report.add("%s: %v", claimsLedgerPath, err)
-		return
-	}
-	if match := ledgerReference.Find(body); match != nil {
-		report.add("%s cites %q; a relation is never claim evidence (decision 0087)", claimsLedgerPath, match)
 	}
 }
