@@ -106,7 +106,7 @@ jobs:
       - name: Use Node.js 26
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 26.8.1
+          node-version: 26.10.0
           cache: npm
       - name: Install locked npm 12.0.2
         run: node scripts/install-locked-npm.mjs
@@ -119,9 +119,9 @@ jobs:
       - name: Run the full repository gate
         run: npm run check
       - name: Set up the locked PDF Docker Buildx client
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
-          version: v0.36.1
+          version: v0.37.1
           driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
       - name: Render the immutable tag-bound book
         env:
@@ -373,9 +373,9 @@ jobs:
           go -C tooling build -trimpath -buildvcs=false -o ../build/release-tools/20w ./cmd/20w
       - name: Set up Docker Buildx
         if: steps.release-preflight.outputs.release_state != 'published'
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
-          version: v0.36.1
+          version: v0.37.1
           driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
       - name: Authenticate to GitHub Container Registry
         if: steps.release-preflight.outputs.release_state != 'published'
@@ -443,7 +443,7 @@ jobs:
       - name: Build and push the untagged static 20w candidate
         if: steps.release-preflight.outputs.release_state != 'published' && steps.image-status.outputs.tooling_publish == 'true'
         id: build-tooling-image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: tooling/Dockerfile
@@ -486,7 +486,7 @@ jobs:
       - name: Build and push the untagged Fixture 007 candidate
         if: steps.release-preflight.outputs.release_state != 'published' && steps.image-status.outputs.fixture007_publish == 'true'
         id: build-fixture-007-image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: build/container-contexts/fixture-007
           file: experiments/workstation/Dockerfile.node-artifact
@@ -529,7 +529,7 @@ jobs:
       - name: Build and push the untagged Fixture 019 candidate
         if: steps.release-preflight.outputs.release_state != 'published' && steps.image-status.outputs.fixture019_publish == 'true'
         id: build-fixture-019-image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: build/container-contexts/fixture-019
           file: experiments/workstation/fixture-019/Dockerfile

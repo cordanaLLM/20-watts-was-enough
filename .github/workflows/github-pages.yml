@@ -28,7 +28,7 @@ jobs:
       - name: Use Node.js 26
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 26.8.1
+          node-version: 26.10.0
           cache: npm
       - name: Install locked npm 12.0.2
         run: node scripts/install-locked-npm.mjs
@@ -65,7 +65,7 @@ jobs:
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
       - name: Deploy GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
 
   verify-public-transport:
     name: Verify Cloudflare public transport
