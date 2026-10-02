@@ -10,7 +10,7 @@
   "engines": {
     "node": "26.8.1"
   },
-  "packageManager": "npm@12.0.2",
+  "packageManager": "npm@12.1.0",
   "scripts": {
     "dev": "npm run dev:github-pages",
     "dev:github-pages": "npm run prepare:reader-artifacts && vite --config vite.pages.config.ts",
