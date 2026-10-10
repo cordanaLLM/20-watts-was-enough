@@ -185,7 +185,7 @@ check the changed contracts and their downstream consumers, combining scopes
 for mixed changes. Unknown, unsafe or shared-authority scope requires the full
 gate.
 
-Run the [complete npm and Go gates](decisions/0080-impact-scope-local-validation.md#preserve-the-complete-gates)
+Run the [complete npm and Go gates](decisions/0088-impact-scope-ci-and-local-validation.md#preserve-the-complete-gates)
 before marking a pull request ready, integrating into `main`, merging or
 releasing.
 
