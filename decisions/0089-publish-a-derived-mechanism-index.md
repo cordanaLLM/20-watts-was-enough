@@ -59,10 +59,10 @@ ledger format.
   relations. Adding them needs a reason from a consumer, not completeness.
 - The parser reads a claim's statement from its `Statement` or `Claim` field
   and its status from the first word of its `Status` field, as the coverage
-  audit always has. Claims C-1377 to C-1385 label that field
-  `Evidence status`, so both the audit and the index report them as
-  `unknown`. Normalising those nine ledger entries is a separate ledger change;
-  it would also change the coverage report.
+  audit always has. A ledger entry with a differently labelled status field is
+  reported as `unknown` by both. Claims C-1377 to C-1385 used an
+  `Evidence status` label until a later ledger fix renamed it to `Status`;
+  their status words did not change.
 
 ## Alternatives considered
 

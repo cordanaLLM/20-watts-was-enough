@@ -76,11 +76,11 @@
         "unknown": 0
       },
       "protocol-complete": {
-        "established": 1145,
+        "established": 1154,
         "plausible": 210,
         "speculative": 64,
         "disputed": 47,
-        "unknown": 9
+        "unknown": 0
       },
       "workstation-executable": {
         "established": 0,
@@ -28210,7 +28210,7 @@
     },
     {
       "id": "C-1377",
-      "status": "unknown",
+      "status": "established",
       "tier": "protocol-complete",
       "testRouted": true,
       "protocolCovered": true,
@@ -28223,7 +28223,7 @@
     },
     {
       "id": "C-1378",
-      "status": "unknown",
+      "status": "established",
       "tier": "protocol-complete",
       "testRouted": true,
       "protocolCovered": true,
@@ -28236,7 +28236,7 @@
     },
     {
       "id": "C-1379",
-      "status": "unknown",
+      "status": "established",
       "tier": "protocol-complete",
       "testRouted": true,
       "protocolCovered": true,
@@ -28249,7 +28249,7 @@
     },
     {
       "id": "C-1380",
-      "status": "unknown",
+      "status": "established",
       "tier": "protocol-complete",
       "testRouted": true,
       "protocolCovered": true,
@@ -28262,7 +28262,7 @@
     },
     {
       "id": "C-1381",
-      "status": "unknown",
+      "status": "established",
       "tier": "protocol-complete",
       "testRouted": true,
       "protocolCovered": true,
@@ -28276,7 +28276,7 @@
     },
     {
       "id": "C-1382",
-      "status": "unknown",
+      "status": "established",
       "tier": "protocol-complete",
       "testRouted": true,
       "protocolCovered": true,
@@ -28289,7 +28289,7 @@
     },
     {
       "id": "C-1383",
-      "status": "unknown",
+      "status": "established",
       "tier": "protocol-complete",
       "testRouted": true,
       "protocolCovered": true,
@@ -28302,7 +28302,7 @@
     },
     {
       "id": "C-1384",
-      "status": "unknown",
+      "status": "established",
       "tier": "protocol-complete",
       "testRouted": true,
       "protocolCovered": true,
@@ -28315,7 +28315,7 @@
     },
     {
       "id": "C-1385",
-      "status": "unknown",
+      "status": "established",
       "tier": "protocol-complete",
       "testRouted": true,
       "protocolCovered": true,

@@ -9643,63 +9643,63 @@
     },
     {
       "id": "C-1377",
-      "status": "unknown",
+      "status": "established",
       "statement": "Chemical amount, identity, species distribution, and operationally defined fraction are distinct measurands. Sampling, preservation, preparation, interconversion, recovery, selectivity, matrix response, and calibration range determine which one an analytical result can support; a total-element or nominal-analyte result does not reconstruct the unchanged in-situ species vector.",
       "path": "research/claims.md",
       "anchor": "c-1377"
     },
     {
       "id": "C-1378",
-      "status": "unknown",
+      "status": "established",
       "statement": "Detection, identification, quantification, and conformity are separate decisions. A detection capability is conditional on blank/null, decision statistic, calibration and variance model, declared false-positive and false-negative probabilities, matrix, procedure, and time; a quantification limit additionally requires fit-for-purpose bias/precision or uncertainty, and neither limit alone decides compliance.",
       "path": "research/claims.md",
       "anchor": "c-1378"
     },
     {
       "id": "C-1379",
-      "status": "unknown",
+      "status": "established",
       "statement": "An analytical result for a delivered test portion does not by itself establish the property of a food lot, water body, sediment, soil, or other sampling target. Target definition, frame, increment/site selection, spatial and temporal support, aggregation, homogenization, preparation, preservation, rejected or inaccessible units, and sampling uncertainty are part of the inference.",
       "path": "research/claims.md",
       "anchor": "c-1379"
     },
     {
       "id": "C-1380",
-      "status": "unknown",
+      "status": "established",
       "statement": "Metrological traceability, suitable reference material, method validation, within-laboratory quality control, interlaboratory comparison, proficiency testing, and fitness for the intended matrix and decision are distinct evidence. Agreement or a consensus assigned value can retain shared calibration, method, commutability, matrix, or preparation bias.",
       "path": "research/claims.md",
       "anchor": "c-1380"
     },
     {
       "id": "C-1381",
-      "status": "unknown",
+      "status": "established",
       "statement": "Point concentration, discharge, constituent load, stored mass, exposure, water-body status, treatment-stage removal, transformation product, and compliance at a defined point are different quantities. Hydrologic and treatment claims require aligned flow, volume, residence time, reaction, bypass, sampling support, uncertainty, and mass-balance boundaries.",
       "path": "research/claims.md",
       "anchor": "c-1381"
     },
     {
       "id": "C-1382",
-      "status": "unknown",
+      "status": "established",
       "statement": "Groundwater wells and lake samples/profiles constrain a support-weighted state under heterogeneous flow, screened interval, pumping, transport, reaction, stratification, mixing, season, depth, and network design; they do not identify a unique aquifer field, whole-lake state, source, or trend without an explicit forward model and support analysis.",
       "path": "research/claims.md",
       "anchor": "c-1382"
     },
     {
       "id": "C-1383",
-      "status": "unknown",
+      "status": "established",
       "statement": "Oceanic or atmospheric observation, quality-controlled observation, gridded product, analysis, and reanalysis are distinct. A field estimate is conditional on platform and instrument mix, sampling support, calibration and drift, selection/quality control, observation operator, background dynamics, error covariance, assimilation version, and changing observing-system coverage.",
       "path": "research/claims.md",
       "anchor": "c-1383"
     },
     {
       "id": "C-1384",
-      "status": "unknown",
+      "status": "established",
       "statement": "A geodetic coordinate or velocity and a geophysical inverse estimate are qualified by reference system/frame, realization, epoch, station motion and discontinuities, transformation, covariance, forward sensitivity kernel, regularization or prior, null space, and averaging-kernel resolution; coordinate or model-grid precision does not establish physical accuracy or resolving power.",
       "path": "research/claims.md",
       "anchor": "c-1384"
     },
     {
       "id": "C-1385",
-      "status": "unknown",
+      "status": "established",
       "statement": "An Earth-observation pixel, fundamental data record, thematic product, and retrieved geophysical state are different levels. Spectral response, radiometric calibration, point-spread function, sampling and geolocation, atmosphere/cloud and surface nuisance state, sub-pixel mixture, forward model, prior/training support, quality screening, retrieval version, averaging kernel, and validation support bound the inference.",
       "path": "research/claims.md",
       "anchor": "c-1385"

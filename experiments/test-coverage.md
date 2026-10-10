@@ -29,7 +29,7 @@ do not independently reproduce every source paper.
 | --- | ---: | ---: | ---: | ---: | ---: |
 | ledger-only | 83 | 9 | 0 | 4 | 0 |
 | linked-description | 0 | 0 | 0 | 0 | 0 |
-| protocol-complete | 1145 | 210 | 64 | 47 | 9 |
+| protocol-complete | 1154 | 210 | 64 | 47 | 0 |
 | workstation-executable | 0 | 0 | 0 | 0 | 0 |
 
 ## Why ledger-only claims remain unlinked
