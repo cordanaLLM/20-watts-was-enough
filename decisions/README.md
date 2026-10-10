@@ -41,23 +41,23 @@ than silently changing its outcome.
 | [0033](0033-retire-the-owner-only-reader.md) | Retire the owner-only reader | accepted |
 | [0034](0034-release-bounded-experiment-containers.md) | Release bounded experiment containers | superseded by [0037](0037-release-go-tooling-and-scope-experiment-images.md) |
 | [0035](0035-publish-only-reviewed-source-bound-translations.md) | Publish only reviewed, source-bound translations | accepted; language-control presentation partly superseded by [0058](0058-expose-only-route-available-reviewed-translations.md) |
-| [0036](0036-use-one-source-to-publication-and-feedback-graph.md) | Use one source-to-publication-and-feedback graph | accepted; CI aggregate-gate sentence partly superseded by [0043](0043-impact-scope-pull-request-ci.md) |
+| [0036](0036-use-one-source-to-publication-and-feedback-graph.md) | Use one source-to-publication-and-feedback graph | accepted; CI aggregate-gate sentence partly superseded by [0043](0043-impact-scope-pull-request-ci.md), carried forward by [0088](0088-impact-scope-ci-and-local-validation.md) |
 | [0037](0037-release-go-tooling-and-scope-experiment-images.md) | Release one scoped image per experiment | accepted; clause 3 partly superseded by [0038](0038-publish-only-release-exercised-container-platforms.md), clause 8 superseded by [0042](0042-retire-the-host-specific-fixture-012-acquisition-lane.md) |
 | [0038](0038-publish-only-release-exercised-container-platforms.md) | Publish only release-exercised container platforms | accepted; clauses 2 and 3 partly superseded by [0041](0041-attest-only-current-run-build-outputs.md) |
 | [0039](0039-make-pages-a-research-publication-surface.md) | Make Pages a research-publication surface | accepted |
 | [0040](0040-bind-publications-to-reproducible-and-public-artifacts.md) | Bind publications to reproducible and public artifacts | accepted; renderer-image clauses 1 and 4 partly superseded by [0045](0045-rewrite-renderer-layer-timestamps-before-recording-image-identity.md) |
 | [0041](0041-attest-only-current-run-build-outputs.md) | Attest only current-run build outputs | accepted |
 | [0042](0042-retire-the-host-specific-fixture-012-acquisition-lane.md) | Retire the host-specific Fixture 012 acquisition lane | accepted |
-| [0043](0043-impact-scope-pull-request-ci.md) | Impact-scope pull-request CI | accepted; workstation matrix and full-plan execution shape partly superseded by [0044](0044-shard-workstation-ci-without-splitting-test-authority.md), ready-PR and GitHub-path semantics partly superseded by [0048](0048-gate-ready-pull-requests-with-the-full-ci-matrix.md), `main`-push full-gate rule partly superseded by [0062](0062-impact-scope-comparable-main-pushes.md), blanket deletion fallback partly superseded by [0069](0069-map-ci-deletions-through-their-owning-lanes.md) |
+| [0043](0043-impact-scope-pull-request-ci.md) | Impact-scope pull-request CI | superseded by [0088](0088-impact-scope-ci-and-local-validation.md) |
 | [0044](0044-shard-workstation-ci-without-splitting-test-authority.md) | Shard workstation CI without splitting test authority | accepted; ready-PR gate extended by [0048](0048-gate-ready-pull-requests-with-the-full-ci-matrix.md), six-Fixture-026-shard clauses partly superseded by [0051](0051-add-a-seventh-fixture-026-shard-after-live-timing.md), local-serial aggregate partly superseded by [0068](0068-run-workstation-tests-through-the-bounded-go-catalogue.md) |
 | [0045](0045-rewrite-renderer-layer-timestamps-before-recording-image-identity.md) | Rewrite renderer layer timestamps before recording image identity | accepted |
 | [0046](0046-project-the-research-roadmap-into-github-milestones.md) | Project the research roadmap into GitHub milestones | accepted; pull-request exclusion clauses 3 and 6 partly superseded by [0057](0057-project-pull-request-metadata-from-managed-issues.md) |
 | [0047](0047-keep-cloudflare-as-the-public-pages-tls-authority.md) | Keep Cloudflare as the public Pages TLS authority | accepted |
-| [0048](0048-gate-ready-pull-requests-with-the-full-ci-matrix.md) | Gate ready pull requests with the full CI matrix | accepted; readiness-based full-matrix rule partly superseded by [0052](0052-impact-scope-every-pull-request.md), `main`-push and pull-request-only impact clauses partly superseded by [0062](0062-impact-scope-comparable-main-pushes.md) |
+| [0048](0048-gate-ready-pull-requests-with-the-full-ci-matrix.md) | Gate ready pull requests with the full CI matrix | accepted; readiness-based full-matrix rule partly superseded by [0052](0052-impact-scope-every-pull-request.md), `main`-push and pull-request-only impact clauses partly superseded by [0062](0062-impact-scope-comparable-main-pushes.md), both carried forward by [0088](0088-impact-scope-ci-and-local-validation.md) |
 | [0049](0049-adopt-bounded-maintenance-automation.md) | Adopt bounded maintenance automation | accepted |
 | [0050](0050-review-the-book-and-pdf-as-one-publication.md) | Review the book and PDF as one publication | accepted |
 | [0051](0051-add-a-seventh-fixture-026-shard-after-live-timing.md) | Add a seventh Fixture 026 shard after live timing | accepted; seven-shard inventory and shard-5 composition partly superseded by [0065](0065-isolate-fixture-026-ledger-semantics.md) |
-| [0052](0052-impact-scope-every-pull-request.md) | Impact-scope every pull request | accepted; `main`-push full-gate and pull-request-only impact clauses partly superseded by [0062](0062-impact-scope-comparable-main-pushes.md), blanket deletion fallback partly superseded by [0069](0069-map-ci-deletions-through-their-owning-lanes.md) |
+| [0052](0052-impact-scope-every-pull-request.md) | Impact-scope every pull request | superseded by [0088](0088-impact-scope-ci-and-local-validation.md) |
 | [0053](0053-lock-the-poppler-pdf-tools-image-foundation.md) | Lock the Poppler PDF-tools image foundation | accepted |
 | [0054](0054-classify-script-impact-by-executable-consumer.md) | Classify script impact by executable consumer | accepted |
 | [0055](0055-freeze-clrs-text-as-a-controller-shakedown.md) | Freeze CLRS-Text as a controller shakedown | accepted |
@@ -66,14 +66,14 @@ than silently changing its outcome.
 | [0058](0058-expose-only-route-available-reviewed-translations.md) | Expose only route-available reviewed translations | accepted |
 | [0059](0059-run-one-enforcing-dependency-audit-per-full-gate.md) | Run one enforcing dependency audit per full gate | accepted |
 | [0061](0061-reconcile-managed-status-with-item-lifecycle.md) | Reconcile managed status with item lifecycle | accepted |
-| [0062](0062-impact-scope-comparable-main-pushes.md) | Impact-scope comparable main pushes | accepted; blanket deletion fallback partly superseded by [0069](0069-map-ci-deletions-through-their-owning-lanes.md) |
+| [0062](0062-impact-scope-comparable-main-pushes.md) | Impact-scope comparable main pushes | superseded by [0088](0088-impact-scope-ci-and-local-validation.md) |
 | [0063](0063-own-public-reader-css-separately.md) | Own public reader CSS separately | accepted |
 | [0064](0064-map-chromium-emphasis-tags-for-pdf-1x.md) | Map Chromium emphasis tags for PDF 1.x | accepted |
 | [0065](0065-isolate-fixture-026-ledger-semantics.md) | Isolate Fixture 026 ledger semantics from shard 5 | accepted |
 | [0066](0066-create-longer-workstation-matrix-jobs-first.md) | Create longer workstation matrix jobs first | accepted |
 | [0067](0067-bind-public-research-objects-to-exact-maintained-identity.md) | Bind public research objects to exact maintained identity | accepted |
 | [0068](0068-run-workstation-tests-through-the-bounded-go-catalogue.md) | Run workstation tests through the bounded Go catalogue | accepted; clause 2's eight-command local default partly superseded by [0070](0070-default-the-local-workstation-aggregate-to-four-commands.md) |
-| [0069](0069-map-ci-deletions-through-their-owning-lanes.md) | Map CI deletions through their owning lanes | accepted |
+| [0069](0069-map-ci-deletions-through-their-owning-lanes.md) | Map CI deletions through their owning lanes | superseded by [0088](0088-impact-scope-ci-and-local-validation.md) |
 | [0070](0070-default-the-local-workstation-aggregate-to-four-commands.md) | Default the local workstation aggregate to four commands | accepted |
 | [0071](0071-lock-the-clrs-generator-wheel-selection.md) | Lock the CLRS generator wheel selection | accepted |
 | [0072](0072-run-browser-contracts-in-isolated-processes.md) | Run browser contracts in isolated processes | accepted |
@@ -84,10 +84,11 @@ than silently changing its outcome.
 | [0077](0077-separate-render-pair-and-image-build-proofs.md) | Separate render-pair and image-build proofs | accepted |
 | [0078](0078-reuse-verified-renderer-build-cache.md) | Reuse verified renderer build cache | accepted |
 | [0079](0079-run-the-frozen-clrs-development-tree-through-20w.md) | Run the frozen CLRS development tree through 20w | accepted |
-| [0080](0080-impact-scope-local-validation.md) | Impact-scope local validation | accepted |
+| [0080](0080-impact-scope-local-validation.md) | Impact-scope local validation | superseded by [0088](0088-impact-scope-ci-and-local-validation.md) |
 | [0081](0081-retain-ordinary-pdf-generation-mismatches.md) | Retain ordinary PDF generation mismatches | accepted |
 | [0082](0082-adopt-praetor-repository-governance.md) | Adopt Praetor repository governance | accepted |
 | [0083](0083-transfer-the-repository-to-cordanallm.md) | Transfer the repository to cordanaLLM | accepted; post-transfer step 5 partly superseded by [0085](0085-keep-the-live-main-ruleset-across-the-transfer.md) |
 | [0084](0084-multi-topic-research-repository.md) | Host several research topics in one repository | accepted |
 | [0085](0085-keep-the-live-main-ruleset-across-the-transfer.md) | Keep the live main ruleset across the transfer | accepted |
 | [0087](0087-record-engineering-relations-without-evidential-authority.md) | Record engineering relations without evidential authority | accepted |
+| [0088](0088-impact-scope-ci-and-local-validation.md) | Impact-scope CI and local validation | accepted |
