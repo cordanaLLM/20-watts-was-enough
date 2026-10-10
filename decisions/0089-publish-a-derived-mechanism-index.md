@@ -1,12 +1,12 @@
 # 0089 — Publish a derived mechanism index
 
-- **Status:** proposed
+- **Status:** accepted
 - **Date:** 2026-10-10
-- **Authority:** proposal for maintainer review. Under maintainer direction
-  relayed on 2026-10-10, the generator and the generated index may land while
-  this record is proposed; the schema is not a stable contract for other
-  repositories until the maintainer accepts it. No claim, principle,
-  candidate, fixture or status changes.
+- **Authority:** schema and freshness contract for the derived mechanism
+  index. The maintainer accepted this record on 2026-10-10, after the
+  generator and index had landed under the proposal; other repositories may
+  rely on schema 1 from that acceptance. No claim, principle, candidate,
+  fixture or status changes.
 - **Related:** [0087](0087-record-engineering-relations-without-evidential-authority.md),
   [docs/start-here.md](../docs/start-here.md)
 
@@ -80,4 +80,4 @@ check must reject, and the coverage audit's generated files must stay
 byte-identical after the parser moves. Claude Code (Opus 5.5) wrote this record
 and specified the implementation; a Gemini 3.1 Pro agent implemented the
 generator under that specification, and Claude Code reviewed the result before
-submission. The maintainer accepts or rejects this record.
+submission. The maintainer accepted this record on 2026-10-10.
