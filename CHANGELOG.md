@@ -34,6 +34,19 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Agent instruction files are now written in the terse internal register
+  that Praetor's context gate requires, so
+  `praetorctl compile-context --verify` passes again: the root `AGENTS.md`,
+  the seven nested `AGENTS.md` files and the five skills. Rules, identifiers,
+  commands, links, numbers and prohibitions are unchanged; Praetor's clarity
+  floor check passes for every file. To meet the 600-word skill ceiling, two
+  procedure sections moved verbatim into reference files:
+  `maintenance-automation/references/maintenance-contract.md` and
+  `publication-design/references/pdf-qa.md`. The compiled vendor files were
+  regenerated and `AGENTS.readonly.md` was added. `AGENTS.md`,
+  `tooling/AGENTS.md` and `README.md` now link decision 0088 instead of the
+  superseded 0080.
+
 - Decision 0089 is accepted: the mechanism-index schema is now a contract
   other repositories may rely on. The index and its generator are unchanged.
 

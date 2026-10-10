@@ -85,44 +85,44 @@ make verify-all
 # Repository agent contract
 
 Read [`docs/principles.md`](docs/principles.md) before changing this repository.
-It is the project-wide engineering and research contract. Then read the nearest
-nested `AGENTS.md` for the files in scope.
+It is project-wide engineering and research contract. Then read nearest
+nested `AGENTS.md` for files in scope.
 
 Before drafting or revising project-authored explanatory prose, read and apply
-the project-local [`research-writing` skill](.agents/skills/research-writing/SKILL.md).
+project-local [`research-writing` skill](.agents/skills/research-writing/SKILL.md).
 It does not apply to imported sources or verbatim quotations.
 
 Before changing public layout, typography, colour, interface hierarchy, or
-brand expression, read and apply the project-local
+brand expression, read and apply project-local
 [`research-design` skill](.agents/skills/research-design/SKILL.md). Use the
 [`reader-editor` skill](.agents/skills/reader-editor/SKILL.md) as well when the
-design problem exposes a comprehension failure in project prose.
+design problem exposes comprehension failure in project prose.
 
-Before changing the continuous book or generated PDF hierarchy, print
+Before changing continuous book or generated PDF hierarchy, print
 typography, pagination, navigation, figures, tables, equations, or visual QA
-contract, also read and apply the project-local
+contract, also read and apply project-local
 [`publication-design` skill](.agents/skills/publication-design/SKILL.md).
 
 Before adding or changing recurring dependency, CI, release, generation,
 GitHub-metadata, security-drift, or translation-freshness automation, read and
-apply the project-local
+apply project-local
 [`maintenance-automation` skill](.agents/skills/maintenance-automation/SKILL.md).
 It does not grant authority to automate scientific judgement, claim promotion,
 or consequential remote state.
 
 ## Hard rules
 
-1. Git `main` is canonical. Do not synchronize or regenerate the concept from a
-   chat or a parallel document store.
-2. Change the smallest coherent chapter, claim, equation, test, diagram, or
+1. Git `main` is canonical. Do not synchronize or regenerate concept from a
+   chat or parallel document store.
+2. Change smallest coherent chapter, claim, equation, test, diagram, or
    decision. Preserve unrelated and untracked files.
 3. Keep observation, engineering translation, and hypothesis distinct.
-4. Add or update a stable `C-` claim before promoting a major assertion. Map it
-   to an existing `P-` bundle before inventing a new principle.
+4. Add or update stable `C-` claim before promoting major assertion. Map it
+   to existing `P-` bundle before inventing new principle.
 5. Primary or authoritative sources may support claims; imported conversations
    and summaries may only identify leads.
 6. Never present smoke, readiness, construction, synthetic calibration, or
-   protocol conformance as a scientific result.
+   protocol conformance as scientific result.
 7. Define every quantitative boundary, unit, symbol, comparator, hardware
    context, and uncertainty source.
 8. Bound every experiment loop, retry, queue, subprocess, search grid, output,
@@ -131,18 +131,18 @@ or consequential remote state.
    `dist-github-pages/`, or generated reader copies.
 10. Follow [`LICENSING.md`](LICENSING.md). Citation is not permission to copy;
     `sources/` and all third-party material keep their own terms.
-11. EU and German law, official adoptions, and applicability are the normative
-    default. Do not infer compliance from a standard title or a checklist.
+11. EU and German law, official adoptions, and applicability are normative
+    default. Do not infer compliance from standard title or checklist.
 12. Use pinned dependencies and full commit SHAs for GitHub Actions. Do not
-    claim a GitHub setting is active without verifying it remotely.
+    claim GitHub setting is active without verifying it remotely.
 13. Project-authored prose must carry information rather than generated-sounding
     filler. Run `npm run check:prose` after changing canonical Markdown. Prose
-    embedded in site code remains review-gated; the automated tripwire does not
+    embedded in site code remains review-gated; automated tripwire does not
     attempt brittle JSX or HTML extraction.
 14. Apply [`research/research-integrity-baseline.md`](research/research-integrity-baseline.md)
     at every triggered research boundary. Disclose contributors, support,
     competing interests, and material AI or external-tool use; complete any
-    required ethics or misuse review before the affected work begins.
+    required ethics or misuse review before affected work begins.
 
 ## Repository map
 
@@ -170,26 +170,26 @@ or consequential remote state.
 
 ## Working sequence
 
-1. Inspect the affected authority file and its reciprocal links. Before commit,
+1. Inspect affected authority file and its reciprocal links. Before commit,
    inspect staged, unstaged and relevant untracked changes; tests execute the
-   working tree, not just the index.
-2. Make the smallest patch; do not rewrite nearby material for style alone.
-3. Select local checks from the current `.github/ci-impact.json` ownership,
+   working tree, not only index.
+2. Make smallest patch; do not rewrite nearby material for style alone.
+3. Select local checks from current `.github/ci-impact.json` ownership,
    changed contracts and downstream consumers. Union mixed scopes; include
-   affected CLI, integration, fixture and generator checks, not just leaf tests.
-   Unknown, unsafe or shared-authority changes require the full local gate.
-4. Run the selected checks before commit. Run `npm run check` for the full
-   fallback and before marking a pull request ready, integrating into `main`,
+   affected CLI, integration, fixture and generator checks, not only leaf tests.
+   Unknown, unsafe or shared-authority changes require full local gate.
+4. Run selected checks before commit. Run `npm run check` for full
+   fallback and before marking pull request ready, integrating into `main`,
    merging or releasing. Changes to book source bytes or membership also
    require `npm run generate:book-pdf` and `npm run validate:book-pdf`.
-   [Decision 0080](decisions/0080-impact-scope-local-validation.md) defines
+   [Decision 0088](decisions/0088-impact-scope-ci-and-local-validation.md) defines
    scope selection and evidence reuse; complete integration and release gates
    remain unchanged.
-5. Update `CHANGELOG.md` for a notable change. Add a decision record when an
+5. Update `CHANGELOG.md` for notable change. Add decision record when an
    authority, architecture, policy, licensing, publication, or release rule
    changes durably.
-6. Use a Conventional Commit message and push only a clean, validated tree.
-7. Keep auxiliary Git worktrees under the ignored
+6. Use Conventional Commit message and push only clean, validated tree.
+7. Keep auxiliary Git worktrees under ignored
    `.workingdir2/worktrees/` directory instead of creating repository siblings.
 
 ## Common commands
@@ -205,8 +205,8 @@ npm run validate:book-pdf
 Use targeted `test:workstation:*` scripts and affected Go package/consumer tests
 during development. Determine pending-change scope manually: `20w ci plan`
 compares committed base/head revisions, not staged, unstaged or untracked files.
-Its lane selection does not select individual Go packages. The aggregate gate
-remains authoritative at the integration and release boundaries above.
+Its lane selection does not select individual Go packages. Aggregate gate
+remains authoritative at integration and release boundaries above.
 
 ## File-specific instructions
 
@@ -216,7 +216,7 @@ remains authoritative at the integration and release boundaries above.
   contracts.
 - [`experiments/workstation/AGENTS.md`](experiments/workstation/AGENTS.md)
   governs executable runs and authority boundaries.
-- [`app/AGENTS.md`](app/AGENTS.md) governs the interactive reader.
+- [`app/AGENTS.md`](app/AGENTS.md) governs interactive reader.
 - [`scripts/AGENTS.md`](scripts/AGENTS.md) governs validators and generators.
 
 ## Text Register
@@ -226,11 +226,11 @@ Register follows the audience, then the task label of your brief (`register:` in
 
 | Register | Where | Form |
 | :--- | :--- | :--- |
-| social | forge: issues, PR bodies, review comments, commit bodies | `social-text` skill: BLUF, full sentences, scannable, enough and no more; PR template, receipt fence, conventional commit subject and changelog fragment unchanged |
+| social | forge: issues, PR bodies, review comments, commit bodies | BLUF, full sentences, scannable, enough and no more; conventional commit subject unchanged |
 | docs | docs/, README, ADR bodies | complete without bloat: newcomer path first, expert reference after; every claim points at a file, command or test; no restated code |
-| internal | briefs, agent-to-agent traffic, research fan-outs, workflow returns | `caveman` skill: fragments, no filler, verbatim code/paths/errors; facts, paths, commands, verdict |
+| internal | briefs, agent-to-agent traffic, research fan-outs, workflow returns | fragments, no filler, verbatim code/paths/errors; facts, paths, commands, verdict |
 
-- Task rows: social = commit_message_synthesis, waiver_signoff; docs = architecture_synthesis, function_docstrings; every other label and any brief without one = internal.
+- Task rows: social = commit_message_synthesis, waiver_signoff; docs = architecture_synthesis, function_docstrings; every other label and any unlabeled text = internal. Subagent launch brief: internal register with `task:` = routing label.
 - Evidence above 58 lines or 1500 tokens leaves the message as a file under `.workingdir/evidence/`; return `evidence: <path> sha256:<12 hex> lines:<n>` and fetch it only when a decision needs it.
 - An internal return carries verdict, changed paths, commands run, evidence pointers and open questions, nothing else.
 <!-- praetor:register:end -->

@@ -1,24 +1,12 @@
----
-description: Canonical agent instructions
-globs: "*"
-alwaysApply: true
----
-
-<!-- markdownlint-disable MD013 -->
-<!-- Compiled automatically by praetorctl compile-context from AGENTS.md. DO NOT EDIT DIRECTLY. -->
-
 <!-- markdownlint-disable MD013 MD025 -->
 # 20-watts-was-enough Agent Operating Harness
 
-Run verification before concluding any turn:
+Run read-only: file edits, state mutations, commits prohibited. Mutating steps dropped; prohibitions kept.
 
-```bash
-make verify-all
-```
+Run verification before concluding any turn:
 
 ```mermaid
 flowchart LR
-    AGENT["Autonomous Agent"] --> CHECK["make verify-all"]
     CHECK --> AUDIT["standardsctl audit"]
     CHECK --> COMPILER["standardsctl compile-context --verify"]
     CHECK --> GATE{"All checks Pass?"}
@@ -79,9 +67,6 @@ standardsctl compile-context --verify
 
 # Audit repository against declared HISS-16 standards
 standardsctl audit
-
-# Run all formatting, linting, and security gates
-make verify-all
 ```
 
 <!-- praetor:harness:end -->
