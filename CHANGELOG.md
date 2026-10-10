@@ -34,6 +34,9 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Decision 0089 is accepted: the mechanism-index schema is now a contract
+  other repositories may rely on. The index and its generator are unchanged.
+
 - Decision 0088 states the impact-scope CI and local-validation rules in one
   record and supersedes decisions 0043, 0052, 0062, 0069 and 0080, whose
   clauses had partly superseded one another. The rules in force are unchanged:

@@ -92,4 +92,4 @@ than silently changing its outcome.
 | [0085](0085-keep-the-live-main-ruleset-across-the-transfer.md) | Keep the live main ruleset across the transfer | accepted |
 | [0087](0087-record-engineering-relations-without-evidential-authority.md) | Record engineering relations without evidential authority | accepted |
 | [0088](0088-impact-scope-ci-and-local-validation.md) | Impact-scope CI and local validation | accepted |
-| [0089](0089-publish-a-derived-mechanism-index.md) | Publish a derived mechanism index | proposed |
+| [0089](0089-publish-a-derived-mechanism-index.md) | Publish a derived mechanism index | accepted |
