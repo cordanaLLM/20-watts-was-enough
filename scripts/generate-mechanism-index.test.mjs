@@ -81,6 +81,16 @@ test('generate-mechanism-index --check', async () => {
       }
     );
     
+
+    await fs.writeFile(claimsPath, 'x'.repeat(8 * 1024 * 1024 + 1), 'utf8');
+    await assert.rejects(
+      execFileAsync(process.execPath, ['scripts/generate-mechanism-index.mjs', '--root', tmpDir, '--check']),
+      (err) => {
+        assert.strictEqual(err.code, 1);
+        assert.match(err.stderr, /8388608-byte limit/);
+        return true;
+      }
+    );
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }

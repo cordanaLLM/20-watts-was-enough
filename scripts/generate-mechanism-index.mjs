@@ -1,5 +1,6 @@
-import { readFile, stat, writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { readStableOpenedFile } from "./lib/opened-file.mjs";
 import { parseClaimLedger, parsePrincipleRegistry, parseCandidateIndex, parseFixtureIndex } from "./lib/research-ledger.mjs";
 
 const args = process.argv.slice(2);
@@ -20,12 +21,15 @@ const sources = [
 
 async function readInputs() {
   const maxBytes = 8 * 1024 * 1024;
+  const root = path.resolve(rootDir);
   const texts = [];
   for (const src of sources) {
-    const p = path.join(rootDir, src);
-    const s = await stat(p);
-    if (s.size > maxBytes) { console.error(`File ${src} exceeds 8 MiB`); process.exit(1); }
-    texts.push(await readFile(p, 'utf8'));
+    const bytes = await readStableOpenedFile(path.join(root, src), {
+      label: src,
+      containedBy: root,
+      maximumBytes: maxBytes,
+    });
+    texts.push(bytes.toString("utf8"));
   }
   return texts;
 }
