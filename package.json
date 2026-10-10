@@ -19,11 +19,11 @@
     "start": "vite preview --config vite.pages.config.ts",
     "check": "npm test",
     "pretest": "npm run validate:runtime",
-    "test": "npm run test:go && npm run validate:tooling && npm run validate:policy && npm run validate:topics && npm run test:runtime && npm run test:policy && npm run test:release && npm run check:code-shape && npm run test:code-shape && npm run check:prose && npm run test:prose && npm run typecheck && npm run lint && npm run test:site && npm run validate:translations && npm run test:translations && npm run validate:docs && npm run test:sources && npm run validate:coverage && npm run validate:taxonomies && npm run validate:math && npm run validate:workstation && npm run test:workstation && npm run check:test-coverage && npm run test:readiness && npm run build && npm run validate:site-build",
-    "check:full-without-workstation": "npm run validate:runtime && npm run test:go && npm run validate:tooling && npm run validate:policy && npm run validate:topics && npm run test:runtime && npm run test:policy && npm run test:release && npm run check:code-shape && npm run test:code-shape && npm run check:prose && npm run test:prose && npm run typecheck && npm run lint && npm run test:site && npm run validate:translations && npm run test:translations && npm run validate:docs && npm run test:sources && npm run validate:coverage && npm run validate:taxonomies && npm run validate:math && npm run check:test-coverage && npm run test:readiness && npm run build && npm run validate:site-build",
+    "test": "npm run test:go && npm run validate:tooling && npm run validate:policy && npm run validate:topics && npm run test:runtime && npm run test:policy && npm run test:release && npm run check:code-shape && npm run test:code-shape && npm run check:prose && npm run test:prose && npm run typecheck && npm run lint && npm run test:site && npm run validate:translations && npm run test:translations && npm run validate:docs && npm run test:sources && npm run validate:coverage && npm run validate:mechanism-index && npm run test:mechanism-index && npm run validate:taxonomies && npm run validate:math && npm run validate:workstation && npm run test:workstation && npm run check:test-coverage && npm run test:readiness && npm run build && npm run validate:site-build",
+    "check:full-without-workstation": "npm run validate:runtime && npm run test:go && npm run validate:tooling && npm run validate:policy && npm run validate:topics && npm run test:runtime && npm run test:policy && npm run test:release && npm run check:code-shape && npm run test:code-shape && npm run check:prose && npm run test:prose && npm run typecheck && npm run lint && npm run test:site && npm run validate:translations && npm run test:translations && npm run validate:docs && npm run test:sources && npm run validate:coverage && npm run validate:mechanism-index && npm run test:mechanism-index && npm run validate:taxonomies && npm run validate:math && npm run check:test-coverage && npm run test:readiness && npm run build && npm run validate:site-build",
     "check:impact-common": "npm run validate:runtime && npm run validate:policy && npm run validate:topics && npm run test:runtime && npm run test:policy && npm run check:code-shape && npm run test:code-shape && npm run check:prose && npm run test:prose && npm run typecheck && npm run lint",
     "check:lane-release": "npm run validate:tooling && npm run test:release && npm run validate:book-pdf",
-    "check:lane-research": "npm run validate:docs && npm run test:sources && npm run validate:coverage && npm run validate:taxonomies && npm run validate:math && npm run check:test-coverage && npm run test:readiness",
+    "check:lane-research": "npm run validate:docs && npm run test:sources && npm run validate:coverage && npm run validate:taxonomies && npm run validate:math && npm run check:test-coverage && npm run test:readiness && npm run validate:mechanism-index && npm run test:mechanism-index",
     "check:lane-site": "npm run test:site && npm run validate:translations && npm run test:translations && npm run build && npm run validate:site-build",
     "validate:runtime": "node scripts/validate-node-runtime.mjs",
     "test:runtime": "node --test --experimental-test-isolation=none experiments/workstation/lib/node-runtime-policy.test.mjs",
@@ -101,7 +101,10 @@
     "generate:book-pdf": "go -C tooling run ./cmd/20w publication render-pdf --root ..",
     "validate:book-pdf": "node scripts/validate-book-pdf.mjs",
     "audit:tests": "node scripts/audit-test-coverage.mjs",
-    "check:test-coverage": "node scripts/audit-test-coverage.mjs --check"
+    "check:test-coverage": "node scripts/audit-test-coverage.mjs --check",
+    "generate:mechanism-index": "node scripts/generate-mechanism-index.mjs",
+    "validate:mechanism-index": "node scripts/generate-mechanism-index.mjs --check",
+    "test:mechanism-index": "node --test --experimental-test-isolation=none scripts/lib/research-ledger.test.mjs scripts/generate-mechanism-index.test.mjs"
   },
   "dependencies": {
     "github-slugger": "2.0.0",
