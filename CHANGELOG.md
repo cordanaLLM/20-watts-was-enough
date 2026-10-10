@@ -7,6 +7,13 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- The adoption matrix records a dated disposition for flow-reinforced
+  topology outside expert routing: *Physarum* and mycelial flow rules are not
+  adopted for live packet or telemetry routing, and the practical
+  adaptive-sampling idea from an engineering review deduplicates to selective
+  allocation and prediction-error allocation (P-001, P-007) rather than a new
+  organism-inspired component. No claim, principle or status changes.
+
 - `research/mechanism-index.json` lists every `C-` claim, `P-` principle
   bundle, candidate and `F-` fixture with its title or statement, status and
   source path, so agents and other repositories can resolve identifiers

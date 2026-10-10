@@ -108,6 +108,36 @@ system boundary.
 | Vector resilience accounting | Stability, acute resistance, recovery, adaptability, and admission can oppose each other | **Use now** | Multi-objective reliability and control metrics | Report raw axes before any aggregate score | [C-057](claims.md#c-057), [C-060](claims.md#c-060) |
 | Closed endogenous curriculum | Generate structured hypotheses, intervene selectively, evaluate, and retain validated changes | **Experiment** | Active learning, model-based RL, planning, novelty search, self-play, evolutionary and quality-diversity search | [Candidate 004](../experiments/candidates/004-closed-endogenous-curriculum.md) separates proposal, intervention, evaluator, variation, and lineage effects under equal budgets | [C-061](claims.md#c-061)–[C-066](claims.md#c-066) |
 
+## Dated dispositions
+
+### Flow-reinforced topology outside expert routing (2026-10-10)
+
+A private engineering review of telemetry and mesh networking for the
+project's workstation cluster asked whether *Physarum* or mycelial flow rules
+should route live packets or telemetry. They are not adopted for that.
+[C-027](claims.md#c-027) and [C-034](claims.md#c-034) are established only
+within the organism experiments, culture system and network model studied, and
+C-027's rationale notes that it does not establish the same rule is stable for
+expert routing. Ordinary shortest-path and overlay routing remain the null, as
+in [Candidate 001](../experiments/candidates/001-adaptive-topology.md). The
+review's argument that a digital simulation must solve a network-wide flow
+problem at every update comes from a secondary summary, not from a primary
+source read under these rules, so it is a lead, not evidence.
+
+The part the review called practical, sampling quiet streams rarely and busy
+or changing ones often, is not a topology rule. It allocates observation
+effort: [P-001](principle-registry.md#p-001--selective-allocation) and
+[P-007](principle-registry.md#p-007--prediction-error-allocation), the
+decision to acquire another observation in
+[sparse predictive compute](../concept/30-sparse-predictive-compute.md), the
+intervention-aware endogenous observation row above, and
+[Candidate 007](../experiments/candidates/007-endogenous-observation-surveillance.md).
+Recording it as a new organism-inspired component would repeat the naming
+duplication listed under [cross-domain convergence failure
+modes](../concept/07-cross-domain-convergence.md#failure-modes). The
+flow-reinforced topology row keeps its **Experiment** disposition for expert
+and interconnect topology.
+
 ## Near-term priority
 
 The first comparative experiments are specified as versioned contracts:
