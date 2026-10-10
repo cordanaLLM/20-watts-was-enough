@@ -5,6 +5,17 @@ the exact diff; this file records why the project changed.
 
 ## [Unreleased]
 
+### Added
+
+- `docs/start-here.md` explains how to read the project's evidence statuses
+  and summarises every concept chapter in plain language: its question, its
+  current status and a failure condition, each taken from the chapter's own
+  *Scope*, *Evidence status* and *Failure modes* sections.
+  `docs/glossary.md` defines the project's own vocabulary and links each
+  term to the file that defines or enforces it. Both pages are additive
+  navigation; no chapter, claim or decision changes. The README and the
+  repository map link to them.
+
 ### Changed
 
 - Decision 0088 states the impact-scope CI and local-validation rules in one

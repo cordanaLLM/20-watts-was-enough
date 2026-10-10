@@ -8,6 +8,10 @@ This map is the durable navigation surface for the canonical Git repository.
 It points to maintained authorities and their own indexes instead of copying
 their contents into the root README.
 
+New readers can begin with [start here](start-here.md), which explains the
+status labels and summarises each chapter, and the [glossary](glossary.md),
+which defines the project's own terms.
+
 ## Concept and architecture
 
 | Chapter | Main question |

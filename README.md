@@ -38,6 +38,7 @@ current boundary.
 
 | Goal | Start here |
 | --- | --- |
+| Learn the project's terms and what each chapter argues | [Start here](docs/start-here.md) and [glossary](docs/glossary.md) |
 | Understand the question and proposed system | [Working architecture](concept/01-working-architecture.md) |
 | Browse the research online | [Research portal](https://www.cordana.dev/) |
 | Read continuously | [Full HTML book](https://www.cordana.dev/book/) |
