@@ -1,6 +1,7 @@
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { validateExecutionManifest } from "./lib/workstation-manifests.mjs";
+import { parseClaimLedger } from "./lib/research-ledger.mjs";
 
 const root = process.cwd();
 const checkOnly = process.argv.includes("--check");
@@ -179,17 +180,13 @@ for (const artifact of artifacts) {
 }
 
 const claimsBody = await readFile(path.join(root, "research", "claims.md"), "utf8");
-const claimMatches = [
-  ...claimsBody.matchAll(/^### (C-\d{3,4})\s*\r?\n([\s\S]*?)(?=^### C-|(?![\s\S]))/gm),
-];
-const claimRecords = claimMatches.map((match) => {
-  const id = match[1];
-  const links = [...match[2].matchAll(/\.\.\/(experiments\/(?:candidates|fixtures)\/[^)\s]+\.md)/g)]
+const claimRecords = parseClaimLedger(claimsBody).map((match) => {
+  const { id, status, body } = match;
+  const links = [...body.matchAll(/\.\.\/(experiments\/(?:candidates|fixtures)\/[^)\s]+\.md)/g)]
     .map((link) => link[1])
     .filter((link, index, all) => all.indexOf(link) === index);
   const claimSideArtifacts = links.map((link) => artifactByPath.get(link)).filter(Boolean);
   for (const artifact of claimSideArtifacts) artifact.claimSideClaims.add(id);
-  const status = match[2].match(/^- \*\*Status:\*\*\s*([^\s,.;]+)/m)?.[1]?.toLowerCase() ?? "unknown";
   return { id, status, claimSideArtifacts };
 });
 

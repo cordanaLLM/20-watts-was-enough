@@ -7,6 +7,15 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- `research/mechanism-index.json` lists every `C-` claim, `P-` principle
+  bundle, candidate and `F-` fixture with its title or statement, status and
+  source path, so agents and other repositories can resolve identifiers
+  offline. It is generated (`npm run generate:mechanism-index`), carries no
+  claim of its own, and `npm run validate:mechanism-index` fails when it is
+  stale. Claim parsing moved into `scripts/lib/research-ledger.mjs`, shared
+  with the coverage audit, whose output is unchanged. Decision 0089 proposes
+  the schema.
+
 - `docs/start-here.md` explains how to read the project's evidence statuses
   and summarises every concept chapter in plain language: its question, its
   current status and a failure condition, each taken from the chapter's own

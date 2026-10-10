@@ -3556,7 +3556,7 @@ const aggregateTestScripts = Object.freeze([
   "test:go", "validate:tooling", "validate:policy", "validate:topics", "test:runtime", "test:policy",
   "test:release", "check:code-shape", "test:code-shape", "check:prose", "test:prose",
   "typecheck", "lint", "test:site", "validate:translations", "test:translations",
-  "validate:docs", "test:sources", "validate:coverage", "validate:taxonomies", "validate:math",
+  "validate:docs", "test:sources", "validate:coverage", "validate:mechanism-index", "test:mechanism-index", "validate:taxonomies", "validate:math",
   "validate:workstation", "test:workstation", "check:test-coverage", "test:readiness",
   "build", "validate:site-build",
 ]);
