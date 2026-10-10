@@ -129,7 +129,7 @@
     "@types/node": "26.4.1",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
-    "@vitejs/plugin-react": "6.1.1",
+    "@vitejs/plugin-react": "6.1.2",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
     "es-module-lexer": "2.3.2",
