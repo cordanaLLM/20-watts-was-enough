@@ -5,6 +5,14 @@ the exact diff; this file records why the project changed.
 
 ## [Unreleased]
 
+### Fixed
+
+- The locked npm tree no longer carries the high-severity `source-map-js`
+  advisory GHSA-68fv-2mgg-jv7q that the CI dependency gate rejects:
+  `source-map-js` moves from 1.2.1 to 1.2.2 within its existing `^1.2.1`
+  ranges. Only `package-lock.json` changes; no declared dependency range moves.
+  Five low-severity advisories remain below the gate's threshold.
+
 ## [0.4.1] - 2026-09-30
 
 ### Added
