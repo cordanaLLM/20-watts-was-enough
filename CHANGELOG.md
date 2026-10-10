@@ -42,6 +42,12 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- Claims C-1377 to C-1385 labelled their status field `Evidence status`, so
+  the coverage audit and the mechanism index read them as `unknown`. The field
+  is now `Status`, as in every other claim; the status words are unchanged
+  (all `established`). The coverage report, readiness summary and mechanism
+  index now count them as established.
+
 - The locked npm tree no longer carries the high-severity `source-map-js`
   advisory GHSA-68fv-2mgg-jv7q that the CI dependency gate rejects:
   `source-map-js` moves from 1.2.1 to 1.2.2 within its existing `^1.2.1`

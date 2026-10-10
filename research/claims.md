@@ -18243,7 +18243,7 @@ describes the exact statement here, not a broader interpretation.
   response, and calibration range determine which one an analytical result can
   support; a total-element or nominal-analyte result does not reconstruct the
   unchanged in-situ species vector.
-- **Evidence status:** established analytical-chemistry boundary; the proposed
+- **Status:** established analytical-chemistry boundary; the proposed
   systems transfer is plausible but unvalidated.
 - **Primary/authoritative sources:** `TempletonEtAl2000Speciation`,
   `MatuszewskiEtAl2003Matrix`, `EU2021_808`, `EurachemValidation2025`,
@@ -18282,7 +18282,7 @@ describes the exact statement here, not a broader interpretation.
   and false-negative probabilities, matrix, procedure, and time; a
   quantification limit additionally requires fit-for-purpose bias/precision or
   uncertainty, and neither limit alone decides compliance.
-- **Evidence status:** established.
+- **Status:** established.
 - **Primary/authoritative sources:** `Currie1995Detection`,
   `EurachemValidation2025`, `EU2009_90`, `EU2023_2782`, `jcgm106`.
 - **Rationale:** IUPAC supplies the critical-value/detection-capability error
@@ -18317,7 +18317,7 @@ describes the exact statement here, not a broader interpretation.
   spatial and temporal support, aggregation, homogenization, preparation,
   preservation, rejected or inaccessible units, and sampling uncertainty are
   part of the inference.
-- **Evidence status:** established.
+- **Status:** established.
 - **Primary/authoritative sources:** `EurachemSampling2019`, `EU2023_2782`,
   `EU2017_625`, `DE_LFGB_2026`, `EU2000_60_2026`.
 - **Rationale:** Eurachem explicitly includes sampling and preparation in the
@@ -18352,7 +18352,7 @@ describes the exact statement here, not a broader interpretation.
   comparison, proficiency testing, and fitness for the intended matrix and
   decision are distinct evidence. Agreement or a consensus assigned value can
   retain shared calibration, method, commutability, matrix, or preparation bias.
-- **Evidence status:** established measurement-science boundary.
+- **Status:** established measurement-science boundary.
 - **Primary/authoritative sources:** `jcgm200`, `iso17025`, `iso17034`,
   `iso17043`, `iso13528`, `ISO13528_Amd1_2026`, `BIPM_CCQM_2026`.
 - **Rationale:** VIM says traceability does not guarantee adequate uncertainty or
@@ -18387,7 +18387,7 @@ describes the exact statement here, not a broader interpretation.
   and compliance at a defined point are different quantities. Hydrologic and
   treatment claims require aligned flow, volume, residence time, reaction,
   bypass, sampling support, uncertainty, and mass-balance boundaries.
-- **Evidence status:** established conservation and regulatory measurement
+- **Status:** established conservation and regulatory measurement
   boundary; transfer benefit remains untested.
 - **Primary/authoritative sources:** `WMO168_2008`, `EU2000_60_2026`,
   `EU2009_90`, `EU2020_2184`, `DE_OGewV_2016`, `Danckwerts1953RTD`,
@@ -18426,7 +18426,7 @@ describes the exact statement here, not a broader interpretation.
   transport, reaction, stratification, mixing, season, depth, and network
   design; they do not identify a unique aquifer field, whole-lake state, source,
   or trend without an explicit forward model and support analysis.
-- **Evidence status:** established inverse/support boundary with field-specific
+- **Status:** established inverse/support boundary with field-specific
   primary evidence.
 - **Primary/authoritative sources:** `beven1989hydrology`,
   `bloeschl1995scale`, `EU2006_118_2026`, `DE_GrwV_2022`,
@@ -18461,7 +18461,7 @@ describes the exact statement here, not a broader interpretation.
   calibration and drift, selection/quality control, observation operator,
   background dynamics, error covariance, assimilation version, and changing
   observing-system coverage.
-- **Evidence status:** established observing-system and data-assimilation
+- **Status:** established observing-system and data-assimilation
   boundary.
 - **Primary/authoritative sources:** `WongEtAl2020Argo`, `GOOS_EOV_2026`,
   `WMO_GAW_QA_2026`, `GCOS_ECV_2026`, `Evensen1994EnKF`,
@@ -18498,7 +18498,7 @@ describes the exact statement here, not a broader interpretation.
   kernel, regularization or prior, null space, and averaging-kernel resolution;
   coordinate or model-grid precision does not establish physical accuracy or
   resolving power.
-- **Evidence status:** established.
+- **Status:** established.
 - **Primary/authoritative sources:** `IERS2010Conventions`,
   `AltamimiEtAl2023ITRF2020`, `EUREF_ETRS89`, `ISO19111_2019`,
   `EU1089_2010`, `backus1968resolution`.
@@ -18535,7 +18535,7 @@ describes the exact statement here, not a broader interpretation.
   geolocation, atmosphere/cloud and surface nuisance state, sub-pixel mixture,
   forward model, prior/training support, quality screening, retrieval version,
   averaging kernel, and validation support bound the inference.
-- **Evidence status:** established remote-sensing/metrology boundary; learned-
+- **Status:** established remote-sensing/metrology boundary; learned-
   system lifecycle benefit is speculative.
 - **Primary/authoritative sources:** `rodgers2000inverse`, `QA4EO2009`,
   `GasconEtAl2017Sentinel2`, `ISO19157_1_2023`, `EU2007_2_2024`.
