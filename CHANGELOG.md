@@ -5,6 +5,14 @@ the exact diff; this file records why the project changed.
 
 ## [Unreleased]
 
+### Changed
+
+- Decision 0088 states the impact-scope CI and local-validation rules in one
+  record and supersedes decisions 0043, 0052, 0062, 0069 and 0080, whose
+  clauses had partly superseded one another. The rules in force are unchanged:
+  no workflow, selector, impact map or test assertion moves. `CONTRIBUTING.md`
+  and the maintenance automation map now link to 0088.
+
 ### Fixed
 
 - The locked npm tree no longer carries the high-severity `source-map-js`
