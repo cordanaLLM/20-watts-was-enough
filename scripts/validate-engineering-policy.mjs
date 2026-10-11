@@ -1015,6 +1015,7 @@ const pdfReproducibilityCiEvidence = [
   "build/evidence/pdf-renderer-reproducibility.json",
   "build/evidence/pdf-renderer-reproducibility-mismatch",
 ].join("\n");
+const publishedBookRenderCommand = "node scripts/validate-published-book-render.mjs --receipt build/evidence/pdf-renderer-reproducibility.json";
 const pdfReproducibilityReleaseCommand = [
   "./build/release-inputs/20w-linux-amd64",
   "publication verify-pdf-reproducibility",
@@ -1054,6 +1055,24 @@ function pdfRendererCacheStepsAreExact(steps, setupIndex, verifyIndex, receiptIn
     && steps.filter((step) => step?.id === "pdf-renderer-proof").length === 1;
 }
 
+// The comparison with the published pair runs last and unconditionally, so a
+// passing proof of a tree whose published PDF is stale still fails the job.
+function publishedBookRenderStepIsExact(steps, receiptIndex) {
+  const step = steps[receiptIndex + 1];
+  return steps.length === receiptIndex + 2
+    && step?.name === "Verify the published PDF against the fresh renders"
+    && step?.run?.trim() === publishedBookRenderCommand
+    && step?.if === undefined
+    && step?.env === undefined
+    && step?.["timeout-minutes"] === 2
+    && continueOnErrorIsDisabled(step);
+}
+
+function pdfRendererSurroundingStepsAreExact(steps, setupIndex, verifyIndex, receiptIndex) {
+  return pdfRendererCacheStepsAreExact(steps, setupIndex, verifyIndex, receiptIndex)
+    && publishedBookRenderStepIsExact(steps, receiptIndex);
+}
+
 function pdfReproducibilityCiJobIsExact(job) {
   const steps = job?.steps ?? [];
   const setupIndex = steps.findIndex(pdfReproducibilitySetupIsExact);
@@ -1080,7 +1099,7 @@ function pdfReproducibilityCiJobIsExact(job) {
     && setupIndex >= 0
     && verifyIndex > setupIndex
     && receiptIndex > verifyIndex
-    && pdfRendererCacheStepsAreExact(steps, setupIndex, verifyIndex, receiptIndex)
+    && pdfRendererSurroundingStepsAreExact(steps, setupIndex, verifyIndex, receiptIndex)
     && receipt?.if === "${{ always() && !cancelled() }}"
     && receipt?.uses === "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
     && continueOnErrorIsDisabled(receipt)

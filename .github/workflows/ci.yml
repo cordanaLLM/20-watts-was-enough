@@ -321,6 +321,9 @@ jobs:
             build/evidence/pdf-renderer-reproducibility-mismatch
           if-no-files-found: error
           retention-days: 30
+      - name: Verify the published PDF against the fresh renders
+        timeout-minutes: 2
+        run: node scripts/validate-published-book-render.mjs --receipt build/evidence/pdf-renderer-reproducibility.json
 
   lane-research:
     name: Research lane

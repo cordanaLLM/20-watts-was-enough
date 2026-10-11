@@ -173,6 +173,9 @@ or consequential remote state.
    fallback and before marking pull request ready, integrating into `main`,
    merging or releasing. Changes to book source bytes or membership also
    require `npm run generate:book-pdf` and `npm run validate:book-pdf`.
+   Changes confined to `scripts/book-render-free-sources.json` paths take
+   `npm run record:book-provenance` instead of render
+   ([Decision 0090](decisions/0090-re-record-book-provenance-for-dependency-records.md)).
    [Decision 0088](decisions/0088-impact-scope-ci-and-local-validation.md) defines
    scope selection and evidence reuse; complete integration and release gates
    remain unchanged.

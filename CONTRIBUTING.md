@@ -270,6 +270,12 @@ npm run generate:book-pdf
 npm run validate:book-pdf
 ```
 
+A change confined to the dependency records in
+[`scripts/book-render-free-sources.json`](scripts/book-render-free-sources.json)
+needs no local render. `npm run record:book-provenance` re-records the digests,
+and the CI renderer job compares its fresh renders with the published PDF
+([decision 0090](decisions/0090-re-record-book-provenance-for-dependency-records.md)).
+
 Update [`CHANGELOG.md`](CHANGELOG.md) for notable changes and add an append-only
 decision record when authority, architecture, policy, licensing, publication,
 or release semantics change. The pull-request template records the exact checks

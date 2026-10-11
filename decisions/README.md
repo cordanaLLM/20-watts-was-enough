@@ -93,3 +93,4 @@ than silently changing its outcome.
 | [0087](0087-record-engineering-relations-without-evidential-authority.md) | Record engineering relations without evidential authority | accepted |
 | [0088](0088-impact-scope-ci-and-local-validation.md) | Impact-scope CI and local validation | accepted |
 | [0089](0089-publish-a-derived-mechanism-index.md) | Publish a derived mechanism index | accepted |
+| [0090](0090-re-record-book-provenance-for-dependency-records.md) | Re-record book provenance for dependency records without a render | accepted |
