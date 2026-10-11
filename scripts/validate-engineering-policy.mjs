@@ -28,6 +28,10 @@ const runtimePolicy = Object.freeze({
   pythonVersion: "3.14.7",
 });
 
+// Workflows read the Node version from this file. runtimePolicy.nodeVersion
+// stays the reviewed version the file must name.
+const nodeVersionFile = ".node-version";
+
 const sbomGenerator = "generator=docker.io/docker/buildkit-syft-scanner@sha256:ae4f3b554449e7e25548e7d8ccc029d17357348e30c6e3df01b92bc93654d6a9";
 
 const buildxPolicy = Object.freeze({
@@ -105,6 +109,7 @@ const approvedActionPins = new Map([
 ]);
 
 const requiredFiles = [
+  nodeVersionFile,
   ".agents/skills/research-writing/SKILL.md",
   ".agents/skills/reader-editor/SKILL.md",
   ".agents/skills/research-design/SKILL.md",
@@ -495,6 +500,33 @@ function validateScientificRequirements(root, findings) {
   }
 }
 
+function nodeSetupReadsVersionFile(setup) {
+  const inputs = setup?.with;
+  return inputs?.["node-version-file"] === nodeVersionFile
+    && inputs["node-version"] === undefined;
+}
+
+export function validateNodeVersionFile(text, relativePath = nodeVersionFile) {
+  if (text === `${runtimePolicy.nodeVersion}\n`) return [];
+  return [`${relativePath}: must contain exactly ${runtimePolicy.nodeVersion} and a final newline`];
+}
+
+export function validateNodeSetupWorkflowObject(workflow, relativePath = "workflow.yml") {
+  const findings = [];
+  for (const [jobName, job] of Object.entries(workflow?.jobs ?? {})) {
+    const steps = Array.isArray(job?.steps) ? job.steps : [];
+    const literal = steps.some((step) => (
+      typeof step?.uses === "string"
+      && step.uses.startsWith("actions/setup-node@")
+      && !nodeSetupReadsVersionFile(step)
+    ));
+    if (literal) {
+      findings.push(`${relativePath}: job ${jobName} must read the Node version from ${nodeVersionFile}`);
+    }
+  }
+  return findings;
+}
+
 export function validateJavaScriptRuntimeWorkflowObject(
   workflow,
   jobName,
@@ -514,12 +546,9 @@ export function validateJavaScriptRuntimeWorkflowObject(
   ));
   const installIndex = steps.findIndex((step) => step?.run?.trim() === "npm ci --no-audit");
   const setup = setupIndex >= 0 ? steps[setupIndex] : undefined;
-  if (
-    setup?.with?.["node-version"] !== runtimePolicy.nodeVersion
-    || setup?.with?.cache !== "npm"
-  ) {
+  if (!nodeSetupReadsVersionFile(setup) || setup?.with?.cache !== "npm") {
     findings.push(
-      `${relativePath}: job ${jobName} must use Node ${runtimePolicy.nodeVersion} with the npm cache`,
+      `${relativePath}: job ${jobName} must read the Node version from ${nodeVersionFile} with the npm cache`,
     );
   }
   if (bootstrapIndex < 0 || bootstrapIndex <= setupIndex) {
@@ -4204,6 +4233,7 @@ function validateCiWorkflowPolicy(workflow, relativePath, lock, findings) {
 function validateWorkflowPolicy(workflow, relativePath, lock, findings) {
   findings.push(...validateWorkflowObject(workflow, relativePath));
   findings.push(...validatePublicRepositoryRunnerWorkflowObject(workflow, relativePath));
+  findings.push(...validateNodeSetupWorkflowObject(workflow, relativePath));
   const auditJobName = relativePath === ".github/workflows/ci.yml"
     ? "quality-full"
     : relativePath === ".github/workflows/release.yml"
@@ -4494,6 +4524,7 @@ export function validateRepositoryPolicy(root = defaultRoot) {
   if (npmRuntimeLock) {
     findings.push(...validateNpmRuntimeLock(npmRuntimeLock));
   }
+  findings.push(...validateNodeVersionFile(readText(root, nodeVersionFile)));
   validateScientificRequirements(root, findings);
   findings.push(...validateWorkflowTree(root, scientificRuntimeLock));
   validateIssuePolicy(root, findings);

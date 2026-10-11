@@ -62,6 +62,13 @@ the exact diff; this file records why the project changed.
   setting is not pinned by the validator and is reverted if the queue time
   does not fall.
 
+- Workflows read the Node.js version from `.node-version` instead of ten
+  literal copies. `npm run validate:policy` now fails on a
+  `node-version` input in any workflow and requires `.node-version` to hold
+  exactly the reviewed runtime version. Reviewed artifact hashes and runtime
+  versions in the validator and tests stay as they are; decision 0091 records
+  the rule.
+
 - Agent instruction files are now written in the terse internal register
   that Praetor's context gate requires, so
   `praetorctl compile-context --verify` passes again: the root `AGENTS.md`,
