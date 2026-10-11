@@ -351,7 +351,7 @@ test("workflow validation rejects mutable actions and unbounded jobs", () => {
     concurrency: { group: "test", "cancel-in-progress": true },
     jobs: {
       unsafe: {
-        "runs-on": "ubuntu-latest",
+        "runs-on": "ubuntu-26.04",
         steps: [{ uses: "actions/checkout@v6", with: { "persist-credentials": false } }],
       },
     },
@@ -367,7 +367,7 @@ test("workflow validation rejects ambient writes, unbounded concurrency, and cre
     permissions: { contents: "write" },
     jobs: {
       unsafe: {
-        "runs-on": "ubuntu-latest",
+        "runs-on": "ubuntu-26.04",
         "timeout-minutes": 5,
         steps: [{
           uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
@@ -386,8 +386,8 @@ test("public-repository workflows cannot request self-hosted or dynamic runners"
   const label = "arc-cauda-lusoris-20-watts";
   assert.deepEqual(validatePublicRepositoryRunnerWorkflowObject({
     jobs: {
-      ci: { "runs-on": "ubuntu-latest" },
-      release: { "runs-on": "ubuntu-latest" },
+      ci: { "runs-on": "ubuntu-26.04" },
+      release: { "runs-on": "ubuntu-26.04" },
     },
   }), []);
 
@@ -397,8 +397,18 @@ test("public-repository workflows cannot request self-hosted or dynamic runners"
       dynamic: { "runs-on": "${{ matrix.os }}" },
     },
   }), [
-    "workflow.yml: public-repository job selfHosted must run on GitHub-hosted ubuntu-latest",
-    "workflow.yml: public-repository job dynamic must run on GitHub-hosted ubuntu-latest",
+    "workflow.yml: public-repository job selfHosted must run on GitHub-hosted ubuntu-26.04",
+    "workflow.yml: public-repository job dynamic must run on GitHub-hosted ubuntu-26.04",
+  ]);
+
+  assert.deepEqual(validatePublicRepositoryRunnerWorkflowObject({
+    jobs: {
+      floating: { "runs-on": "ubuntu-latest" },
+      previous: { "runs-on": "ubuntu-24.04" },
+    },
+  }), [
+    "workflow.yml: public-repository job floating must run on GitHub-hosted ubuntu-26.04",
+    "workflow.yml: public-repository job previous must run on GitHub-hosted ubuntu-26.04",
   ]);
 
   const labelerPath = ".github/workflows/labeler.yml";
@@ -406,7 +416,7 @@ test("public-repository workflows cannot request self-hosted or dynamic runners"
   assert.deepEqual(validatePublicRepositoryRunnerWorkflowObject(labeler, labelerPath), []);
   labeler.jobs.label["runs-on"] = label;
   assert.deepEqual(validatePublicRepositoryRunnerWorkflowObject(labeler, labelerPath), [
-    `${labelerPath}: public-repository job label must run on GitHub-hosted ubuntu-latest`,
+    `${labelerPath}: public-repository job label must run on GitHub-hosted ubuntu-26.04`,
   ]);
 
   const pagesPath = ".github/workflows/github-pages.yml";
@@ -414,7 +424,7 @@ test("public-repository workflows cannot request self-hosted or dynamic runners"
   assert.deepEqual(validatePublicRepositoryRunnerWorkflowObject(pages, pagesPath), []);
   pages.jobs["verify-public-transport"]["runs-on"] = label;
   assert.deepEqual(validatePublicRepositoryRunnerWorkflowObject(pages, pagesPath), [
-    `${pagesPath}: public-repository job verify-public-transport must run on GitHub-hosted ubuntu-latest`,
+    `${pagesPath}: public-repository job verify-public-transport must run on GitHub-hosted ubuntu-26.04`,
   ]);
 });
 
@@ -767,7 +777,7 @@ test("every discovered workflow is inside the generic security policy", (t) => {
     "",
   ].join("\n"));
   assert.ok(validateWorkflowTree(root).includes(
-    ".github/workflows/new-workflow.yaml: public-repository job unsafe must run on GitHub-hosted ubuntu-latest",
+    ".github/workflows/new-workflow.yaml: public-repository job unsafe must run on GitHub-hosted ubuntu-26.04",
   ));
 });
 
@@ -1420,7 +1430,7 @@ test("CI impact selection is projected once and every job state fails closed", (
   }
 
   const duplicateTitleGate = structuredClone(valid);
-  duplicateTitleGate.jobs["pr-title"] = { "runs-on": "ubuntu-latest", steps: [] };
+  duplicateTitleGate.jobs["pr-title"] = { "runs-on": "ubuntu-26.04", steps: [] };
   assert.ok(validateCiImpactWorkflowObject(duplicateTitleGate).includes(
     ".github/workflows/ci.yml: CI must delegate PR title validation to the standalone required workflow",
   ));
