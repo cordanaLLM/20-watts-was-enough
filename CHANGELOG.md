@@ -7,6 +7,34 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- Local Git hooks now gate this repository. The Praetor engine is pinned to
+  one commit by `PRAETOR_REF` in `.github/workflows/ci.yml`;
+  `.config/lefthook/engine.sh` runs exactly that commit for the hooks and
+  `make verify-all`, and the adoption files are refreshed at it. Until
+  2026-10-11 no hook had run here and CI was the only gate. The refresh
+  records 632 engine findings as baseline debt and names 35 Markdown files
+  the style gate skips, six of them for good; both lists shrink through
+  issues in the "Ongoing — Code health and deduplication" milestone. Agent
+  context is compiled for Claude, Codex and Gemini only, and the fifteen
+  tracked files of other clients and editors are removed. The release
+  workflow's distance from the declared supply-chain level (provenance at
+  SLSA level 2, no cosign step, no counted SBOM step) is a dated exception
+  until 2027-01-09. Files that the engine writes and locks (a minified
+  figure bundle, vendored source, two Markdown gate scripts) fail this
+  repository's code-shape audit, lint, type check and docs validator; each
+  gate now holds a list of named entries, one path with its exact rule,
+  diagnostic or link target, that end on 2027-01-09 and fail once expired or
+  unused. The docs validator reads a client's copy of a skill once when it is
+  byte-identical to the file under `.agents/skills`, and skips the engine's
+  private state folder. Decision 0095 records the pin, the carve-outs and
+  the dated exceptions.
+
+- The ruleset that protects `main` now also requires signed commits,
+  dismisses a stale review on push and requires `CI impact plan` and the two
+  CodeQL jobs. `.standards.yaml` declares that one person maintains the
+  repository. Nothing live was loosened. Decision 0096 records the change
+  and partly supersedes decision 0085.
+
 - `20w ci messages` refuses a `Co-authored-by` trailer that names a tool or
   model, and a generated-with footer, in commit messages. The `impact-plan`
   job runs it on the commits a pull request or a push to `main` adds, so the

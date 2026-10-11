@@ -98,3 +98,5 @@ than silently changing its outcome.
 | [0092](0092-exclude-the-clrs-generator-folder-from-update-proposals.md) | Exclude the CLRS generator folder from update proposals | accepted |
 | [0093](0093-refuse-tool-attribution-in-commit-messages.md) | Refuse tool attribution in commit messages | accepted |
 | [0094](0094-name-the-hosted-runner-image-by-version.md) | Name the hosted runner image by version | accepted |
+| [0095](0095-pin-the-praetor-engine-and-refresh-the-adoption.md) | Pin the Praetor engine and refresh the adoption | accepted |
+| [0096](0096-tighten-the-live-main-ruleset-to-the-rendered-policy.md) | Tighten the live main ruleset to the rendered policy | accepted |

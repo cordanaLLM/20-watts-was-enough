@@ -134,15 +134,22 @@ API still lacks its own origin certificate for the proxied hostname.
 
 ## Main protection
 
-The active `main` ruleset blocks branch deletion and non-fast-forward updates,
-requires the exact strict `CI success` and `PR title` contexts and a pull
-request, and requires CodeQL to report no high-or-higher security alert or
+The active `main` ruleset blocks branch deletion and non-fast-forward updates
+and requires signed commits and a pull request. Its exact strict contexts are
+`CI success`, `PR title`, `CI impact plan`,
+`JavaScript and TypeScript analysis` and `Go analysis`. A new push dismisses
+an earlier review, and CodeQL must report no high-or-higher security alert or
 analysis error. No actor, including the maintainer, can bypass it. The GitHub
-rulesets API is authoritative for its current activation state. The Praetor
-scaffold in [`.github/rulesets/main.json`](../.github/rulesets/main.json) is
-not this ruleset and is not applied;
-[decision 0085](../decisions/0085-keep-the-live-main-ruleset-across-the-transfer.md)
-records why.
+rulesets API is authoritative for its current activation state.
+
+The signed-commit rule, the dismissal and the last three contexts were added
+on 2026-10-11 and read back the same day.
+[Decision 0096](../decisions/0096-tighten-the-live-main-ruleset-to-the-rendered-policy.md)
+makes [`.github/rulesets/main.json`](../.github/rulesets/main.json), as the
+pinned Praetor engine renders it, the target that the live ruleset is
+tightened towards, and lists where the live ruleset stays stricter than the
+file. `Go API Compatibility` and `Documentation Governance` become required
+once `main` reports them.
 
 ## Staged controls and exit conditions
 

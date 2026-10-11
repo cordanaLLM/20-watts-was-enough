@@ -19,6 +19,45 @@ export const CODE_SHAPE_POLICY = Object.freeze({
   "max-statements": 60,
 });
 
+// Dated exceptions: one path, one rule, a reason and an end date each. From the
+// day after `expires` an entry no longer covers its group, and an entry that
+// matches no finding fails too, so the list cannot outlive its cause.
+// Decision 0095, point 10.
+const ENGINE_BUNDLE_REASON =
+  "minified interfig bundle that the Praetor engine writes and its audit locks byte for byte";
+const ENGINE_VENDOR_REASON =
+  "interfig source that the Praetor engine vendors byte for byte from upstream";
+const ENGINE_RULE_REASON =
+  "Markdown rule that the Praetor engine writes and its audit locks byte for byte";
+const ENGINE_FILE_EXPIRY = "2027-01-09";
+
+function engineFileException(filePath, rule, reason) {
+  return Object.freeze({ expires: ENGINE_FILE_EXPIRY, path: filePath, reason, rule });
+}
+
+export const CODE_SHAPE_EXCEPTIONS = Object.freeze([
+  engineFileException("tools/figures/dist/player.js", "complexity", ENGINE_BUNDLE_REASON),
+  engineFileException("tools/figures/dist/player.js", "max-statements", ENGINE_BUNDLE_REASON),
+  engineFileException(
+    "tools/figures/third_party/interfig/upstream/src/svg.ts",
+    "max-lines-per-function",
+    ENGINE_VENDOR_REASON,
+  ),
+  engineFileException(
+    "tools/figures/third_party/interfig/upstream/src/svg.ts",
+    "max-statements",
+    ENGINE_VENDOR_REASON,
+  ),
+  engineFileException(
+    "tools/markdownlint/no-private-scratch-links.mjs",
+    "complexity",
+    ENGINE_RULE_REASON,
+  ),
+]);
+
+const EXCEPTION_KEYS = Object.freeze(["expires", "path", "reason", "rule"]);
+const CALENDAR_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
 const SOURCE_GLOB = "**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}";
 const EXCLUDED_PATHS = Object.freeze([
   ".git/**",
@@ -180,36 +219,136 @@ export function validateBaseline(value) {
   return value;
 }
 
-export function compareSnapshots(baseline, current) {
+function isCalendarDate(value) {
+  if (typeof value !== "string" || !CALENDAR_DATE_PATTERN.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime())
+    && parsed.toISOString().slice(0, 10) === value;
+}
+
+function validateException(entry, index, seen) {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+    fail(`code-shape exception ${index} must be an object`);
+  }
+  if (Object.keys(entry).sort().join() !== EXCEPTION_KEYS.join()) {
+    fail(`code-shape exception ${index} must hold exactly expires, path, reason and rule`);
+  }
+  if (typeof entry.path !== "string" || entry.path.length === 0) {
+    fail(`code-shape exception ${index} has no path`);
+  }
+  if (!Object.hasOwn(CODE_SHAPE_POLICY, entry.rule)) {
+    fail(`code-shape exception ${index} has unknown rule ${entry.rule}`);
+  }
+  if (typeof entry.reason !== "string" || entry.reason.trim().length === 0) {
+    fail(`code-shape exception ${index} has no reason`);
+  }
+  if (!isCalendarDate(entry.expires)) {
+    fail(`code-shape exception ${index} has no calendar end date`);
+  }
+  const key = findingKey(entry);
+  if (seen.has(key)) {
+    fail(`duplicate code-shape exception: ${entry.path} · ${entry.rule}`);
+  }
+  seen.add(key);
+}
+
+export function validateExceptions(exceptions) {
+  if (!Array.isArray(exceptions)) fail("code-shape exceptions must be an array");
+  const seen = new Set();
+  exceptions.forEach((entry, index) => validateException(entry, index, seen));
+  return exceptions;
+}
+
+export function currentCalendarDate(now = new Date()) {
+  return now.toISOString().slice(0, 10);
+}
+
+function exceptionIsActive(exception, today) {
+  return Boolean(exception) && today <= exception.expires;
+}
+
+function newGroupRegression(finding, exception, today) {
+  const group = `${finding.path} · ${finding.rule}: new group with ${finding.count} finding(s), worst ${finding.maxActual}`;
+  if (!exception) return group;
+  if (exceptionIsActive(exception, today)) return null;
+  return `${group}; its exception expired on ${exception.expires}`;
+}
+
+function recordedGroupRegressions(finding, prior, exception) {
+  const regressions = [];
+  if (exception) {
+    regressions.push(
+      `${finding.path} · ${finding.rule}: exception names a group the baseline already records`,
+    );
+  }
+  if (finding.count > prior.count) {
+    regressions.push(
+      `${finding.path} · ${finding.rule}: finding count ${prior.count} -> ${finding.count}`,
+    );
+  }
+  if (finding.maxActual > prior.maxActual) {
+    regressions.push(
+      `${finding.path} · ${finding.rule}: worst actual ${prior.maxActual} -> ${finding.maxActual}`,
+    );
+  }
+  return regressions;
+}
+
+function unusedExceptionRegressions(exceptions, current) {
+  const currentKeys = new Set(current.findings.map(findingKey));
+  return exceptions
+    .filter((exception) => !currentKeys.has(findingKey(exception)))
+    .map((exception) => (
+      `${exception.path} · ${exception.rule}: exception matches no finding; remove the entry`
+    ));
+}
+
+export function compareSnapshots(
+  baseline,
+  current,
+  { exceptions = [], today = currentCalendarDate() } = {},
+) {
   validateBaseline(baseline);
   validateBaseline(current);
+  validateExceptions(exceptions);
+  if (!isCalendarDate(today)) fail("code-shape comparison date must be a calendar date");
 
   const baselineByKey = new Map(
     baseline.findings.map((finding) => [findingKey(finding), finding]),
   );
+  const exceptionByKey = new Map(
+    exceptions.map((exception) => [findingKey(exception), exception]),
+  );
   const regressions = [];
 
   for (const finding of current.findings) {
-    const prior = baselineByKey.get(findingKey(finding));
-    if (!prior) {
-      regressions.push(
-        `${finding.path} · ${finding.rule}: new group with ${finding.count} finding(s), worst ${finding.maxActual}`,
-      );
+    const key = findingKey(finding);
+    const prior = baselineByKey.get(key);
+    const exception = exceptionByKey.get(key);
+    if (prior) {
+      regressions.push(...recordedGroupRegressions(finding, prior, exception));
       continue;
     }
-    if (finding.count > prior.count) {
-      regressions.push(
-        `${finding.path} · ${finding.rule}: finding count ${prior.count} -> ${finding.count}`,
-      );
-    }
-    if (finding.maxActual > prior.maxActual) {
-      regressions.push(
-        `${finding.path} · ${finding.rule}: worst actual ${prior.maxActual} -> ${finding.maxActual}`,
-      );
-    }
+    const regression = newGroupRegression(finding, exception, today);
+    if (regression) regressions.push(regression);
   }
 
-  return regressions;
+  return [...regressions, ...unusedExceptionRegressions(exceptions, current)];
+}
+
+// The groups an unexpired exception covers. They stay out of a written
+// baseline, so an exception can never turn into recorded debt.
+export function exceptedFindings(
+  current,
+  { exceptions = [], today = currentCalendarDate() } = {},
+) {
+  validateExceptions(exceptions);
+  const exceptionByKey = new Map(
+    exceptions.map((exception) => [findingKey(exception), exception]),
+  );
+  return current.findings
+    .map((finding) => ({ exception: exceptionByKey.get(findingKey(finding)), finding }))
+    .filter(({ exception }) => exceptionIsActive(exception, today));
 }
 
 function readBaseline(baselinePath) {
@@ -284,21 +423,43 @@ export async function createCurrentSnapshot({ root = repositoryRoot } = {}) {
   return aggregateFindings(root, results);
 }
 
+function withoutExceptedFindings(current, excepted) {
+  const exceptedKeys = new Set(excepted.map(({ finding }) => findingKey(finding)));
+  return {
+    ...current,
+    findings: current.findings.filter((finding) => !exceptedKeys.has(findingKey(finding))),
+  };
+}
+
+function printExceptedFindings(excepted) {
+  for (const { exception, finding } of excepted) {
+    console.log(
+      `  dated exception until ${exception.expires}: ${finding.path} · ${finding.rule}, ${finding.count} finding(s), worst ${finding.maxActual}.`,
+    );
+  }
+}
+
 export async function runCodeShapeAudit({
   root = repositoryRoot,
   baselinePath = DEFAULT_BASELINE_PATH,
   write = false,
+  exceptions = CODE_SHAPE_EXCEPTIONS,
+  today = currentCalendarDate(),
 } = {}) {
   const current = await createCurrentSnapshot({ root });
+  const excepted = exceptedFindings(current, { exceptions, today });
   if (write) {
-    writeFileSync(baselinePath, serializeBaseline(current), "utf8");
-    printSummary(current, "baseline written");
-    return current;
+    const recorded = withoutExceptedFindings(current, excepted);
+    writeFileSync(baselinePath, serializeBaseline(recorded), "utf8");
+    printSummary(recorded, "baseline written");
+    printExceptedFindings(excepted);
+    return recorded;
   }
 
   const baseline = readBaseline(baselinePath);
-  const regressions = compareSnapshots(baseline, current);
+  const regressions = compareSnapshots(baseline, current, { exceptions, today });
   printSummary(current, "check");
+  printExceptedFindings(excepted);
   if (regressions.length > 0) {
     fail(`code-shape regression(s):\n- ${regressions.join("\n- ")}`);
   }

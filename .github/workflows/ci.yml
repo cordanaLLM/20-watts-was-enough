@@ -14,6 +14,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Praetor engine commit the local hooks and `make verify-all` run. Read by
+  # .config/lefthook/engine.sh on the workstation; no job in this workflow uses it.
+  PRAETOR_REF: 7cf9cbb2d8cce4000bde5ba2cf2a5b770fc90712
+
 jobs:
   impact-plan:
     name: CI impact plan
