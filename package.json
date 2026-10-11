@@ -142,7 +142,7 @@
     "remark-parse": "11.0.0",
     "tailwindcss": "4.3.3",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.69.0",
+    "typescript-eslint": "8.71.0",
     "unified": "11.0.5",
     "vite": "8.2.2",
     "yaml": "2.9.0"
