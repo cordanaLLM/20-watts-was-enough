@@ -1,4 +1,4 @@
-FROM node:26.8.1-trixie-slim@sha256:c0753125a3789977aefe869cbebccf70e3cfd7ea84ca48547458f02e4f1d7146
+FROM node:26.9.0-trixie-slim@sha256:3a771f83944bb763050c23c0225c260638c4b7899e7a72485ef75e5e570499e5
 
 ARG EXPERIMENT_ARTIFACT
 ARG IMAGE_NAME=ghcr.io/cordanallm/20-watts-was-enough-fixture-007
