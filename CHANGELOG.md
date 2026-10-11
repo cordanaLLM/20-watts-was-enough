@@ -53,6 +53,14 @@ the exact diff; this file records why the project changed.
   decision record
   ([Decision 0092](decisions/0092-exclude-the-clrs-generator-folder-from-update-proposals.md)).
 
+- The update bot rebases one of its branches only when the branch conflicts
+  with `main` (`rebaseWhen: conflicted` in `renovate.json`). The rule set on
+  `main` requires an up-to-date branch, so the bot's automatic mode rebased
+  every untouched branch after each commit on `main`; with 26 open update
+  pull requests that queued 26 CI runs per merge. A branch is now brought up
+  to date when it is about to be merged. This is a trial: the setting is not
+  pinned by the validator and is reverted if the queue time does not fall.
+
 - Agent instruction files are now written in the terse internal register
   that Praetor's context gate requires, so
   `praetorctl compile-context --verify` passes again: the root `AGENTS.md`,
