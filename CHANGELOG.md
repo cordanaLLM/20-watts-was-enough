@@ -20,7 +20,7 @@ the exact diff; this file records why the project changed.
   workflow's distance from the declared supply-chain level (provenance at
   SLSA level 2, no cosign step, no counted SBOM step) is a dated exception
   until 2027-01-09. Files that the engine writes and locks (a minified
-  figure bundle, vendored source, two Markdown gate scripts) fail this
+  figure bundle, vendored source, a Markdown gate script) fail this
   repository's code-shape audit, lint, type check and docs validator; each
   gate now holds a list of named entries, one path with its exact rule,
   diagnostic or link target, that end on 2027-01-09 and fail once expired or

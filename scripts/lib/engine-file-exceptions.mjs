@@ -5,7 +5,6 @@
 // absent. Decision 0095, point 10.
 
 const BUNDLE_REASON = "minified interfig bundle that the Praetor engine writes and its audit locks byte for byte";
-const RULE_REASON = "Markdown gate script that the Praetor engine writes and its audit locks byte for byte";
 const VENDOR_REASON = "interfig source that the Praetor engine vendors byte for byte from upstream";
 
 export const ENGINE_FILE_LAST_DAY = "2027-01-09";
@@ -33,15 +32,6 @@ export const LINT_EXCEPTIONS = Object.freeze([
     "no-unreachable",
     "no-useless-escape",
     "valid-typeof",
-  ]),
-  // The two Markdown gate scripts leave this list when the engine pin moves to
-  // the commit that fixes their findings.
-  lintException("tools/markdownlint/no-private-scratch-links.mjs", RULE_REASON, [
-    "no-useless-escape",
-  ]),
-  lintException("tools/markdownlint/verify.mjs", RULE_REASON, [
-    "no-regex-spaces",
-    "no-useless-escape",
   ]),
 ]);
 

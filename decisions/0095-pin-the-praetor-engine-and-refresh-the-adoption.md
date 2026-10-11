@@ -35,12 +35,22 @@ every local commit and push went out unchecked, including the ones that later
 failed in CI.
 
 Re-adopting at a newer engine is not a formatting change. The engine at commit
-`7cf9cbb2d8cc` scans more constructs than the one that recorded the baseline
+`9bf502ec6ce5` scans more constructs than the one that recorded the baseline
 on 2026-09-16, adds a Markdown style gate, writes two CI workflows of its own
 and reads a `LICENSES/` folder as a declaration that the repository uses the
 REUSE tool. It also ships a figure bundle, vendored source and gate scripts
 that this repository's own gates then read. Each of these collided with a
 rule or a fact of this repository, and each collision needed a decision.
+
+The pin moved once before this change merged. Its first push pinned commit
+`7cf9cbb2d8cc`. The CodeQL scan of that push reported eight alerts, seven of
+them of high severity, in three scripts the engine writes:
+`tools/figures/checks.mjs`, `tools/markdownlint/verify.mjs` and
+`tools/markdownlint/no-private-scratch-links.mjs`. The ruleset on `main`
+refuses a merge with a new alert of that severity, and the audit locks the
+three files byte for byte, so the fix had to come from the engine. It did, in
+cordanaLLM/praetor#1252 and #1257. The pin moved to the commit that holds
+both, and the adoption was run again with it.
 
 ## Decision
 
@@ -126,7 +136,7 @@ rule or a fact of this repository, and each collision needed a decision.
     `tools/figures/third_party/interfig/`, and two Markdown gate scripts
     under `tools/markdownlint/`. Four gates of this repository read them and
     failed: the code-shape audit with five new groups in three files, the
-    lint with 982 errors in four files, the type check with two errors in
+    lint with 974 errors in two files, the type check with two errors in
     one file, and the docs validator with two links in the interfig vendor
     note that point into the engine's own repository. Exception: each gate
     holds a list of named entries. An entry is one path with the exact rule,
@@ -136,14 +146,16 @@ rule or a fact of this repository, and each collision needed a decision.
     well, so a list can only shrink. The lists are `CODE_SHAPE_EXCEPTIONS`
     in `scripts/audit-code-shape.mjs` (five path-and-rule groups),
     `LINT_EXCEPTIONS` and `TYPE_CHECK_EXCEPTIONS` in
-    `scripts/lib/engine-file-exceptions.mjs` (four files with 18 rule
+    `scripts/lib/engine-file-exceptions.mjs` (two files with 15 rule
     entries; one file with one diagnostic), and `engineLinkExceptions` in
     `tooling/internal/docscheck/engine_files.go` (two targets in one file).
     `tsconfig.json` leaves the one file out of the type check, and the
     policy validator refuses that exclude without its entry or after its
     last day, refuses any other added exclude and pins the include globs.
-    The two Markdown gate scripts leave the lists when the pin moves to the
-    engine commit that fixes them. The engine side is reported in
+    At the first pin the two Markdown gate scripts also held three lint
+    entries. The engine fixed those findings, and the entries left the list
+    with the pin move; one of the scripts keeps a code-shape entry. The
+    engine side is reported in
     [cordanaLLM/praetor#1250](https://github.com/cordanaLLM/praetor/issues/1250):
     a shipped generated or vendored file should arrive declared as such, and
     a vendor note should not link into the engine's repository. One issue in
@@ -229,16 +241,21 @@ and each was seen failing with its rule weakened:
   refuses an override of every other generated job, a skip that sets more
   than `skip: true`, a hook-level key and a declared exception that nothing
   uses. Eight weakened forms of the rule each fail it.
-- Seven tests cover the lint and type-check exceptions of point 10. They run
-  ESLint and the TypeScript compiler on the real files: the four lint entries
+- Eight tests cover the lint and type-check exceptions of point 10. They run
+  ESLint and the TypeScript compiler on the real files: the two lint entries
   hide exactly the rules their files trip on 2027-01-09 and nothing on
   2027-01-10, a neighbouring file keeps every rule, and the compiler reports
-  only `TS5097` for the vendored file. Twenty malformed lists are refused,
-  among them a folder, a glob, a missing reason and an unsorted rule list.
+  only `TS5097` for the vendored file. The lint reads every script under
+  `tools/`, so a folder ignore cannot stand in for an entry; a planted
+  ignore of `tools/markdownlint/` is reported. Twenty malformed lists are
+  refused, among them a folder, a glob, a missing reason and an unsorted
+  rule list.
   A second exclude, a folder exclude, an unused entry and a changed include
-  list are refused in the type-check configuration. All 49 weakened forms
-  fail a test. One survived the first run, a date check without its shape
-  test; the planted day `+010000-01` now fails it.
+  list are refused in the type-check configuration. All 51 weakened forms
+  fail a test. Two survived a first run. One was a date check without its
+  shape test; the planted day `+010000-01` now fails it. The other was a
+  folder ignore for the Markdown gate scripts, which passed once their lint
+  entries had left the list; the test above now fails it.
 
 The code-shape audit has 19 tests, eleven of them new, and all pass. Its 21
 weakened forms each fail one: 18 against the unit tests and three against a

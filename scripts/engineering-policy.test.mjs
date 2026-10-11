@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -3406,10 +3406,8 @@ test("engine-file exception lists are well formed and fail closed when they are 
   assert.deepEqual(LINT_EXCEPTIONS.map((entry) => [entry.path, entry.expires, entry.rules.length]), [
     ["tools/figures/dist/loader.js", engineFileLastDay, 1],
     ["tools/figures/dist/player.js", engineFileLastDay, 14],
-    ["tools/markdownlint/no-private-scratch-links.mjs", engineFileLastDay, 1],
-    ["tools/markdownlint/verify.mjs", engineFileLastDay, 2],
   ]);
-  const base = plainEntry(LINT_EXCEPTIONS[3], "rules");
+  const base = plainEntry(LINT_EXCEPTIONS[1], "rules");
   const label = "engine-file exception 0";
   for (const [name, entries, expected] of [
     ["not a list", { ...base }, ["engine-file exceptions must be an array"]],
@@ -3419,12 +3417,12 @@ test("engine-file exception lists are well formed and fail closed when they are 
     ["a short end day", [{ ...base, expires: "2027-1-9" }], [`${label} has no calendar end day`]],
     ["a day that does not exist", [{ ...base, expires: "2027-02-30" }], [`${label} has no calendar end day`]],
     ["no end day", [{ ...base, expires: undefined }], [`${label} has no calendar end day`]],
-    ["a glob", [{ ...base, path: "tools/markdownlint/*.mjs" }], [`${label} must name one file by its literal repository path`]],
+    ["a glob", [{ ...base, path: "tools/figures/dist/*.js" }], [`${label} must name one file by its literal repository path`]],
     ["a recursive glob", [{ ...base, path: "tools/**" }], [`${label} must name one file by its literal repository path`]],
-    ["a directory", [{ ...base, path: "tools/markdownlint/" }], [`${label} must name one file by its literal repository path`]],
-    ["a relative prefix", [{ ...base, path: "./tools/markdownlint/verify.mjs" }], [`${label} must name one file by its literal repository path`]],
-    ["an alternation", [{ ...base, path: "tools/markdownlint/@(verify|x).mjs" }], [`${label} must name one file by its literal repository path`]],
-    ["a negation", [{ ...base, path: "!tools/markdownlint/verify.mjs" }], [`${label} must name one file by its literal repository path`]],
+    ["a directory", [{ ...base, path: "tools/figures/dist/" }], [`${label} must name one file by its literal repository path`]],
+    ["a relative prefix", [{ ...base, path: "./tools/figures/dist/player.js" }], [`${label} must name one file by its literal repository path`]],
+    ["an alternation", [{ ...base, path: "tools/figures/dist/@(player|x).js" }], [`${label} must name one file by its literal repository path`]],
+    ["a negation", [{ ...base, path: "!tools/figures/dist/player.js" }], [`${label} must name one file by its literal repository path`]],
     ["no rules", [{ ...base, rules: [] }], [`${label} must list its rules as sorted, unique names`]],
     ["a repeated rule", [{ ...base, rules: ["no-empty", "no-empty"] }], [`${label} must list its rules as sorted, unique names`]],
     ["unsorted rules", [{ ...base, rules: ["no-undef", "no-empty"] }], [`${label} must list its rules as sorted, unique names`]],
@@ -3447,21 +3445,21 @@ test("engine-file exceptions apply through their last day and compare calendar d
   }
   assert.equal(currentCalendarDay(new Date("2027-01-09T23:59:59.999Z")), engineFileLastDay);
   assert.equal(currentCalendarDay(new Date("2027-01-10T00:00:00.000Z")), engineFileNextDay);
-  assert.equal(activeExceptions(LINT_EXCEPTIONS, engineFileLastDay).length, 4);
+  assert.equal(activeExceptions(LINT_EXCEPTIONS, engineFileLastDay).length, 2);
   assert.deepEqual(activeExceptions(LINT_EXCEPTIONS, engineFileNextDay), []);
   assert.deepEqual(lintExceptionOverrides(LINT_EXCEPTIONS, engineFileNextDay), []);
   const overrides = lintExceptionOverrides(LINT_EXCEPTIONS, engineFileLastDay);
   assert.deepEqual(overrides.map((override) => override.files), LINT_EXCEPTIONS.map((entry) => [entry.path]));
-  assert.deepEqual(overrides.map((override) => Object.keys(override)), Array(4).fill(["files", "rules"]));
-  assert.deepEqual(overrides[3].rules, { "no-regex-spaces": "off", "no-useless-escape": "off" });
-  const mixed = [{ ...plainEntry(LINT_EXCEPTIONS[0], "rules"), expires: "2026-10-10" }, LINT_EXCEPTIONS[3]];
+  assert.deepEqual(overrides.map((override) => Object.keys(override)), Array(2).fill(["files", "rules"]));
+  assert.deepEqual(overrides[0].rules, { "@typescript-eslint/no-unused-expressions": "off" });
+  const mixed = [{ ...plainEntry(LINT_EXCEPTIONS[0], "rules"), expires: "2026-10-10" }, LINT_EXCEPTIONS[1]];
   assert.deepEqual(lintExceptionOverrides(mixed, "2026-10-11").map((override) => override.files), [
-    ["tools/markdownlint/verify.mjs"],
+    ["tools/figures/dist/player.js"],
   ]);
-  assert.equal(createEslintConfig({ today: engineFileLastDay }).length, createEslintConfig({ today: engineFileNextDay }).length + 4);
+  assert.equal(createEslintConfig({ today: engineFileLastDay }).length, createEslintConfig({ today: engineFileNextDay }).length + 2);
 });
 
-test("the lint exceptions hide exactly the rules their four files trip, and nothing after their last day", async () => {
+test("the lint exceptions hide exactly the rules their two files trip, and nothing after their last day", async () => {
   const declared = Object.fromEntries(LINT_EXCEPTIONS.map((entry) => [entry.path, [...entry.rules]]));
   const clean = Object.fromEntries(LINT_EXCEPTIONS.map((entry) => [entry.path, []]));
   assert.deepEqual(await lintRuleIds(engineFileLastDay), clean);
@@ -3471,10 +3469,10 @@ test("the lint exceptions hide exactly the rules their four files trip, and noth
   assert.deepEqual(await lintRuleIds("2026-10-11", []), declared);
 
   const narrowed = LINT_EXCEPTIONS.map((entry) => plainEntry(entry, "rules"));
-  narrowed[3].rules = ["no-useless-escape"];
+  narrowed[1].rules = narrowed[1].rules.filter((rule) => rule !== "no-undef");
   assert.deepEqual(await lintRuleIds("2026-10-11", narrowed), {
     ...clean,
-    "tools/markdownlint/verify.mjs": ["no-regex-spaces"],
+    "tools/figures/dist/player.js": ["no-undef"],
   });
 });
 
@@ -3484,16 +3482,40 @@ test("a lint exception covers its own file and no neighbour", async () => {
     overrideConfig: createEslintConfig({ today: "2026-10-11" }),
     overrideConfigFile: true,
   });
-  const source = "export const pattern = /a\\-b  c/;\n";
+  const source = "export const pattern = /a\\-b/;\nif (pattern) {}\n";
   for (const [filePath, expected] of [
-    ["tools/markdownlint/verify.mjs", []],
-    ["tools/markdownlint/verify.test.mjs", ["no-regex-spaces", "no-useless-escape"]],
-    ["tools/markdownlint/nested/verify.mjs", ["no-regex-spaces", "no-useless-escape"]],
-    ["scripts/verify.mjs", ["no-regex-spaces", "no-useless-escape"]],
+    ["tools/figures/dist/player.js", []],
+    ["tools/figures/dist/player.test.js", ["no-empty", "no-useless-escape"]],
+    ["tools/figures/dist/nested/player.js", ["no-empty", "no-useless-escape"]],
+    ["tools/figures/player.js", ["no-empty", "no-useless-escape"]],
+    ["scripts/player.js", ["no-empty", "no-useless-escape"]],
   ]) {
     const [result] = await eslint.lintText(source, { filePath: path.join(engineFileRoot, filePath) });
     assert.deepEqual(result.messages.map((message) => message.ruleId).sort(), expected, filePath);
   }
+});
+
+test("a lint exception is never a whole-file ignore: the lint reads every script under tools", async () => {
+  const scripts = readdirSync(path.join(engineFileRoot, "tools"), { recursive: true })
+    .map((entry) => `tools/${entry.split(path.sep).join("/")}`)
+    .filter((entry) => /\.(?:[cm]?js|tsx?)$/u.test(entry))
+    .sort();
+  const markdownGates = ["tools/markdownlint/no-private-scratch-links.mjs", "tools/markdownlint/verify.mjs"];
+  for (const expected of [...LINT_EXCEPTIONS.map((entry) => entry.path), "tools/figures/checks.mjs", ...markdownGates]) {
+    assert.ok(scripts.includes(expected), expected);
+  }
+  const ignored = async (extra) => {
+    const eslint = new ESLint({
+      cwd: engineFileRoot,
+      overrideConfig: [...createEslintConfig({ today: "2026-10-11" }), ...extra],
+      overrideConfigFile: true,
+    });
+    const flags = await Promise.all(scripts.map((script) => eslint.isPathIgnored(script)));
+    return scripts.filter((_, index) => flags[index]);
+  };
+  assert.deepEqual(await ignored([]), []);
+  // A planted folder ignore must show up, so the empty result above is a reading.
+  assert.deepEqual(await ignored([{ ignores: ["tools/markdownlint/**"] }]), markdownGates);
 });
 
 test("the type check leaves out a file only by a dated exception", () => {
