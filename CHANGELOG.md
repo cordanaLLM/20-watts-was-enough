@@ -31,7 +31,9 @@ the exact diff; this file records why the project changed.
 
 - The ruleset that protects `main` now also requires signed commits,
   dismisses a stale review on push and requires `CI impact plan` and the two
-  CodeQL jobs. `.standards.yaml` declares that one person maintains the
+  CodeQL jobs. `Go API Compatibility` and `Documentation Governance` became
+  required later the same day, once `main` reported both.
+  `.standards.yaml` declares that one person maintains the
   repository. Nothing live was loosened. Decision 0096 records the change
   and partly supersedes decision 0085.
 
