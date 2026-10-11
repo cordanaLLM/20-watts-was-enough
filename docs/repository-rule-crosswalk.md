@@ -91,8 +91,9 @@ Host controls verified through the GitHub API on
 `cordanaLLM/20-watts-was-enough` on 2026-09-28 are:
 
 - public repository visibility;
-- squash and rebase merges enabled, merge commits disabled, auto-merge and
-  post-merge branch deletion enabled;
+- squash merges enabled, rebase merges and merge commits disabled, auto-merge
+  and post-merge branch deletion enabled (read again on 2026-10-11, the day
+  rebase merges were switched off);
 - the unused wiki and Projects surfaces disabled;
 - private vulnerability reporting enabled;
 - secret scanning enabled;
@@ -107,12 +108,15 @@ The repository homepage field reads `http://www.cordana.dev/`. Cloudflare
 answers that address with a 301 redirect to `https://www.cordana.dev/`, so the
 link works, but the field has not yet been set to the HTTPS address.
 
-The `main` ruleset was read back through the API on 2026-09-28. Active ruleset
-`21746706` was last changed on 2026-09-04 and carried over unchanged in the
-transfer. It has no bypass actor, requires a pull request, the strict
+The `main` ruleset was read back through the API on 2026-09-28 and again on
+2026-10-11. Active ruleset `21746706` was carried over unchanged in the
+transfer and was last changed on 2026-10-11, when rebase was removed from its
+merge methods. It has no bypass actor, requires a pull request, the strict
 `CI success` and `PR title` checks, resolved review threads, linear history,
-and CodeQL with no high-or-higher security alert or analysis error. Squash and
-rebase are the admitted merge methods. The approval count remains zero because
+and CodeQL with no high-or-higher security alert or analysis error. Squash is
+the only admitted merge method: a pull request lands as one commit, and a pull
+request that carries several small units lists each of them in that commit's
+body. The approval count remains zero because
 the repository has one human maintainer; GitHub's [ruleset
 guidance](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets)
 confirms that zero is a supported setting. A second-human approval gate should

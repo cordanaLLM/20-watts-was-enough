@@ -52,6 +52,11 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- `main` admits squash merges only. The maintainer switched rebase merges off
+  on 2026-10-11 in the repository setting and in ruleset `21746706`; both
+  values were read back through the API that day. A pull request that carries
+  several small units lands as one commit whose body lists each unit.
+  `docs/repository-rule-crosswalk.md` records the new state.
 - Every workflow job names its runner image by version, `ubuntu-26.04`, in
   place of the floating `ubuntu-latest`. GitHub starts to move the floating
   label from Ubuntu 24.04 to 26.04 on 2026-10-19, in a rollout of several
