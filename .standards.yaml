@@ -13,3 +13,80 @@ facets:
     - api:public-contract
     - docs:seo-portal
     - agent:sandboxed
+agent_clients: [claude, codex, gemini]
+editors: [universal, vscode, antigravity]
+register:
+    sources:
+        expected: 13
+        sha256:
+            sha256:21731aeac3c2442a4eb28abd0593ab59cb453db34c8937c0b268c70d219141aa
+        inputs:
+            - path: .paperclip/harness.json
+              surface: prompts
+              kind: message
+              format: json
+              selector: operating_contract.*
+            - path: .paperclip/harness.json
+              surface: prompts
+              kind: message
+              format: json
+              selector: invariants.*
+documentation:
+    # research/claims.md is 1.6 MiB; the default per-file bound is 1 MiB.
+    max_file_bytes: 2097152
+    # Decision 0095: 35 files, each named. The first six stay excluded: imported
+    # sources and accepted decision records keep their bytes. The other 29 held
+    # 586 style findings on 2026-10-11 and leave this list as their fixes land.
+    style_exclude:
+        - sources/2026-08-05-gemini-energy-comparison.md
+        - sources/2026-08-05-gemini-training-pipeline.md
+        - sources/2026-08-05-google-doc.md
+        - decisions/0062-impact-scope-comparable-main-pushes.md
+        - decisions/0090-re-record-book-provenance-for-dependency-records.md
+        - decisions/0091-derive-plain-version-copies-and-keep-reviewed-literals.md
+        - concept/25-active-chemical-sensing.md
+        - experiments/candidates/002-multiscale-context-broadcast.md
+        - experiments/candidates/009-graded-assurance-envelopes.md
+        - experiments/candidates/011-dual-loop-operational-assurance.md
+        - experiments/candidates/012-latency-qualified-authority.md
+        - experiments/candidates/015-versioned-repairable-conventions.md
+        - experiments/fixtures/018-environmental-process-state-control.md
+        - experiments/fixtures/019-finance-risk-attention-governance.md
+        - experiments/fixtures/020-integrative-comparative-physiology.md
+        - experiments/fixtures/021-tribology-contact-adaptive-interfaces.md
+        - experiments/fixtures/027-interface-qualified-retroactivity-insulation.md
+        - math/boundary-qualified-physical-computation.md
+        - research/audits/2026-08-05-animal-navigation-sensory-ecology.md
+        - research/audits/2026-08-05-built-environment-urban-systems.md
+        - research/audits/2026-08-05-hci-human-factors.md
+        - research/audits/2026-08-05-mechanical-civil-resilience.md
+        - research/audits/2026-08-05-pathology-rehabilitation.md
+        - research/audits/2026-08-05-security-cryptography.md
+        - research/audits/2026-08-05-semiconductor-device-reliability.md
+        - research/audits/2026-08-21-accounting-audit-actuarial-insurance.md
+        - research/audits/2026-08-21-direct-social-research-ethnography-media.md
+        - research/audits/2026-08-21-mineralogy-petrology-geochemistry.md
+        - research/audits/2026-08-21-particle-nuclear-high-energy-experimentation.md
+        - research/audits/2026-08-21-polymer-research-adaptive-materials.md
+        - research/audits/2026-08-24-finance-management-risk-attention-governance.md
+        - research/audits/2026-08-27-rsd-t02-population-identifiability-calibration.md
+        - research/claims.md
+        - research/domain-inventory.md
+        - research/field-coverage.md
+adoption:
+    # Decision 0095: LICENSES/ holds third-party licence texts only; this
+    # repository has no REUSE annotations yet (cordanaLLM/praetor#1244).
+    decline: [reuse-gate]
+overrides:
+    branch_protection:
+        # Declared 2026-10-11: one maintainer account, no review bot with
+        # approval rights. Restore `independent` when a second reviewer exists.
+        review_mode: single_maintainer
+
+# Dated exceptions (one rule, one path, one reason, one end date each). An
+# expired entry fails like a missing one. Decision 0095, point 9.
+exceptions:
+  - rule: "HISS-11"
+    path: ".github/workflows/release.yml"
+    reason: "release.yml attests build provenance in the build job (SLSA 2), has no cosign signing step, and its BuildKit SBOM generator is not counted as an SBOM step; raising it is a release unit of its own"
+    expires: "2027-01-09"

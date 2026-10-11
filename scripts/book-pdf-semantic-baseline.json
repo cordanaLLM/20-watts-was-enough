@@ -6,9 +6,9 @@
   "artifact": {
     "pdf": "public/downloads/20-watts-was-enough-full-concept-book.pdf",
     "manifest": "public/downloads/book-manifest.json",
-    "pdf_sha256": "2df08fda444b1aef854f9c66d8b825e8e1e32b166160f71e63383d58a9cc221d",
-    "manifest_sha256": "928664dba1fd44ec6fe13130c1f61a77f62919703173d99d170ca296904e496e",
-    "size_bytes": 12817594,
+    "pdf_sha256": "b88e7cb98dfbd3f7d392647727d8fdf6aa08d89d4eda93f9614ddc10343986c4",
+    "manifest_sha256": "5a9a027e5f959e9fbc3926836380ba79e7d62dda46c51c337bee5bee4ff08bc3",
+    "size_bytes": 12829763,
     "pages": 414,
     "page_size_name": "A4",
     "page_size_points": {
@@ -18,7 +18,7 @@
     "pdf_version": "1.4",
     "tagged": true,
     "source_ref": "main",
-    "source_digest": "3b21d518c9efe82777dd5a128ec42ca544b820ddcc9281f479ea760f780bf23c",
+    "source_digest": "f721227deec56465f97ac76041fdfac8823c82d62a7434dda68677cb6a9ab71d",
     "version": "0.4.1"
   },
   "tools": {
@@ -40,7 +40,7 @@
       },
       "stdout": {
         "bytes": 627,
-        "sha256": "c806c3bffc626c43ca49487d26aeefeef4d6cad273e4fbdda2d5cb80b39b7266"
+        "sha256": "3a88e47a0b40ef79943ac805a2b98a91c86d64c8fbd8c66a4e20c51ef347d05a"
       }
     },
     "structure": {
@@ -50,8 +50,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "stdout": {
-        "bytes": 1090758,
-        "sha256": "0f3a49c775397d8de6799f9c004d2a286bb134043a9a633a46cc343f149c8649"
+        "bytes": 1094856,
+        "sha256": "d3b003baf296de0b8b16de43c0ff826e8e0e101a984c216f3454be96548b4dd1"
       }
     },
     "structure_text": {
@@ -61,8 +61,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "stdout": {
-        "bytes": 2457989,
-        "sha256": "dcc143c0561ddd5f9d39ad7be392f577e524dfca6d6b52c8c6b6035255585a50"
+        "bytes": 2463438,
+        "sha256": "913c2441eba51cc4d24bf7699689dcef5c13d1175df1f65a939899cab75bbd79"
       }
     },
     "default_text": {
@@ -72,8 +72,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "stdout": {
-        "bytes": 1119566,
-        "sha256": "ab5a35bd74774cc3214307990dd578d7e79d46d23b768f969c3961d461856c73"
+        "bytes": 1120819,
+        "sha256": "72968337982a545e92f1d78b81fdc066ae4b9a62e2c0b66d5b8476b15b868a44"
       }
     },
     "raw_text": {
@@ -83,8 +83,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "stdout": {
-        "bytes": 1110241,
-        "sha256": "629476538a600994d1bb8c8771a236820747285da157d29910d2f37a2f5d96eb"
+        "bytes": 1111395,
+        "sha256": "623d034c7665199382dde4c21aa952560b0d7dd430baf21a38b78786b2341cf6"
       }
     }
   },
