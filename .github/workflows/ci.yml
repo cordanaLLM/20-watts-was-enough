@@ -117,13 +117,13 @@ jobs:
       - name: Use the locked Python runtime
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.14.7'
+          python-version: '3.14.8'
       - name: Install the locked scientific runtime
         run: python -m pip install --disable-pip-version-check --no-deps --require-hashes -r requirements-ci.txt
       - name: Use Node.js 26
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 26.8.1
+          node-version: 26.10.0
           cache: npm
       - name: Install locked npm 12.0.2
         run: node scripts/install-locked-npm.mjs
@@ -166,7 +166,7 @@ jobs:
       - name: Use Node.js 26
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 26.8.1
+          node-version: 26.10.0
           cache: npm
       - name: Install locked npm 12.0.2
         run: node scripts/install-locked-npm.mjs
@@ -220,7 +220,7 @@ jobs:
       - name: Use Node.js 26
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 26.8.1
+          node-version: 26.10.0
           cache: npm
       - name: Install locked npm 12.0.2
         run: node scripts/install-locked-npm.mjs
@@ -252,7 +252,7 @@ jobs:
       - name: Use Node.js 26
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 26.8.1
+          node-version: 26.10.0
           cache: npm
       - name: Install locked npm 12.0.2
         run: node scripts/install-locked-npm.mjs
@@ -261,9 +261,9 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit
       - name: Set up the locked PDF Docker Buildx client
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
-          version: v0.36.1
+          version: v0.37.2
           driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
       - name: Restore the PDF renderer build cache
         id: pdf-renderer-cache
@@ -343,7 +343,7 @@ jobs:
       - name: Use Node.js 26
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 26.8.1
+          node-version: 26.10.0
           cache: npm
       - name: Install locked npm 12.0.2
         run: node scripts/install-locked-npm.mjs
@@ -371,7 +371,7 @@ jobs:
       - name: Use Node.js 26
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 26.8.1
+          node-version: 26.10.0
           cache: npm
       - name: Install locked npm 12.0.2
         run: node scripts/install-locked-npm.mjs
@@ -398,7 +398,7 @@ jobs:
       - name: Use Node.js 26
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 26.8.1
+          node-version: 26.10.0
           cache: npm
       - name: Install locked npm 12.0.2
         run: node scripts/install-locked-npm.mjs
@@ -432,14 +432,14 @@ jobs:
         if: matrix.artifact == 'fixture-019'
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.14.7'
+          python-version: '3.14.8'
       - name: Install the locked scientific runtime for Fixture 019
         if: matrix.artifact == 'fixture-019'
         run: python -m pip install --disable-pip-version-check --no-deps --require-hashes -r requirements-ci.txt
       - name: Use Node.js 26
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 26.8.1
+          node-version: 26.10.0
           cache: npm
       - name: Install locked npm 12.0.2
         run: node scripts/install-locked-npm.mjs
@@ -480,12 +480,12 @@ jobs:
           go-version-file: tooling/go.mod
           cache-dependency-path: tooling/go.sum
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
-          version: v0.36.1
+          version: v0.37.2
           driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
       - name: Build the static 20w image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: tooling/Dockerfile
@@ -513,7 +513,7 @@ jobs:
             --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/repo,readonly" \
             20w-tooling:test experiment list --root /repo --json
       - name: Build the CLRS shakedown specialist image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: tooling/clrs-specialist/Dockerfile
@@ -557,7 +557,7 @@ jobs:
       - name: Package the closed Fixture 007 runtime context
         run: go -C tooling run ./cmd/20w experiment package-node-image --root .. --artifact fixture-007 --output ../build/container-contexts/fixture-007
       - name: Build the Fixture 007 image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: build/container-contexts/fixture-007
           file: experiments/workstation/Dockerfile.node-artifact
@@ -599,7 +599,7 @@ jobs:
       - name: Package the closed Fixture 019 runtime context
         run: go -C tooling run ./cmd/20w experiment package-node-image --root .. --artifact fixture-019 --output ../build/container-contexts/fixture-019
       - name: Build the Fixture 019 image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: build/container-contexts/fixture-019
           file: experiments/workstation/fixture-019/Dockerfile
