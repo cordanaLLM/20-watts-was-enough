@@ -8,7 +8,7 @@
     "url": "git+https://github.com/cordanaLLM/20-watts-was-enough.git"
   },
   "engines": {
-    "node": "26.8.1"
+    "node": "26.10.0"
   },
   "packageManager": "npm@12.0.2",
   "scripts": {
@@ -126,7 +126,7 @@
   "devDependencies": {
     "@eslint/js": "9.39.5",
     "@tailwindcss/postcss": "4.3.3",
-    "@types/node": "26.4.1",
+    "@types/node": "26.6.4",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
     "@vitejs/plugin-react": "6.1.1",
