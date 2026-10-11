@@ -1015,6 +1015,7 @@ const pdfReproducibilityCiEvidence = [
   "build/evidence/pdf-renderer-reproducibility.json",
   "build/evidence/pdf-renderer-reproducibility-mismatch",
 ].join("\n");
+const publishedBookRenderCommand = "node scripts/validate-published-book-render.mjs --receipt build/evidence/pdf-renderer-reproducibility.json";
 const pdfReproducibilityReleaseCommand = [
   "./build/release-inputs/20w-linux-amd64",
   "publication verify-pdf-reproducibility",
@@ -1054,6 +1055,24 @@ function pdfRendererCacheStepsAreExact(steps, setupIndex, verifyIndex, receiptIn
     && steps.filter((step) => step?.id === "pdf-renderer-proof").length === 1;
 }
 
+// The comparison with the published pair runs last and unconditionally, so a
+// passing proof of a tree whose published PDF is stale still fails the job.
+function publishedBookRenderStepIsExact(steps, receiptIndex) {
+  const step = steps[receiptIndex + 1];
+  return steps.length === receiptIndex + 2
+    && step?.name === "Verify the published PDF against the fresh renders"
+    && step?.run?.trim() === publishedBookRenderCommand
+    && step?.if === undefined
+    && step?.env === undefined
+    && step?.["timeout-minutes"] === 2
+    && continueOnErrorIsDisabled(step);
+}
+
+function pdfRendererSurroundingStepsAreExact(steps, setupIndex, verifyIndex, receiptIndex) {
+  return pdfRendererCacheStepsAreExact(steps, setupIndex, verifyIndex, receiptIndex)
+    && publishedBookRenderStepIsExact(steps, receiptIndex);
+}
+
 function pdfReproducibilityCiJobIsExact(job) {
   const steps = job?.steps ?? [];
   const setupIndex = steps.findIndex(pdfReproducibilitySetupIsExact);
@@ -1080,7 +1099,7 @@ function pdfReproducibilityCiJobIsExact(job) {
     && setupIndex >= 0
     && verifyIndex > setupIndex
     && receiptIndex > verifyIndex
-    && pdfRendererCacheStepsAreExact(steps, setupIndex, verifyIndex, receiptIndex)
+    && pdfRendererSurroundingStepsAreExact(steps, setupIndex, verifyIndex, receiptIndex)
     && receipt?.if === "${{ always() && !cancelled() }}"
     && receipt?.uses === "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
     && continueOnErrorIsDisabled(receipt)
@@ -3912,6 +3931,45 @@ function validatePrinciples(root, findings) {
   }
 }
 
+// A repository ignorePaths list replaces the one config:recommended brings,
+// so the preset entries are listed again next to the excluded folder.
+const renovatePresetIgnorePaths = Object.freeze([
+  "**/node_modules/**",
+  "**/bower_components/**",
+  "**/vendor/**",
+  "**/examples/**",
+  "**/__tests__/**",
+  "**/test/**",
+  "**/tests/**",
+  "**/__fixtures__/**",
+]);
+// The CLRS generator lock is resolved once against a fixed cutoff; it changes
+// only as a reviewed re-resolution, never as an update proposal.
+const renovateExcludedFolders = Object.freeze(["tooling/clrs-generator/**"]);
+
+export function validateRenovateConfigObject(config, relativePath = "renovate.json") {
+  const findings = [];
+  const rules = Array.isArray(config?.packageRules) ? config.packageRules : [];
+  if (rules.some((rule) => rule?.automerge === true)) {
+    findings.push(`${relativePath}: automerge stays disabled until required CI and repository rules are verified`);
+  }
+  if (config?.timezone !== "Europe/Berlin") {
+    findings.push(`${relativePath}: timezone must be Europe/Berlin`);
+  }
+  const ignorePaths = Array.isArray(config?.ignorePaths) ? config.ignorePaths : [];
+  for (const folder of renovateExcludedFolders) {
+    if (!ignorePaths.includes(folder)) {
+      findings.push(`${relativePath}: ignorePaths must exclude ${folder}`);
+    }
+  }
+  for (const preset of renovatePresetIgnorePaths) {
+    if (!ignorePaths.includes(preset)) {
+      findings.push(`${relativePath}: ignorePaths must keep the preset entry ${preset}`);
+    }
+  }
+  return findings;
+}
+
 function validateRenovate(root, findings) {
   const relativePath = "renovate.json";
   let config;
@@ -3921,14 +3979,7 @@ function validateRenovate(root, findings) {
     findings.push(`${relativePath}: invalid JSON: ${error.message}`);
     return;
   }
-
-  const rules = Array.isArray(config.packageRules) ? config.packageRules : [];
-  if (rules.some((rule) => rule?.automerge === true)) {
-    findings.push(`${relativePath}: automerge stays disabled until required CI and repository rules are verified`);
-  }
-  if (!config.timezone || config.timezone !== "Europe/Berlin") {
-    findings.push(`${relativePath}: timezone must be Europe/Berlin`);
-  }
+  findings.push(...validateRenovateConfigObject(config, relativePath));
 }
 
 function pullRequestTitleTriggerIsExact(trigger) {

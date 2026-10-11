@@ -7,6 +7,16 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- `npm run record:book-provenance` re-records the book source digest in
+  `public/downloads/book-manifest.json` and
+  `scripts/book-pdf-semantic-baseline.json` without a render when the only
+  changed book sources are the dependency records listed in
+  `scripts/book-render-free-sources.json` (`package.json`,
+  `package-lock.json`, `tooling/go.mod`, `tooling/go.sum`). It refuses any
+  other changed book source. The CI renderer job now ends by comparing its
+  fresh renders with the published PDF and manifest, so a dependency update
+  that changes the rendered bytes fails there. Decision 0090 records the rule.
+
 - The adoption matrix records a dated disposition for flow-reinforced
   topology outside expert routing: *Physarum* and mycelial flow rules are not
   adopted for live packet or telemetry routing, and the practical
@@ -34,6 +44,24 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- The update bot no longer proposes changes in `tooling/clrs-generator/`.
+  `renovate.json` excludes the folder, because its lock is one reviewed
+  resolution against a fixed cutoff and the five open proposals there cannot
+  pass. The repository ignore list replaces the preset's list, so the eight
+  preset entries are listed again and `npm run validate:policy` requires all
+  nine. A dependency change in the folder is a reviewed re-resolution with a
+  decision record
+  ([Decision 0092](decisions/0092-exclude-the-clrs-generator-folder-from-update-proposals.md)).
+
+- The update bot rebases one of its branches only when the branch conflicts
+  with `main` (`rebaseWhen: conflicted` in `renovate.json`). The rule set on
+  `main` requires an up-to-date branch, so the bot's automatic mode rebased
+  every untouched branch after each commit on `main`; the merge of #191
+  queued 21 CI runs for the 26 open update pull requests. A branch is now
+  brought up to date when it is about to be merged. This is a trial: the
+  setting is not pinned by the validator and is reverted if the queue time
+  does not fall.
+
 - Agent instruction files are now written in the terse internal register
   that Praetor's context gate requires, so
   `praetorctl compile-context --verify` passes again: the root `AGENTS.md`,
@@ -58,6 +86,14 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- Two npm advisories no longer reach the published site. `dompurify` moves
+  from 3.4.13 to 3.4.16 (GHSA-6688-9rhm-gjv2, GHSA-p98j-92pf-mc4p), and the
+  second KaTeX copy at 0.16.47 that `mermaid` and `micromark-extension-math`
+  pulled in is gone (GHSA-238p-pmpm-9mq7, fixed in 0.18.2): two `overrides`
+  entries now resolve both to the directly pinned `katex` 0.18.6, as
+  `rehype-katex` already did. `npm audit` reports 0 findings, down from 5.
+  `scripts/book-edition-surface.test.mjs` fails when either override is
+  removed.
 - Claims C-1377 to C-1385 labelled their status field `Evidence status`, so
   the coverage audit and the mechanism index read them as `unknown`. The field
   is now `Status`, as in every other claim; the status words are unchanged
