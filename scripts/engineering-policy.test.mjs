@@ -29,6 +29,8 @@ import {
   validateIssueForm,
   validateJavaScriptRuntimeWorkflowObject,
   validateRepositoryMetadataSyncWorkflowObject,
+  validateNodeSetupWorkflowObject,
+  validateNodeVersionFile,
   validateNpmRuntimeLock,
   validatePublicRepositoryRunnerWorkflowObject,
   validatePagesPublicTransportWorkflowObject,
@@ -538,7 +540,7 @@ test("JavaScript workflows use the exact Node and npm toolchain in order", () =>
   const validSteps = [
     {
       uses: "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-      with: { "node-version": "26.8.1", cache: "npm" },
+      with: { "node-version-file": ".node-version", cache: "npm" },
     },
     { run: "node scripts/install-locked-npm.mjs" },
     { run: "test \"$(npm --version)\" = \"12.0.2\"" },
@@ -550,18 +552,65 @@ test("JavaScript workflows use the exact Node and npm toolchain in order", () =>
   ), []);
 
   const tampered = structuredClone(validSteps);
-  tampered[0].with["node-version"] = "26.8.0";
+  tampered[0].with = { "node-version": "26.8.1", cache: "npm" };
   tampered[1].run = "npm install --global npm@latest";
   tampered[2].run = "test \"$(npm --version)\" = \"12.0.1\"";
   assert.deepEqual(validateJavaScriptRuntimeWorkflowObject(
     { jobs: { quality: { steps: tampered } } },
     "quality",
   ), [
-    "workflow.yml: job quality must use Node 26.8.1 with the npm cache",
+    "workflow.yml: job quality must read the Node version from .node-version with the npm cache",
     "workflow.yml: job quality must install hash-locked npm 12.0.2 after Node setup",
     "workflow.yml: job quality must verify locked npm 12.0.2 after installation",
     "workflow.yml: job quality must run npm ci --no-audit after verifying the locked npm version",
   ]);
+});
+
+test("every job reads the Node version from the one version file", () => {
+  const setup = (inputs) => ({
+    uses: "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+    with: inputs,
+  });
+  const jobsWith = (inputs) => ({
+    jobs: {
+      first: { steps: [{ run: "true" }, setup({ "node-version-file": ".node-version", cache: "npm" })] },
+      second: { steps: [setup(inputs)] },
+      plain: { steps: [{ run: "true" }] },
+      reusable: { uses: "./.github/workflows/other.yml" },
+    },
+  });
+  const finding = ["workflow.yml: job second must read the Node version from .node-version"];
+  assert.deepEqual(validateNodeSetupWorkflowObject(jobsWith({ "node-version-file": ".node-version" })), []);
+  assert.deepEqual(validateNodeSetupWorkflowObject({ jobs: {} }), []);
+  assert.deepEqual(validateNodeSetupWorkflowObject(undefined), []);
+  for (const inputs of [
+    { "node-version": "26.8.1" },
+    { "node-version-file": ".node-version", "node-version": "26.8.1" },
+    { "node-version-file": "package.json" },
+    { "node-version-file": ".nvmrc" },
+    {},
+    undefined,
+  ]) {
+    assert.deepEqual(validateNodeSetupWorkflowObject(jobsWith(inputs)), finding);
+  }
+  for (const name of ["ci", "github-pages", "release"]) {
+    const file = `.github/workflows/${name}.yml`;
+    assert.deepEqual(validateNodeSetupWorkflowObject(workflow(name), file), []);
+    assert.doesNotMatch(readFileSync(new URL(`../${file}`, import.meta.url), "utf8"), /node-version:/u);
+  }
+});
+
+test("the Node version file names exactly the reviewed runtime", () => {
+  assert.deepEqual(validateNodeVersionFile("26.8.1\n"), []);
+  assert.deepEqual(
+    validateNodeVersionFile(readFileSync(new URL("../.node-version", import.meta.url), "utf8")),
+    [],
+  );
+  for (const text of ["26.8.0\n", "26.8.1", "v26.8.1\n", "26.8.1\n\n", "26\n", "26.8.1\r\n", ""]) {
+    assert.deepEqual(validateNodeVersionFile(text), [
+      ".node-version: must contain exactly 26.8.1 and a final newline",
+    ]);
+  }
 });
 
 test("dependency installation suppresses audit fan-out and one full gate enforces advisories", () => {
@@ -597,7 +646,7 @@ test("dependency installation suppresses audit fan-out and one full gate enforce
     steps: [
       {
         uses: "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-        with: { "node-version": "26.8.1", cache: "npm" },
+        with: { "node-version-file": ".node-version", cache: "npm" },
       },
       { run: "node scripts/install-locked-npm.mjs" },
       { run: "test \"$(npm --version)\" = \"12.0.2\"" },
