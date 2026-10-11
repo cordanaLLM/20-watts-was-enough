@@ -7,6 +7,16 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- `npm run record:book-provenance` re-records the book source digest in
+  `public/downloads/book-manifest.json` and
+  `scripts/book-pdf-semantic-baseline.json` without a render when the only
+  changed book sources are the dependency records listed in
+  `scripts/book-render-free-sources.json` (`package.json`,
+  `package-lock.json`, `tooling/go.mod`, `tooling/go.sum`). It refuses any
+  other changed book source. The CI renderer job now ends by comparing its
+  fresh renders with the published PDF and manifest, so a dependency update
+  that changes the rendered bytes fails there. Decision 0090 records the rule.
+
 - The adoption matrix records a dated disposition for flow-reinforced
   topology outside expert routing: *Physarum* and mycelial flow rules are not
   adopted for live packet or telemetry routing, and the practical
