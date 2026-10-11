@@ -1,7 +1,9 @@
 package ciplan
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -36,6 +38,41 @@ func TestRendererProofSelectionKeepsTheRenderGate(t *testing.T) {
 				t.Fatalf("projection=%+v error=%v, want %s", projection, err, test.want)
 			}
 		})
+	}
+}
+
+// The hand command that re-records the book provenance without a render is
+// sound only for sources whose change always runs the renderer job with two
+// independent builds, alone and beside the record files it rewrites.
+func TestRenderFreeBookSourcesSelectTheIndependentBuildProof(t *testing.T) {
+	t.Parallel()
+	root := filepath.Clean(filepath.Join("..", "..", ".."))
+	body, err := os.ReadFile(filepath.Join(root, "scripts", "book-render-free-sources.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var list struct {
+		Schema int      `json:"schema"`
+		Paths  []string `json:"paths"`
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&list); err != nil || list.Schema != 1 || len(list.Paths) == 0 || len(list.Paths) > 16 {
+		t.Fatalf("render-free source list=%+v error=%v", list, err)
+	}
+	record := []string{"CHANGELOG.md", "public/downloads/book-manifest.json", "scripts/book-pdf-semantic-baseline.json"}
+	for _, source := range list.Paths {
+		for _, paths := range [][]string{{source}, append([]string{source}, record...)} {
+			projection, err := Project(selectTestPaths(t, root, testOptions(root), paths))
+			if err != nil || !projection.Renderer || projection.RendererProof != "image-build" {
+				t.Fatalf("paths %v: projection=%+v error=%v, want the independent-build proof", paths, projection, err)
+			}
+		}
+	}
+	chapter := append([]string{"concept/00-thesis-and-principles.md"}, record...)
+	projection, err := Project(selectTestPaths(t, root, testOptions(root), chapter))
+	if err != nil || projection.Renderer {
+		t.Fatalf("chapter change projection=%+v error=%v, want no renderer job", projection, err)
 	}
 }
 

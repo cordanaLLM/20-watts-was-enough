@@ -97,6 +97,9 @@ test("production KaTeX renderer and public styles share the exact locked package
   }
   assert.equal(manifest.dependencies["rehype-katex"], "7.0.1", "review the compatibility override when the plugin changes");
   assert.deepEqual(manifest.overrides?.["rehype-katex@7.0.1"], { katex: "$katex" });
+  assert.equal(manifest.dependencies.mermaid, "11.17.2", "review the advisory override when the diagram renderer changes");
+  assert.deepEqual(manifest.overrides?.["mermaid@11.17.2"], { katex: "$katex" });
+  assert.deepEqual(manifest.overrides?.["micromark-extension-math@3.1.0"], { katex: "$katex" });
 });
 
 function mathElements(tree) {
