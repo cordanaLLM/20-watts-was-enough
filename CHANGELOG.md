@@ -52,6 +52,14 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Every workflow job names its runner image by version, `ubuntu-26.04`, in
+  place of the floating `ubuntu-latest`. GitHub starts to move the floating
+  label from Ubuntu 24.04 to 26.04 on 2026-10-19, in a rollout of several
+  weeks; with a named image the change happens in one reviewed pull request.
+  `npm run validate:policy` refuses any other `runs-on` value, the old label
+  included
+  ([Decision 0094](decisions/0094-name-the-hosted-runner-image-by-version.md)).
+
 - The update bot no longer proposes changes in `tooling/clrs-generator/`.
   `renovate.json` excludes the folder, because its lock is one reviewed
   resolution against a fixed cutoff and the five open proposals there cannot

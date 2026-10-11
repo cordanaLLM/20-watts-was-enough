@@ -355,9 +355,9 @@ export function validatePublicRepositoryRunnerWorkflowObject(
 ) {
   const findings = [];
   for (const [jobName, job] of Object.entries(workflow?.jobs ?? {})) {
-    if (job?.["runs-on"] !== "ubuntu-latest") {
+    if (job?.["runs-on"] !== "ubuntu-26.04") {
       findings.push(
-        `${relativePath}: public-repository job ${jobName} must run on GitHub-hosted ubuntu-latest`,
+        `${relativePath}: public-repository job ${jobName} must run on GitHub-hosted ubuntu-26.04`,
       );
     }
   }
@@ -849,7 +849,7 @@ export function validateGoRuntimeWorkflowObject(
 function pagesPublicTransportJobBoundaryIsExact(job) {
   return (
     job?.needs === "deploy"
-    && job?.["runs-on"] === "ubuntu-latest"
+    && job?.["runs-on"] === "ubuntu-26.04"
     && job?.["timeout-minutes"] === 5
     && job?.if === undefined
     && continueOnErrorIsDisabled(job)
@@ -1273,7 +1273,7 @@ function impactPlanJobBoundaryIsExact(workflow, plan) {
     workflow?.defaults === undefined,
     privateGoJobHasNoInheritedEnvironment(workflow, plan),
     plan?.name === "CI impact plan",
-    plan?.["runs-on"] === "ubuntu-latest",
+    plan?.["runs-on"] === "ubuntu-26.04",
     plan?.["timeout-minutes"] === 10,
     Object.keys(plan?.permissions ?? {}).length === 1,
     plan?.permissions?.contents === "read",
@@ -1668,7 +1668,7 @@ function codeQlJobBoundaryIsExact(job, name, expectedStepCount) {
     job?.name === name
     && job?.needs === undefined
     && job?.if === undefined
-    && job?.["runs-on"] === "ubuntu-latest"
+    && job?.["runs-on"] === "ubuntu-26.04"
     && job?.["timeout-minutes"] === 30
     && Object.keys(job?.permissions ?? {}).length === 3
     && propertiesMatch(job?.permissions, {
@@ -1978,7 +1978,7 @@ function pullRequestMetadataPermissionsAreExact(workflow, job) {
 
 function pullRequestMetadataBoundaryIsExact(workflow, job) {
   return (
-    job?.["runs-on"] === "ubuntu-latest"
+    job?.["runs-on"] === "ubuntu-26.04"
     && job?.["timeout-minutes"] === 10
     && job?.if === undefined
     && continueOnErrorIsDisabled(job)
@@ -4091,7 +4091,7 @@ function pullRequestTitleJobIsExact(titleJob, expectedName = "PR title", expecte
   return (
     titleJob?.name === expectedName
     && titleJob?.if === expectedIf
-    && titleJob?.["runs-on"] === "ubuntu-latest"
+    && titleJob?.["runs-on"] === "ubuntu-26.04"
     && titleJob?.["timeout-minutes"] === 5
     && continueOnErrorIsDisabled(titleJob)
     && titleJob?.defaults === undefined

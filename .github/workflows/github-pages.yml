@@ -17,7 +17,7 @@ jobs:
       contents: read
     env:
       PAGES_BASE_PATH: /
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 45
     steps:
       - name: Check out canonical source
@@ -57,7 +57,7 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     needs: build
     steps:
@@ -72,7 +72,7 @@ jobs:
     needs: deploy
     permissions:
       contents: read
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Check out canonical source
