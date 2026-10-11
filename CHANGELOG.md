@@ -80,6 +80,13 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- `.standards.yaml` declares the repository description, the homepage and
+  the 20 topics that the forge carries, in place of three empty values, so
+  the committed manifest names what a settings comparison reads. The
+  homepage is declared as `https://www.cordana.dev/`; the forge held the
+  `http` form on 2026-10-11 and keeps it until a maintainer writes the
+  declared value.
+
 - Every workflow job names its runner image by version, `ubuntu-26.04`, in
   place of the floating `ubuntu-latest`. GitHub starts to move the floating
   label from Ubuntu 24.04 to 26.04 on 2026-10-19, in a rollout of several
@@ -136,6 +143,11 @@ the exact diff; this file records why the project changed.
   and the maintenance automation map now link to 0088.
 
 ### Fixed
+
+- `.gitignore` ignores a private `.workingdir/` state folder at any depth.
+  The rule that the governance engine writes matches the root folder only,
+  so `make docs-lint` read untracked notes in a nested folder and failed in
+  a checkout that held them.
 
 - Two npm advisories no longer reach the published site. `dompurify` moves
   from 3.4.13 to 3.4.16 (GHSA-6688-9rhm-gjv2, GHSA-p98j-92pf-mc4p), and the

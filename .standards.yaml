@@ -3,9 +3,31 @@ repository:
     owner: cordanaLLM
     name: 20-watts-was-enough
     visibility: public
-    description: ""
-    homepage: ""
-    topics: []
+    # Copied from the forge on 2026-10-11, so the committed manifest names
+    # the values a sync compares; the homepage is declared as https.
+    description: A biologically inspired R&D blueprint for sparse, grounded, continual, energy-efficient AI.
+    homepage: https://www.cordana.dev/
+    topics:
+        - active-sensing
+        - adaptive-computation
+        - artificial-intelligence
+        - biologically-inspired-ai
+        - biomimetics
+        - causal-inference
+        - conditional-computation
+        - continual-learning
+        - embodied-ai
+        - energy-efficient-ai
+        - eu-ai-act
+        - memory-consolidation
+        - model-compression
+        - modular-neural-networks
+        - neuroscience
+        - open-science
+        - predictive-processing
+        - sensorimotor-learning
+        - sparse-computation
+        - world-models
 profiles:
     - planning-artifacts
 facets:
