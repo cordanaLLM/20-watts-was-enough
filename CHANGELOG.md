@@ -31,7 +31,9 @@ the exact diff; this file records why the project changed.
 
 - The ruleset that protects `main` now also requires signed commits,
   dismisses a stale review on push and requires `CI impact plan` and the two
-  CodeQL jobs. `.standards.yaml` declares that one person maintains the
+  CodeQL jobs. `Go API Compatibility` and `Documentation Governance` became
+  required later the same day, once `main` reported both.
+  `.standards.yaml` declares that one person maintains the
   repository. Nothing live was loosened. Decision 0096 records the change
   and partly supersedes decision 0085.
 
@@ -79,6 +81,12 @@ the exact diff; this file records why the project changed.
   repository map link to them.
 
 ### Changed
+
+- `main` admits squash merges only. The maintainer switched rebase merges off
+  on 2026-10-11 in the repository setting and in ruleset `21746706`; both
+  values were read back through the API that day. A pull request that carries
+  several small units lands as one commit whose body lists each unit.
+  `docs/repository-rule-crosswalk.md` records the new state.
 
 - `.standards.yaml` declares the repository description, the homepage and
   the 20 topics that the forge carries, in place of three empty values, so
