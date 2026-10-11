@@ -19,7 +19,7 @@ concurrency:
 jobs:
   analyze:
     name: JavaScript and TypeScript analysis
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -42,7 +42,7 @@ jobs:
 
   analyze-go:
     name: Go analysis
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read

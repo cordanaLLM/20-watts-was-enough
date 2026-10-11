@@ -7,6 +7,44 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- Local Git hooks now gate this repository. The Praetor engine is pinned to
+  one commit by `PRAETOR_REF` in `.github/workflows/ci.yml`;
+  `.config/lefthook/engine.sh` runs exactly that commit for the hooks and
+  `make verify-all`, and the adoption files are refreshed at it. Until
+  2026-10-11 no hook had run here and CI was the only gate. The refresh
+  records 632 engine findings as baseline debt and names 35 Markdown files
+  the style gate skips, six of them for good; both lists shrink through
+  issues in the "Ongoing — Code health and deduplication" milestone. Agent
+  context is compiled for Claude, Codex and Gemini only, and the fifteen
+  tracked files of other clients and editors are removed. The release
+  workflow's distance from the declared supply-chain level (provenance at
+  SLSA level 2, no cosign step, no counted SBOM step) is a dated exception
+  until 2027-01-09. Files that the engine writes and locks (a minified
+  figure bundle, vendored source, a Markdown gate script) fail this
+  repository's code-shape audit, lint, type check and docs validator; each
+  gate now holds a list of named entries, one path with its exact rule,
+  diagnostic or link target, that end on 2027-01-09 and fail once expired or
+  unused. The docs validator reads a client's copy of a skill once when it is
+  byte-identical to the file under `.agents/skills`, and skips the engine's
+  private state folder. Decision 0095 records the pin, the carve-outs and
+  the dated exceptions.
+
+- The ruleset that protects `main` now also requires signed commits,
+  dismisses a stale review on push and requires `CI impact plan` and the two
+  CodeQL jobs. `Go API Compatibility` and `Documentation Governance` became
+  required later the same day, once `main` reported both.
+  `.standards.yaml` declares that one person maintains the
+  repository. Nothing live was loosened. Decision 0096 records the change
+  and partly supersedes decision 0085.
+
+- `20w ci messages` refuses a `Co-authored-by` trailer that names a tool or
+  model, and a generated-with footer, in commit messages. The `impact-plan`
+  job runs it on the commits a pull request or a push to `main` adds, so the
+  76 such lines already in history are not read and nothing is rewritten.
+  `--message-file` checks a squash body before the merge. Authorship stays
+  with people; material tool use is disclosed in the pull request or under
+  `research/disclosures/`. Decision 0093 records the rule.
+
 - `npm run record:book-provenance` re-records the book source digest in
   `public/downloads/book-manifest.json` and
   `scripts/book-pdf-semantic-baseline.json` without a render when the only
@@ -43,6 +81,27 @@ the exact diff; this file records why the project changed.
   repository map link to them.
 
 ### Changed
+
+- `main` admits squash merges only. The maintainer switched rebase merges off
+  on 2026-10-11 in the repository setting and in ruleset `21746706`; both
+  values were read back through the API that day. A pull request that carries
+  several small units lands as one commit whose body lists each unit.
+  `docs/repository-rule-crosswalk.md` records the new state.
+
+- `.standards.yaml` declares the repository description, the homepage and
+  the 20 topics that the forge carries, in place of three empty values, so
+  the committed manifest names what a settings comparison reads. The
+  homepage is declared as `https://www.cordana.dev/`; the forge held the
+  `http` form on 2026-10-11 and keeps it until a maintainer writes the
+  declared value.
+
+- Every workflow job names its runner image by version, `ubuntu-26.04`, in
+  place of the floating `ubuntu-latest`. GitHub starts to move the floating
+  label from Ubuntu 24.04 to 26.04 on 2026-10-19, in a rollout of several
+  weeks; with a named image the change happens in one reviewed pull request.
+  `npm run validate:policy` refuses any other `runs-on` value, the old label
+  included
+  ([Decision 0094](decisions/0094-name-the-hosted-runner-image-by-version.md)).
 
 - The update bot no longer proposes changes in `tooling/clrs-generator/`.
   `renovate.json` excludes the folder, because its lock is one reviewed
@@ -92,6 +151,11 @@ the exact diff; this file records why the project changed.
   and the maintenance automation map now link to 0088.
 
 ### Fixed
+
+- `.gitignore` ignores a private `.workingdir/` state folder at any depth.
+  The rule that the governance engine writes matches the root folder only,
+  so `make docs-lint` read untracked notes in a nested folder and failed in
+  a checkout that held them.
 
 - Two npm advisories no longer reach the published site. `dompurify` moves
   from 3.4.13 to 3.4.16 (GHSA-6688-9rhm-gjv2, GHSA-p98j-92pf-mc4p), and the

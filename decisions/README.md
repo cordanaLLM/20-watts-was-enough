@@ -61,7 +61,7 @@ than silently changing its outcome.
 | [0053](0053-lock-the-poppler-pdf-tools-image-foundation.md) | Lock the Poppler PDF-tools image foundation | accepted |
 | [0054](0054-classify-script-impact-by-executable-consumer.md) | Classify script impact by executable consumer | accepted |
 | [0055](0055-freeze-clrs-text-as-a-controller-shakedown.md) | Freeze CLRS-Text as a controller shakedown | accepted |
-| [0056](0056-keep-public-workflows-off-self-hosted-runners.md) | Keep public workflows off self-hosted runners | accepted |
+| [0056](0056-keep-public-workflows-off-self-hosted-runners.md) | Keep public workflows off self-hosted runners | accepted; runner label in point 1 partly superseded by [0094](0094-name-the-hosted-runner-image-by-version.md) |
 | [0057](0057-project-pull-request-metadata-from-managed-issues.md) | Project pull-request metadata from managed issues | accepted |
 | [0058](0058-expose-only-route-available-reviewed-translations.md) | Expose only route-available reviewed translations | accepted |
 | [0059](0059-run-one-enforcing-dependency-audit-per-full-gate.md) | Run one enforcing dependency audit per full gate | accepted |
@@ -96,3 +96,7 @@ than silently changing its outcome.
 | [0090](0090-re-record-book-provenance-for-dependency-records.md) | Re-record book provenance for dependency records without a render | accepted |
 | [0091](0091-derive-plain-version-copies-and-keep-reviewed-literals.md) | Derive plain version copies and keep reviewed literals | accepted |
 | [0092](0092-exclude-the-clrs-generator-folder-from-update-proposals.md) | Exclude the CLRS generator folder from update proposals | accepted |
+| [0093](0093-refuse-tool-attribution-in-commit-messages.md) | Refuse tool attribution in commit messages | accepted |
+| [0094](0094-name-the-hosted-runner-image-by-version.md) | Name the hosted runner image by version | accepted |
+| [0095](0095-pin-the-praetor-engine-and-refresh-the-adoption.md) | Pin the Praetor engine and refresh the adoption | accepted |
+| [0096](0096-tighten-the-live-main-ruleset-to-the-rendered-policy.md) | Tighten the live main ruleset to the rendered policy | accepted |

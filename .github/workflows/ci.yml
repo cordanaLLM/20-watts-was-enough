@@ -14,10 +14,15 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Praetor engine commit the local hooks and `make verify-all` run. Read by
+  # .config/lefthook/engine.sh on the workstation; no job in this workflow uses it.
+  PRAETOR_REF: 9bf502ec6ce585110f37bf7c9e08d854d957d550
+
 jobs:
   impact-plan:
     name: CI impact plan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -94,12 +99,48 @@ jobs:
           test -s build/ci-impact-plan.json
           go -C tooling run ./cmd/ci-plan project \
             < build/ci-impact-plan.json >> "$GITHUB_OUTPUT"
+      - name: Refuse tool attribution in new commit messages
+        env:
+          CGO_ENABLED: "0"
+          GOOS: "linux"
+          GOARCH: "amd64"
+          GOENV: "off"
+          GOWORK: "off"
+          GOTOOLCHAIN: "local"
+          GOFLAGS: "-mod=readonly"
+          GOPROXY: "off"
+          GOSUMDB: "off"
+          BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          zero_sha=0000000000000000000000000000000000000000
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            # The test merge commit has the base tip and the pull-request head as its parents.
+            base_tip="$(git rev-parse --verify "${CURRENT_SHA}^1^{commit}")"
+            merged_head="$(git rev-parse --verify "${CURRENT_SHA}^2^{commit}")"
+            if [[ "$merged_head" != "$HEAD_SHA" ]]; then
+              echo "::error::The checked-out merge commit does not merge the pull-request head."
+              exit 1
+            fi
+            go -C tooling run ./cmd/ci-plan messages --root .. \
+              --base "$base_tip" --head "$HEAD_SHA"
+          elif [[ "$EVENT_NAME" == "push" && "$BEFORE_SHA" != "$zero_sha" ]] \
+            && git merge-base --is-ancestor "$BEFORE_SHA" "$CURRENT_SHA"; then
+            go -C tooling run ./cmd/ci-plan messages --root .. \
+              --base "$BEFORE_SHA" --head "$CURRENT_SHA"
+          else
+            echo "::notice::No comparison range for this event; checking the tip commit message only."
+            go -C tooling run ./cmd/ci-plan messages --root .. --head "$CURRENT_SHA"
+          fi
 
   quality-full:
     name: Full quality
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     permissions:
       contents: read
@@ -154,7 +195,7 @@ jobs:
     name: Impact common
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'impact'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -181,7 +222,7 @@ jobs:
     name: Go lane
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.go == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     permissions:
       contents: read
@@ -202,7 +243,7 @@ jobs:
     name: Release lane
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.release == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -235,7 +276,7 @@ jobs:
     name: PDF renderer reproducibility
     needs: impact-plan
     if: needs.impact-plan.outputs.renderer == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 75
     permissions:
       contents: read
@@ -329,7 +370,7 @@ jobs:
     name: Research lane
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.research == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -361,7 +402,7 @@ jobs:
     name: Site lane
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.site == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -389,7 +430,7 @@ jobs:
     name: Workstation core
     needs: impact-plan
     if: needs.impact-plan.outputs.workstation_any == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     permissions:
       contents: read
@@ -416,7 +457,7 @@ jobs:
     name: Workstation test (${{ matrix.artifact }})
     needs: impact-plan
     if: needs.impact-plan.outputs.workstation_any == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -459,7 +500,7 @@ jobs:
     name: Container smoke paths
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full' || needs.impact-plan.outputs.container == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 35
     permissions:
       contents: read
@@ -648,7 +689,7 @@ jobs:
     name: Dependency review
     needs: impact-plan
     if: github.event_name == 'pull_request' && (needs.impact-plan.outputs.mode == 'full' || needs.impact-plan.outputs.dependency == 'true')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -674,7 +715,7 @@ jobs:
       - workstation-artifacts
       - container-smoke
       - dependency-review
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Require every expected gate state
