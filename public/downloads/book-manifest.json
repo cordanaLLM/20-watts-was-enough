@@ -5,7 +5,7 @@
   "source_ref": "main",
   "source_revision": null,
   "pdf": "public/downloads/20-watts-was-enough-full-concept-book.pdf",
-  "source_digest": "3b21d518c9efe82777dd5a128ec42ca544b820ddcc9281f479ea760f780bf23c",
+  "source_digest": "f721227deec56465f97ac76041fdfac8823c82d62a7434dda68677cb6a9ab71d",
   "source_files": [
     "app/book-content.ts",
     "app/components/book-edition.tsx",
@@ -431,6 +431,6 @@
   "book_documents": 51,
   "generated_front_matter_sections": 1,
   "rendered_diagrams": 48,
-  "size_bytes": 12817594,
-  "pdf_sha256": "2df08fda444b1aef854f9c66d8b825e8e1e32b166160f71e63383d58a9cc221d"
+  "size_bytes": 12829763,
+  "pdf_sha256": "b88e7cb98dfbd3f7d392647727d8fdf6aa08d89d4eda93f9614ddc10343986c4"
 }

@@ -6,6 +6,11 @@ import { parseDocument } from "yaml";
 
 import { REQUIRED_NODE_VERSION } from "../experiments/workstation/lib/node-runtime-policy.mjs";
 import {
+  engineFileExceptionFindings,
+  isCalendarDay,
+  TYPE_CHECK_EXCEPTIONS,
+} from "./lib/engine-file-exceptions.mjs";
+import {
   validatePortableOperationsTree,
   validatePortableWorkflowObject,
 } from "./lib/portable-operations.mjs";
@@ -249,24 +254,40 @@ function parseYaml(root, relativePath, findings) {
 }
 
 function collectUses(value, location = "root", output = []) {
-  if (Array.isArray(value)) {
-    value.forEach((entry, index) => collectUses(entry, `${location}[${index}]`, output));
-    return output;
-  }
-
   if (!value || typeof value !== "object") {
     return output;
   }
-
-  for (const [key, entry] of Object.entries(value)) {
-    const nextLocation = `${location}.${key}`;
-    if (key === "uses" && typeof entry === "string") {
-      output.push({ location: nextLocation, value: entry });
+  const maximumWorkflowNodes = 100_000;
+  const stack = [{ node: value, location, key: undefined }];
+  for (let step = 0; step < maximumWorkflowNodes; step += 1) {
+    if (stack.length === 0) {
+      return output;
     }
-    collectUses(entry, nextLocation, output);
+    const current = stack.pop();
+    if (current.key === "uses" && typeof current.node === "string") {
+      output.push({ location: current.location, value: current.node });
+    }
+    if (Array.isArray(current.node)) {
+      for (let i = current.node.length - 1; i >= 0; i -= 1) {
+        stack.push({
+          node: current.node[i],
+          location: `${current.location}[${i}]`,
+          key: undefined,
+        });
+      }
+    } else if (current.node && typeof current.node === "object") {
+      const entries = Object.entries(current.node);
+      for (let i = entries.length - 1; i >= 0; i -= 1) {
+        const [key, entry] = entries[i];
+        stack.push({
+          node: entry,
+          location: `${current.location}.${key}`,
+          key,
+        });
+      }
+    }
   }
-
-  return output;
+  throw new Error(`collectUses exceeded scalar upper bound of ${maximumWorkflowNodes} nodes`);
 }
 
 function validateWorkflowJob(job, jobName, relativePath) {
@@ -284,6 +305,33 @@ function validateWorkflowJob(job, jobName, relativePath) {
       && step.with?.["persist-credentials"] !== false
     ) {
       findings.push(`${relativePath}: job ${jobName} step ${stepIndex} must set checkout persist-credentials to false`);
+    }
+  }
+  return findings;
+}
+
+function validateWorkflowActionPins(workflow, relativePath) {
+  const findings = [];
+  for (const action of collectUses(workflow)) {
+    if (action.value.startsWith("./")) {
+      continue;
+    }
+    if (!actionDigestPattern.test(action.value)) {
+      findings.push(
+        `${relativePath}: ${action.location} must pin an external action to a full commit SHA; got ${action.value}`,
+      );
+      continue;
+    }
+    const separator = action.value.lastIndexOf("@");
+    const identity = action.value.slice(0, separator);
+    const digest = action.value.slice(separator + 1);
+    const approvedDigest = approvedActionPins.get(identity);
+    if (approvedDigest === undefined) {
+      findings.push(`${relativePath}: ${action.location} uses unapproved external action ${identity}`);
+    } else if (digest !== approvedDigest) {
+      findings.push(
+        `${relativePath}: ${action.location} must use the approved ${identity}@${approvedDigest} pin; got ${action.value}`,
+      );
     }
   }
   return findings;
@@ -321,29 +369,7 @@ export function validateWorkflowObject(workflow, relativePath = "workflow.yml") 
     }
   }
 
-  for (const action of collectUses(workflow)) {
-    if (action.value.startsWith("./")) {
-      continue;
-    }
-    if (!actionDigestPattern.test(action.value)) {
-      findings.push(
-        `${relativePath}: ${action.location} must pin an external action to a full commit SHA; got ${action.value}`,
-      );
-      continue;
-    }
-    const separator = action.value.lastIndexOf("@");
-    const identity = action.value.slice(0, separator);
-    const digest = action.value.slice(separator + 1);
-    const approvedDigest = approvedActionPins.get(identity);
-    if (approvedDigest === undefined) {
-      findings.push(`${relativePath}: ${action.location} uses unapproved external action ${identity}`);
-    } else if (digest !== approvedDigest) {
-      findings.push(
-        `${relativePath}: ${action.location} must use the approved ${identity}@${approvedDigest} pin; got ${action.value}`,
-      );
-    }
-  }
-
+  findings.push(...validateWorkflowActionPins(workflow, relativePath));
   findings.push(...validatePortableWorkflowObject(workflow, relativePath));
 
   return findings;
@@ -391,6 +417,33 @@ export function validateScientificRuntimeWorkflowObject(
   return findings;
 }
 
+function validateScientificRuntimeLockPackages(lock, relativePath) {
+  const findings = [];
+  if (
+    !lock.packages
+    || typeof lock.packages !== "object"
+    || Array.isArray(lock.packages)
+    || Object.keys(lock.packages).length !== 1
+    || lock.packages.numpy !== runtimePolicy.numpyVersion
+  ) {
+    findings.push(`${relativePath}: packages must contain only NumPy ${runtimePolicy.numpyVersion}`);
+  }
+  const numpyArtifact = lock.package_artifacts?.numpy;
+  if (
+    !lock.package_artifacts
+    || typeof lock.package_artifacts !== "object"
+    || Array.isArray(lock.package_artifacts)
+    || Object.keys(lock.package_artifacts).length !== 1
+    || numpyArtifact?.filename !== runtimePolicy.numpyFilename
+    || numpyArtifact?.sha256 !== runtimePolicy.numpyDigest
+  ) {
+    findings.push(
+      `${relativePath}: NumPy ${runtimePolicy.numpyVersion} must use the approved CPython 3.14 Linux x86_64 wheel and SHA-256 digest`,
+    );
+  }
+  return findings;
+}
+
 export function validateScientificRuntimeLock(
   lock,
   relativePath = "experiments/workstation/fixture-019/python-environment.lock.json",
@@ -428,28 +481,7 @@ export function validateScientificRuntimeLock(
   ) {
     findings.push(`${relativePath}: scientific runtime lock contains an unknown or missing field`);
   }
-  if (
-    !lock.packages
-    || typeof lock.packages !== "object"
-    || Array.isArray(lock.packages)
-    || Object.keys(lock.packages).length !== 1
-    || lock.packages.numpy !== runtimePolicy.numpyVersion
-  ) {
-    findings.push(`${relativePath}: packages must contain only NumPy ${runtimePolicy.numpyVersion}`);
-  }
-  const numpyArtifact = lock.package_artifacts?.numpy;
-  if (
-    !lock.package_artifacts
-    || typeof lock.package_artifacts !== "object"
-    || Array.isArray(lock.package_artifacts)
-    || Object.keys(lock.package_artifacts).length !== 1
-    || numpyArtifact?.filename !== runtimePolicy.numpyFilename
-    || numpyArtifact?.sha256 !== runtimePolicy.numpyDigest
-  ) {
-    findings.push(
-      `${relativePath}: NumPy ${runtimePolicy.numpyVersion} must use the approved CPython 3.14 Linux x86_64 wheel and SHA-256 digest`,
-    );
-  }
+  findings.push(...validateScientificRuntimeLockPackages(lock, relativePath));
   return findings;
 }
 
@@ -641,6 +673,69 @@ function variableShellCommandTail(segment) {
   return segment.slice(skipShellWhitespace(segment, variable.index + variable[0].length));
 }
 
+function collectNpmDirectInvocations(line) {
+  const invocations = [];
+  const npmPattern = /(?<![A-Za-z0-9_.-])(?:bun|bunx|npm|npm-cli\.js|npx|pnpm|yarn)(?=$|[\s;&|)])/gu;
+  for (const match of line.matchAll(npmPattern)) {
+    const commandSegment = line
+      .slice((match.index ?? 0) + match[0].length)
+      .split(/[;&|]/u, 1)[0];
+    const tokens = commandSegment
+      .match(/"(?:[^"\\]|\\.)*"|'[^']*'|[^\s]+/gu)
+      ?.map((token) => token
+        .replace(/^[("'$[{]+/u, "")
+        .replace(/[;)"'\]}]+$/u, "")) ?? [];
+    const firstToken = tokens[0] ?? "";
+    let command = firstToken;
+    if (firstToken.startsWith("-")) {
+      command = tokens.find((token) => npmDependencyCommands.has(token)) ?? "";
+    }
+    if (npmDependencyCommands.has(command)) {
+      invocations.push({ command, line });
+    } else if (firstToken !== "--version" && firstToken !== "run" && firstToken !== "run-script") {
+      invocations.push({ command: "unsupported", line });
+    }
+  }
+  return invocations;
+}
+
+function collectNpmVariableInvocations(line) {
+  const invocations = [];
+  for (const segment of line.split(/[;&|]/u).map((part) => part.trim())) {
+    const commandTail = variableShellCommandTail(segment);
+    if (commandTail !== undefined) {
+      const tokens = commandTail
+        .match(/"(?:[^"\\]|\\.)*"|'[^']*'|[^\s]+/gu)
+        ?.map((token) => token
+          .replace(/^[("'$[{]+/u, "")
+          .replace(/[)"'\]}]+$/u, "")) ?? [];
+      const command = tokens[0]?.startsWith("-")
+        ? tokens.find((token) => npmDependencyCommands.has(token))
+        : tokens[0];
+      if (npmDependencyCommands.has(command)) {
+        invocations.push({ command: "unsupported", line });
+      }
+    }
+  }
+  const variableReference = /\$\{[^}\r\n]+\}|\$[A-Za-z_][A-Za-z0-9_]*/gu;
+  for (const match of line.matchAll(variableReference)) {
+    const tokens = line
+      .slice((match.index ?? 0) + match[0].length)
+      .replace(/^[\\'"}\])]+\s*/u, "")
+      .match(/"(?:[^"\\]|\\.)*"|'[^']*'|[^\s]+/gu)
+      ?.map((token) => token
+        .replace(/^[("'$[{]+/u, "")
+        .replace(/[;)"'\]}]+$/u, "")) ?? [];
+    const command = tokens[0]?.startsWith("-")
+      ? tokens.find((token) => unambiguousNpmDependencyCommands.has(token))
+      : tokens[0];
+    if (unambiguousNpmDependencyCommands.has(command)) {
+      invocations.push({ command: "unsupported", line });
+    }
+  }
+  return invocations;
+}
+
 function npmInvocations(step) {
   if (typeof step?.run !== "string") {
     return [];
@@ -651,59 +746,8 @@ function npmInvocations(step) {
     .split(/\r?\n/u)
     .map((line) => line.trim());
   for (const line of logicalLines) {
-    const npmPattern = /(?<![A-Za-z0-9_.-])(?:bun|bunx|npm|npm-cli\.js|npx|pnpm|yarn)(?=$|[\s;&|)])/gu;
-    for (const match of line.matchAll(npmPattern)) {
-      const commandSegment = line
-        .slice((match.index ?? 0) + match[0].length)
-        .split(/[;&|]/u, 1)[0];
-      const tokens = commandSegment
-        .match(/"(?:[^"\\]|\\.)*"|'[^']*'|[^\s]+/gu)
-        ?.map((token) => token
-          .replace(/^[("'$[{]+/u, "")
-          .replace(/[;)"'\]}]+$/u, "")) ?? [];
-      const firstToken = tokens[0] ?? "";
-      let command = firstToken;
-      if (firstToken.startsWith("-")) {
-        command = tokens.find((token) => npmDependencyCommands.has(token)) ?? "";
-      }
-      if (npmDependencyCommands.has(command)) {
-        invocations.push({ command, line });
-      } else if (firstToken !== "--version" && firstToken !== "run" && firstToken !== "run-script") {
-        invocations.push({ command: "unsupported", line });
-      }
-    }
-    for (const segment of line.split(/[;&|]/u).map((part) => part.trim())) {
-      const commandTail = variableShellCommandTail(segment);
-      if (commandTail !== undefined) {
-        const tokens = commandTail
-          .match(/"(?:[^"\\]|\\.)*"|'[^']*'|[^\s]+/gu)
-          ?.map((token) => token
-            .replace(/^[("'$[{]+/u, "")
-            .replace(/[)"'\]}]+$/u, "")) ?? [];
-        const command = tokens[0]?.startsWith("-")
-          ? tokens.find((token) => npmDependencyCommands.has(token))
-          : tokens[0];
-        if (npmDependencyCommands.has(command)) {
-          invocations.push({ command: "unsupported", line });
-        }
-      }
-    }
-    const variableReference = /\$\{[^}\r\n]+\}|\$[A-Za-z_][A-Za-z0-9_]*/gu;
-    for (const match of line.matchAll(variableReference)) {
-      const tokens = line
-        .slice((match.index ?? 0) + match[0].length)
-        .replace(/^[\\'"}\])]+\s*/u, "")
-        .match(/"(?:[^"\\]|\\.)*"|'[^']*'|[^\s]+/gu)
-        ?.map((token) => token
-          .replace(/^[("'$[{]+/u, "")
-          .replace(/[;)"'\]}]+$/u, "")) ?? [];
-      const command = tokens[0]?.startsWith("-")
-        ? tokens.find((token) => unambiguousNpmDependencyCommands.has(token))
-        : tokens[0];
-      if (unambiguousNpmDependencyCommands.has(command)) {
-        invocations.push({ command: "unsupported", line });
-      }
-    }
+    invocations.push(...collectNpmDirectInvocations(line));
+    invocations.push(...collectNpmVariableInvocations(line));
   }
   return invocations;
 }
@@ -767,6 +811,29 @@ function inspectDependencyWorkflowJob(jobName, job, relativePath) {
   return { auditSteps, findings };
 }
 
+function validateEnforcingDependencyAuditStep(auditJob, auditJobName, audit, relativePath) {
+  const findings = [];
+  const installIndex = auditJob?.steps?.findIndex((step) => (
+    step?.run?.trim() === "npm ci --no-audit"
+  ));
+  if (
+    audit.jobName !== auditJobName
+    || audit.line !== "npm audit --audit-level=high --package-lock-only --fetch-timeout=30000 --fetch-retries=1"
+    || audit.step?.run?.trim() !== audit.line
+    || !Number.isInteger(installIndex)
+    || installIndex < 0
+    || audit.stepIndex !== installIndex + 1
+    || !continueOnErrorIsDisabled(auditJob)
+    || audit.step?.if !== undefined
+    || !continueOnErrorIsDisabled(audit.step)
+  ) {
+    findings.push(
+      `${relativePath}: job ${auditJobName} must run the exact enforcing dependency audit after its no-audit install`,
+    );
+  }
+  return findings;
+}
+
 export function validateDependencyAuditWorkflowObject(
   workflow,
   auditJobName,
@@ -801,26 +868,12 @@ export function validateDependencyAuditWorkflowObject(
     return findings;
   }
 
-  const audit = auditSteps[0];
-  const auditJob = jobs[auditJobName];
-  const installIndex = auditJob?.steps?.findIndex((step) => (
-    step?.run?.trim() === "npm ci --no-audit"
+  findings.push(...validateEnforcingDependencyAuditStep(
+    jobs[auditJobName],
+    auditJobName,
+    auditSteps[0],
+    relativePath,
   ));
-  if (
-    audit.jobName !== auditJobName
-    || audit.line !== "npm audit --audit-level=high --package-lock-only --fetch-timeout=30000 --fetch-retries=1"
-    || audit.step?.run?.trim() !== audit.line
-    || !Number.isInteger(installIndex)
-    || installIndex < 0
-    || audit.stepIndex !== installIndex + 1
-    || !continueOnErrorIsDisabled(auditJob)
-    || audit.step?.if !== undefined
-    || !continueOnErrorIsDisabled(audit.step)
-  ) {
-    findings.push(
-      `${relativePath}: job ${auditJobName} must run the exact enforcing dependency audit after its no-audit install`,
-    );
-  }
   return findings;
 }
 
@@ -995,8 +1048,26 @@ const privateGoCommandEnvironment = Object.freeze({
   GOSUMDB: "off",
 });
 
+// The one workflow-level value a private Go job may inherit: the Praetor
+// engine pin that .config/lefthook/engine.sh reads on the workstation
+// (decision 0095). Only a full commit id is a pin; a tag or a short id moves
+// or is ambiguous.
+const enginePinName = "PRAETOR_REF";
+const enginePinPattern = /^[0-9a-f]{40}$/u;
+
+function workflowEnvironmentIsAbsentOrEnginePin(workflow) {
+  const environment = workflow?.env;
+  if (environment === undefined) return true;
+  return environment !== null
+    && typeof environment === "object"
+    && !Array.isArray(environment)
+    && Object.keys(environment).length === 1
+    && typeof environment[enginePinName] === "string"
+    && enginePinPattern.test(environment[enginePinName]);
+}
+
 function privateGoJobHasNoInheritedEnvironment(workflow, job) {
-  return workflow?.env === undefined && job?.env === undefined;
+  return workflowEnvironmentIsAbsentOrEnginePin(workflow) && job?.env === undefined;
 }
 
 const pdfReproducibilityCiCommand = [
@@ -1494,55 +1565,52 @@ function validateCiImpactWorkstationJobs(jobs, relativePath, findings) {
   );
 }
 
-function validateCiImpactSuccessJob(jobs, relativePath, findings) {
-  const expectedNeeds = [
-    "impact-plan",
-    "quality-full",
-    "impact-common",
-    "lane-go",
-    "lane-release",
-    "pdf-renderer-reproducibility",
-    "lane-research",
-    "lane-site",
-    "workstation-core",
-    "workstation-artifacts",
-    "container-smoke",
-    "dependency-review",
-  ];
-  const success = jobs["ci-success"];
-  const successStep = success?.steps?.find((step) => (
-    step?.name === "Require every expected gate state"
-  ));
-  const successSource = successStep?.run;
-  const expectedEnvironment = {
-    EVENT_NAME: "${{ github.event_name }}",
-    MODE: "${{ needs.impact-plan.outputs.mode }}",
-    SELECT_CONTAINER: "${{ needs.impact-plan.outputs.container }}",
-    SELECT_DEPENDENCY: "${{ needs.impact-plan.outputs.dependency }}",
-    SELECT_GO: "${{ needs.impact-plan.outputs.go }}",
-    SELECT_RELEASE: "${{ needs.impact-plan.outputs.release }}",
-    SELECT_RENDERER: "${{ needs.impact-plan.outputs.renderer }}",
-    SELECT_RESEARCH: "${{ needs.impact-plan.outputs.research }}",
-    SELECT_SITE: "${{ needs.impact-plan.outputs.site }}",
-    SELECT_WORKSTATION: "${{ needs.impact-plan.outputs.workstation_any }}",
-    RESULT_PLAN: "${{ needs.impact-plan.result }}",
-    RESULT_QUALITY_FULL: "${{ needs.quality-full.result }}",
-    RESULT_IMPACT_COMMON: "${{ needs.impact-common.result }}",
-    RESULT_GO: "${{ needs.lane-go.result }}",
-    RESULT_RELEASE: "${{ needs.lane-release.result }}",
-    RESULT_RENDERER: "${{ needs.pdf-renderer-reproducibility.result }}",
-    RESULT_RESEARCH: "${{ needs.lane-research.result }}",
-    RESULT_SITE: "${{ needs.lane-site.result }}",
-    RESULT_WORKSTATION_CORE: "${{ needs.workstation-core.result }}",
-    RESULT_WORKSTATION_ARTIFACTS: "${{ needs.workstation-artifacts.result }}",
-    RESULT_CONTAINER: "${{ needs.container-smoke.result }}",
-    RESULT_DEPENDENCY_REVIEW: "${{ needs.dependency-review.result }}",
-  };
+const ciImpactSuccessExpectedNeeds = [
+  "impact-plan",
+  "quality-full",
+  "impact-common",
+  "lane-go",
+  "lane-release",
+  "pdf-renderer-reproducibility",
+  "lane-research",
+  "lane-site",
+  "workstation-core",
+  "workstation-artifacts",
+  "container-smoke",
+  "dependency-review",
+];
+
+const ciImpactSuccessExpectedEnvironment = {
+  EVENT_NAME: "${{ github.event_name }}",
+  MODE: "${{ needs.impact-plan.outputs.mode }}",
+  SELECT_CONTAINER: "${{ needs.impact-plan.outputs.container }}",
+  SELECT_DEPENDENCY: "${{ needs.impact-plan.outputs.dependency }}",
+  SELECT_GO: "${{ needs.impact-plan.outputs.go }}",
+  SELECT_RELEASE: "${{ needs.impact-plan.outputs.release }}",
+  SELECT_RENDERER: "${{ needs.impact-plan.outputs.renderer }}",
+  SELECT_RESEARCH: "${{ needs.impact-plan.outputs.research }}",
+  SELECT_SITE: "${{ needs.impact-plan.outputs.site }}",
+  SELECT_WORKSTATION: "${{ needs.impact-plan.outputs.workstation_any }}",
+  RESULT_PLAN: "${{ needs.impact-plan.result }}",
+  RESULT_QUALITY_FULL: "${{ needs.quality-full.result }}",
+  RESULT_IMPACT_COMMON: "${{ needs.impact-common.result }}",
+  RESULT_GO: "${{ needs.lane-go.result }}",
+  RESULT_RELEASE: "${{ needs.lane-release.result }}",
+  RESULT_RENDERER: "${{ needs.pdf-renderer-reproducibility.result }}",
+  RESULT_RESEARCH: "${{ needs.lane-research.result }}",
+  RESULT_SITE: "${{ needs.lane-site.result }}",
+  RESULT_WORKSTATION_CORE: "${{ needs.workstation-core.result }}",
+  RESULT_WORKSTATION_ARTIFACTS: "${{ needs.workstation-artifacts.result }}",
+  RESULT_CONTAINER: "${{ needs.container-smoke.result }}",
+  RESULT_DEPENDENCY_REVIEW: "${{ needs.dependency-review.result }}",
+};
+
+function validateCiImpactSuccessNeedsAndEnvironment(success, successStep, relativePath, findings) {
   recordExpectation(
     findings,
     Array.isArray(success?.needs)
-      && success.needs.length === expectedNeeds.length
-      && expectedNeeds.every((job) => success.needs.includes(job)),
+      && success.needs.length === ciImpactSuccessExpectedNeeds.length
+      && ciImpactSuccessExpectedNeeds.every((job) => success.needs.includes(job)),
     `${relativePath}: ci-success must depend on every full, impact, matrix, container, and PR gate`,
   );
   recordExpectation(
@@ -1552,11 +1620,14 @@ function validateCiImpactSuccessJob(jobs, relativePath, findings) {
       continueOnErrorIsDisabled(success),
       successStep?.if === undefined,
       continueOnErrorIsDisabled(successStep),
-      Object.keys(successStep?.env ?? {}).length === Object.keys(expectedEnvironment).length,
-      propertiesMatch(successStep?.env, expectedEnvironment),
+      Object.keys(successStep?.env ?? {}).length === Object.keys(ciImpactSuccessExpectedEnvironment).length,
+      propertiesMatch(successStep?.env, ciImpactSuccessExpectedEnvironment),
     ].every(Boolean),
     `${relativePath}: ci-success must unconditionally inspect the exact fail-closed state vector`,
   );
+}
+
+function validateCiImpactSuccessScript(successSource, relativePath, findings) {
   recordExpectation(
     findings,
     stringIncludesAll(successSource, [
@@ -1601,6 +1672,15 @@ function validateCiImpactSuccessJob(jobs, relativePath, findings) {
       ].join("\n")),
     `${relativePath}: ci-success must reject unexpected states and any skipped selected lane`,
   );
+}
+
+function validateCiImpactSuccessJob(jobs, relativePath, findings) {
+  const success = jobs["ci-success"];
+  const successStep = success?.steps?.find((step) => (
+    step?.name === "Require every expected gate state"
+  ));
+  validateCiImpactSuccessNeedsAndEnvironment(success, successStep, relativePath, findings);
+  validateCiImpactSuccessScript(successStep?.run, relativePath, findings);
 }
 
 export function validateCiImpactWorkflowObject(
@@ -2348,25 +2428,9 @@ function validateImmutableReleaseBoundary(releaseSteps, relativePath, findings) 
   );
 }
 
-function validateOCIImageAssetBoundary(releaseSteps, relativePath, findings) {
+function validateOCIImageAuthorityStepOrder(releaseSteps, relativePath, findings) {
   const materialize = findStepByName(releaseSteps, "Materialize the immutable OCI image authority");
   const resolve = findStepById(releaseSteps, "release-images");
-  const persistedIdentity = findStepByName(
-    releaseSteps,
-    "Validate persisted release image identities and tag bindings",
-  );
-  const persistedProvenance = findStepByName(
-    releaseSteps,
-    "Verify persisted image provenance against the tag source",
-  );
-  const persistedAnonymous = findStepByName(
-    releaseSteps,
-    "Revalidate persisted image digests anonymously",
-  );
-  const assetVerification = findStepByName(
-    releaseSteps,
-    "Verify the complete release-asset attestations against the tag source",
-  );
   const publicationPosition = stepPosition(
     releaseSteps,
     "Publish or validate the immutable GitHub release",
@@ -2401,6 +2465,25 @@ function validateOCIImageAssetBoundary(releaseSteps, relativePath, findings) {
       && publicationPosition > positions.at(-1),
     `${relativePath}: oci-images.json must become the checksum-bound authority only after final anonymous digest admission`,
   );
+}
+
+function validatePersistedOCIImageRevalidation(releaseSteps, relativePath, findings) {
+  const persistedIdentity = findStepByName(
+    releaseSteps,
+    "Validate persisted release image identities and tag bindings",
+  );
+  const persistedProvenance = findStepByName(
+    releaseSteps,
+    "Verify persisted image provenance against the tag source",
+  );
+  const persistedAnonymous = findStepByName(
+    releaseSteps,
+    "Revalidate persisted image digests anonymously",
+  );
+  const assetVerification = findStepByName(
+    releaseSteps,
+    "Verify the complete release-asset attestations against the tag source",
+  );
   recordExpectation(
     findings,
     [persistedIdentity, persistedProvenance, persistedAnonymous, assetVerification]
@@ -2430,6 +2513,11 @@ function validateOCIImageAssetBoundary(releaseSteps, relativePath, findings) {
       && diagnosticImmediatelyExits(persistedAnonymous?.run, "persisted release image"),
     `${relativePath}: immutable published reruns must revalidate persisted assets, images, provenance, and anonymous pulls without mutation`,
   );
+}
+
+function validateOCIImageAssetBoundary(releaseSteps, relativePath, findings) {
+  validateOCIImageAuthorityStepOrder(releaseSteps, relativePath, findings);
+  validatePersistedOCIImageRevalidation(releaseSteps, relativePath, findings);
 }
 
 function validateReleaseAssetProvenance(workflow, relativePath) {
@@ -3256,7 +3344,7 @@ function validateReleaseFixture007Image(steps, relativePath, findings) {
   validateReleaseFixture007Attestation(steps, relativePath, findings);
 }
 
-function validateReleaseDigestAdmission(steps, relativePath, findings) {
+function validateReleaseDigestSelectionAndInspection(steps, relativePath, findings) {
   const selection = findStepById(steps, "admission-images");
   recordExpectation(
     findings,
@@ -3290,7 +3378,9 @@ function validateReleaseDigestAdmission(steps, relativePath, findings) {
       && !digestInspection?.includes("linux/arm64"),
     `${relativePath}: exact candidate digests must pass authenticated platform and label inspection before admission`,
   );
+}
 
+function validateReleaseAdmittedExecution(steps, relativePath, findings) {
   const execution = findStepByName(steps, "Run the admitted candidates by immutable digest")?.run;
   recordExpectation(
     findings,
@@ -3318,6 +3408,11 @@ function validateReleaseDigestAdmission(steps, relativePath, findings) {
     `${relativePath}: candidate images must run tooling plus smoke, analyze, and validate by digest before tagging`,
   );
   validateHardenedDockerRuns(execution, 7, relativePath, "admitted candidate images", findings);
+}
+
+function validateReleaseDigestAdmission(steps, relativePath, findings) {
+  validateReleaseDigestSelectionAndInspection(steps, relativePath, findings);
+  validateReleaseAdmittedExecution(steps, relativePath, findings);
 }
 
 function validateReleaseAttestationAndTagging(steps, relativePath, findings) {
@@ -3355,7 +3450,7 @@ function validateReleaseAttestationAndTagging(steps, relativePath, findings) {
   );
 }
 
-function validateReleaseFinalBindingAndNotes(steps, relativePath, findings) {
+function validateReleaseFinalImageResolution(steps, relativePath, findings) {
   const final = findStepById(steps, "final-images")?.run;
   recordExpectation(
     findings,
@@ -3384,7 +3479,9 @@ function validateReleaseFinalBindingAndNotes(steps, relativePath, findings) {
     ]),
     `${relativePath}: final image tags must resolve to the exact admitted digests`,
   );
+}
 
+function validateReleaseAnonymousPull(steps, relativePath, findings) {
   const anonymousPull = findStepByName(steps, "Prove final image digests are anonymously pullable");
   recordExpectation(
     findings,
@@ -3417,7 +3514,9 @@ function validateReleaseFinalBindingAndNotes(steps, relativePath, findings) {
       && diagnosticImmediatelyExits(anonymousPull?.run, "is not anonymously pullable."),
     `${relativePath}: final release image digests must pass anonymous pulls with an empty Docker configuration`,
   );
+}
 
+function validateReleaseStepOrder(steps, relativePath, findings) {
   const orderedNames = [
     "Select exact image digests for admission",
     "Validate the exact image digests before admission",
@@ -3453,7 +3552,9 @@ function validateReleaseFinalBindingAndNotes(steps, relativePath, findings) {
       && publicationPosition > anonymousPullPosition,
     `${relativePath}: anonymous digest pulls must follow final binding and precede GitHub Release publication`,
   );
+}
 
+function validateReleaseNotesContent(steps, relativePath, findings) {
   const notes = findStepByName(steps, "Add immutable container identities to the release notes")?.run;
   recordExpectation(
     findings,
@@ -3475,6 +3576,13 @@ function validateReleaseFinalBindingAndNotes(steps, relativePath, findings) {
     ]) && !notes?.includes("linux/arm64"),
     `${relativePath}: release notes must carry exact image digests, platforms, revision, and NO_RESULT authority`,
   );
+}
+
+function validateReleaseFinalBindingAndNotes(steps, relativePath, findings) {
+  validateReleaseFinalImageResolution(steps, relativePath, findings);
+  validateReleaseAnonymousPull(steps, relativePath, findings);
+  validateReleaseStepOrder(steps, relativePath, findings);
+  validateReleaseNotesContent(steps, relativePath, findings);
 }
 
 function validateReleaseImageProvenanceAndExecution(steps, relativePath, findings) {
@@ -3696,12 +3804,7 @@ function validateWorkstationShardManifestCoverage(
   return findings;
 }
 
-export function validateWorkstationShardScriptsObject(
-  manifest,
-  workstationManifests,
-  relativePath = "package.json",
-) {
-  const scripts = manifest?.scripts ?? {};
+function validateWorkstationAggregateScripts(scripts, relativePath) {
   const findings = [];
   if (scripts["test:workstation"] !== "go -C tooling run ./cmd/20w ci run-workstation --root ..") {
     findings.push(`${relativePath}: test:workstation must use the bounded Go catalogue runner`);
@@ -3724,8 +3827,11 @@ export function validateWorkstationShardScriptsObject(
   ) {
     findings.push(`${relativePath}: the local aggregate gate must retain the complete workstation suite`);
   }
+  return findings;
+}
 
-  const expected = new Map([
+function expectedFixture026PrimaryShardEntries() {
+  return [
     ["test:workstation:fixture-026:shard-1", workstationShardCommand([
       "experiments/workstation/fixture-026/rsd-t02-runner-resume.test.mjs",
     ])],
@@ -3757,6 +3863,11 @@ export function validateWorkstationShardScriptsObject(
       "experiments/workstation/fixture-026/opened-file.test.mjs",
       "experiments/workstation/fixture-026/rsd-t02-contract.test.mjs",
     ])],
+  ];
+}
+
+function expectedFixture026SecondaryShardEntries() {
+  return [
     ["test:workstation:fixture-026:shard-5", workstationShardCommand([
       "experiments/workstation/fixture-026/rsd-t02-pulse.test.mjs",
       "experiments/workstation/fixture-026/rsd-t02-public-development-population-runner.test.mjs",
@@ -3778,6 +3889,13 @@ export function validateWorkstationShardScriptsObject(
     ["test:workstation:fixture-026:shard-8", workstationShardCommand([
       "experiments/workstation/fixture-026/rsd-t02-runner-ledger-semantics.test.mjs",
     ])],
+  ];
+}
+
+function expectedWorkstationShardCommands() {
+  return new Map([
+    ...expectedFixture026PrimaryShardEntries(),
+    ...expectedFixture026SecondaryShardEntries(),
     ["test:workstation:fixture-029:shard-1", workstationShardCommand([
       "experiments/workstation/fixture-029/suite-runner.test.mjs",
       "experiments/workstation/fixture-029/contract.test.mjs",
@@ -3789,6 +3907,11 @@ export function validateWorkstationShardScriptsObject(
       "experiments/workstation/fixture-029/runner.test.mjs",
     ])],
   ]);
+}
+
+function validateWorkstationShardCommands(scripts, workstationManifests, relativePath) {
+  const findings = [];
+  const expected = expectedWorkstationShardCommands();
   const actualShardNames = Object.keys(scripts)
     .filter((name) => /^test:workstation:fixture-(026|029):shard-/.test(name))
     .sort();
@@ -3813,6 +3936,18 @@ export function validateWorkstationShardScriptsObject(
   return findings;
 }
 
+export function validateWorkstationShardScriptsObject(
+  manifest,
+  workstationManifests,
+  relativePath = "package.json",
+) {
+  const scripts = manifest?.scripts ?? {};
+  const findings = [];
+  findings.push(...validateWorkstationAggregateScripts(scripts, relativePath));
+  findings.push(...validateWorkstationShardCommands(scripts, workstationManifests, relativePath));
+  return findings;
+}
+
 /**
  * Decision 0084 migration step 2: the topic registry validator and its tests
  * run in every impact plan, because a change to any registered topic path can
@@ -3833,17 +3968,23 @@ export function validateTopicRegistryScriptsObject(manifest, relativePath = "pac
   return findings;
 }
 
-function validatePackage(root, findings) {
-  const relativePath = "package.json";
-  let manifest;
-  try {
-    manifest = JSON.parse(readText(root, relativePath));
-  } catch (error) {
-    findings.push(`${relativePath}: invalid JSON: ${error.message}`);
-    return;
-  }
+const requiredPackageScripts = [
+  "check",
+  "check:code-shape",
+  "check:prose",
+  "test:code-shape",
+  "test:go",
+  "test:runtime",
+  "test:prose",
+  "test:release",
+  "typecheck",
+  "validate:policy",
+  "validate:runtime",
+  "validate:tooling",
+  "test:policy",
+];
 
-  const scripts = manifest.scripts ?? {};
+function loadWorkstationManifests(root, findings) {
   const workstationManifests = {};
   for (const fixture of ["026", "029"]) {
     const manifestPath = `experiments/workstation/manifests/fixture-${fixture}.json`;
@@ -3853,27 +3994,13 @@ function validatePackage(root, findings) {
       findings.push(`${manifestPath}: invalid JSON: ${error.message}`);
     }
   }
-  findings.push(...validateWorkstationShardScriptsObject(
-    manifest,
-    workstationManifests,
-    relativePath,
-  ));
-  findings.push(...validateTopicRegistryScriptsObject(manifest, relativePath));
-  for (const script of [
-    "check",
-    "check:code-shape",
-    "check:prose",
-    "test:code-shape",
-    "test:go",
-    "test:runtime",
-    "test:prose",
-    "test:release",
-    "typecheck",
-    "validate:policy",
-    "validate:runtime",
-    "validate:tooling",
-    "test:policy",
-  ]) {
+  return workstationManifests;
+}
+
+function validatePackageScripts(manifest, relativePath) {
+  const findings = [];
+  const scripts = manifest.scripts ?? {};
+  for (const script of requiredPackageScripts) {
     if (typeof scripts[script] !== "string" || scripts[script].trim().length === 0) {
       findings.push(`${relativePath}: missing required script ${script}`);
     }
@@ -3910,7 +4037,11 @@ function validatePackage(root, findings) {
   if (!scripts.test.includes("npm run test:runtime")) {
     findings.push(`${relativePath}: the aggregate test gate must exercise the Node runtime policy tests`);
   }
+  return findings;
+}
 
+function validatePackageDependenciesAndMetadata(manifest, relativePath) {
+  const findings = [];
   const exactVersion = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u;
   const retiredHostingDependencies = new Set([
     "@cloudflare/vite-plugin",
@@ -3936,6 +4067,28 @@ function validatePackage(root, findings) {
   if (manifest.license !== "SEE LICENSE IN LICENSING.md") {
     findings.push(`${relativePath}: split licensing must point to LICENSING.md`);
   }
+  return findings;
+}
+
+function validatePackage(root, findings) {
+  const relativePath = "package.json";
+  let manifest;
+  try {
+    manifest = JSON.parse(readText(root, relativePath));
+  } catch (error) {
+    findings.push(`${relativePath}: invalid JSON: ${error.message}`);
+    return;
+  }
+
+  const workstationManifests = loadWorkstationManifests(root, findings);
+  findings.push(...validateWorkstationShardScriptsObject(
+    manifest,
+    workstationManifests,
+    relativePath,
+  ));
+  findings.push(...validateTopicRegistryScriptsObject(manifest, relativePath));
+  findings.push(...validatePackageScripts(manifest, relativePath));
+  findings.push(...validatePackageDependenciesAndMetadata(manifest, relativePath));
 }
 
 export function validateRetiredHostingPaths(root = defaultRoot) {
@@ -4155,24 +4308,9 @@ export function validatePullRequestTitleTypeAuthority(
   return [];
 }
 
-function validateLabels(root, findings, issueForms) {
-  const manifestPath = ".github/labels.json";
-  const manifest = parseYaml(root, manifestPath, findings);
-  if (
-    !manifest
-    || typeof manifest !== "object"
-    || Array.isArray(manifest)
-    || manifest.schema !== 1
-    || Object.keys(manifest).some((key) => !["schema", "labels"].includes(key))
-    || !Array.isArray(manifest.labels)
-    || manifest.labels.length === 0
-  ) {
-    findings.push(`${manifestPath}: label manifest must be a closed schema-1 object with a non-empty labels sequence`);
-    return;
-  }
-
+function validateLabelManifestEntries(manifestPath, manifestLabels, findings) {
   const labels = new Set();
-  for (const [index, label] of manifest.labels.entries()) {
+  for (const [index, label] of manifestLabels.entries()) {
     if (!label || typeof label !== "object" || typeof label.name !== "string") {
       findings.push(`${manifestPath}: entry ${index} needs a string name`);
       continue;
@@ -4195,6 +4333,26 @@ function validateLabels(root, findings, issueForms) {
       findings.push(`${manifestPath}: label ${label.name} needs a 1-100 character description`);
     }
   }
+  return labels;
+}
+
+function validateLabels(root, findings, issueForms) {
+  const manifestPath = ".github/labels.json";
+  const manifest = parseYaml(root, manifestPath, findings);
+  if (
+    !manifest
+    || typeof manifest !== "object"
+    || Array.isArray(manifest)
+    || manifest.schema !== 1
+    || Object.keys(manifest).some((key) => !["schema", "labels"].includes(key))
+    || !Array.isArray(manifest.labels)
+    || manifest.labels.length === 0
+  ) {
+    findings.push(`${manifestPath}: label manifest must be a closed schema-1 object with a non-empty labels sequence`);
+    return;
+  }
+
+  const labels = validateLabelManifestEntries(manifestPath, manifest.labels, findings);
 
   const labelerPath = ".github/labeler.yml";
   const labeler = parseYaml(root, labelerPath, findings);
@@ -4278,7 +4436,76 @@ function validateCiWorkflowPolicy(workflow, relativePath, lock, findings) {
   findings.push(...validatePDFRendererReproducibilityWorkflowObject(workflow, relativePath));
 }
 
+// Workflows the Praetor engine writes and its audit compares byte for byte, so
+// this repository cannot edit them to meet its own workflow policy (decision
+// 0095). For exactly these paths the generic policy is replaced by the rules
+// below: explicit read-only permissions, the hosted runner label, a job
+// timeout and every action at a full commit SHA. Every other workflow file,
+// whatever its name or origin, gets the full policy.
+export const engineManagedWorkflowPaths = Object.freeze([
+  ".github/workflows/praetor-api.yml",
+  ".github/workflows/praetor-docs.yml",
+]);
+
+function permissionsGrantWrite(permissions) {
+  if (typeof permissions === "string") return permissions !== "read-all";
+  return permissions !== null
+    && typeof permissions === "object"
+    && Object.values(permissions).includes("write");
+}
+
+function validateEngineManagedWorkflowJob(job, jobName, relativePath) {
+  if (!job || typeof job !== "object" || Array.isArray(job)) {
+    return [`${relativePath}: job ${jobName} must be a mapping`];
+  }
+  const findings = [];
+  if (!Number.isFinite(job["timeout-minutes"]) || job["timeout-minutes"] <= 0) {
+    findings.push(`${relativePath}: job ${jobName} needs a positive timeout-minutes`);
+  }
+  if (job["runs-on"] !== "ubuntu-26.04") {
+    findings.push(
+      `${relativePath}: public-repository job ${jobName} must run on GitHub-hosted ubuntu-26.04`,
+    );
+  }
+  if (job.permissions !== undefined && permissionsGrantWrite(job.permissions)) {
+    findings.push(`${relativePath}: engine-managed job ${jobName} must not grant write access`);
+  }
+  return findings;
+}
+
+export function validateEngineManagedWorkflowObject(workflow, relativePath) {
+  if (!workflow || typeof workflow !== "object" || Array.isArray(workflow)) {
+    return [`${relativePath}: workflow root must be a mapping`];
+  }
+  const findings = [];
+  if (!workflow.permissions || typeof workflow.permissions !== "object") {
+    findings.push(`${relativePath}: declare explicit top-level permissions`);
+  } else if (permissionsGrantWrite(workflow.permissions)) {
+    findings.push(`${relativePath}: top-level permissions must not grant write access`);
+  }
+  const jobs = workflow.jobs;
+  if (!jobs || typeof jobs !== "object" || Array.isArray(jobs) || Object.keys(jobs).length === 0) {
+    findings.push(`${relativePath}: jobs must be a non-empty mapping`);
+  } else {
+    for (const [jobName, job] of Object.entries(jobs)) {
+      findings.push(...validateEngineManagedWorkflowJob(job, jobName, relativePath));
+    }
+  }
+  for (const action of collectUses(workflow)) {
+    if (!action.value.startsWith("./") && !actionDigestPattern.test(action.value)) {
+      findings.push(
+        `${relativePath}: ${action.location} must pin an external action to a full commit SHA; got ${action.value}`,
+      );
+    }
+  }
+  return findings;
+}
+
 function validateWorkflowPolicy(workflow, relativePath, lock, findings) {
+  if (engineManagedWorkflowPaths.includes(relativePath)) {
+    findings.push(...validateEngineManagedWorkflowObject(workflow, relativePath));
+    return;
+  }
   findings.push(...validateWorkflowObject(workflow, relativePath));
   findings.push(...validatePublicRepositoryRunnerWorkflowObject(workflow, relativePath));
   findings.push(...validateNodeSetupWorkflowObject(workflow, relativePath));
@@ -4542,7 +4769,168 @@ export function validateCurrentResearchDisclosure(root = defaultRoot) {
   return findings;
 }
 
-export function validateRepositoryPolicy(root = defaultRoot) {
+// lefthook.yml is the engine's rendering; lefthook-local.yml holds this
+// repository's own jobs and is merged over it. The local file may touch a
+// generated job only through an exception declared here: one hook, one job,
+// `skip: true` and a last day (decision 0095). After that day the skip is
+// refused like an undeclared one.
+const generatedHookFile = "lefthook.yml";
+const localHookFile = "lefthook-local.yml";
+export const generatedHookJobSkips = Object.freeze([
+  Object.freeze({ hook: "pre-commit", job: "reuse-lint", lastDay: "2026-11-30" }),
+]);
+
+function isMapping(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function validateGeneratedHookJobOverride(hook, name, command, today, skips, relativePath) {
+  const exception = skips.find((entry) => entry.hook === hook && entry.job === name);
+  if (exception === undefined) {
+    return [`${relativePath}: ${hook} command ${name} changes a generated job without a declared exception`];
+  }
+  const findings = [];
+  if (!isMapping(command) || Object.keys(command).length !== 1 || command.skip !== true) {
+    findings.push(`${relativePath}: the exception for ${hook} command ${name} may only set skip: true`);
+  }
+  if (today > exception.lastDay) {
+    findings.push(
+      `${relativePath}: the skip of ${hook} command ${name} ended on ${exception.lastDay}; remove it or decide a new date`,
+    );
+  }
+  return findings;
+}
+
+function validateLocalHook(hook, body, generated, today, skips, relativePath) {
+  if (!isMapping(body) || Object.keys(body).length !== 1 || !isMapping(body.commands)) {
+    return [`${relativePath}: hook ${hook} may only declare a commands mapping`];
+  }
+  const findings = [];
+  const generatedCommands = isMapping(generated?.[hook]?.commands) ? generated[hook].commands : {};
+  for (const [name, command] of Object.entries(body.commands)) {
+    if (Object.hasOwn(generatedCommands, name)) {
+      findings.push(...validateGeneratedHookJobOverride(hook, name, command, today, skips, relativePath));
+    }
+  }
+  return findings;
+}
+
+export function validateLocalHookObject(
+  local,
+  generated,
+  today,
+  skips = generatedHookJobSkips,
+  relativePath = localHookFile,
+) {
+  if (!/^\d{4}-\d{2}-\d{2}$/u.test(today)) {
+    return [`${relativePath}: the comparison date must be a calendar day; got ${today}`];
+  }
+  if (!isMapping(local) || !isMapping(generated)) {
+    return [`${relativePath}: ${localHookFile} and ${generatedHookFile} must each be a mapping`];
+  }
+  const findings = [];
+  for (const [hook, body] of Object.entries(local)) {
+    findings.push(...validateLocalHook(hook, body, generated, today, skips, relativePath));
+  }
+  for (const exception of skips) {
+    if (!Object.hasOwn(local[exception.hook]?.commands ?? {}, exception.job)) {
+      findings.push(
+        `${relativePath}: the declared exception for ${exception.hook} command ${exception.job} is unused; remove it`,
+      );
+    }
+  }
+  return findings;
+}
+
+function validateLocalHooks(root, today, findings) {
+  if (!fs.existsSync(path.join(root, localHookFile))) return;
+  if (!fs.existsSync(path.join(root, generatedHookFile))) {
+    findings.push(`${localHookFile}: ${generatedHookFile} is missing, so no local job can be judged`);
+    return;
+  }
+  const local = parseYaml(root, localHookFile, findings);
+  const generated = parseYaml(root, generatedHookFile, findings);
+  if (local && generated) {
+    findings.push(...validateLocalHookObject(local, generated, today));
+  }
+}
+
+// tsconfig.json may take a file out of the type check only through a dated
+// entry of TYPE_CHECK_EXCEPTIONS: one path, its diagnostics, a reason and a
+// last day (decision 0095, point 10). After that day the exclude is refused
+// like an undeclared one. The include globs are pinned as well, because a
+// narrower glob would remove a file without naming it.
+const typeCheckConfigFile = "tsconfig.json";
+const typeCheckInclude = Object.freeze(["**/*.ts", "**/*.tsx", "**/*.mts"]);
+const typeCheckBaseExcludes = Object.freeze(["node_modules"]);
+
+function typeCheckExcludeFindings(excludes, today, exceptions) {
+  const findings = [];
+  for (const [index, excluded] of excludes.entries()) {
+    const entry = exceptions.find((candidate) => candidate.path === excluded);
+    if (excludes.indexOf(excluded) !== index) {
+      findings.push(`${typeCheckConfigFile}: exclude repeats ${excluded}`);
+    } else if (typeCheckBaseExcludes.includes(excluded)) {
+      continue;
+    } else if (entry === undefined) {
+      findings.push(`${typeCheckConfigFile}: exclude names ${excluded} without a declared exception`);
+    } else if (today > entry.expires) {
+      findings.push(
+        `${typeCheckConfigFile}: the type-check exception for ${excluded} ended on ${entry.expires}; remove it or decide a new date`,
+      );
+    }
+  }
+  return findings;
+}
+
+function typeCheckMissingExcludeFindings(excludes, exceptions) {
+  const findings = typeCheckBaseExcludes
+    .filter((base) => !excludes.includes(base))
+    .map((base) => `${typeCheckConfigFile}: exclude must keep ${base}`);
+  for (const entry of exceptions.filter((candidate) => !excludes.includes(candidate.path))) {
+    findings.push(`${typeCheckConfigFile}: the declared exception for ${entry.path} is unused; remove it`);
+  }
+  return findings;
+}
+
+export function validateTypeCheckConfigObject(config, today, exceptions = TYPE_CHECK_EXCEPTIONS) {
+  const malformed = engineFileExceptionFindings(exceptions, "diagnostics");
+  if (!isCalendarDay(today)) {
+    malformed.push(`the comparison date must be a calendar day; got ${today}`);
+  }
+  if (malformed.length > 0) {
+    return malformed.map((finding) => `${typeCheckConfigFile}: ${finding}`);
+  }
+  if (!isMapping(config) || !Array.isArray(config.exclude)) {
+    return [`${typeCheckConfigFile}: exclude must be a list`];
+  }
+  const findings = [];
+  if (JSON.stringify(config.include) !== JSON.stringify(typeCheckInclude) || Object.hasOwn(config, "files")) {
+    findings.push(
+      `${typeCheckConfigFile}: include must be exactly ${typeCheckInclude.join(", ")} and files must be absent`,
+    );
+  }
+  findings.push(...typeCheckExcludeFindings(config.exclude, today, exceptions));
+  findings.push(...typeCheckMissingExcludeFindings(config.exclude, exceptions));
+  return findings;
+}
+
+function validateTypeCheckConfig(root, today, findings) {
+  let config;
+  try {
+    config = JSON.parse(readText(root, typeCheckConfigFile));
+  } catch (error) {
+    findings.push(`${typeCheckConfigFile}: cannot be read as JSON: ${error.message}`);
+    return;
+  }
+  findings.push(...validateTypeCheckConfigObject(config, today));
+}
+
+function currentCalendarDay() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export function validateRepositoryPolicy(root = defaultRoot, today = currentCalendarDay()) {
   const findings = [];
 
   for (const relativePath of requiredFiles) {
@@ -4575,6 +4963,8 @@ export function validateRepositoryPolicy(root = defaultRoot) {
   findings.push(...validateNodeVersionFile(readText(root, nodeVersionFile)));
   validateScientificRequirements(root, findings);
   findings.push(...validateWorkflowTree(root, scientificRuntimeLock));
+  validateLocalHooks(root, today, findings);
+  validateTypeCheckConfig(root, today, findings);
   validateIssuePolicy(root, findings);
   validateCitationAndOwnership(root, findings);
   findings.push(...validateUnpinnedImageSourceLabels(root));
