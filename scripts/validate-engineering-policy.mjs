@@ -3931,6 +3931,45 @@ function validatePrinciples(root, findings) {
   }
 }
 
+// A repository ignorePaths list replaces the one config:recommended brings,
+// so the preset entries are listed again next to the excluded folder.
+const renovatePresetIgnorePaths = Object.freeze([
+  "**/node_modules/**",
+  "**/bower_components/**",
+  "**/vendor/**",
+  "**/examples/**",
+  "**/__tests__/**",
+  "**/test/**",
+  "**/tests/**",
+  "**/__fixtures__/**",
+]);
+// The CLRS generator lock is resolved once against a fixed cutoff; it changes
+// only as a reviewed re-resolution, never as an update proposal.
+const renovateExcludedFolders = Object.freeze(["tooling/clrs-generator/**"]);
+
+export function validateRenovateConfigObject(config, relativePath = "renovate.json") {
+  const findings = [];
+  const rules = Array.isArray(config?.packageRules) ? config.packageRules : [];
+  if (rules.some((rule) => rule?.automerge === true)) {
+    findings.push(`${relativePath}: automerge stays disabled until required CI and repository rules are verified`);
+  }
+  if (config?.timezone !== "Europe/Berlin") {
+    findings.push(`${relativePath}: timezone must be Europe/Berlin`);
+  }
+  const ignorePaths = Array.isArray(config?.ignorePaths) ? config.ignorePaths : [];
+  for (const folder of renovateExcludedFolders) {
+    if (!ignorePaths.includes(folder)) {
+      findings.push(`${relativePath}: ignorePaths must exclude ${folder}`);
+    }
+  }
+  for (const preset of renovatePresetIgnorePaths) {
+    if (!ignorePaths.includes(preset)) {
+      findings.push(`${relativePath}: ignorePaths must keep the preset entry ${preset}`);
+    }
+  }
+  return findings;
+}
+
 function validateRenovate(root, findings) {
   const relativePath = "renovate.json";
   let config;
@@ -3940,14 +3979,7 @@ function validateRenovate(root, findings) {
     findings.push(`${relativePath}: invalid JSON: ${error.message}`);
     return;
   }
-
-  const rules = Array.isArray(config.packageRules) ? config.packageRules : [];
-  if (rules.some((rule) => rule?.automerge === true)) {
-    findings.push(`${relativePath}: automerge stays disabled until required CI and repository rules are verified`);
-  }
-  if (!config.timezone || config.timezone !== "Europe/Berlin") {
-    findings.push(`${relativePath}: timezone must be Europe/Berlin`);
-  }
+  findings.push(...validateRenovateConfigObject(config, relativePath));
 }
 
 function pullRequestTitleTriggerIsExact(trigger) {

@@ -37,6 +37,7 @@ import {
   validatePullRequestMetadataWorkflowObject,
   validateReleaseExperimentImageWorkflowObject,
   validateReleaseWorkflowObject,
+  validateRenovateConfigObject,
   validateRetiredHostingPaths,
   validateRepositoryPolicy,
   validateScientificRuntimeLock,
@@ -2980,6 +2981,34 @@ test("release pins the SBOM generator for every published container", () => {
       entry.expected,
     );
   }
+});
+
+test("the update bot leaves the CLRS generator folder alone and keeps the preset ignore list", () => {
+  const config = JSON.parse(readFileSync(new URL("../renovate.json", import.meta.url), "utf8"));
+  assert.deepEqual(validateRenovateConfigObject(config), []);
+  const without = (entry) => ({
+    ...config,
+    ignorePaths: config.ignorePaths.filter((candidate) => candidate !== entry),
+  });
+  assert.deepEqual(validateRenovateConfigObject(without("tooling/clrs-generator/**")), [
+    "renovate.json: ignorePaths must exclude tooling/clrs-generator/**",
+  ]);
+  assert.deepEqual(validateRenovateConfigObject(without("**/tests/**")), [
+    "renovate.json: ignorePaths must keep the preset entry **/tests/**",
+  ]);
+  for (const ignorePaths of [undefined, [], "tooling/clrs-generator/**", ["tooling/clrs-generator"]]) {
+    const findings = validateRenovateConfigObject({ ...config, ignorePaths });
+    assert.equal(findings.length, 9, JSON.stringify(ignorePaths));
+    assert.equal(findings[0], "renovate.json: ignorePaths must exclude tooling/clrs-generator/**");
+  }
+  assert.deepEqual(validateRenovateConfigObject({ ...config, timezone: "UTC" }), [
+    "renovate.json: timezone must be Europe/Berlin",
+  ]);
+  assert.deepEqual(
+    validateRenovateConfigObject({ ...config, packageRules: [{ automerge: true }] }),
+    ["renovate.json: automerge stays disabled until required CI and repository rules are verified"],
+  );
+  assert.equal(validateRenovateConfigObject(null).length, 10);
 });
 
 test("policy diagnostics are actionable", () => {
