@@ -1301,6 +1301,60 @@ test("private CI build configuration rejects inherited workflow and job environm
   }
 });
 
+test("CI refuses tool attribution in exactly the commit messages a change adds", () => {
+  const valid = workflow("ci");
+  const finding = ".github/workflows/ci.yml: impact-plan must refuse tool or model attribution in every commit message that the accepted base does not reach";
+  const locate = (subject) => subject.jobs["impact-plan"].steps[3];
+  assert.deepEqual(validateCiImpactWorkflowObject(valid), []);
+  assert.equal(locate(valid).name, "Refuse tool attribution in new commit messages");
+
+  for (const mutate of [
+    // Compare against the event's recorded base, which may be an older ancestor of main.
+    (source) => source.replace('"${CURRENT_SHA}^1^{commit}"', '"$BEFORE_SHA"'),
+    (source) => source.replace('[[ "$merged_head" != "$HEAD_SHA" ]]', "false"),
+    (source) => source.replace('--base "$base_tip" --head "$HEAD_SHA"', '--head "$HEAD_SHA"'),
+    (source) => source.replace('&& "$BEFORE_SHA" != "$zero_sha" ]]', "]]"),
+    (source) => source.replace('git merge-base --is-ancestor "$BEFORE_SHA" "$CURRENT_SHA"', "true"),
+    (source) => source.replace('--base "$BEFORE_SHA" --head "$CURRENT_SHA"', '--head "$CURRENT_SHA"'),
+    (source) => source.replace(
+      '  go -C tooling run ./cmd/ci-plan messages --root .. --head "$CURRENT_SHA"',
+      "  true",
+    ),
+    (source) => source.replaceAll("./cmd/ci-plan messages", "./cmd/20w ci messages"),
+    (source) => `${source}\n|| true`,
+    () => "true",
+  ]) {
+    const weakened = structuredClone(valid);
+    const before = locate(weakened).run;
+    locate(weakened).run = mutate(before);
+    assert.notEqual(locate(weakened).run, before, "the mutation must change the step source");
+    assert.ok(validateCiImpactWorkflowObject(weakened).includes(finding));
+  }
+
+  for (const mutate of [
+    (step) => { step["continue-on-error"] = true; },
+    (step) => { step.if = "github.event_name == 'push'"; },
+    (step) => { step.shell = "sh"; },
+    (step) => { step.env.GOFLAGS = "-mod=mod"; },
+    (step) => { delete step.env.HEAD_SHA; },
+    (step) => { step.env.BASE_SHA = "${{ github.event.pull_request.base.sha }}"; },
+    (step) => { step["working-directory"] = "tooling"; },
+  ]) {
+    const weakened = structuredClone(valid);
+    mutate(locate(weakened));
+    assert.ok(validateCiImpactWorkflowObject(weakened).includes(finding));
+  }
+
+  const removed = structuredClone(valid);
+  removed.jobs["impact-plan"].steps.splice(3, 1);
+  assert.ok(validateCiImpactWorkflowObject(removed).includes(finding));
+
+  const reordered = structuredClone(valid);
+  const steps = reordered.jobs["impact-plan"].steps;
+  [steps[2], steps[3]] = [steps[3], steps[2]];
+  assert.ok(validateCiImpactWorkflowObject(reordered).includes(finding));
+});
+
 test("CI impact selection is projected once and every job state fails closed", () => {
   const valid = workflow("ci");
   const planFinding = ".github/workflows/ci.yml: pull requests and comparable main pushes must use exact impact diffs, while unavailable push ancestry and manual runs must fail closed";

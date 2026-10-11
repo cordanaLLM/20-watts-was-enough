@@ -104,6 +104,14 @@ Use Conventional Commits for commit and pull-request titles:
 incompatible public CLI, schema, route, manifest, output, or analysis-law change
 with `!` or a `BREAKING CHANGE:` footer and include a `Migration:` footer.
 
+A commit message credits people. CI refuses a `Co-authored-by` trailer that
+names a tool or model, and a footer that advertises the generating tool, in
+every commit a pull request adds
+([decision 0093](decisions/0093-refuse-tool-attribution-in-commit-messages.md)).
+State material tool use in the pull request instead. When you squash-merge,
+write the body yourself; `go -C tooling run ./cmd/20w ci messages
+--message-file <file>` checks it beforehand.
+
 ## Discovery workflow
 
 No scientific field is out of scope merely because it appears unrelated to AI.

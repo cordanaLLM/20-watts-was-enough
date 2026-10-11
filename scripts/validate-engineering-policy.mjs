@@ -1237,6 +1237,37 @@ const ciImpactPlanSource = [
   '  < build/ci-impact-plan.json >> "$GITHUB_OUTPUT"',
 ].join("\n");
 
+const ciCommitMessageEnvironment = Object.freeze({
+  ...privateGoCommandEnvironment,
+  BEFORE_SHA: "${{ github.event.before }}",
+  CURRENT_SHA: "${{ github.sha }}",
+  EVENT_NAME: "${{ github.event_name }}",
+  HEAD_SHA: "${{ github.event.pull_request.head.sha }}",
+});
+
+const ciCommitMessageSource = [
+  "set -euo pipefail",
+  "zero_sha=0000000000000000000000000000000000000000",
+  'if [[ "$EVENT_NAME" == "pull_request" ]]; then',
+  "  # The test merge commit has the base tip and the pull-request head as its parents.",
+  '  base_tip="$(git rev-parse --verify "${CURRENT_SHA}^1^{commit}")"',
+  '  merged_head="$(git rev-parse --verify "${CURRENT_SHA}^2^{commit}")"',
+  '  if [[ "$merged_head" != "$HEAD_SHA" ]]; then',
+  '    echo "::error::The checked-out merge commit does not merge the pull-request head."',
+  "    exit 1",
+  "  fi",
+  "  go -C tooling run ./cmd/ci-plan messages --root .. \\",
+  '    --base "$base_tip" --head "$HEAD_SHA"',
+  'elif [[ "$EVENT_NAME" == "push" && "$BEFORE_SHA" != "$zero_sha" ]] \\',
+  '  && git merge-base --is-ancestor "$BEFORE_SHA" "$CURRENT_SHA"; then',
+  "  go -C tooling run ./cmd/ci-plan messages --root .. \\",
+  '    --base "$BEFORE_SHA" --head "$CURRENT_SHA"',
+  "else",
+  '  echo "::notice::No comparison range for this event; checking the tip commit message only."',
+  '  go -C tooling run ./cmd/ci-plan messages --root .. --head "$CURRENT_SHA"',
+  "fi",
+].join("\n");
+
 function impactPlanJobBoundaryIsExact(workflow, plan) {
   return [
     workflow?.defaults === undefined,
@@ -1294,11 +1325,23 @@ function impactPlanProjectionStepIsExact(planStep) {
   ].every(Boolean);
 }
 
+function impactPlanCommitMessageStepIsExact(messageStep) {
+  return [
+    Object.keys(messageStep?.env ?? {}).length === Object.keys(ciCommitMessageEnvironment).length,
+    propertiesMatch(messageStep?.env, ciCommitMessageEnvironment),
+    String(messageStep?.run ?? "").trim() === ciCommitMessageSource,
+    messageStep?.if === undefined,
+    messageStep?.shell === undefined,
+    continueOnErrorIsDisabled(messageStep),
+    Object.keys(messageStep ?? {}).every((key) => ["name", "env", "run"].includes(key)),
+  ].every(Boolean);
+}
+
 function impactPlanJobRunsExactProjection(workflow, plan) {
   const steps = plan?.steps ?? [];
   return [
     impactPlanJobBoundaryIsExact(workflow, plan),
-    steps.length === 3,
+    steps.length === 4,
     impactPlanCheckoutIsExact(steps[0]),
     impactPlanGoSetupIsExact(steps[1]),
     impactPlanProjectionStepIsExact(steps[2]),
@@ -1331,6 +1374,11 @@ function validateCiImpactPlanJob(workflow, jobs, relativePath, findings) {
     findings,
     impactPlanJobRunsExactProjection(workflow, plan),
     `${relativePath}: pull requests and comparable main pushes must use exact impact diffs, while unavailable push ancestry and manual runs must fail closed`,
+  );
+  recordExpectation(
+    findings,
+    impactPlanCommitMessageStepIsExact(plan?.steps?.[3]),
+    `${relativePath}: impact-plan must refuse tool or model attribution in every commit message that the accepted base does not reach`,
   );
 }
 
