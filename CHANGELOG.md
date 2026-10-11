@@ -7,6 +7,14 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- `20w ci messages` refuses a `Co-authored-by` trailer that names a tool or
+  model, and a generated-with footer, in commit messages. The `impact-plan`
+  job runs it on the commits a pull request or a push to `main` adds, so the
+  76 such lines already in history are not read and nothing is rewritten.
+  `--message-file` checks a squash body before the merge. Authorship stays
+  with people; material tool use is disclosed in the pull request or under
+  `research/disclosures/`. Decision 0093 records the rule.
+
 - `npm run record:book-provenance` re-records the book source digest in
   `public/downloads/book-manifest.json` and
   `scripts/book-pdf-semantic-baseline.json` without a render when the only

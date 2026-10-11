@@ -96,3 +96,4 @@ than silently changing its outcome.
 | [0090](0090-re-record-book-provenance-for-dependency-records.md) | Re-record book provenance for dependency records without a render | accepted |
 | [0091](0091-derive-plain-version-copies-and-keep-reviewed-literals.md) | Derive plain version copies and keep reviewed literals | accepted |
 | [0092](0092-exclude-the-clrs-generator-folder-from-update-proposals.md) | Exclude the CLRS generator folder from update proposals | accepted |
+| [0093](0093-refuse-tool-attribution-in-commit-messages.md) | Refuse tool attribution in commit messages | accepted |
