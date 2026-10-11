@@ -58,6 +58,14 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- Two npm advisories no longer reach the published site. `dompurify` moves
+  from 3.4.13 to 3.4.16 (GHSA-6688-9rhm-gjv2, GHSA-p98j-92pf-mc4p), and the
+  second KaTeX copy at 0.16.47 that `mermaid` and `micromark-extension-math`
+  pulled in is gone (GHSA-238p-pmpm-9mq7, fixed in 0.18.2): two `overrides`
+  entries now resolve both to the directly pinned `katex` 0.18.6, as
+  `rehype-katex` already did. `npm audit` reports 0 findings, down from 5.
+  `scripts/book-edition-surface.test.mjs` fails when either override is
+  removed.
 - Claims C-1377 to C-1385 labelled their status field `Evidence status`, so
   the coverage audit and the mechanism index read them as `unknown`. The field
   is now `Status`, as in every other claim; the status words are unchanged
