@@ -6,12 +6,24 @@
     ":dependencyDashboard",
     ":semanticCommits"
   ],
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/bower_components/**",
+    "**/vendor/**",
+    "**/examples/**",
+    "**/__tests__/**",
+    "**/test/**",
+    "**/tests/**",
+    "**/__fixtures__/**",
+    "tooling/clrs-generator/**"
+  ],
   "timezone": "Europe/Berlin",
   "schedule": ["before 6am on monday"],
   "minimumReleaseAge": "7 days",
   "internalChecksFilter": "strict",
   "prConcurrentLimit": 3,
   "prHourlyLimit": 2,
+  "rebaseWhen": "conflicted",
   "automerge": false,
   "lockFileMaintenance": {
     "enabled": true,
