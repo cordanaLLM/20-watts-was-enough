@@ -141,7 +141,7 @@
     "postcss": "8.5.28",
     "remark-parse": "11.0.0",
     "tailwindcss": "4.3.3",
-    "typescript": "6.0.3",
+    "typescript": "7.0.2",
     "typescript-eslint": "8.69.0",
     "unified": "11.0.5",
     "vite": "8.2.2",
