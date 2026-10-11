@@ -17,7 +17,7 @@ dependencies = [
   "tensorflow==2.21.0",
   "tfds-nightly>=4.9.6.dev202409060044",
   "toolz>=0.12.1",
-  "tqdm==4.70.0",
+  "tqdm==4.70.1",
 ]
 
 [tool.uv]
