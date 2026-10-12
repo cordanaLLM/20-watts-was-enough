@@ -86,8 +86,9 @@ the exact diff; this file records why the project changed.
   `scripts/npm-runtime-lock.json` and `scripts/install-locked-npm.mjs` names
   the new registry tarball by size (3054025 bytes) and SHA-256
   (`6666b48816b3`). The `packageManager` field, the install and verify steps in
-  `ci.yml`, `github-pages.yml` and `release.yml`, the engineering policy and
-  its test, and the contributor guide move with it. npm 12.2.0 leaves
+  `ci.yml`, `github-pages.yml` and `release.yml`, Renovate's `constraints.npm`
+  in `renovate.json`, the engineering policy and its test, and the
+  contributor guide move with it. npm 12.2.0 leaves
   `package-lock.json` unchanged. The installer is a book source, so the book
   is rendered again; the PDF is byte-identical and the provenance is
   re-recorded.
