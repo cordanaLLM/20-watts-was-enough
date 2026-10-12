@@ -42,18 +42,17 @@ func RetainedInputsRequired() bool {
 }
 
 // FetchRetainedInputs downloads the public, hash-locked CLRS source archive,
-// Promise sdist and Promise build wheels into a new directory. The layout is
-// the one reproduce-clrs-promise-wheel and the retained-input tests read.
+// Promise sdist, Promise build wheels and scanner bundle into a new
+// directory. The layout is the one reproduce-clrs-promise-wheel and the
+// retained-input tests read.
 func FetchRetainedInputs(ctx context.Context, root, output string) error {
 	files, err := retainedInputFiles(root)
 	if err != nil {
 		return err
 	}
 	client := &http.Client{
-		Timeout: retainedFetchTimeout,
-		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-			return errors.New("retained input download redirect refused")
-		},
+		Timeout:       retainedFetchTimeout,
+		CheckRedirect: retainedRedirect,
 	}
 	return fetchRetainedFiles(ctx, client, files, output)
 }
@@ -76,7 +75,11 @@ func retainedInputFiles(root string) ([]retainedInputFile, error) {
 	for _, wheel := range source.BuildRequirements {
 		files = append(files, retainedInputFile{"build-tools/" + wheel.Filename, wheel.URL, wheel.SHA256, wheel.SizeBytes})
 	}
-	return files, nil
+	sbom, err := LoadSBOMBundleLock(root)
+	if err != nil {
+		return nil, err
+	}
+	return append(files, sbom.retainedFiles()...), nil
 }
 
 func fetchRetainedFiles(ctx context.Context, client *http.Client, files []retainedInputFile, output string) error {

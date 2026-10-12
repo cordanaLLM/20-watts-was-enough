@@ -131,23 +131,28 @@ generation receipts. `NO_RESULT` and blocked image admission remain unchanged.
 
 ## Fetch the locked public inputs
 
-The source archive, the Promise sdist and its three build wheels are public
-downloads whose URLs, sizes and SHA-256 values live in
-[`lock-input.json`](lock-input.json) and [`wheelhouse.json`](wheelhouse.json).
-The command below reads those locks, downloads each file once over HTTPS
-without following redirects, and deletes any file whose size or SHA-256
-differs. The output directory must not exist yet.
+The source archive, the Promise sdist, its three build wheels and the five
+files of the candidate image's scanner bundle are public downloads whose URLs,
+sizes and SHA-256 values live in [`lock-input.json`](lock-input.json),
+[`wheelhouse.json`](wheelhouse.json) and [`sbom-bundle.json`](sbom-bundle.json).
+The scanner bundle is a prerelease asset of this repository; the lock also
+records the image manifest and config digests the bundle must match. The
+command below reads those locks and downloads each file once over HTTPS. It
+follows only the single redirect from a GitHub release download to GitHub's
+release-asset host, and deletes any file whose size or SHA-256 differs. The
+output directory must not exist yet.
 
 ```bash
 go -C tooling run ./cmd/20w experiment fetch-clrs-retained-inputs \
   --root .. --output /path/to/new-inputs
 ```
 
-The directory holds `clrs-source.tar.gz`, `source-build-inputs/` and
-`build-tools/`, the layout `reproduce-clrs-promise-wheel --inputs` reads.
+The directory holds `clrs-source.tar.gz`, `source-build-inputs/`,
+`build-tools/` and `sbom-bundle/`. The first three form the layout
+`reproduce-clrs-promise-wheel --inputs` reads.
 The Go lane and the full quality check run this command before `go test` and
-set `CLRS_PROMISE_TEST_INPUTS`, `CLRS_SOURCE_ARCHIVE_TEST_PATH` and
-`CLRS_RETAINED_INPUTS_REQUIRED=1`. With that switch set, a retained-input test
+set `CLRS_PROMISE_TEST_INPUTS`, `CLRS_SOURCE_ARCHIVE_TEST_PATH`,
+`CLRS_SBOM_BUNDLE` and `CLRS_RETAINED_INPUTS_REQUIRED=1`. With that switch set, a retained-input test
 whose input variable is unset fails instead of skipping. Without the switch,
 local runs keep skipping those tests. The fetched bytes are test inputs only;
 they carry no result and promote no claim.

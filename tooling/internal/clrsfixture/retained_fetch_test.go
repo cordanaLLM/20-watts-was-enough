@@ -22,6 +22,11 @@ func TestRetainedInputFilesFollowTrackedLocks(t *testing.T) {
 		"build-tools/packaging-26.3-py3-none-any.whl",
 		"build-tools/setuptools-84.0.0-py3-none-any.whl",
 		"build-tools/wheel-0.48.0-py3-none-any.whl",
+		"sbom-bundle/derivation-receipt.json",
+		"sbom-bundle/execution-record.json",
+		"sbom-bundle/image.spdx.json",
+		"sbom-bundle/scanner-statement.intoto.json",
+		"sbom-bundle/supplied-binding.json",
 	}
 	if len(files) != len(want) {
 		t.Fatalf("files = %+v", files)
