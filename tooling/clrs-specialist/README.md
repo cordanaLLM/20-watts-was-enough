@@ -173,7 +173,7 @@ for a released experiment or scientific comparison.
 
 ## Build and smoke
 
-From the repository root, build the checksum-pinned Go 1.27.1 builder and
+From the repository root, build the checksum-pinned Go 1.27.2 builder and
 scratch runtime:
 
 ```bash
