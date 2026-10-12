@@ -25,15 +25,15 @@ const LICENSE_OVERRIDES = Object.freeze({
 
 const VIRTUAL_MODULE_PACKAGES = Object.freeze({
   "\0rolldown/runtime.js": {
-    expectedIdentity: "rolldown@1.2.6",
+    expectedIdentity: "rolldown@1.2.12",
     packagePath: "node_modules/rolldown",
   },
   "\0vite/modulepreload-polyfill.js": {
-    expectedIdentity: "vite@8.2.2",
+    expectedIdentity: "vite@8.3.2",
     packagePath: "node_modules/vite",
   },
   "\0vite/preload-helper.js": {
-    expectedIdentity: "vite@8.2.2",
+    expectedIdentity: "vite@8.3.2",
     packagePath: "node_modules/vite",
   },
 });
