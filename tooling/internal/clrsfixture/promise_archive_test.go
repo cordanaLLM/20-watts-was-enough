@@ -311,6 +311,9 @@ func TestRetainedPromiseArchiveInputs(t *testing.T) {
 	sourcePath := os.Getenv("CLRS_PROMISE_TEST_SOURCE")
 	wheelPath := os.Getenv("CLRS_PROMISE_TEST_WHEEL")
 	if sourcePath == "" && wheelPath == "" {
+		if RetainedInputsRequired() {
+			t.Fatal(RetainedInputsRequiredVariable + "=1 but CLRS_PROMISE_TEST_SOURCE and CLRS_PROMISE_TEST_WHEEL are unset")
+		}
 		t.Skip("set explicit CLRS_PROMISE_TEST_SOURCE and CLRS_PROMISE_TEST_WHEEL for retained-byte inspection")
 	}
 	if sourcePath == "" || wheelPath == "" {

@@ -361,6 +361,9 @@ func TestPromiseRetainedInputsExerciseCompleteFakeConsumer(t *testing.T) {
 	directory := os.Getenv("CLRS_PROMISE_TEST_INPUTS")
 	wheelPath := os.Getenv("CLRS_PROMISE_TEST_WHEEL")
 	if directory == "" || wheelPath == "" {
+		if RetainedInputsRequired() {
+			t.Fatal(RetainedInputsRequiredVariable + "=1 but CLRS_PROMISE_TEST_INPUTS or CLRS_PROMISE_TEST_WHEEL is unset")
+		}
 		t.Skip("explicit retained artifact paths not supplied")
 	}
 	inputs, err := readPromiseInputs(trackedRepositoryRoot(t), directory)

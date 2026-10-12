@@ -147,7 +147,10 @@ The directory holds `clrs-source.tar.gz`, `source-build-inputs/` and
 `build-tools/`, the layout `reproduce-clrs-promise-wheel --inputs` reads.
 The Go lane and the full quality check run this command before `go test` and
 set `CLRS_PROMISE_TEST_INPUTS`, `CLRS_SOURCE_ARCHIVE_TEST_PATH` and
-`CLRS_RETAINED_INPUTS_REQUIRED=1`. With that switch set, a retained-input test
+`CLRS_RETAINED_INPUTS_REQUIRED=1`. They then pull the builder image named in
+`wheelhouse.json`, run `reproduce-clrs-promise-wheel` below on the fetched
+inputs, and set `CLRS_PROMISE_TEST_SOURCE` and `CLRS_PROMISE_TEST_WHEEL` to the
+sdist and the first reproduced wheel. With that switch set, a retained-input test
 whose input variable is unset fails instead of skipping. Without the switch,
 local runs keep skipping those tests. The fetched bytes are test inputs only;
 they carry no result and promote no claim.
