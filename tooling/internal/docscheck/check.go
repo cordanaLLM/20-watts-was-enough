@@ -57,6 +57,9 @@ var excludedDirectories = map[string]struct{}{
 	".cache": {}, ".git": {}, ".next": {}, ".openai": {}, ".vinext": {},
 	".vite": {}, ".workingdir2": {}, ".wrangler": {}, "build": {}, "dist": {},
 	"dist-github-pages": {}, "node_modules": {}, "tmp": {},
+	// .workingdir is the Praetor engine's private state folder, ignored by Git. It
+	// holds backups of the files an adoption run replaces.
+	".workingdir": {},
 	// worktrees holds agent-harness checkouts of this repository; scanning them would
 	// count every document twice.
 	"worktrees": {},
@@ -91,9 +94,11 @@ type Result struct {
 }
 
 type collector struct {
-	errors    []string
-	warnings  []string
-	truncated bool
+	errors             []string
+	warnings           []string
+	truncated          bool
+	run                options
+	usedLinkExceptions map[int]struct{}
 }
 
 func (c *collector) addError(format string, arguments ...any) {
@@ -122,6 +127,13 @@ type markdownDocument struct {
 
 // Validate checks documentation below repositoryRoot without changing files.
 func Validate(repositoryRoot string) Result {
+	return validateWith(repositoryRoot, defaultOptions())
+}
+
+func validateWith(repositoryRoot string, run options) Result {
+	if findings := validateOptions(run); len(findings) != 0 {
+		return Result{Errors: findings}
+	}
 	root, err := filepath.Abs(repositoryRoot)
 	if err != nil {
 		return Result{Errors: []string{fmt.Sprintf("resolve repository root: %v", err)}}
@@ -131,12 +143,13 @@ func Validate(repositoryRoot string) Result {
 		return Result{Errors: []string{fmt.Sprintf("resolve repository root symlinks: %v", err)}}
 	}
 
-	report := &collector{}
+	report := &collector{run: run, usedLinkExceptions: make(map[int]struct{}, len(run.linkExceptions))}
 	documents, markdownComplete := loadMarkdown(realRoot, report)
 	for _, document := range documents {
 		validateLinks(realRoot, document, report)
 		validateControlCharacters(document, report)
 	}
+	report.reportUnusedLinkExceptions()
 
 	definedClaims := validateClaims(documents, report)
 	definedPrinciples := validatePrinciples(documents, report)
@@ -157,7 +170,8 @@ func Validate(repositoryRoot string) Result {
 }
 
 // readMarkdownDocument reads one bounded Markdown file and reports whether it
-// belongs in the inventory. A generated agent harness is read but excluded.
+// belongs in the inventory. A generated agent harness and a byte-identical
+// client rendering of a skill are read but excluded.
 func readMarkdownDocument(root, path string, entry fs.DirEntry, totalBytes *int64) (markdownDocument, bool, error) {
 	info, infoErr := entry.Info()
 	if infoErr != nil {
@@ -174,7 +188,7 @@ func readMarkdownDocument(root, path string, entry fs.DirEntry, totalBytes *int6
 	if readErr != nil {
 		return markdownDocument{}, false, fmt.Errorf("read %s: %w", relativePath(root, path), readErr)
 	}
-	if isCompiledAgentHarness(content) {
+	if isCompiledAgentHarness(content) || isRenderedSkillCopy(root, relativePath(root, path), content) {
 		return markdownDocument{}, false, nil
 	}
 	return markdownDocument{absolute: path, relative: relativePath(root, path), content: content}, true, nil
@@ -296,10 +310,10 @@ func validateLocalTarget(root string, document markdownDocument, raw string, rep
 		return
 	}
 	if _, err := os.Stat(candidate); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			report.addError("Broken link in %s: %s", document.relative, raw)
-		} else {
+		if !errors.Is(err, os.ErrNotExist) {
 			report.addError("Inspect link in %s: %s (%v)", document.relative, raw, err)
+		} else if !report.admitsBrokenLink(document.relative, raw) {
+			report.addError("Broken link in %s: %s", document.relative, raw)
 		}
 		return
 	}

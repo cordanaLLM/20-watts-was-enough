@@ -12,7 +12,7 @@ import (
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/ciplan"
 )
 
-// Run dispatches only the private plan and project commands.
+// Run dispatches only the private plan, project and messages commands.
 func Run(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(arguments) > 0 {
 		switch arguments[0] {
@@ -20,9 +20,11 @@ func Run(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			return RunPlan(arguments[1:], stdout, stderr)
 		case "project":
 			return RunProject(arguments[1:], stdin, stdout, stderr)
+		case "messages":
+			return RunMessages(arguments[1:], stdout, stderr)
 		}
 	}
-	fmt.Fprintln(stderr, "Usage: ci-plan plan [options] | ci-plan project")
+	fmt.Fprintln(stderr, "Usage: ci-plan plan [options] | ci-plan project | ci-plan messages [options]")
 	return 2
 }
 
