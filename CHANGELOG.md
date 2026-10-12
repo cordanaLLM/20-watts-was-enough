@@ -253,6 +253,16 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- Go vulnerability scanning can no longer pass without scanning. The
+  pre-push hook in `lefthook-local.yml` printed "govulncheck is not
+  installed, skipping" and exited 0 when the tool was absent, and no workflow
+  ran govulncheck. `tooling/tools/go.mod` now pins govulncheck v1.8.0 with a
+  `tool` directive, and `20w security govulncheck` runs it from there. Each
+  run first scans a planted module that calls `language.Parse` from
+  `golang.org/x/text` v0.3.5 and fails unless the scanner reports
+  GO-2021-0113; only then does it scan `tooling/`, and any reachable finding
+  or scanner error fails. The pre-push hook, the `Go lane` job and the
+  `Full quality` job run the command.
 - The book renderer no longer stops when Chrome serves its DevTools target
   list before the first page target exists. `devtoolsPage` in
   `scripts/lib/chromium-cdp.mjs` read `/json/list` once and failed with
