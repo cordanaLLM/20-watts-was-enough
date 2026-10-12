@@ -24,7 +24,7 @@ test("the runtime policy rejects version drift before experiment work starts", (
   assert.deepEqual(validateNodeRuntimePolicy({
     ...validObservation,
     node_version: "26.7.0",
-  }), ["Node.js 26.8.1 is required; observed 26.7.0"]);
+  }), ["Node.js 26.10.0 is required; observed 26.7.0"]);
 });
 
 test("the runtime policy rejects a numerically divergent vendor build", () => {
@@ -39,6 +39,6 @@ test("the runtime policy rejects a numerically divergent vendor build", () => {
       ...validObservation,
       numeric_sentinel_json: "2.6077625303838716",
     }),
-    /official Node\.js 26\.8\.1 binary or the pinned experiment container/u,
+    /official Node\.js 26\.10\.0 binary or the pinned experiment container/u,
   );
 });

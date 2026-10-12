@@ -82,6 +82,20 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- The Node.js runtime moves from 26.8.1 to 26.10.0, the newest release past the
+  seven-day update delay. Node.js 26.8.2 updated OpenSSL to 3.5.8 and Undici to
+  8.10.2; 26.9.0 and 26.10.0 add APIs that no project code uses yet. The
+  version file, `engines`, the lock (`@types/node` 26.6.4), the workstation
+  runtime policy, both container base images and the PDF renderer's Node.js
+  image (index digests read from Docker Hub on 2026-10-12), the workflow
+  container checks, the experiment manifests, Renovate's `constraints.node` in
+  `renovate.json` and the policy tests move together. The Fixture 026 numeric
+  sentinel serialises unchanged on 26.10.0. The Fixture 026 RSD-T02 runner
+  release binds the runtime policy file by exact bytes, so its closure entry,
+  the release digests, and the null-maturation design that names them are
+  re-bound; the release stays `NO_RESULT` development infrastructure. No seed,
+  configuration, protocol or result authority changes.
+
 - The Go toolchain moves from 1.27.1 to 1.27.2. The builder image
   `golang:1.27.2-trixie` is pinned by digest `e58d6f83b341` in
   `tooling/Dockerfile` and `tooling/clrs-specialist/Dockerfile`, and the
