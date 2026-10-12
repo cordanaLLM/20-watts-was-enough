@@ -48,6 +48,7 @@ func usage(writer io.Writer) {
 	fmt.Fprintln(writer, "Usage:")
 	fmt.Fprintln(writer, "  20w ci plan [--root <repository>] [--base <commit> --head <commit> | --full] [--json]")
 	fmt.Fprintln(writer, "  20w ci project")
+	fmt.Fprintln(writer, "  20w ci messages [--root <repository>] (--head <commit> [--base <commit>] | --message-file <file>)")
 	fmt.Fprintln(writer, "  20w ci run-workstation [--root <repository>]")
 	fmt.Fprintln(writer, "  20w validate docs [--root <repository>]")
 	fmt.Fprintln(writer, "  20w validate relations [--root <repository>]")
@@ -118,6 +119,7 @@ func subcommands() map[string]map[string]subcommand {
 			"project": func(arguments []string, stdout, stderr io.Writer) int {
 				return runCIProject(arguments, os.Stdin, stdout, stderr)
 			},
+			"messages":        ciplancli.RunMessages,
 			"run-workstation": runCIWorkstation,
 		},
 		"validate": {"docs": runValidateDocs, "relations": runValidateRelations},

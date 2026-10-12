@@ -5,8 +5,13 @@ import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
 import tseslint from "typescript-eslint";
+import {
+  currentCalendarDay,
+  LINT_EXCEPTIONS,
+  lintExceptionOverrides,
+} from "./scripts/lib/engine-file-exceptions.mjs";
 
-const eslintConfig = defineConfig([
+const baseConfig = [
   globalIgnores([
     ".next/**",
     ".vinext/**",
@@ -36,6 +41,17 @@ const eslintConfig = defineConfig([
       },
     },
   },
-]);
+];
+
+// The dated engine-file exceptions come last so that they alone decide the
+// rules they name. An expired entry adds nothing (decision 0095, point 10).
+export function createEslintConfig({
+  exceptions = LINT_EXCEPTIONS,
+  today = currentCalendarDay(),
+} = {}) {
+  return defineConfig([...baseConfig, ...lintExceptionOverrides(exceptions, today)]);
+}
+
+const eslintConfig = createEslintConfig();
 
 export default eslintConfig;

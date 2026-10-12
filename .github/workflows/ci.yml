@@ -14,10 +14,15 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Praetor engine commit the local hooks and `make verify-all` run. Read by
+  # .config/lefthook/engine.sh on the workstation; no job in this workflow uses it.
+  PRAETOR_REF: 9bf502ec6ce585110f37bf7c9e08d854d957d550
+
 jobs:
   impact-plan:
     name: CI impact plan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -94,12 +99,48 @@ jobs:
           test -s build/ci-impact-plan.json
           go -C tooling run ./cmd/ci-plan project \
             < build/ci-impact-plan.json >> "$GITHUB_OUTPUT"
+      - name: Refuse tool attribution in new commit messages
+        env:
+          CGO_ENABLED: "0"
+          GOOS: "linux"
+          GOARCH: "amd64"
+          GOENV: "off"
+          GOWORK: "off"
+          GOTOOLCHAIN: "local"
+          GOFLAGS: "-mod=readonly"
+          GOPROXY: "off"
+          GOSUMDB: "off"
+          BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          zero_sha=0000000000000000000000000000000000000000
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            # The test merge commit has the base tip and the pull-request head as its parents.
+            base_tip="$(git rev-parse --verify "${CURRENT_SHA}^1^{commit}")"
+            merged_head="$(git rev-parse --verify "${CURRENT_SHA}^2^{commit}")"
+            if [[ "$merged_head" != "$HEAD_SHA" ]]; then
+              echo "::error::The checked-out merge commit does not merge the pull-request head."
+              exit 1
+            fi
+            go -C tooling run ./cmd/ci-plan messages --root .. \
+              --base "$base_tip" --head "$HEAD_SHA"
+          elif [[ "$EVENT_NAME" == "push" && "$BEFORE_SHA" != "$zero_sha" ]] \
+            && git merge-base --is-ancestor "$BEFORE_SHA" "$CURRENT_SHA"; then
+            go -C tooling run ./cmd/ci-plan messages --root .. \
+              --base "$BEFORE_SHA" --head "$CURRENT_SHA"
+          else
+            echo "::notice::No comparison range for this event; checking the tip commit message only."
+            go -C tooling run ./cmd/ci-plan messages --root .. --head "$CURRENT_SHA"
+          fi
 
   quality-full:
     name: Full quality
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     permissions:
       contents: read
@@ -117,13 +158,13 @@ jobs:
       - name: Use the locked Python runtime
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.14.7'
+          python-version: '3.14.8'
       - name: Install the locked scientific runtime
         run: python -m pip install --disable-pip-version-check --no-deps --require-hashes -r requirements-ci.txt
       - name: Use Node.js 26
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 26.8.1
+          node-version-file: .node-version
           cache: npm
       - name: Install locked npm 12.0.2
         run: node scripts/install-locked-npm.mjs
@@ -154,7 +195,7 @@ jobs:
     name: Impact common
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'impact'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -166,7 +207,7 @@ jobs:
       - name: Use Node.js 26
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 26.8.1
+          node-version-file: .node-version
           cache: npm
       - name: Install locked npm 12.0.2
         run: node scripts/install-locked-npm.mjs
@@ -181,7 +222,7 @@ jobs:
     name: Go lane
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.go == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     permissions:
       contents: read
@@ -202,7 +243,7 @@ jobs:
     name: Release lane
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.release == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -220,7 +261,7 @@ jobs:
       - name: Use Node.js 26
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 26.8.1
+          node-version-file: .node-version
           cache: npm
       - name: Install locked npm 12.0.2
         run: node scripts/install-locked-npm.mjs
@@ -235,7 +276,7 @@ jobs:
     name: PDF renderer reproducibility
     needs: impact-plan
     if: needs.impact-plan.outputs.renderer == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 75
     permissions:
       contents: read
@@ -252,7 +293,7 @@ jobs:
       - name: Use Node.js 26
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 26.8.1
+          node-version-file: .node-version
           cache: npm
       - name: Install locked npm 12.0.2
         run: node scripts/install-locked-npm.mjs
@@ -261,9 +302,9 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit
       - name: Set up the locked PDF Docker Buildx client
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
-          version: v0.36.1
+          version: v0.37.2
           driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
       - name: Restore the PDF renderer build cache
         id: pdf-renderer-cache
@@ -329,7 +370,7 @@ jobs:
     name: Research lane
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.research == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -346,7 +387,7 @@ jobs:
       - name: Use Node.js 26
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 26.8.1
+          node-version-file: .node-version
           cache: npm
       - name: Install locked npm 12.0.2
         run: node scripts/install-locked-npm.mjs
@@ -361,7 +402,7 @@ jobs:
     name: Site lane
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.site == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -374,7 +415,7 @@ jobs:
       - name: Use Node.js 26
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 26.8.1
+          node-version-file: .node-version
           cache: npm
       - name: Install locked npm 12.0.2
         run: node scripts/install-locked-npm.mjs
@@ -389,7 +430,7 @@ jobs:
     name: Workstation core
     needs: impact-plan
     if: needs.impact-plan.outputs.workstation_any == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     permissions:
       contents: read
@@ -401,7 +442,7 @@ jobs:
       - name: Use Node.js 26
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 26.8.1
+          node-version-file: .node-version
           cache: npm
       - name: Install locked npm 12.0.2
         run: node scripts/install-locked-npm.mjs
@@ -416,7 +457,7 @@ jobs:
     name: Workstation test (${{ matrix.artifact }})
     needs: impact-plan
     if: needs.impact-plan.outputs.workstation_any == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -435,14 +476,14 @@ jobs:
         if: matrix.artifact == 'fixture-019'
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.14.7'
+          python-version: '3.14.8'
       - name: Install the locked scientific runtime for Fixture 019
         if: matrix.artifact == 'fixture-019'
         run: python -m pip install --disable-pip-version-check --no-deps --require-hashes -r requirements-ci.txt
       - name: Use Node.js 26
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 26.8.1
+          node-version-file: .node-version
           cache: npm
       - name: Install locked npm 12.0.2
         run: node scripts/install-locked-npm.mjs
@@ -459,7 +500,7 @@ jobs:
     name: Container smoke paths
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full' || needs.impact-plan.outputs.container == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 35
     permissions:
       contents: read
@@ -483,12 +524,12 @@ jobs:
           go-version-file: tooling/go.mod
           cache-dependency-path: tooling/go.sum
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
-          version: v0.36.1
+          version: v0.37.2
           driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
       - name: Build the static 20w image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: tooling/Dockerfile
@@ -516,7 +557,7 @@ jobs:
             --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/repo,readonly" \
             20w-tooling:test experiment list --root /repo --json
       - name: Build the CLRS shakedown specialist image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: tooling/clrs-specialist/Dockerfile
@@ -560,7 +601,7 @@ jobs:
       - name: Package the closed Fixture 007 runtime context
         run: go -C tooling run ./cmd/20w experiment package-node-image --root .. --artifact fixture-007 --output ../build/container-contexts/fixture-007
       - name: Build the Fixture 007 image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: build/container-contexts/fixture-007
           file: experiments/workstation/Dockerfile.node-artifact
@@ -602,7 +643,7 @@ jobs:
       - name: Package the closed Fixture 019 runtime context
         run: go -C tooling run ./cmd/20w experiment package-node-image --root .. --artifact fixture-019 --output ../build/container-contexts/fixture-019
       - name: Build the Fixture 019 image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: build/container-contexts/fixture-019
           file: experiments/workstation/fixture-019/Dockerfile
@@ -621,7 +662,7 @@ jobs:
           docker run --rm --pull never --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             --entrypoint sh 20w-fixture-019:test -c \
-            'test "$(node --version)" = "v26.8.1" && test "$(python --version)" = "Python 3.14.7" && python -c "import numpy; assert numpy.__version__ == \"2.5.2\""'
+            'test "$(node --version)" = "v26.8.1" && test "$(python --version)" = "Python 3.14.8" && python -c "import numpy; assert numpy.__version__ == \"2.5.2\""'
           docker run --rm --pull never --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             20w-fixture-019:test prepare --profile smoke
@@ -648,7 +689,7 @@ jobs:
     name: Dependency review
     needs: impact-plan
     if: github.event_name == 'pull_request' && (needs.impact-plan.outputs.mode == 'full' || needs.impact-plan.outputs.dependency == 'true')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -674,7 +715,7 @@ jobs:
       - workstation-artifacts
       - container-smoke
       - dependency-review
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Require every expected gate state
