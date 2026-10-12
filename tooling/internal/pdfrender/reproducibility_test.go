@@ -419,7 +419,7 @@ type reproducibilityExecutor struct {
 func (executor *reproducibilityExecutor) run(_ context.Context, request commandRequest) ([]byte, error) {
 	executor.requests = append(executor.requests, request)
 	if slices.Equal(request.arguments, []string{"buildx", "version"}) {
-		return []byte("github.com/docker/buildx 0.36.1 1d8dde89b8aba914e05e45366770736fea1fd690\n"), nil
+		return []byte("github.com/docker/buildx 0.37.2 2d379c0c3f22da0d2759d132a0ec81ca949098f0\n"), nil
 	}
 	if len(request.arguments) > 1 && slices.Equal(request.arguments[:2], []string{"buildx", "build"}) {
 		index := executor.buildCount

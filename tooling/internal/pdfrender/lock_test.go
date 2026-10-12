@@ -161,7 +161,7 @@ func TestCheckRejectsAnUnboundBuilderIdentity(t *testing.T) {
 	t.Parallel()
 	for name, mutate := range map[string]func(string) string{
 		"short-buildx-revision": func(body string) string {
-			return strings.Replace(body, "1d8dde89b8aba914e05e45366770736fea1fd690", "1d8dde89", 1)
+			return strings.Replace(body, "2d379c0c3f22da0d2759d132a0ec81ca949098f0", "2d379c0c", 1)
 		},
 		"mutable-buildkit-image": func(body string) string {
 			return strings.Replace(
