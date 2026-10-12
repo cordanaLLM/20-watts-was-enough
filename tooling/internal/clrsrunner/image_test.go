@@ -22,7 +22,7 @@ func TestImageDefinitionKeepsPinnedStaticRuntimeAndHardenedSmoke(t *testing.T) {
 		t.Fatal("CLRS specialist Dockerfile builder differs from the repository Go builder")
 	}
 	if strings.Count(dockerfile, "FROM ") != 2 || !strings.HasPrefix(dockerfile,
-		"FROM golang:1.27.1-trixie@sha256:9baa6b4187bbb98d240372a8a235ac0bb6b5ddd52bba1431dc2f7c0705862728 AS builder\n") {
+		"FROM golang:1.27.2-trixie@sha256:e58d6f83b3416618d8bcac2b3dde1b7f7e3c4a77d25e88637f8bbae81536c48d AS builder\n") {
 		t.Fatal("CLRS specialist Dockerfile lost its exact two-stage pinned builder")
 	}
 	for _, required := range []string{

@@ -37,7 +37,7 @@ before marking it ready for review.
 The complete validation gate currently binds these development tools:
 
 - Git;
-- Go 1.27.1 from `tooling/go.mod`;
+- Go 1.27.2 from `tooling/go.mod`;
 - the official Node.js 26.8.1 distribution or a pinned project container;
 - npm 12.0.2 with the committed `package-lock.json`;
 - CPython 3.14.8 with NumPy 2.5.2; and
