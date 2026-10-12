@@ -95,7 +95,7 @@ const approvedActionPins = new Map([
   ["actions/checkout", "3d3c42e5aac5ba805825da76410c181273ba90b1"],
   ["actions/configure-pages", "45bfe0192ca1faeb007ade9deae92b16b8254a0d"],
   ["actions/dependency-review-action", "a1d282b36b6f3519aa1f3fc636f609c47dddb294"],
-  ["actions/deploy-pages", "cd2ce8fcbc39b97be8ca5fce6e763baed58fa128"],
+  ["actions/deploy-pages", "368f82528645a54fb793d4d04e342629a3f51346"],
   ["actions/download-artifact", "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"],
   ["actions/labeler", "bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13"],
   ["actions/setup-go", "b7ad1dad31e06c5925ef5d2fc7ad053ef454303e"],
@@ -103,13 +103,13 @@ const approvedActionPins = new Map([
   ["actions/setup-python", "5fda3b95a4ea91299a34e894583c3862153e4b97"],
   ["actions/upload-artifact", "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"],
   ["actions/upload-pages-artifact", "fc324d3547104276b827a68afc52ff2a11cc49c9"],
-  ["docker/build-push-action", "53b7df96c91f9c12dcc8a07bcb9ccacbed38856a"],
+  ["docker/build-push-action", "c3c9e263c25d99ce0380d002d59b67737d91b0dc"],
   ["docker/login-action", "dbcb813823bdd20940b903addbd779551569679f"],
   ["docker/metadata-action", "dc802804100637a589fabce1cb79ff13a1411302"],
-  ["docker/setup-buildx-action", "37fe631027851001ddb9b187196cc803df7f5f0e"],
-  ["github/codeql-action/analyze", "cdf488f595d80d6e07e03d4674febd5ab45fa938"],
-  ["github/codeql-action/init", "cdf488f595d80d6e07e03d4674febd5ab45fa938"],
-  ["github/codeql-action/upload-sarif", "cdf488f595d80d6e07e03d4674febd5ab45fa938"],
+  ["docker/setup-buildx-action", "f87e5991a6d7451dcb8d9637bfbc97413f497069"],
+  ["github/codeql-action/analyze", "2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2"],
+  ["github/codeql-action/init", "2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2"],
+  ["github/codeql-action/upload-sarif", "2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2"],
   ["ossf/scorecard-action", "2d1146689b8cda280b9bc96326124645441f03bc"],
 ]);
 
@@ -1034,7 +1034,7 @@ export function validateCiFuzzingWorkflowObject(
   return findings;
 }
 
-const pdfReproducibilitySetupAction = "docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e";
+const pdfReproducibilitySetupAction = "docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069";
 const pdfReproducibilityBuildKit = "image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8";
 const privateGoCommandEnvironment = Object.freeze({
   CGO_ENABLED: "0",
