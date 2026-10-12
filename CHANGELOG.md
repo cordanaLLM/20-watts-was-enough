@@ -89,8 +89,12 @@ the exact diff; this file records why the project changed.
   runtime policy, both container base images and the PDF renderer's Node.js
   image (index digests read from Docker Hub on 2026-10-12), the workflow
   container checks, the experiment manifests, Renovate's `constraints.node` in
-  `renovate.json` and the policy tests move together. The Fixture 026 numeric sentinel serialises unchanged on 26.10.0.
-  No seed, configuration, protocol or result authority changes.
+  `renovate.json` and the policy tests move together. The Fixture 026 numeric
+  sentinel serialises unchanged on 26.10.0. The Fixture 026 RSD-T02 runner
+  release binds the runtime policy file by exact bytes, so its closure entry,
+  the release digests, and the null-maturation design that names them are
+  re-bound; the release stays `NO_RESULT` development infrastructure. No seed,
+  configuration, protocol or result authority changes.
 
 - The Fixture 019 runtime moves from NumPy 2.5.2 to 2.5.3, a bug-fix release
   (StringDType UTF-8 validation, a masked-array fill-value fix and typing

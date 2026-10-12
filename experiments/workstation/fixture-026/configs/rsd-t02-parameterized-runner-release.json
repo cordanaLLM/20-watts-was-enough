@@ -80,7 +80,7 @@
     {
       "role": "node-runtime-policy",
       "path": "../lib/node-runtime-policy.mjs",
-      "sha256_exact_bytes": "59289a91c9e5541fd8ab89655492be962a0b799980da330ff89bbb3f9139423f"
+      "sha256_exact_bytes": "1432e28d6eb26b4c700a092dc65913bc7eb3486f7ae288465765ae0b85b8b8d8"
     },
     {
       "role": "population-contract",
