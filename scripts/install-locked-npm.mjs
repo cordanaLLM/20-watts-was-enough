@@ -31,10 +31,10 @@ const verifyOutputBytes = 4_096;
 
 export const EXPECTED_NPM_RUNTIME_LOCK = Object.freeze({
   schema: 1,
-  version: "12.0.2",
-  url: "https://registry.npmjs.org/npm/-/npm-12.0.2.tgz",
-  size: 3_045_132,
-  sha256: "5dbb86c71d07a1957f2e90734092dd6a58bdcd9ebc2d8d41ca1c6e6a21d364e1",
+  version: "12.2.0",
+  url: "https://registry.npmjs.org/npm/-/npm-12.2.0.tgz",
+  size: 3_054_025,
+  sha256: "6666b48816b39b86c3febac7b51a4ee4de6c5ca589c382ad8004b6b113f86677",
 });
 
 function refuse(reason) {
