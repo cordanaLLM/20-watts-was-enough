@@ -272,6 +272,15 @@ the exact diff; this file records why the project changed.
   GO-2021-0113; only then does it scan `tooling/`, and any reachable finding
   or scanner error fails. The pre-push hook, the `Go lane` job and the
   `Full quality` job run the command.
+
+- The CI step that rejects a code-shape baseline reset no longer passes when
+  it has nothing to compare. It used to print "No prior code-shape baseline"
+  and exit 0 whenever the base commit was empty, absent from the checkout or
+  without a recorded baseline. `node scripts/audit-code-shape.mjs
+  --base-revision <sha>` now reads the baseline at the base commit and fails
+  in each of those cases; `scripts/audit-code-shape.test.mjs` plants all
+  three.
+
 - The book renderer no longer stops when Chrome serves its DevTools target
   list before the first page target exists. `devtoolsPage` in
   `scripts/lib/chromium-cdp.mjs` read `/json/list` once and failed with
