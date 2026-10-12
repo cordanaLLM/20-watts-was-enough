@@ -82,6 +82,15 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Vite moves from 8.2.2 to 8.3.2, which brings Rolldown 1.2.12 in place of
+  1.2.6. The site's notice list names the exact versions of the bundler
+  runtime modules it ships, so `scripts/lib/third-party-notices.mjs` and its
+  test now expect the new versions, and `THIRD_PARTY_NOTICES.txt` is
+  regenerated. The set of credited packages is unchanged; the Vite section
+  moves because its licence file now lists other bundled dependencies. The
+  package lock is a book render input, so the book provenance record is
+  re-recorded for it (Decision 0090).
+
 - `main` admits squash merges only. The maintainer switched rebase merges off
   on 2026-10-11 in the repository setting and in ruleset `21746706`; both
   values were read back through the API that day. A pull request that carries
