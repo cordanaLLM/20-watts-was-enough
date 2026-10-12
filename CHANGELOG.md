@@ -82,6 +82,17 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- npm moves from 12.0.2 to 12.2.0. The locked archive in
+  `scripts/npm-runtime-lock.json` and `scripts/install-locked-npm.mjs` names
+  the new registry tarball by size (3054025 bytes) and SHA-256
+  (`6666b48816b3`). The `packageManager` field, the install and verify steps in
+  `ci.yml`, `github-pages.yml` and `release.yml`, Renovate's `constraints.npm`
+  in `renovate.json`, the engineering policy and its test, and the
+  contributor guide move with it. npm 12.2.0 leaves
+  `package-lock.json` unchanged. The installer is a book source, so the book
+  is rendered again; the PDF is byte-identical and the provenance is
+  re-recorded.
+
 - The tooling's Markdown parser goldmark moves from v2.0.1 to v2.1.6:
   parser fixes for tabs, setext headings, link reference definitions and
   code-span indices, plus one new parser option. The engineering policy
@@ -89,6 +100,7 @@ the exact diff; this file records why the project changed.
   `scripts/validate-engineering-policy.mjs` now names v2.1.6, and the stale
   v2.0.1 checksums leave `tooling/go.sum`. The Go module files are
   render-free book sources, so the book provenance is re-recorded without
+  a render (Decision 0090).
 
 - The Node.js runtime moves from 26.8.1 to 26.10.0, the newest release past the
   seven-day update delay. Node.js 26.8.2 updated OpenSSL to 3.5.8 and Undici to
