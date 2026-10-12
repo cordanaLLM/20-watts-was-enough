@@ -3178,7 +3178,26 @@ test("the update bot leaves the CLRS generator folder alone and keeps the preset
     validateRenovateConfigObject({ ...config, packageRules: [{ automerge: true }] }),
     ["renovate.json: automerge stays disabled until required CI and repository rules are verified"],
   );
-  assert.equal(validateRenovateConfigObject(null).length, 10);
+  assert.equal(validateRenovateConfigObject(null).length, 12);
+});
+
+test("the update bot updates lock files with the pinned Node and npm", () => {
+  const config = JSON.parse(readFileSync(new URL("../renovate.json", import.meta.url), "utf8"));
+  const node = readFileSync(new URL("../.node-version", import.meta.url), "utf8").trim();
+  const npm = JSON.parse(readFileSync(new URL("./npm-runtime-lock.json", import.meta.url), "utf8")).version;
+  assert.deepEqual(config.constraints, { node, npm });
+  assert.deepEqual(validateRenovateConfigObject(config), []);
+  const nodeFinding = `renovate.json: constraints.node must be ${JSON.stringify(node)}`;
+  const npmFinding = `renovate.json: constraints.npm must be ${JSON.stringify(npm)}`;
+  const withConstraints = (constraints) => validateRenovateConfigObject({ ...config, constraints });
+  assert.deepEqual(withConstraints(undefined), [nodeFinding, npmFinding]);
+  assert.deepEqual(withConstraints({}), [nodeFinding, npmFinding]);
+  assert.deepEqual(withConstraints({ npm }), [nodeFinding]);
+  assert.deepEqual(withConstraints({ node }), [npmFinding]);
+  assert.deepEqual(withConstraints({ node: "26.10.0", npm }), [nodeFinding]);
+  assert.deepEqual(withConstraints({ node: `^${node}`, npm }), [nodeFinding]);
+  assert.deepEqual(withConstraints({ node, npm: "12.2.0-pre" }), [npmFinding]);
+  assert.deepEqual(withConstraints({ node: Number.parseInt(node, 10), npm }), [nodeFinding]);
 });
 
 test("no update group of the bot carries a workflow tool version", () => {
