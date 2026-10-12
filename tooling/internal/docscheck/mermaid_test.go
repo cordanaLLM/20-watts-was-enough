@@ -21,7 +21,7 @@ func TestValidateRejectsUnbaselinedMarkdownToMMDMermaidDuplicate(t *testing.T) {
 	root := validRepository(t)
 	writeFile(t, root, "docs/duplicate.md", mermaidFence("```", exampleMermaidBody))
 
-	assertMermaidDiagnostic(t, Validate(root), "Unbaselined duplicate Mermaid body")
+	assertMermaidDiagnostic(t, validateFixture(root), "Unbaselined duplicate Mermaid body")
 }
 
 func TestValidateRejectsUnbaselinedMarkdownToMarkdownMermaidDuplicate(t *testing.T) {
@@ -31,7 +31,7 @@ func TestValidateRejectsUnbaselinedMarkdownToMarkdownMermaidDuplicate(t *testing
 	writeFile(t, root, "docs/left.md", mermaidFence("```", body))
 	writeFile(t, root, "docs/right.md", mermaidFence("```", body))
 
-	assertMermaidDiagnostic(t, Validate(root), "Unbaselined duplicate Mermaid body")
+	assertMermaidDiagnostic(t, validateFixture(root), "Unbaselined duplicate Mermaid body")
 }
 
 func TestValidateRecognizesTildeMermaidFences(t *testing.T) {
@@ -39,7 +39,7 @@ func TestValidateRecognizesTildeMermaidFences(t *testing.T) {
 	root := validRepository(t)
 	writeFile(t, root, "docs/duplicate.md", mermaidFence("~~~", exampleMermaidBody))
 
-	assertMermaidDiagnostic(t, Validate(root), "Unbaselined duplicate Mermaid body")
+	assertMermaidDiagnostic(t, validateFixture(root), "Unbaselined duplicate Mermaid body")
 }
 
 func TestValidateAcceptsDistinctMermaidBodies(t *testing.T) {
@@ -48,7 +48,7 @@ func TestValidateAcceptsDistinctMermaidBodies(t *testing.T) {
 	writeFile(t, root, "docs/left.md", mermaidFence("```", "flowchart LR\n  C --> D\n"))
 	writeFile(t, root, "docs/right.md", mermaidFence("```", "flowchart LR\n  E --> F\n"))
 
-	result := Validate(root)
+	result := validateFixture(root)
 	if len(result.Errors) != 0 {
 		t.Fatalf("Validate() errors = %v", result.Errors)
 	}
@@ -60,7 +60,7 @@ func TestValidateAcceptsExactMermaidDuplicateBaseline(t *testing.T) {
 	writeFile(t, root, "docs/duplicate.md", mermaidFence("```", exampleMermaidBody))
 	writeMermaidBaseline(t, root, exampleMermaidBody, "assets/diagrams/example.mmd", "docs/duplicate.md")
 
-	result := Validate(root)
+	result := validateFixture(root)
 	if len(result.Errors) != 0 {
 		t.Fatalf("Validate() errors = %v", result.Errors)
 	}
@@ -73,7 +73,7 @@ func TestValidateCountsRepeatedMermaidBodiesWithinOnePath(t *testing.T) {
 	writeFile(t, root, "docs/repeated.md", mermaidFence("```", body)+mermaidFence("~~~", body))
 	writeMermaidBaseline(t, root, body, "docs/repeated.md", "docs/repeated.md")
 
-	result := Validate(root)
+	result := validateFixture(root)
 	if len(result.Errors) != 0 {
 		t.Fatalf("Validate() errors = %v", result.Errors)
 	}
@@ -106,7 +106,7 @@ func TestValidateRejectsChangedMermaidDuplicateDebt(t *testing.T) {
 			}
 			writeMermaidBaseline(t, root, exampleMermaidBody, test.baselinePaths...)
 
-			assertMermaidDiagnostic(t, Validate(root), "Mermaid duplicate debt changed")
+			assertMermaidDiagnostic(t, validateFixture(root), "Mermaid duplicate debt changed")
 		})
 	}
 }
@@ -118,14 +118,14 @@ func TestValidateRejectsMalformedAndStaleMermaidBaselines(t *testing.T) {
 		root := validRepository(t)
 		writeFile(t, root, mermaidBaselineRelativePath, `{"schemaVersion":1,"groups":[],"schemaVersion":1}`)
 
-		assertMermaidDiagnostic(t, Validate(root), "repeats name")
+		assertMermaidDiagnostic(t, validateFixture(root), "repeats name")
 	})
 	t.Run("stale", func(t *testing.T) {
 		t.Parallel()
 		root := validRepository(t)
 		writeMermaidBaseline(t, root, exampleMermaidBody, "assets/diagrams/example.mmd", "docs/removed.md")
 
-		assertMermaidDiagnostic(t, Validate(root), "Stale Mermaid duplicate baseline entry")
+		assertMermaidDiagnostic(t, validateFixture(root), "Stale Mermaid duplicate baseline entry")
 	})
 }
 
@@ -181,7 +181,7 @@ func TestValidateRejectsMermaidBaselineBoundaryViolations(t *testing.T) {
 			root := validRepository(t)
 			test.mutate(t, root)
 
-			assertMermaidDiagnostic(t, Validate(root), test.diagnostic)
+			assertMermaidDiagnostic(t, validateFixture(root), test.diagnostic)
 		})
 	}
 }
@@ -197,7 +197,7 @@ func TestValidateRejectsSymlinkedMermaidBaseline(t *testing.T) {
 		t.Skipf("Symlink() unavailable: %v", err)
 	}
 
-	assertMermaidDiagnostic(t, Validate(root), "must not contain symlinks")
+	assertMermaidDiagnostic(t, validateFixture(root), "must not contain symlinks")
 }
 
 func TestValidateRejectsIntermediateSymlinksForMermaidInputs(t *testing.T) {
@@ -221,7 +221,7 @@ func TestValidateRejectsIntermediateSymlinksForMermaidInputs(t *testing.T) {
 				t.Skipf("Symlink() unavailable: %v", err)
 			}
 
-			assertMermaidDiagnostic(t, Validate(root), "must not contain symlinks")
+			assertMermaidDiagnostic(t, validateFixture(root), "must not contain symlinks")
 		})
 	}
 }
@@ -264,7 +264,7 @@ func TestValidateSkipsDebtComparisonForIncompleteMermaidInventory(t *testing.T) 
 			sourcePath := filepath.Join(root, "assets", "diagrams", "example.mmd")
 			test.invalidate(t, root, sourcePath)
 
-			result := Validate(root)
+			result := validateFixture(root)
 			assertMermaidDiagnostic(t, result, test.diagnostic)
 			assertNoMermaidDebtDiagnostic(t, result)
 		})
@@ -302,7 +302,7 @@ func TestValidateSkipsDebtComparisonForIncompleteMarkdownInventory(t *testing.T)
 		t.Fatalf("Truncate() error = %v", err)
 	}
 
-	result := Validate(root)
+	result := validateFixture(root)
 	assertMermaidDiagnostic(t, result, "Markdown file exceeds")
 	assertNoMermaidDebtDiagnostic(t, result)
 }
@@ -347,7 +347,7 @@ func TestValidateRejectsSymlinkedMarkdownInventoryWithoutComparingDebt(t *testin
 			writeMermaidBaseline(t, root, exampleMermaidBody, "assets/diagrams/example.mmd", test.baselinePath)
 			test.createLink(t, root)
 
-			result := Validate(root)
+			result := validateFixture(root)
 			assertMermaidDiagnostic(t, result, "Markdown inventory path must not be a symlink")
 			assertNoMermaidDebtDiagnostic(t, result)
 		})
@@ -407,7 +407,7 @@ func TestValidateExcludesDerivativeAndGeneratedMermaidBodies(t *testing.T) {
 		writeFile(t, root, relative, mermaidFence("```", exampleMermaidBody))
 	}
 
-	result := Validate(root)
+	result := validateFixture(root)
 	if len(result.Errors) != 0 {
 		t.Fatalf("Validate() errors = %v", result.Errors)
 	}

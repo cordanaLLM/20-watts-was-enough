@@ -8,6 +8,8 @@ import {
   ChromeDevToolsProtocolError,
   PdfPrintRetryExhaustedError,
   connectCdp,
+  devtoolsPage,
+  firstExistingChromium,
   printPageToPdf,
   settleCleanupSteps,
   waitForDevtoolsPort,
@@ -461,6 +463,84 @@ test("a busy DevTools port file is retried inside the bounded wait", async (t) =
   );
 });
 
+function targetList(targets) {
+  return { ok: true, async json() { return targets; } };
+}
+
+const pageSocket = "ws://127.0.0.1:37587/devtools/page/0123456789ABCDEF0123456789ABCDEF";
+const runningBrowser = Object.freeze({ exitCode: null, signalCode: null });
+
+test("a target list without a page is read again until the page target appears", async (t) => {
+  const lists = [
+    [],
+    [{ type: "browser", webSocketDebuggerUrl: "ws://127.0.0.1:37587/devtools/browser/0" }],
+    [{ type: "page" }],
+    [{ type: "service_worker" }, { type: "page", webSocketDebuggerUrl: pageSocket }],
+  ];
+  const request = t.mock.method(globalThis, "fetch", async (requested) => {
+    assert.equal(requested, "http://127.0.0.1:37587/json/list");
+    return targetList(lists[Math.min(request.mock.callCount(), lists.length - 1)]);
+  });
+
+  assert.equal(await devtoolsPage(runningBrowser, 37_587), pageSocket);
+  assert.equal(request.mock.callCount(), 4);
+});
+
+test("a page target in the first list is returned after one read", async (t) => {
+  const request = t.mock.method(globalThis, "fetch", async () => targetList([
+    { type: "page", webSocketDebuggerUrl: pageSocket },
+  ]));
+
+  assert.equal(await devtoolsPage(runningBrowser, 37_587), pageSocket);
+  assert.equal(request.mock.callCount(), 1);
+});
+
+test("a browser that never lists a page target fails inside the bounded wait", async (t) => {
+  const request = t.mock.method(globalThis, "fetch", async () => targetList([{ type: "browser" }]));
+  const started = Date.now();
+
+  await assert.rejects(
+    devtoolsPage(runningBrowser, 37_587, { timeoutMs: 250 }),
+    /The headless browser did not expose a page target/u,
+  );
+  assert.ok(request.mock.callCount() >= 2, "the list must be read more than once");
+  assert.ok(Date.now() - started < 2_000, "the wait must end near its own bound");
+});
+
+test("the page target wait rejects invalid ports, bounds and an exited browser before reading", async (t) => {
+  const request = t.mock.method(globalThis, "fetch", async () => targetList([]));
+
+  for (const port of [0, 65_536, 1.5, "37587"]) {
+    await assert.rejects(devtoolsPage(runningBrowser, port), /port must be an integer from 1 through 65535/u);
+  }
+  for (const timeoutMs of [0, 300_001, 1.5]) {
+    await assert.rejects(
+      devtoolsPage(runningBrowser, 37_587, { timeoutMs }),
+      /DevTools page target wait timeout must be an integer from 1 through 300000 milliseconds/u,
+    );
+  }
+  await assert.rejects(
+    devtoolsPage({ exitCode: 1, signalCode: null }, 37_587),
+    /exited with code 1/u,
+  );
+  assert.equal(request.mock.callCount(), 0);
+});
+
+test("the page target wait stops at caller cancellation between two reads", async (t) => {
+  const controller = new AbortController();
+  const reason = new Error("caller stopped the browser start");
+  const request = t.mock.method(globalThis, "fetch", async () => {
+    queueMicrotask(() => controller.abort(reason));
+    return targetList([]);
+  });
+
+  await assert.rejects(
+    devtoolsPage(runningBrowser, 37_587, { signal: controller.signal }),
+    (error) => error === reason,
+  );
+  assert.equal(request.mock.callCount(), 1);
+});
+
 test("caller cancellation closes DevTools and rejects pending commands", async () => {
   class FakeSocket extends EventTarget {
     readyState = 0;
@@ -526,6 +606,117 @@ test("DevTools commands reject immediately after closing or while closing", asyn
       state === 3 ? /closed before a response/u : /is not open/u,
     );
   }
+});
+
+test("a failing socket close stays attached to the failure it accompanies", async (t) => {
+  const closeFailure = new Error("close failed");
+  class StuckSocket extends EventTarget {
+    readyState = 0;
+
+    close() {
+      throw closeFailure;
+    }
+
+    open() {
+      this.readyState = 1;
+      this.dispatchEvent(new Event("open"));
+    }
+
+    send() {}
+  }
+  const connect = (options) => connectCdp("ws://127.0.0.1/devtools/page/test", {
+    commandTimeoutMs: 10_000,
+    openTimeoutMs: 10_000,
+    ...options,
+  });
+
+  await t.test("open timeout", async () => {
+    await assert.rejects(
+      connect({ openTimeoutMs: 1, webSocketFactory: () => new StuckSocket() }),
+      (error) => /connection timed out/u.test(error.message) && error.cause === closeFailure,
+    );
+  });
+
+  await t.test("cancellation while opening", async () => {
+    const controller = new AbortController();
+    const reason = new Error("cancel DevTools");
+    const connected = connect({ signal: controller.signal, webSocketFactory: () => new StuckSocket() });
+    queueMicrotask(() => controller.abort(reason));
+    await assert.rejects(connected, (error) => error === reason && error.cause === closeFailure);
+  });
+
+  await t.test("a reason that already names a cause keeps it", async () => {
+    const controller = new AbortController();
+    const original = new Error("first failure");
+    const reason = new Error("cancel DevTools", { cause: original });
+    const connected = connect({ signal: controller.signal, webSocketFactory: () => new StuckSocket() });
+    queueMicrotask(() => controller.abort(reason));
+    await assert.rejects(connected, (error) => error === reason && error.cause === original);
+  });
+
+  await t.test("a frozen reason is reported unchanged", async () => {
+    const controller = new AbortController();
+    const reason = Object.freeze(new Error("cancel DevTools"));
+    const connected = connect({ signal: controller.signal, webSocketFactory: () => new StuckSocket() });
+    queueMicrotask(() => controller.abort(reason));
+    await assert.rejects(connected, (error) => error === reason && error.cause === undefined);
+  });
+
+  await t.test("invalid message after opening", async () => {
+    const socket = new StuckSocket();
+    const connected = connect({ webSocketFactory: () => socket });
+    queueMicrotask(() => socket.open());
+    const cdp = await connected;
+    const pending = cdp.send("Runtime.evaluate");
+    socket.dispatchEvent(new MessageEvent("message", { data: "{" }));
+    await assert.rejects(
+      pending,
+      (error) => /invalid JSON message/u.test(error.message) && error.cause === closeFailure,
+    );
+  });
+
+  await t.test("cancellation after opening", async () => {
+    const socket = new StuckSocket();
+    const controller = new AbortController();
+    const connected = connect({ signal: controller.signal, webSocketFactory: () => socket });
+    queueMicrotask(() => socket.open());
+    const cdp = await connected;
+    const pending = cdp.send("Runtime.evaluate");
+    const reason = new Error("cancel DevTools");
+    controller.abort(reason);
+    await assert.rejects(pending, (error) => error === reason && error.cause === closeFailure);
+  });
+});
+
+test("browser discovery returns the first accessible candidate", async () => {
+  const missing = path.join(path.dirname(process.execPath), "no-such-browser-a");
+  assert.equal(
+    await firstExistingChromium([missing, process.execPath, missing]),
+    process.execPath,
+  );
+});
+
+test("browser discovery reports why each candidate was refused", async () => {
+  const candidates = ["a", "b"].map(
+    (name) => path.join(path.dirname(process.execPath), `no-such-browser-${name}`),
+  );
+  await assert.rejects(firstExistingChromium(candidates), (error) => {
+    assert.equal(
+      error.message,
+      "Chrome, Chromium, or Edge is required for rendered browser verification.",
+    );
+    assert.ok(error.cause instanceof AggregateError);
+    assert.deepEqual(error.cause.errors.map((failure) => failure.code), ["ENOENT", "ENOENT"]);
+    return true;
+  });
+});
+
+test("browser discovery refuses an empty candidate list", async () => {
+  await assert.rejects(firstExistingChromium([]), (error) => {
+    assert.match(error.message, /is required for rendered browser verification/u);
+    assert.deepEqual(error.cause.errors, []);
+    return true;
+  });
 });
 
 test("ordered browser cleanup settles every step before reporting failures", async () => {
