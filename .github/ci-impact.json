@@ -216,7 +216,9 @@
         "tooling/internal/githublabels/**",
         "tooling/internal/githubmilestones/**",
         "tooling/internal/githubprmetadata/**",
-        "tooling/internal/repositorymanifest/**"
+        "tooling/internal/repositorymanifest/**",
+        "tooling/internal/vulnscan/**",
+        "tooling/tools/**"
       ],
       "lanes": [
         "go"
