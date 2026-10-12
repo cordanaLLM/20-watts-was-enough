@@ -2,6 +2,7 @@ package clrsfixture
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"errors"
 	"os"
@@ -223,10 +224,20 @@ func TestGeneratorSBOMBundleFinalRecheckAndCancellation(t *testing.T) {
 func TestGeneratorSBOMBundleActualRetainedInput(t *testing.T) {
 	root := os.Getenv("CLRS_SBOM_BUNDLE")
 	if root == "" {
-		t.Skip("set explicit retained bundle and independent expected image digests")
+		if RetainedInputsRequired() {
+			t.Fatal(RetainedInputsRequiredVariable + "=1 but CLRS_SBOM_BUNDLE is unset")
+		}
+		t.Skip("set CLRS_SBOM_BUNDLE to a fetched scanner bundle")
+	}
+	// The expected image digests come from the tracked lock unless set
+	// explicitly; either way they are independent of the bundle bytes.
+	lock, err := LoadSBOMBundleLock(trackedRepositoryRoot(t))
+	if err != nil {
+		t.Fatal(err)
 	}
 	options := GeneratorSBOMOptions{RepositoryRoot: trackedRepositoryRoot(t), BundleRoot: root,
-		ExpectedManifestDigest: os.Getenv("CLRS_SBOM_EXPECTED_MANIFEST"), ExpectedConfigDigest: os.Getenv("CLRS_SBOM_EXPECTED_CONFIG")}
+		ExpectedManifestDigest: cmp.Or(os.Getenv("CLRS_SBOM_EXPECTED_MANIFEST"), lock.ImageManifestDigest),
+		ExpectedConfigDigest:   cmp.Or(os.Getenv("CLRS_SBOM_EXPECTED_CONFIG"), lock.ImageConfigDigest)}
 	report, err := CheckGeneratorSBOMBundle(context.Background(), options)
 	if err != nil {
 		t.Fatal(err)

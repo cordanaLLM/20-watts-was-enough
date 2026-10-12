@@ -32,6 +32,6 @@ func runExperimentFetchCLRSRetainedInputs(arguments []string, stdout, stderr io.
 		fmt.Fprintf(stderr, "CLRS retained inputs: %v\n", err)
 		return 1
 	}
-	fmt.Fprintln(stdout, "CLRS retained inputs fetched: source archive, Promise sdist and three build wheels match their locks; NO_RESULT.")
+	fmt.Fprintln(stdout, "CLRS retained inputs fetched: source archive, Promise sdist, three build wheels and the five-file scanner bundle match their locks; NO_RESULT.")
 	return 0
 }

@@ -99,6 +99,15 @@ the exact diff; this file records why the project changed.
   which rebuilds the wheel twice in Docker and checks it against its locked
   SHA-256. Both tests now fail instead of skipping when
   `CLRS_RETAINED_INPUTS_REQUIRED=1` is set and the wheel is missing.
+- CI now runs `TestGeneratorSBOMBundleActualRetainedInput`, which used to
+  skip on every run. The scanner bundle of the CLRS candidate image is
+  published as five assets of the `clrs-sbom-bundle-2026-10-12` prerelease
+  and locked in `tooling/clrs-generator/sbom-bundle.json` with each URL, size
+  and SHA-256 and the image digests the bundle must match.
+  `fetch-clrs-retained-inputs` downloads it into `sbom-bundle/`, following
+  only the redirect from a release download to GitHub's release-asset host.
+  CI sets `CLRS_SBOM_BUNDLE`; with `CLRS_RETAINED_INPUTS_REQUIRED=1` an unset
+  bundle fails the test.
 - KaTeX moves from 0.18.6 to 0.19.0. The release reports missing glyph
   metrics through `strict` as `symbolNotInFont`, which raises under
   `strict: "error"`. `npm run validate:math` renders every formula with

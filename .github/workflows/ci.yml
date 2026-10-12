@@ -186,6 +186,7 @@ jobs:
             echo "CLRS_RETAINED_INPUTS_REQUIRED=1"
             echo "CLRS_PROMISE_TEST_INPUTS=$RUNNER_TEMP/clrs-retained"
             echo "CLRS_SOURCE_ARCHIVE_TEST_PATH=$RUNNER_TEMP/clrs-retained/clrs-source.tar.gz"
+            echo "CLRS_SBOM_BUNDLE=$RUNNER_TEMP/clrs-retained/sbom-bundle"
           } >> "$GITHUB_ENV"
       - name: Reproduce the locked Promise wheel
         run: |
@@ -254,6 +255,7 @@ jobs:
             echo "CLRS_RETAINED_INPUTS_REQUIRED=1"
             echo "CLRS_PROMISE_TEST_INPUTS=$RUNNER_TEMP/clrs-retained"
             echo "CLRS_SOURCE_ARCHIVE_TEST_PATH=$RUNNER_TEMP/clrs-retained/clrs-source.tar.gz"
+            echo "CLRS_SBOM_BUNDLE=$RUNNER_TEMP/clrs-retained/sbom-bundle"
           } >> "$GITHUB_ENV"
       - name: Reproduce the locked Promise wheel
         run: |
