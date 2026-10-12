@@ -16,6 +16,7 @@ func Usage(writer io.Writer) {
 	fmt.Fprintln(writer, "  20w experiment verify-clrs-wheelhouse --wheelhouse <directory> [--root <repository>]")
 	fmt.Fprintln(writer, "  20w experiment check-clrs-sbom-bundle --bundle <directory> --image-manifest <sha256:digest> --image-config <sha256:digest> [--root <repository>] [--json]")
 	fmt.Fprintln(writer, "  20w experiment reproduce-clrs-promise-wheel --output <directory> (--inputs <directory> | --check) [--root <repository>]")
+	fmt.Fprintln(writer, "  20w experiment fetch-clrs-retained-inputs --output <new-directory> [--root <repository>]")
 	fmt.Fprintln(writer, "  20w experiment materialize-clrs-context --wheelhouse <directory> --source-archive <tar.gz> --promise-source-root <frozen-repository> --promise-evidence <directory> --output <context.tar> [--root <repository>] [--check]")
 	fmt.Fprintln(writer, "  20w experiment compare-clrs-fixtures --first <dataset-root> --second <dataset-root> [--root <repository>] [--json]")
 	fmt.Fprintln(writer, "  20w experiment render-clrs-generation-program [--root <repository>] [--json]")
@@ -48,6 +49,8 @@ func Run(arguments []string, stdout, stderr io.Writer) (exitCode int, handled bo
 		return runExperimentCheckCLRSSBOM(arguments[1:], stdout, stderr), true
 	case "reproduce-clrs-promise-wheel":
 		return runExperimentReproducePromise(arguments[1:], stdout, stderr), true
+	case "fetch-clrs-retained-inputs":
+		return runExperimentFetchCLRSRetainedInputs(arguments[1:], stdout, stderr), true
 	case "materialize-clrs-context":
 		return runExperimentCLRSContext(arguments[1:], stdout, stderr), true
 	case "compare-clrs-fixtures":
