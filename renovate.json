@@ -35,11 +35,27 @@
   },
   "packageRules": [
     {
-      "description": "Keep GitHub Action digest updates together for one review.",
+      "description": "Keep GitHub Action updates together for one review. Tool versions passed as workflow inputs stay out of the group.",
       "matchManagers": [
         "github-actions"
       ],
+      "matchDepTypes": [
+        "!uses-with"
+      ],
       "groupName": "github actions",
+      "automerge": false
+    },
+    {
+      "description": "A tool version passed as a workflow input is bound to a lock outside the workflow: Python to the fixture-019 environment, Buildx to the PDF renderer lock.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchDepTypes": [
+        "uses-with"
+      ],
+      "prBodyNotes": [
+        "This repository binds workflow tool versions to locks: Python to the fixture-019 environment, Buildx to the PDF renderer lock. `npm run validate:policy` fails until a bound value moves together with its lock in this pull request."
+      ],
       "automerge": false
     },
     {
