@@ -621,8 +621,8 @@ jobs:
           node_version="$(docker run --rm --pull never --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             --entrypoint node 20w-fixture-007:test --version)"
-          if [[ "$node_version" != "v26.8.1" ]]; then
-            echo "::error::Fixture 007 Node.js runtime is $node_version, want v26.8.1"
+          if [[ "$node_version" != "v26.10.0" ]]; then
+            echo "::error::Fixture 007 Node.js runtime is $node_version, want v26.10.0"
             exit 1
           fi
           volume="20w-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-fixture-007"
@@ -662,7 +662,7 @@ jobs:
           docker run --rm --pull never --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             --entrypoint sh 20w-fixture-019:test -c \
-            'test "$(node --version)" = "v26.8.1" && test "$(python --version)" = "Python 3.14.8" && python -c "import numpy; assert numpy.__version__ == \"2.5.2\""'
+            'test "$(node --version)" = "v26.10.0" && test "$(python --version)" = "Python 3.14.8" && python -c "import numpy; assert numpy.__version__ == \"2.5.2\""'
           docker run --rm --pull never --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             20w-fixture-019:test prepare --profile smoke

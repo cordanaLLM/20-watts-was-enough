@@ -82,6 +82,16 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- The Node.js runtime moves from 26.8.1 to 26.10.0, the newest release past the
+  seven-day update delay. Node.js 26.8.2 updated OpenSSL to 3.5.8 and Undici to
+  8.10.2; 26.9.0 and 26.10.0 add APIs that no project code uses yet. The
+  version file, `engines`, the lock (`@types/node` 26.6.4), the workstation
+  runtime policy, both container base images and the PDF renderer's Node.js
+  image (index digests read from Docker Hub on 2026-10-12), the workflow
+  container checks, the experiment manifests and the policy tests move
+  together. The Fixture 026 numeric sentinel serialises unchanged on 26.10.0.
+  No seed, configuration, protocol or result authority changes.
+
 - Vite moves from 8.2.2 to 8.3.2, which brings Rolldown 1.2.12 in place of
   1.2.6. The site's notice list names the exact versions of the bundler
   runtime modules it ships, so `scripts/lib/third-party-notices.mjs` and its

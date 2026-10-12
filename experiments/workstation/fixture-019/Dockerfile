@@ -1,4 +1,4 @@
-FROM node:26.9.0-trixie-slim@sha256:3a771f83944bb763050c23c0225c260638c4b7899e7a72485ef75e5e570499e5 AS node-runtime
+FROM node:26.10.0-trixie-slim@sha256:930557a230abacbc3f4fd9b8648abf8f4bee1e17cb72195dcdfb2f709bc85b33 AS node-runtime
 
 FROM python:3.14.8-slim-trixie@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170
 
@@ -52,7 +52,7 @@ RUN set -eu; \
     cmp /tmp/expected-directories /tmp/actual-directories; \
     python -m pip install --no-deps --require-hashes -r requirements-ci.txt; \
     ln --symbolic libatomic.so.1.2.0 /usr/lib/x86_64-linux-gnu/libatomic.so.1; \
-    test "$(node --version)" = "v26.8.1"; \
+    test "$(node --version)" = "v26.10.0"; \
     test "$(python --version)" = "Python 3.14.8"; \
     python -c 'import numpy; assert numpy.__version__ == "2.5.2"'; \
     groupadd --gid 1000 experiment; \
