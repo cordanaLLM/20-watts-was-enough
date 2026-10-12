@@ -666,7 +666,7 @@ jobs:
           docker run --rm --pull never --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             --entrypoint sh "$fixture_019" -c \
-            'test "$(node --version)" = "v26.10.0" && test "$(python --version)" = "Python 3.14.8" && python -c "import numpy; assert numpy.__version__ == \"2.5.2\""'
+            'test "$(node --version)" = "v26.10.0" && test "$(python --version)" = "Python 3.14.8" && python -c "import numpy; assert numpy.__version__ == \"2.5.3\""'
           volume_007="20w-release-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-007"
           volume_019="20w-release-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-019"
           docker volume create "$volume_007"
