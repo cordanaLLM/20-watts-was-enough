@@ -579,7 +579,7 @@ test("JavaScript workflows use the exact Node and npm toolchain in order", () =>
   ), []);
 
   const tampered = structuredClone(validSteps);
-  tampered[0].with = { "node-version": "26.8.1", cache: "npm" };
+  tampered[0].with = { "node-version": "26.10.0", cache: "npm" };
   tampered[1].run = "npm install --global npm@latest";
   tampered[2].run = "test \"$(npm --version)\" = \"12.0.1\"";
   assert.deepEqual(validateJavaScriptRuntimeWorkflowObject(
@@ -611,8 +611,8 @@ test("every job reads the Node version from the one version file", () => {
   assert.deepEqual(validateNodeSetupWorkflowObject({ jobs: {} }), []);
   assert.deepEqual(validateNodeSetupWorkflowObject(undefined), []);
   for (const inputs of [
-    { "node-version": "26.8.1" },
-    { "node-version-file": ".node-version", "node-version": "26.8.1" },
+    { "node-version": "26.10.0" },
+    { "node-version-file": ".node-version", "node-version": "26.10.0" },
     { "node-version-file": "package.json" },
     { "node-version-file": ".nvmrc" },
     {},
@@ -628,14 +628,14 @@ test("every job reads the Node version from the one version file", () => {
 });
 
 test("the Node version file names exactly the reviewed runtime", () => {
-  assert.deepEqual(validateNodeVersionFile("26.8.1\n"), []);
+  assert.deepEqual(validateNodeVersionFile("26.10.0\n"), []);
   assert.deepEqual(
     validateNodeVersionFile(readFileSync(new URL("../.node-version", import.meta.url), "utf8")),
     [],
   );
-  for (const text of ["26.8.0\n", "26.8.1", "v26.8.1\n", "26.8.1\n\n", "26\n", "26.8.1\r\n", ""]) {
+  for (const text of ["26.8.0\n", "26.10.0", "v26.10.0\n", "26.10.0\n\n", "26\n", "26.10.0\r\n", ""]) {
     assert.deepEqual(validateNodeVersionFile(text), [
-      ".node-version: must contain exactly 26.8.1 and a final newline",
+      ".node-version: must contain exactly 26.10.0 and a final newline",
     ]);
   }
 });
@@ -899,7 +899,7 @@ test("Go workflows use tooling/go.mod and the Go CodeQL lane", () => {
     (step) => step.uses?.startsWith("github/codeql-action/init@"),
   ).with.languages = "javascript-typescript";
   assert.deepEqual(validateGoCodeQlWorkflowObject(tampered), [
-    ".github/workflows/codeql.yml: job analyze-go must use Go 1.27.1 from tooling/go.mod with tooling/go.sum caching",
+    ".github/workflows/codeql.yml: job analyze-go must use Go 1.27.2 from tooling/go.mod with tooling/go.sum caching",
     ".github/workflows/codeql.yml: analyze-go must initialize CodeQL autobuild for Go",
     ".github/workflows/codeql.yml: Go CodeQL must keep its exact fail-closed initialization and analysis boundary",
   ]);
@@ -2852,8 +2852,8 @@ test("container policy withholds arm64 and enforces exact-digest runtime identit
   const executionFinding = ".github/workflows/release.yml: candidate images must run tooling plus smoke, analyze, and validate by digest before tagging";
   for (const [from, to] of [
     ['if [[ "$tooling_identity" != "$expected_tooling_identity" ]]; then', "if false; then"],
-    ['"go_version":"go1.27.1"', '"go_version":"go1.28.0"'],
-    ['if [[ "$fixture_007_node" != "v26.8.1" ]]; then', "if false; then"],
+    ['"go_version":"go1.27.2"', '"go_version":"go1.28.0"'],
+    ['if [[ "$fixture_007_node" != "v26.10.0" ]]; then', "if false; then"],
     ['"Python 3.14.8"', '"Python 3.14.9"'],
     ['numpy.__version__ == \\"2.5.3\\"', 'numpy.__version__ == \\"2.5.4\\"'],
   ]) {
@@ -2953,7 +2953,7 @@ test("CI enforces the exact Fixture 007 Node runtime", () => {
     validateCiExperimentImageWorkflowObject,
     (subject) => {
       const step = ciImageStep(subject, "Execute the bounded Fixture 007 smoke path");
-      step.run = step.run.replaceAll("v26.8.1", "v26.8.2");
+      step.run = step.run.replaceAll("v26.10.0", "v26.8.2");
     },
     ".github/workflows/ci.yml: Fixture 007 must run smoke, analyze, and validate against one persistent result volume",
   );
@@ -3194,7 +3194,8 @@ test("the update bot updates lock files with the pinned Node and npm", () => {
   assert.deepEqual(withConstraints({}), [nodeFinding, npmFinding]);
   assert.deepEqual(withConstraints({ npm }), [nodeFinding]);
   assert.deepEqual(withConstraints({ node }), [npmFinding]);
-  assert.deepEqual(withConstraints({ node: "26.10.0", npm }), [nodeFinding]);
+  const [major, minor, patch] = node.split(".").map(Number);
+  assert.deepEqual(withConstraints({ node: `${major}.${minor}.${patch + 1}`, npm }), [nodeFinding]);
   assert.deepEqual(withConstraints({ node: `^${node}`, npm }), [nodeFinding]);
   assert.deepEqual(withConstraints({ node, npm: "12.2.0-pre" }), [npmFinding]);
   assert.deepEqual(withConstraints({ node: Number.parseInt(node, 10), npm }), [nodeFinding]);
