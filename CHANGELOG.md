@@ -93,6 +93,14 @@ the exact diff; this file records why the project changed.
   is rendered again; the PDF is byte-identical and the provenance is
   re-recorded.
 
+- The tooling's Markdown parser goldmark moves from v2.0.1 to v2.1.6:
+  parser fixes for tabs, setext headings, link reference definitions and
+  code-span indices, plus one new parser option. The engineering policy
+  pins the reviewed module and its exact `go.sum` lines, so
+  `scripts/validate-engineering-policy.mjs` now names v2.1.6, and the stale
+  v2.0.1 checksums leave `tooling/go.sum`. The Go module files are
+  render-free book sources, so the book provenance is re-recorded without
+
 - The Node.js runtime moves from 26.8.1 to 26.10.0, the newest release past the
   seven-day update delay. Node.js 26.8.2 updated OpenSSL to 3.5.8 and Undici to
   8.10.2; 26.9.0 and 26.10.0 add APIs that no project code uses yet. The
