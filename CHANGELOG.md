@@ -96,6 +96,16 @@ the exact diff; this file records why the project changed.
   re-bound; the release stays `NO_RESULT` development infrastructure. No seed,
   configuration, protocol or result authority changes.
 
+- The Go toolchain moves from 1.27.1 to 1.27.2. The builder image
+  `golang:1.27.2-trixie` is pinned by digest `e58d6f83b341` in
+  `tooling/Dockerfile` and `tooling/clrs-specialist/Dockerfile`, and the
+  version moves with it everywhere it is bound: `tooling/go.mod`, the
+  release identity checks in `ci.yml` and `release.yml`,
+  `tooling/internal/releasebuild/build.go`, the engineering policy and its
+  test, the CLRS image test and the contributor guide. The Go module file is
+  a render-free book source, so the book provenance is re-recorded without
+  a render (Decision 0090).
+
 - The Fixture 019 runtime moves from NumPy 2.5.2 to 2.5.3, a bug-fix release
   (StringDType UTF-8 validation, a masked-array fill-value fix and typing
   re-exports; no change to random streams or the `PCG64DXSM` generator). The

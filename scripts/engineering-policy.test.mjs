@@ -899,7 +899,7 @@ test("Go workflows use tooling/go.mod and the Go CodeQL lane", () => {
     (step) => step.uses?.startsWith("github/codeql-action/init@"),
   ).with.languages = "javascript-typescript";
   assert.deepEqual(validateGoCodeQlWorkflowObject(tampered), [
-    ".github/workflows/codeql.yml: job analyze-go must use Go 1.27.1 from tooling/go.mod with tooling/go.sum caching",
+    ".github/workflows/codeql.yml: job analyze-go must use Go 1.27.2 from tooling/go.mod with tooling/go.sum caching",
     ".github/workflows/codeql.yml: analyze-go must initialize CodeQL autobuild for Go",
     ".github/workflows/codeql.yml: Go CodeQL must keep its exact fail-closed initialization and analysis boundary",
   ]);
@@ -2852,7 +2852,7 @@ test("container policy withholds arm64 and enforces exact-digest runtime identit
   const executionFinding = ".github/workflows/release.yml: candidate images must run tooling plus smoke, analyze, and validate by digest before tagging";
   for (const [from, to] of [
     ['if [[ "$tooling_identity" != "$expected_tooling_identity" ]]; then', "if false; then"],
-    ['"go_version":"go1.27.1"', '"go_version":"go1.28.0"'],
+    ['"go_version":"go1.27.2"', '"go_version":"go1.28.0"'],
     ['if [[ "$fixture_007_node" != "v26.10.0" ]]; then', "if false; then"],
     ['"Python 3.14.8"', '"Python 3.14.9"'],
     ['numpy.__version__ == \\"2.5.3\\"', 'numpy.__version__ == \\"2.5.4\\"'],
