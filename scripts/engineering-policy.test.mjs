@@ -3181,6 +3181,56 @@ test("the update bot leaves the CLRS generator folder alone and keeps the preset
   assert.equal(validateRenovateConfigObject(null).length, 10);
 });
 
+test("no update group of the bot carries a workflow tool version", () => {
+  const config = JSON.parse(readFileSync(new URL("../renovate.json", import.meta.url), "utf8"));
+  const groupIndex = config.packageRules.findIndex((rule) => rule.groupName === "github actions");
+  assert.equal(groupIndex, 0);
+  assert.deepEqual(config.packageRules[groupIndex].matchDepTypes, ["!uses-with"]);
+  assert.deepEqual(validateRenovateConfigObject(config), []);
+  const finding = (index) => (
+    `renovate.json: packageRules[${index}] groups updates and must list !uses-with in matchDepTypes or name only managers other than github-actions`
+  );
+  const withGroupRule = (change) => ({
+    ...config,
+    packageRules: config.packageRules.map((rule, index) => (
+      index === groupIndex ? change({ ...rule }) : rule
+    )),
+  });
+  const refused = [
+    (rule) => { delete rule.matchDepTypes; return rule; },
+    (rule) => ({ ...rule, matchDepTypes: [] }),
+    (rule) => ({ ...rule, matchDepTypes: "!uses-with" }),
+    (rule) => ({ ...rule, matchDepTypes: ["uses-with"] }),
+    (rule) => ({ ...rule, matchDepTypes: ["action"] }),
+    (rule) => ({ ...rule, matchDepTypes: ["!USES-WITH"] }),
+    (rule) => ({ ...rule, matchDepTypes: ["!/uses-with/"] }),
+  ];
+  for (const [caseIndex, change] of refused.entries()) {
+    assert.deepEqual(validateRenovateConfigObject(withGroupRule(change)), [finding(groupIndex)], `case ${caseIndex}`);
+  }
+  const appended = (rule) => ({ ...config, packageRules: [...config.packageRules, rule] });
+  const last = config.packageRules.length;
+  for (const matchManagers of [
+    undefined, [], "npm", ["github-actions"], ["npm", "github-actions"], ["/.*/"], ["!npm"], ["*"],
+    ["custom.regex"], [7],
+  ]) {
+    assert.deepEqual(
+      validateRenovateConfigObject(appended({ matchManagers, groupName: "planted group" })),
+      [finding(last)],
+      JSON.stringify(matchManagers),
+    );
+  }
+  assert.deepEqual(validateRenovateConfigObject(appended({ matchManagers: ["npm"], groupName: "npm tools" })), []);
+  assert.deepEqual(
+    validateRenovateConfigObject(appended({ matchPackageNames: ["*"], matchDepTypes: ["action", "!uses-with"], groupName: "wide" })),
+    [],
+  );
+  assert.deepEqual(validateRenovateConfigObject(appended({ matchManagers: ["github-actions"], groupName: null })), []);
+  assert.deepEqual(validateRenovateConfigObject({ ...config, groupName: "everything" }), [
+    "renovate.json: groupName outside packageRules would group workflow tool versions with every other update",
+  ]);
+});
+
 test("engine-managed workflows keep pins, read-only permissions, runner and timeout", () => {
   assert.deepEqual([...engineManagedWorkflowPaths], [
     ".github/workflows/praetor-api.yml",

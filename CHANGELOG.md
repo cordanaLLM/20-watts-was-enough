@@ -150,6 +150,14 @@ the exact diff; this file records why the project changed.
   no workflow, selector, impact map or test assertion moves. `CONTRIBUTING.md`
   and the maintenance automation map now link to 0088.
 
+- The update bot proposes a tool version passed as a workflow input in a
+  pull request of its own, no longer inside the "github actions" group. Two
+  such values exist, the Python version and the Buildx version, and each is
+  bound to a lock outside the workflows, so neither can merge as part of an
+  action update. `npm run validate:policy` refuses an update group that
+  could carry such a value
+  ([Decision 0097](decisions/0097-keep-workflow-tool-versions-out-of-the-action-update-group.md)).
+
 ### Fixed
 
 - The book renderer no longer stops when Chrome serves its DevTools target

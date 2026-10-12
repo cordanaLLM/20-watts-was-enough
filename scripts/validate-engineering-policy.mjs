@@ -4176,6 +4176,41 @@ const renovatePresetIgnorePaths = Object.freeze([
 // The CLRS generator lock is resolved once against a fixed cutoff; it changes
 // only as a reviewed re-resolution, never as an update proposal.
 const renovateExcludedFolders = Object.freeze(["tooling/clrs-generator/**"]);
+// A tool version passed as a workflow input (the bot's dependency type
+// `uses-with`) is bound to a lock outside the workflow: Python to the
+// fixture-019 environment, Buildx to the PDF renderer lock. It moves with that
+// lock, so no update group may carry it.
+const renovateWorkflowToolVersionExclusion = "!uses-with";
+const renovatePlainManagerName = /^[a-z0-9][a-z0-9-]*$/u;
+
+function renovateGroupLeavesWorkflowToolVersionsOut(rule) {
+  const depTypes = Array.isArray(rule.matchDepTypes) ? rule.matchDepTypes : [];
+  if (depTypes.includes(renovateWorkflowToolVersionExclusion)) {
+    return true;
+  }
+  const managers = Array.isArray(rule.matchManagers) ? rule.matchManagers : [];
+  return managers.length > 0 && managers.every((name) => (
+    typeof name === "string" && renovatePlainManagerName.test(name) && name !== "github-actions"
+  ));
+}
+
+function renovateGroupFindings(config, rules, relativePath) {
+  const findings = [];
+  if (config?.groupName !== undefined && config?.groupName !== null) {
+    findings.push(`${relativePath}: groupName outside packageRules would group workflow tool versions with every other update`);
+  }
+  rules.forEach((rule, index) => {
+    if (rule === null || typeof rule !== "object" || rule.groupName === undefined || rule.groupName === null) {
+      return;
+    }
+    if (!renovateGroupLeavesWorkflowToolVersionsOut(rule)) {
+      findings.push(
+        `${relativePath}: packageRules[${index}] groups updates and must list ${renovateWorkflowToolVersionExclusion} in matchDepTypes or name only managers other than github-actions`,
+      );
+    }
+  });
+  return findings;
+}
 
 export function validateRenovateConfigObject(config, relativePath = "renovate.json") {
   const findings = [];
@@ -4197,6 +4232,7 @@ export function validateRenovateConfigObject(config, relativePath = "renovate.js
       findings.push(`${relativePath}: ignorePaths must keep the preset entry ${preset}`);
     }
   }
+  findings.push(...renovateGroupFindings(config, rules, relativePath));
   return findings;
 }
 
