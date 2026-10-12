@@ -82,6 +82,14 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- The Praetor engine pin moves from `9bf502ec6ce5` to `6622361940dc`, engine
+  `main` on 2026-10-12, four commits later. The new engine refuses closing
+  keywords that would close another repository's pull request, ships
+  register skills that pass markdownlint's default rules and builds Cargo
+  output below an absolute `CARGO_TARGET_DIR`. Its audit passes at the new
+  pin with the recorded baseline (626 findings) and asks for no change to
+  an adopted file, so none is refreshed.
+
 - `main` admits squash merges only. The maintainer switched rebase merges off
   on 2026-10-11 in the repository setting and in ruleset `21746706`; both
   values were read back through the API that day. A pull request that carries
