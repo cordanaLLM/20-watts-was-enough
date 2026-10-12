@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "generated_at": "2026-10-11T14:45:13Z",
+  "generated_at": "2026-10-11T23:18:03Z",
   "repository": "cordanaLLM/20-watts-was-enough",
-  "commit_sha": "ad5fe07f667af001a7f72bf32158f50d0d1acc6d",
-  "total_infractions": 632,
+  "commit_sha": "f4fa2efd18d679d6c275488438c9285b68f10d03",
+  "total_infractions": 626,
   "infractions": [
     {
       "rule_id": "HISS-04",
@@ -3262,54 +3262,6 @@
       "message": "Unbounded loop in JavaScript without an explicit scalar bound",
       "anchor": "fn:inspectEvidenceRoot",
       "fingerprint": "scripts/lib/book-pdf-semantic-audit.mjs:HISS-02:fn:inspectEvidenceRoot#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "scripts/lib/chromium-cdp.mjs",
-      "line_number": 161,
-      "message": "Empty catch block swallows the error; handle, rethrow or wrap it",
-      "anchor": "fn:firstExistingChromium",
-      "fingerprint": "scripts/lib/chromium-cdp.mjs:HISS-07:fn:firstExistingChromium#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "scripts/lib/chromium-cdp.mjs",
-      "line_number": 186,
-      "message": "Empty catch block swallows the error; handle, rethrow or wrap it",
-      "anchor": "fn:localUrlDiagnosticLabel",
-      "fingerprint": "scripts/lib/chromium-cdp.mjs:HISS-07:fn:localUrlDiagnosticLabel#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "scripts/lib/chromium-cdp.mjs",
-      "line_number": 347,
-      "message": "Empty catch block swallows the error; handle, rethrow or wrap it",
-      "anchor": "fn:onAbort",
-      "fingerprint": "scripts/lib/chromium-cdp.mjs:HISS-07:fn:onAbort#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "scripts/lib/chromium-cdp.mjs",
-      "line_number": 351,
-      "message": "Empty catch block swallows the error; handle, rethrow or wrap it",
-      "anchor": "text:0ada907c06b7",
-      "fingerprint": "scripts/lib/chromium-cdp.mjs:HISS-07:text:0ada907c06b7#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "scripts/lib/chromium-cdp.mjs",
-      "line_number": 375,
-      "message": "Empty catch block swallows the error; handle, rethrow or wrap it",
-      "anchor": "fn:onAbort",
-      "fingerprint": "scripts/lib/chromium-cdp.mjs:HISS-07:fn:onAbort#2"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "scripts/lib/chromium-cdp.mjs",
-      "line_number": 397,
-      "message": "Empty catch block swallows the error; handle, rethrow or wrap it",
-      "anchor": "text:9bc68bc80a6c",
-      "fingerprint": "scripts/lib/chromium-cdp.mjs:HISS-07:text:9bc68bc80a6c#1"
     },
     {
       "rule_id": "HISS-04",
