@@ -82,6 +82,15 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- The tooling's Markdown parser goldmark moves from v2.0.1 to v2.1.6:
+  parser fixes for tabs, setext headings, link reference definitions and
+  code-span indices, plus one new parser option. The engineering policy
+  pins the reviewed module and its exact `go.sum` lines, so
+  `scripts/validate-engineering-policy.mjs` now names v2.1.6, and the stale
+  v2.0.1 checksums leave `tooling/go.sum`. The Go module files are
+  render-free book sources, so the book provenance is re-recorded without
+  a render (Decision 0090).
+
 - The Praetor engine pin moves from `9bf502ec6ce5` to `6622361940dc`, engine
   `main` on 2026-10-12, four commits later. The new engine refuses closing
   keywords that would close another repository's pull request, ships
