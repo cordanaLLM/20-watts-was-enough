@@ -1,7 +1,9 @@
 import { ESLint } from "eslint";
+import { execFile } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const repositoryRoot = path.dirname(path.dirname(scriptPath));
@@ -12,6 +14,10 @@ export const DEFAULT_BASELINE_PATH = path.join(
   "scripts",
   "code-shape-baseline.json",
 );
+
+const BASELINE_GIT_PATH = "scripts/code-shape-baseline.json";
+const runFile = promisify(execFile);
+const gitLimits = Object.freeze({ maxBuffer: 8 * 1024 * 1024, timeout: 30_000 });
 
 export const CODE_SHAPE_POLICY = Object.freeze({
   complexity: 30,
@@ -355,13 +361,39 @@ function readBaseline(baselinePath) {
   if (!existsSync(baselinePath)) {
     fail(`code-shape baseline is missing: ${baselinePath}`);
   }
+  return parseBaseline(readFileSync(baselinePath, "utf8"));
+}
+
+function parseBaseline(text) {
   let parsed;
   try {
-    parsed = JSON.parse(readFileSync(baselinePath, "utf8"));
+    parsed = JSON.parse(text);
   } catch (error) {
     fail(`cannot parse code-shape baseline: ${error.message}`);
   }
   return validateBaseline(parsed);
+}
+
+// The baseline a change is compared with in CI: the one recorded at the
+// change's base commit. A base that is malformed, absent from the checkout or
+// without a baseline fails; none of them may pass as "nothing to compare".
+export async function readBaseRevisionBaseline(baseRevision, { gitRoot = repositoryRoot } = {}) {
+  if (typeof baseRevision !== "string" || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(baseRevision) || /^0+$/.test(baseRevision)) {
+    fail(`base revision must be a full commit object name: ${baseRevision || "(empty)"}`);
+  }
+  const options = { ...gitLimits, cwd: gitRoot };
+  try {
+    await runFile("git", ["cat-file", "-e", `${baseRevision}^{commit}`], options);
+  } catch (error) {
+    fail(`base revision ${baseRevision} is not a commit in this checkout: ${error.message.trim()}`);
+  }
+  let text;
+  try {
+    ({ stdout: text } = await runFile("git", ["show", `${baseRevision}:${BASELINE_GIT_PATH}`], options));
+  } catch (error) {
+    fail(`base revision ${baseRevision} records no ${BASELINE_GIT_PATH}: ${error.message.trim()}`);
+  }
+  return parseBaseline(text);
 }
 
 function serializeBaseline(snapshot) {
@@ -442,6 +474,8 @@ function printExceptedFindings(excepted) {
 export async function runCodeShapeAudit({
   root = repositoryRoot,
   baselinePath = DEFAULT_BASELINE_PATH,
+  baseRevision,
+  gitRoot = root,
   write = false,
   exceptions = CODE_SHAPE_EXCEPTIONS,
   today = currentCalendarDate(),
@@ -456,7 +490,9 @@ export async function runCodeShapeAudit({
     return recorded;
   }
 
-  const baseline = readBaseline(baselinePath);
+  const baseline = baseRevision === undefined
+    ? readBaseline(baselinePath)
+    : await readBaseRevisionBaseline(baseRevision, { gitRoot });
   const regressions = compareSnapshots(baseline, current, { exceptions, today });
   printSummary(current, "check");
   printExceptedFindings(excepted);
@@ -471,6 +507,7 @@ function parseArguments(arguments_) {
   let write = false;
   let check = false;
   let baselinePath = DEFAULT_BASELINE_PATH;
+  let baseRevision;
   for (let index = 0; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
     if (argument === "--write") write = true;
@@ -481,13 +518,21 @@ function parseArguments(arguments_) {
       baselinePath = path.resolve(value);
       index += 1;
     }
+    else if (argument === "--base-revision") {
+      // An empty value is kept so that the comparison refuses it by name.
+      baseRevision = arguments_[index + 1] ?? "";
+      index += 1;
+    }
     else fail(`unknown argument: ${argument}`);
   }
   if (write && check) fail("--write and --check are mutually exclusive");
-  if (write && baselinePath !== DEFAULT_BASELINE_PATH) {
+  if (write && (baselinePath !== DEFAULT_BASELINE_PATH || baseRevision !== undefined)) {
     fail("--write cannot target an alternate comparison baseline");
   }
-  return { write, baselinePath };
+  if (baseRevision !== undefined && baselinePath !== DEFAULT_BASELINE_PATH) {
+    fail("--baseline and --base-revision are mutually exclusive");
+  }
+  return { write, baselinePath, baseRevision };
 }
 
 async function main() {
