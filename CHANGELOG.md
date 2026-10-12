@@ -152,6 +152,25 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- The book renderer no longer stops when Chrome serves its DevTools target
+  list before the first page target exists. `devtoolsPage` in
+  `scripts/lib/chromium-cdp.mjs` read `/json/list` once and failed with
+  "The headless browser did not expose a page target."; the hosted
+  `PDF renderer reproducibility` job failed that way once on 2026-10-11 and
+  passed on a rerun. The helper now reads the list again every 100 ms
+  inside one bounded wait (60 s by default, 300 s at most) and fails with
+  the same message when no page target appears in that time. Five tests
+  cover the wait; four of them fail against the previous helper.
+
+- `scripts/lib/chromium-cdp.mjs` no longer discards an error in six places.
+  Browser discovery reports why each candidate path was refused, as the
+  cause of its unchanged message. A socket close that fails while a
+  DevTools failure is already being reported becomes the cause of that
+  failure. The label for a URL that cannot be parsed is chosen without a
+  caught exception. `.standards-baseline.json` falls from 632 to 626
+  recorded findings, and the README block the governance engine owns names
+  the new count.
+
 - `.gitignore` ignores a private `.workingdir/` state folder at any depth.
   The rule that the governance engine writes matches the root folder only,
   so `make docs-lint` read untracked notes in a nested folder and failed in

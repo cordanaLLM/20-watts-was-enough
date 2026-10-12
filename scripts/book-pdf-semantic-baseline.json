@@ -6,9 +6,9 @@
   "artifact": {
     "pdf": "public/downloads/20-watts-was-enough-full-concept-book.pdf",
     "manifest": "public/downloads/book-manifest.json",
-    "pdf_sha256": "b88e7cb98dfbd3f7d392647727d8fdf6aa08d89d4eda93f9614ddc10343986c4",
-    "manifest_sha256": "5a9a027e5f959e9fbc3926836380ba79e7d62dda46c51c337bee5bee4ff08bc3",
-    "size_bytes": 12829763,
+    "pdf_sha256": "71504cda49b08493264585c05b6aa6403d6c9007c9fd24f7be5f1231689ba8c7",
+    "manifest_sha256": "de02f211a36ca83046caf8b7d57a008f8762ff5ae1b3bf05be227b48be8d42cb",
+    "size_bytes": 12829758,
     "pages": 414,
     "page_size_name": "A4",
     "page_size_points": {
@@ -18,7 +18,7 @@
     "pdf_version": "1.4",
     "tagged": true,
     "source_ref": "main",
-    "source_digest": "f721227deec56465f97ac76041fdfac8823c82d62a7434dda68677cb6a9ab71d",
+    "source_digest": "27d0784084df7813a6a2e6be5ca67cfa806cc12289791d84eee6c8567aacc911",
     "version": "0.4.1"
   },
   "tools": {
@@ -40,7 +40,7 @@
       },
       "stdout": {
         "bytes": 627,
-        "sha256": "3a88e47a0b40ef79943ac805a2b98a91c86d64c8fbd8c66a4e20c51ef347d05a"
+        "sha256": "097d3d8da42a545ac5d8b74124f7a1054e99c6653baaebb4ed285c29c5a54df0"
       }
     },
     "structure": {
@@ -62,7 +62,7 @@
       },
       "stdout": {
         "bytes": 2463438,
-        "sha256": "913c2441eba51cc4d24bf7699689dcef5c13d1175df1f65a939899cab75bbd79"
+        "sha256": "6bf78aa7abaa59187b2a1d7e4bf60be175f54e3204832df71135653da3c4f5d7"
       }
     },
     "default_text": {
@@ -73,7 +73,7 @@
       },
       "stdout": {
         "bytes": 1120819,
-        "sha256": "72968337982a545e92f1d78b81fdc066ae4b9a62e2c0b66d5b8476b15b868a44"
+        "sha256": "7068503d5369d21cc47f88ca272eb343558e3d97dca60e1c28244295bdc41a32"
       }
     },
     "raw_text": {
@@ -84,7 +84,7 @@
       },
       "stdout": {
         "bytes": 1111395,
-        "sha256": "623d034c7665199382dde4c21aa952560b0d7dd430baf21a38b78786b2341cf6"
+        "sha256": "45a93d6c3495d2942747dd5c43bfc2908d643c2435d012239c974aa4fbb5bf05"
       }
     }
   },
