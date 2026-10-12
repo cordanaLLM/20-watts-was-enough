@@ -40,7 +40,7 @@ The complete validation gate currently binds these development tools:
 - Go 1.27.1 from `tooling/go.mod`;
 - the official Node.js 26.8.1 distribution or a pinned project container;
 - npm 12.0.2 with the committed `package-lock.json`;
-- CPython 3.14.7 with NumPy 2.5.2; and
+- CPython 3.14.8 with NumPy 2.5.2; and
 - an OCI runtime with Docker Buildx for container changes and authoritative PDF
   generation.
 
@@ -103,6 +103,14 @@ Use Conventional Commits for commit and pull-request titles:
 `chore`, `refactor`, `test`, `perf`, `ci`, `build`, and `revert`. Mark an
 incompatible public CLI, schema, route, manifest, output, or analysis-law change
 with `!` or a `BREAKING CHANGE:` footer and include a `Migration:` footer.
+
+A commit message credits people. CI refuses a `Co-authored-by` trailer that
+names a tool or model, and a footer that advertises the generating tool, in
+every commit a pull request adds
+([decision 0093](decisions/0093-refuse-tool-attribution-in-commit-messages.md)).
+State material tool use in the pull request instead. When you squash-merge,
+write the body yourself; `go -C tooling run ./cmd/20w ci messages
+--message-file <file>` checks it beforehand.
 
 ## Discovery workflow
 
@@ -269,6 +277,12 @@ Regenerate and validate the PDF after changing its source set or renderer:
 npm run generate:book-pdf
 npm run validate:book-pdf
 ```
+
+A change confined to the dependency records in
+[`scripts/book-render-free-sources.json`](scripts/book-render-free-sources.json)
+needs no local render. `npm run record:book-provenance` re-records the digests,
+and the CI renderer job compares its fresh renders with the published PDF
+([decision 0090](decisions/0090-re-record-book-provenance-for-dependency-records.md)).
 
 Update [`CHANGELOG.md`](CHANGELOG.md) for notable changes and add an append-only
 decision record when authority, architecture, policy, licensing, publication,

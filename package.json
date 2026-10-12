@@ -35,7 +35,7 @@
     "validate:topics": "node scripts/validate-topics.mjs",
     "test:policy": "node --test --experimental-test-isolation=none scripts/engineering-policy.test.mjs scripts/install-locked-npm.test.mjs scripts/validate-topics.test.mjs",
     "prepare:release": "node scripts/prepare-release-assets.mjs",
-    "test:release": "node --test --experimental-test-isolation=none scripts/prepare-release-assets.test.mjs scripts/lib/atomic-file-pair.test.mjs scripts/lib/chromium-cdp.test.mjs scripts/lib/opened-file.test.mjs scripts/lib/pdf-metadata.test.mjs",
+    "test:release": "node --test --experimental-test-isolation=none scripts/prepare-release-assets.test.mjs scripts/lib/atomic-file-pair.test.mjs scripts/lib/chromium-cdp.test.mjs scripts/lib/opened-file.test.mjs scripts/lib/pdf-metadata.test.mjs scripts/lib/book-provenance-record.test.mjs scripts/lib/published-book-render.test.mjs",
     "check:code-shape": "node scripts/audit-code-shape.mjs --check",
     "test:code-shape": "node --test --experimental-test-isolation=none scripts/audit-code-shape.test.mjs",
     "check:prose": "node scripts/audit-prose-style.mjs",
@@ -100,6 +100,8 @@
     "validate:taxonomies": "node scripts/validate-science-taxonomies.mjs && node scripts/generate-taxonomy-depth.mjs --check",
     "generate:book-pdf": "go -C tooling run ./cmd/20w publication render-pdf --root ..",
     "validate:book-pdf": "node scripts/validate-book-pdf.mjs",
+    "record:book-provenance": "node scripts/record-book-provenance.mjs",
+    "validate:published-book-render": "node scripts/validate-published-book-render.mjs",
     "audit:tests": "node scripts/audit-test-coverage.mjs",
     "check:test-coverage": "node scripts/audit-test-coverage.mjs --check",
     "generate:mechanism-index": "node scripts/generate-mechanism-index.mjs",
@@ -119,6 +121,12 @@
     "remark-math": "6.0.0"
   },
   "overrides": {
+    "mermaid@11.17.2": {
+      "katex": "$katex"
+    },
+    "micromark-extension-math@3.1.0": {
+      "katex": "$katex"
+    },
     "rehype-katex@7.0.1": {
       "katex": "$katex"
     }
@@ -129,7 +137,7 @@
     "@types/node": "26.4.1",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
-    "@vitejs/plugin-react": "6.1.1",
+    "@vitejs/plugin-react": "6.1.2",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
     "es-module-lexer": "2.3.2",
@@ -137,15 +145,15 @@
     "eslint-plugin-jsx-a11y": "6.10.2",
     "eslint-plugin-react": "7.37.5",
     "eslint-plugin-react-hooks": "7.1.1",
-    "globals": "17.12.0",
-    "postcss": "8.5.28",
+    "globals": "17.13.0",
+    "postcss": "8.5.29",
     "remark-parse": "11.0.0",
     "tailwindcss": "4.3.3",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.69.0",
+    "typescript-eslint": "8.71.0",
     "unified": "11.0.5",
     "vite": "8.2.2",
-    "yaml": "2.9.0"
+    "yaml": "2.9.1"
   },
   "type": "module"
 }

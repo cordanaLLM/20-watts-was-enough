@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "paths": [
+    "package-lock.json",
+    "package.json",
+    "tooling/go.mod",
+    "tooling/go.sum"
+  ]
+}

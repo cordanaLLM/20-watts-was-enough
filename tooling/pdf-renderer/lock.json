@@ -3,8 +3,8 @@
   "platform": "linux/amd64",
   "source_date_epoch": 1787612224,
   "builder": {
-    "buildx_version": "0.36.1",
-    "buildx_revision": "1d8dde89b8aba914e05e45366770736fea1fd690",
+    "buildx_version": "0.37.2",
+    "buildx_revision": "2d379c0c3f22da0d2759d132a0ec81ca949098f0",
     "buildkit_version": "0.32.2",
     "buildkit_image": "moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8"
   },

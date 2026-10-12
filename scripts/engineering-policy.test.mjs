@@ -1,25 +1,40 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import { ESLint } from "eslint";
+import ts from "typescript";
 import { parse } from "yaml";
 
+import { createEslintConfig } from "../eslint.config.mjs";
+import {
+  activeExceptions,
+  currentCalendarDay,
+  engineFileExceptionFindings,
+  isCalendarDay,
+  LINT_EXCEPTIONS,
+  lintExceptionOverrides,
+  TYPE_CHECK_EXCEPTIONS,
+} from "./lib/engine-file-exceptions.mjs";
 import {
   validateOperationalFilePaths,
   validatePortableWorkflowObject,
 } from "./lib/portable-operations.mjs";
 
 import {
+  engineManagedWorkflowPaths,
   formatFindings,
+  generatedHookJobSkips,
   validateCiExperimentImageWorkflowObject,
   validateCiFuzzingWorkflowObject,
   validateCiImpactWorkflowObject,
   validateCodeQlImpactWorkflowObject,
   validateCurrentResearchDisclosure,
   validateDependencyAuditWorkflowObject,
+  validateEngineManagedWorkflowObject,
   validateExperimentReportIdentity,
   validateExperimentRunFailureForm,
   validateFundingConfig,
@@ -28,7 +43,10 @@ import {
   validateIssueConfig,
   validateIssueForm,
   validateJavaScriptRuntimeWorkflowObject,
+  validateLocalHookObject,
   validateRepositoryMetadataSyncWorkflowObject,
+  validateNodeSetupWorkflowObject,
+  validateNodeVersionFile,
   validateNpmRuntimeLock,
   validatePublicRepositoryRunnerWorkflowObject,
   validatePagesPublicTransportWorkflowObject,
@@ -37,11 +55,13 @@ import {
   validatePullRequestMetadataWorkflowObject,
   validateReleaseExperimentImageWorkflowObject,
   validateReleaseWorkflowObject,
+  validateRenovateConfigObject,
   validateRetiredHostingPaths,
   validateRepositoryPolicy,
   validateScientificRuntimeLock,
   validateScientificRuntimeWorkflowObject,
   validateToolingValidationScript,
+  validateTypeCheckConfigObject,
   validateTopicRegistryScriptsObject,
   validateUnpinnedImageSourceLabels,
   validateWorkstationShardScriptsObject,
@@ -348,7 +368,7 @@ test("workflow validation rejects mutable actions and unbounded jobs", () => {
     concurrency: { group: "test", "cancel-in-progress": true },
     jobs: {
       unsafe: {
-        "runs-on": "ubuntu-latest",
+        "runs-on": "ubuntu-26.04",
         steps: [{ uses: "actions/checkout@v6", with: { "persist-credentials": false } }],
       },
     },
@@ -364,7 +384,7 @@ test("workflow validation rejects ambient writes, unbounded concurrency, and cre
     permissions: { contents: "write" },
     jobs: {
       unsafe: {
-        "runs-on": "ubuntu-latest",
+        "runs-on": "ubuntu-26.04",
         "timeout-minutes": 5,
         steps: [{
           uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
@@ -383,8 +403,8 @@ test("public-repository workflows cannot request self-hosted or dynamic runners"
   const label = "arc-cauda-lusoris-20-watts";
   assert.deepEqual(validatePublicRepositoryRunnerWorkflowObject({
     jobs: {
-      ci: { "runs-on": "ubuntu-latest" },
-      release: { "runs-on": "ubuntu-latest" },
+      ci: { "runs-on": "ubuntu-26.04" },
+      release: { "runs-on": "ubuntu-26.04" },
     },
   }), []);
 
@@ -394,8 +414,18 @@ test("public-repository workflows cannot request self-hosted or dynamic runners"
       dynamic: { "runs-on": "${{ matrix.os }}" },
     },
   }), [
-    "workflow.yml: public-repository job selfHosted must run on GitHub-hosted ubuntu-latest",
-    "workflow.yml: public-repository job dynamic must run on GitHub-hosted ubuntu-latest",
+    "workflow.yml: public-repository job selfHosted must run on GitHub-hosted ubuntu-26.04",
+    "workflow.yml: public-repository job dynamic must run on GitHub-hosted ubuntu-26.04",
+  ]);
+
+  assert.deepEqual(validatePublicRepositoryRunnerWorkflowObject({
+    jobs: {
+      floating: { "runs-on": "ubuntu-latest" },
+      previous: { "runs-on": "ubuntu-24.04" },
+    },
+  }), [
+    "workflow.yml: public-repository job floating must run on GitHub-hosted ubuntu-26.04",
+    "workflow.yml: public-repository job previous must run on GitHub-hosted ubuntu-26.04",
   ]);
 
   const labelerPath = ".github/workflows/labeler.yml";
@@ -403,7 +433,7 @@ test("public-repository workflows cannot request self-hosted or dynamic runners"
   assert.deepEqual(validatePublicRepositoryRunnerWorkflowObject(labeler, labelerPath), []);
   labeler.jobs.label["runs-on"] = label;
   assert.deepEqual(validatePublicRepositoryRunnerWorkflowObject(labeler, labelerPath), [
-    `${labelerPath}: public-repository job label must run on GitHub-hosted ubuntu-latest`,
+    `${labelerPath}: public-repository job label must run on GitHub-hosted ubuntu-26.04`,
   ]);
 
   const pagesPath = ".github/workflows/github-pages.yml";
@@ -411,7 +441,7 @@ test("public-repository workflows cannot request self-hosted or dynamic runners"
   assert.deepEqual(validatePublicRepositoryRunnerWorkflowObject(pages, pagesPath), []);
   pages.jobs["verify-public-transport"]["runs-on"] = label;
   assert.deepEqual(validatePublicRepositoryRunnerWorkflowObject(pages, pagesPath), [
-    `${pagesPath}: public-repository job verify-public-transport must run on GitHub-hosted ubuntu-latest`,
+    `${pagesPath}: public-repository job verify-public-transport must run on GitHub-hosted ubuntu-26.04`,
   ]);
 });
 
@@ -482,9 +512,9 @@ test("workflow validation accepts only the reviewed action digests", () => {
 });
 
 test("scientific workflows must provision the fixture-locked Python and NumPy runtime", () => {
-  const lock = { python_version: "3.14.7", packages: { numpy: "2.5.2" } };
+  const lock = { python_version: "3.14.8", packages: { numpy: "2.5.2" } };
   const validSteps = [
-    { uses: "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97", with: { "python-version": "3.14.7" } },
+    { uses: "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97", with: { "python-version": "3.14.8" } },
     { run: "python -m pip install --disable-pip-version-check --no-deps --require-hashes -r requirements-ci.txt" },
   ];
   assert.deepEqual(validateScientificRuntimeWorkflowObject(
@@ -497,7 +527,7 @@ test("scientific workflows must provision the fixture-locked Python and NumPy ru
     lock,
     "quality",
   ), [
-    "workflow.yml: job quality must use locked Python 3.14.7",
+    "workflow.yml: job quality must use locked Python 3.14.8",
     "workflow.yml: job quality must install hash-locked NumPy 2.5.2 without dependencies",
   ]);
 });
@@ -507,7 +537,7 @@ test("the scientific runtime lock is the exact reviewed CPython and NumPy artifa
     schema: 1,
     artifact: "fixture-019",
     python_implementation: "CPython",
-    python_version: "3.14.7",
+    python_version: "3.14.8",
     packages: { numpy: "2.5.2" },
     package_artifacts: {
       numpy: {
@@ -521,12 +551,12 @@ test("the scientific runtime lock is the exact reviewed CPython and NumPy artifa
   assert.deepEqual(validateScientificRuntimeLock(valid), []);
 
   const tampered = structuredClone(valid);
-  tampered.python_version = "3.14.8";
+  tampered.python_version = "3.14.9";
   tampered.packages.numpy = "2.5.3";
   tampered.package_artifacts.numpy.sha256 = "0".repeat(64);
   tampered.unreviewed_package_source = "https://example.invalid";
   assert.deepEqual(validateScientificRuntimeLock(tampered), [
-    "experiments/workstation/fixture-019/python-environment.lock.json: python_version must be \"3.14.7\"",
+    "experiments/workstation/fixture-019/python-environment.lock.json: python_version must be \"3.14.8\"",
     "experiments/workstation/fixture-019/python-environment.lock.json: scientific runtime lock contains an unknown or missing field",
     "experiments/workstation/fixture-019/python-environment.lock.json: packages must contain only NumPy 2.5.2",
     "experiments/workstation/fixture-019/python-environment.lock.json: NumPy 2.5.2 must use the approved CPython 3.14 Linux x86_64 wheel and SHA-256 digest",
@@ -537,7 +567,7 @@ test("JavaScript workflows use the exact Node and npm toolchain in order", () =>
   const validSteps = [
     {
       uses: "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-      with: { "node-version": "26.8.1", cache: "npm" },
+      with: { "node-version-file": ".node-version", cache: "npm" },
     },
     { run: "node scripts/install-locked-npm.mjs" },
     { run: "test \"$(npm --version)\" = \"12.0.2\"" },
@@ -549,18 +579,65 @@ test("JavaScript workflows use the exact Node and npm toolchain in order", () =>
   ), []);
 
   const tampered = structuredClone(validSteps);
-  tampered[0].with["node-version"] = "26.8.0";
+  tampered[0].with = { "node-version": "26.8.1", cache: "npm" };
   tampered[1].run = "npm install --global npm@latest";
   tampered[2].run = "test \"$(npm --version)\" = \"12.0.1\"";
   assert.deepEqual(validateJavaScriptRuntimeWorkflowObject(
     { jobs: { quality: { steps: tampered } } },
     "quality",
   ), [
-    "workflow.yml: job quality must use Node 26.8.1 with the npm cache",
+    "workflow.yml: job quality must read the Node version from .node-version with the npm cache",
     "workflow.yml: job quality must install hash-locked npm 12.0.2 after Node setup",
     "workflow.yml: job quality must verify locked npm 12.0.2 after installation",
     "workflow.yml: job quality must run npm ci --no-audit after verifying the locked npm version",
   ]);
+});
+
+test("every job reads the Node version from the one version file", () => {
+  const setup = (inputs) => ({
+    uses: "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+    with: inputs,
+  });
+  const jobsWith = (inputs) => ({
+    jobs: {
+      first: { steps: [{ run: "true" }, setup({ "node-version-file": ".node-version", cache: "npm" })] },
+      second: { steps: [setup(inputs)] },
+      plain: { steps: [{ run: "true" }] },
+      reusable: { uses: "./.github/workflows/other.yml" },
+    },
+  });
+  const finding = ["workflow.yml: job second must read the Node version from .node-version"];
+  assert.deepEqual(validateNodeSetupWorkflowObject(jobsWith({ "node-version-file": ".node-version" })), []);
+  assert.deepEqual(validateNodeSetupWorkflowObject({ jobs: {} }), []);
+  assert.deepEqual(validateNodeSetupWorkflowObject(undefined), []);
+  for (const inputs of [
+    { "node-version": "26.8.1" },
+    { "node-version-file": ".node-version", "node-version": "26.8.1" },
+    { "node-version-file": "package.json" },
+    { "node-version-file": ".nvmrc" },
+    {},
+    undefined,
+  ]) {
+    assert.deepEqual(validateNodeSetupWorkflowObject(jobsWith(inputs)), finding);
+  }
+  for (const name of ["ci", "github-pages", "release"]) {
+    const file = `.github/workflows/${name}.yml`;
+    assert.deepEqual(validateNodeSetupWorkflowObject(workflow(name), file), []);
+    assert.doesNotMatch(readFileSync(new URL(`../${file}`, import.meta.url), "utf8"), /node-version:/u);
+  }
+});
+
+test("the Node version file names exactly the reviewed runtime", () => {
+  assert.deepEqual(validateNodeVersionFile("26.8.1\n"), []);
+  assert.deepEqual(
+    validateNodeVersionFile(readFileSync(new URL("../.node-version", import.meta.url), "utf8")),
+    [],
+  );
+  for (const text of ["26.8.0\n", "26.8.1", "v26.8.1\n", "26.8.1\n\n", "26\n", "26.8.1\r\n", ""]) {
+    assert.deepEqual(validateNodeVersionFile(text), [
+      ".node-version: must contain exactly 26.8.1 and a final newline",
+    ]);
+  }
 });
 
 test("dependency installation suppresses audit fan-out and one full gate enforces advisories", () => {
@@ -596,7 +673,7 @@ test("dependency installation suppresses audit fan-out and one full gate enforce
     steps: [
       {
         uses: "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-        with: { "node-version": "26.8.1", cache: "npm" },
+        with: { "node-version-file": ".node-version", cache: "npm" },
       },
       { run: "node scripts/install-locked-npm.mjs" },
       { run: "test \"$(npm --version)\" = \"12.0.2\"" },
@@ -717,7 +794,7 @@ test("every discovered workflow is inside the generic security policy", (t) => {
     "",
   ].join("\n"));
   assert.ok(validateWorkflowTree(root).includes(
-    ".github/workflows/new-workflow.yaml: public-repository job unsafe must run on GitHub-hosted ubuntu-latest",
+    ".github/workflows/new-workflow.yaml: public-repository job unsafe must run on GitHub-hosted ubuntu-26.04",
   ));
 });
 
@@ -1080,6 +1157,38 @@ test("real PDF reproducibility acceptance stays in the renderer-selected and tag
   ), [releaseFinding]);
 });
 
+test("the renderer job ends by proving the published PDF against its fresh renders", async (t) => {
+  const finding = ".github/workflows/ci.yml: CI must run the exact selected PDF reproducibility proof only in its renderer-selected gate and retain its receipt plus mismatch bytes";
+  const steps = (subject) => subject.jobs["pdf-renderer-reproducibility"].steps;
+  const comparison = (subject) => steps(subject)
+    .find((candidate) => candidate.name === "Verify the published PDF against the fresh renders");
+  const valid = workflow("ci");
+  assert.equal(steps(valid).at(-1), comparison(valid));
+  assert.deepEqual(validatePDFRendererReproducibilityWorkflowObject(valid, ".github/workflows/ci.yml"), []);
+  const mutations = {
+    "missing comparison": (subject) => { steps(subject).pop(); },
+    "ignored comparison result": (subject) => { comparison(subject).run += " || true"; },
+    "comparison failure bypass": (subject) => { comparison(subject)["continue-on-error"] = true; },
+    "comparison after a failed proof": (subject) => { comparison(subject).if = "always()"; },
+    "comparison skipped on pull requests": (subject) => { comparison(subject).if = "github.ref == 'refs/heads/main'"; },
+    "other receipt": (subject) => { comparison(subject).run = comparison(subject).run.replace("build/evidence/", "tmp/"); },
+    "injected environment": (subject) => { comparison(subject).env = { NODE_OPTIONS: "--require ./tmp/patch.cjs" }; },
+    "unbounded comparison": (subject) => { delete comparison(subject)["timeout-minutes"]; },
+    "comparison before the receipt exists": (subject) => {
+      const list = steps(subject);
+      list.splice(list.length - 2, 2, list.at(-1), list.at(-2));
+    },
+    "step after the comparison": (subject) => { steps(subject).push({ name: "Later step", run: "true" }); },
+  };
+  for (const [name, mutate] of Object.entries(mutations)) {
+    await t.test(name, () => {
+      const subject = structuredClone(workflow("ci"));
+      mutate(subject);
+      assert.deepEqual(validatePDFRendererReproducibilityWorkflowObject(subject, ".github/workflows/ci.yml"), [finding]);
+    });
+  }
+});
+
 test("PDF build cache has one exact key, bounded restore and trusted successful-main save", async (t) => {
   const finding = ".github/workflows/ci.yml: CI must run the exact selected PDF reproducibility proof only in its renderer-selected gate and retain its receipt plus mismatch bytes";
   const step = (subject, name) => subject.jobs["pdf-renderer-reproducibility"].steps
@@ -1205,7 +1314,8 @@ test("private CI build configuration rejects inherited workflow and job environm
       ? validateCiImpactWorkflowObject(subject)
       : validatePDFRendererReproducibilityWorkflowObject(subject, ".github/workflows/ci.yml");
     const valid = workflow("ci");
-    assert.equal(valid.env, undefined);
+    assert.deepEqual(Object.keys(valid.env), ["PRAETOR_REF"]);
+    assert.match(valid.env.PRAETOR_REF, /^[0-9a-f]{40}$/u);
     assert.equal(valid.jobs[jobName].env, undefined);
     assert.deepEqual(validate(valid), []);
     for (const key of ["GOEXPERIMENT", "GOFLAGS"]) {
@@ -1217,6 +1327,99 @@ test("private CI build configuration rejects inherited workflow and job environm
       }
     }
   }
+});
+
+test("the workflow environment of CI holds nothing but a full engine commit id", () => {
+  const pin = "0123456789abcdef0123456789abcdef01234567";
+  for (const jobName of ["impact-plan", "pdf-renderer-reproducibility"]) {
+    const validate = (subject) => jobName === "impact-plan"
+      ? validateCiImpactWorkflowObject(subject)
+      : validatePDFRendererReproducibilityWorkflowObject(subject, ".github/workflows/ci.yml");
+    const withEnvironment = (environment) => {
+      const subject = workflow("ci");
+      if (environment === undefined) delete subject.env;
+      else subject.env = environment;
+      return subject;
+    };
+    assert.deepEqual(validate(withEnvironment(undefined)), [], `${jobName} without a workflow environment`);
+    assert.deepEqual(validate(withEnvironment({ PRAETOR_REF: pin })), [], `${jobName} with another full commit id`);
+    for (const [label, environment] of [
+      ["a second key beside the pin", { PRAETOR_REF: pin, GOFLAGS: "-mod=mod" }],
+      ["a second harmless-looking key", { PRAETOR_REF: pin, CI_NOTE: "x" }],
+      ["a release tag", { PRAETOR_REF: "v1.0.0" }],
+      ["a branch name", { PRAETOR_REF: "main" }],
+      ["an abbreviated commit id", { PRAETOR_REF: pin.slice(0, 12) }],
+      ["a value that is not hexadecimal", { PRAETOR_REF: `${pin.slice(0, 39)}g` }],
+      ["upper-case hexadecimal", { PRAETOR_REF: pin.toUpperCase() }],
+      ["a 41-character value", { PRAETOR_REF: `${pin}0` }],
+      ["a commit id with a trailing line", { PRAETOR_REF: `${pin}\n` }],
+      ["a number", { PRAETOR_REF: 1234567890123456 }],
+      ["an expression", { PRAETOR_REF: "${{ vars.PRAETOR_REF }}" }],
+      ["an empty environment", {}],
+      ["a null environment", null],
+      ["a list", [pin]],
+      ["the pin under another name", { PRAETOR_PIN: pin }],
+    ]) {
+      assert.ok(validate(withEnvironment(environment)).length > 0, `${jobName} accepted ${label}`);
+    }
+    const jobLevel = withEnvironment({ PRAETOR_REF: pin });
+    jobLevel.jobs[jobName].env = { PRAETOR_REF: pin };
+    assert.ok(validate(jobLevel).length > 0, `${jobName} accepted the pin at job level`);
+  }
+});
+
+test("CI refuses tool attribution in exactly the commit messages a change adds", () => {
+  const valid = workflow("ci");
+  const finding = ".github/workflows/ci.yml: impact-plan must refuse tool or model attribution in every commit message that the accepted base does not reach";
+  const locate = (subject) => subject.jobs["impact-plan"].steps[3];
+  assert.deepEqual(validateCiImpactWorkflowObject(valid), []);
+  assert.equal(locate(valid).name, "Refuse tool attribution in new commit messages");
+
+  for (const mutate of [
+    // Compare against the event's recorded base, which may be an older ancestor of main.
+    (source) => source.replace('"${CURRENT_SHA}^1^{commit}"', '"$BEFORE_SHA"'),
+    (source) => source.replace('[[ "$merged_head" != "$HEAD_SHA" ]]', "false"),
+    (source) => source.replace('--base "$base_tip" --head "$HEAD_SHA"', '--head "$HEAD_SHA"'),
+    (source) => source.replace('&& "$BEFORE_SHA" != "$zero_sha" ]]', "]]"),
+    (source) => source.replace('git merge-base --is-ancestor "$BEFORE_SHA" "$CURRENT_SHA"', "true"),
+    (source) => source.replace('--base "$BEFORE_SHA" --head "$CURRENT_SHA"', '--head "$CURRENT_SHA"'),
+    (source) => source.replace(
+      '  go -C tooling run ./cmd/ci-plan messages --root .. --head "$CURRENT_SHA"',
+      "  true",
+    ),
+    (source) => source.replaceAll("./cmd/ci-plan messages", "./cmd/20w ci messages"),
+    (source) => `${source}\n|| true`,
+    () => "true",
+  ]) {
+    const weakened = structuredClone(valid);
+    const before = locate(weakened).run;
+    locate(weakened).run = mutate(before);
+    assert.notEqual(locate(weakened).run, before, "the mutation must change the step source");
+    assert.ok(validateCiImpactWorkflowObject(weakened).includes(finding));
+  }
+
+  for (const mutate of [
+    (step) => { step["continue-on-error"] = true; },
+    (step) => { step.if = "github.event_name == 'push'"; },
+    (step) => { step.shell = "sh"; },
+    (step) => { step.env.GOFLAGS = "-mod=mod"; },
+    (step) => { delete step.env.HEAD_SHA; },
+    (step) => { step.env.BASE_SHA = "${{ github.event.pull_request.base.sha }}"; },
+    (step) => { step["working-directory"] = "tooling"; },
+  ]) {
+    const weakened = structuredClone(valid);
+    mutate(locate(weakened));
+    assert.ok(validateCiImpactWorkflowObject(weakened).includes(finding));
+  }
+
+  const removed = structuredClone(valid);
+  removed.jobs["impact-plan"].steps.splice(3, 1);
+  assert.ok(validateCiImpactWorkflowObject(removed).includes(finding));
+
+  const reordered = structuredClone(valid);
+  const steps = reordered.jobs["impact-plan"].steps;
+  [steps[2], steps[3]] = [steps[3], steps[2]];
+  assert.ok(validateCiImpactWorkflowObject(reordered).includes(finding));
 });
 
 test("CI impact selection is projected once and every job state fails closed", () => {
@@ -1284,7 +1487,7 @@ test("CI impact selection is projected once and every job state fails closed", (
   }
 
   const duplicateTitleGate = structuredClone(valid);
-  duplicateTitleGate.jobs["pr-title"] = { "runs-on": "ubuntu-latest", steps: [] };
+  duplicateTitleGate.jobs["pr-title"] = { "runs-on": "ubuntu-26.04", steps: [] };
   assert.ok(validateCiImpactWorkflowObject(duplicateTitleGate).includes(
     ".github/workflows/ci.yml: CI must delegate PR title validation to the standalone required workflow",
   ));
@@ -2651,7 +2854,7 @@ test("container policy withholds arm64 and enforces exact-digest runtime identit
     ['if [[ "$tooling_identity" != "$expected_tooling_identity" ]]; then', "if false; then"],
     ['"go_version":"go1.27.1"', '"go_version":"go1.28.0"'],
     ['if [[ "$fixture_007_node" != "v26.8.1" ]]; then', "if false; then"],
-    ['"Python 3.14.7"', '"Python 3.14.8"'],
+    ['"Python 3.14.8"', '"Python 3.14.9"'],
     ['numpy.__version__ == \\"2.5.2\\"', 'numpy.__version__ == \\"2.5.3\\"'],
   ]) {
     assertWorkflowTamper(
@@ -2950,8 +3153,505 @@ test("release pins the SBOM generator for every published container", () => {
   }
 });
 
+test("the update bot leaves the CLRS generator folder alone and keeps the preset ignore list", () => {
+  const config = JSON.parse(readFileSync(new URL("../renovate.json", import.meta.url), "utf8"));
+  assert.deepEqual(validateRenovateConfigObject(config), []);
+  const without = (entry) => ({
+    ...config,
+    ignorePaths: config.ignorePaths.filter((candidate) => candidate !== entry),
+  });
+  assert.deepEqual(validateRenovateConfigObject(without("tooling/clrs-generator/**")), [
+    "renovate.json: ignorePaths must exclude tooling/clrs-generator/**",
+  ]);
+  assert.deepEqual(validateRenovateConfigObject(without("**/tests/**")), [
+    "renovate.json: ignorePaths must keep the preset entry **/tests/**",
+  ]);
+  for (const ignorePaths of [undefined, [], "tooling/clrs-generator/**", ["tooling/clrs-generator"]]) {
+    const findings = validateRenovateConfigObject({ ...config, ignorePaths });
+    assert.equal(findings.length, 9, JSON.stringify(ignorePaths));
+    assert.equal(findings[0], "renovate.json: ignorePaths must exclude tooling/clrs-generator/**");
+  }
+  assert.deepEqual(validateRenovateConfigObject({ ...config, timezone: "UTC" }), [
+    "renovate.json: timezone must be Europe/Berlin",
+  ]);
+  assert.deepEqual(
+    validateRenovateConfigObject({ ...config, packageRules: [{ automerge: true }] }),
+    ["renovate.json: automerge stays disabled until required CI and repository rules are verified"],
+  );
+  assert.equal(validateRenovateConfigObject(null).length, 10);
+});
+
+test("no update group of the bot carries a workflow tool version", () => {
+  const config = JSON.parse(readFileSync(new URL("../renovate.json", import.meta.url), "utf8"));
+  const groupIndex = config.packageRules.findIndex((rule) => rule.groupName === "github actions");
+  assert.equal(groupIndex, 0);
+  assert.deepEqual(config.packageRules[groupIndex].matchDepTypes, ["!uses-with"]);
+  assert.deepEqual(validateRenovateConfigObject(config), []);
+  const finding = (index) => (
+    `renovate.json: packageRules[${index}] groups updates and must list !uses-with in matchDepTypes or name only managers other than github-actions`
+  );
+  const withGroupRule = (change) => ({
+    ...config,
+    packageRules: config.packageRules.map((rule, index) => (
+      index === groupIndex ? change({ ...rule }) : rule
+    )),
+  });
+  const refused = [
+    (rule) => { delete rule.matchDepTypes; return rule; },
+    (rule) => ({ ...rule, matchDepTypes: [] }),
+    (rule) => ({ ...rule, matchDepTypes: "!uses-with" }),
+    (rule) => ({ ...rule, matchDepTypes: ["uses-with"] }),
+    (rule) => ({ ...rule, matchDepTypes: ["action"] }),
+    (rule) => ({ ...rule, matchDepTypes: ["!USES-WITH"] }),
+    (rule) => ({ ...rule, matchDepTypes: ["!/uses-with/"] }),
+  ];
+  for (const [caseIndex, change] of refused.entries()) {
+    assert.deepEqual(validateRenovateConfigObject(withGroupRule(change)), [finding(groupIndex)], `case ${caseIndex}`);
+  }
+  const appended = (rule) => ({ ...config, packageRules: [...config.packageRules, rule] });
+  const last = config.packageRules.length;
+  for (const matchManagers of [
+    undefined, [], "npm", ["github-actions"], ["npm", "github-actions"], ["/.*/"], ["!npm"], ["*"],
+    ["custom.regex"], [7],
+  ]) {
+    assert.deepEqual(
+      validateRenovateConfigObject(appended({ matchManagers, groupName: "planted group" })),
+      [finding(last)],
+      JSON.stringify(matchManagers),
+    );
+  }
+  assert.deepEqual(validateRenovateConfigObject(appended({ matchManagers: ["npm"], groupName: "npm tools" })), []);
+  assert.deepEqual(
+    validateRenovateConfigObject(appended({ matchPackageNames: ["*"], matchDepTypes: ["action", "!uses-with"], groupName: "wide" })),
+    [],
+  );
+  assert.deepEqual(validateRenovateConfigObject(appended({ matchManagers: ["github-actions"], groupName: null })), []);
+  assert.deepEqual(validateRenovateConfigObject({ ...config, groupName: "everything" }), [
+    "renovate.json: groupName outside packageRules would group workflow tool versions with every other update",
+  ]);
+});
+
+test("engine-managed workflows keep pins, read-only permissions, runner and timeout", () => {
+  assert.deepEqual([...engineManagedWorkflowPaths], [
+    ".github/workflows/praetor-api.yml",
+    ".github/workflows/praetor-docs.yml",
+  ]);
+  for (const relativePath of engineManagedWorkflowPaths) {
+    const valid = parse(readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8"));
+    const [jobName] = Object.keys(valid.jobs);
+    const validate = (candidate) => validateEngineManagedWorkflowObject(candidate, relativePath);
+    const mutated = (change) => {
+      const candidate = structuredClone(valid);
+      change(candidate, candidate.jobs[jobName]);
+      return validate(candidate);
+    };
+    assert.deepEqual(validate(valid), [], relativePath);
+    // The carve-out exists because the generic policy refuses the engine's shape.
+    assert.notDeepEqual(validateWorkflowObject(valid, relativePath), [], relativePath);
+
+    const checkout = valid.jobs[jobName].steps.findIndex((step) => step.uses?.startsWith("actions/checkout@"));
+    assert.ok(checkout >= 0, relativePath);
+    for (const reference of ["actions/checkout@v7", "actions/checkout@main", "actions/checkout@3d3c42e5aac5", "docker://alpine:3"]) {
+      assert.deepEqual(mutated((_, job) => { job.steps[checkout].uses = reference; }), [
+        `${relativePath}: root.jobs.${jobName}.steps[${checkout}].uses must pin an external action to a full commit SHA; got ${reference}`,
+      ], reference);
+    }
+    assert.deepEqual(mutated((_, job) => { job.uses = "cordanaLLM/praetor/.github/workflows/gate.yml@v1"; }), [
+      `${relativePath}: root.jobs.${jobName}.uses must pin an external action to a full commit SHA; got cordanaLLM/praetor/.github/workflows/gate.yml@v1`,
+    ]);
+
+    for (const permissions of [{ contents: "write" }, { contents: "read", "id-token": "write" }]) {
+      assert.deepEqual(mutated((candidate) => { candidate.permissions = permissions; }), [
+        `${relativePath}: top-level permissions must not grant write access`,
+      ], JSON.stringify(permissions));
+      assert.deepEqual(mutated((_, job) => { job.permissions = permissions; }), [
+        `${relativePath}: engine-managed job ${jobName} must not grant write access`,
+      ], JSON.stringify(permissions));
+    }
+    assert.deepEqual(mutated((_, job) => { job.permissions = "write-all"; }), [
+      `${relativePath}: engine-managed job ${jobName} must not grant write access`,
+    ]);
+    assert.deepEqual(mutated((_, job) => { job.permissions = { contents: "read" }; }), []);
+    for (const permissions of [undefined, "write-all", "read-all", null]) {
+      assert.deepEqual(mutated((candidate) => { candidate.permissions = permissions; }), [
+        `${relativePath}: declare explicit top-level permissions`,
+      ], String(permissions));
+    }
+
+    for (const runner of ["ubuntu-latest", "self-hosted", ["ubuntu-26.04"], undefined]) {
+      assert.deepEqual(mutated((_, job) => { job["runs-on"] = runner; }), [
+        `${relativePath}: public-repository job ${jobName} must run on GitHub-hosted ubuntu-26.04`,
+      ], String(runner));
+    }
+    for (const timeout of [undefined, 0, -5, "10"]) {
+      assert.deepEqual(mutated((_, job) => { job["timeout-minutes"] = timeout; }), [
+        `${relativePath}: job ${jobName} needs a positive timeout-minutes`,
+      ], String(timeout));
+    }
+    assert.deepEqual(mutated((candidate) => { candidate.jobs = {}; }), [
+      `${relativePath}: jobs must be a non-empty mapping`,
+    ]);
+    assert.deepEqual(mutated((candidate) => { candidate.jobs[jobName] = "x"; }), [
+      `${relativePath}: job ${jobName} must be a mapping`,
+    ]);
+    assert.deepEqual(validate(null), [`${relativePath}: workflow root must be a mapping`]);
+  }
+});
+
+test("no other workflow file can claim the engine-managed carve-out", (t) => {
+  const root = mkdtempSync(path.join(tmpdir(), "20w-engine-workflows-"));
+  t.after(() => rmSync(root, { force: true, recursive: true }));
+  const workflowDirectory = path.join(root, ".github", "workflows");
+  mkdirSync(workflowDirectory, { recursive: true });
+  const source = (relativePath) => readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
+  for (const relativePath of engineManagedWorkflowPaths) {
+    writeFileSync(path.join(root, relativePath), source(relativePath));
+  }
+  const about = (findings, name) => findings.filter((finding) => finding.startsWith(`.github/workflows/${name}:`));
+  const clean = validateWorkflowTree(root);
+  assert.deepEqual(about(clean, "praetor-api.yml"), []);
+  assert.deepEqual(about(clean, "praetor-docs.yml"), []);
+
+  // Byte copies of an engine workflow under any other name get the full policy.
+  const claimants = ["praetor-extra.yml", "praetor-api.yaml", "praetor-api-2.yml", "xpraetor-docs.yml"];
+  for (const name of claimants) {
+    writeFileSync(path.join(workflowDirectory, name), source(engineManagedWorkflowPaths[0]));
+  }
+  const findings = validateWorkflowTree(root);
+  for (const name of claimants) {
+    const refused = about(findings, name);
+    assert.ok(
+      refused.includes(`.github/workflows/${name}: concurrency must define a group and explicit cancel-in-progress boolean`),
+      `${name}: ${refused.join(" | ")}`,
+    );
+    assert.ok(refused.some((finding) => finding.includes("persist-credentials")), name);
+  }
+  assert.deepEqual(about(findings, "praetor-api.yml"), []);
+  assert.deepEqual(about(findings, "praetor-docs.yml"), []);
+
+  // An engine path keeps its narrow rules inside the tree walk as well.
+  writeFileSync(
+    path.join(root, engineManagedWorkflowPaths[0]),
+    source(engineManagedWorkflowPaths[0]).replace(/actions\/checkout@[0-9a-f]{40}/u, "actions/checkout@v7"),
+  );
+  const tagged = about(validateWorkflowTree(root), "praetor-api.yml");
+  assert.equal(tagged.length, 1, tagged.join(" | "));
+  assert.match(tagged[0], /must pin an external action to a full commit SHA; got actions\/checkout@v7$/u);
+});
+
+test("a local hook file may skip a generated job only by a dated exception", () => {
+  const generated = parse(readFileSync(new URL("../lefthook.yml", import.meta.url), "utf8"));
+  const local = parse(readFileSync(new URL("../lefthook-local.yml", import.meta.url), "utf8"));
+  assert.deepEqual(generatedHookJobSkips.map((entry) => ({ ...entry })), [
+    { hook: "pre-commit", job: "reuse-lint", lastDay: "2026-11-30" },
+  ]);
+  const validate = (candidate, today = "2026-10-11", skips = generatedHookJobSkips) =>
+    validateLocalHookObject(candidate, generated, today, skips);
+  const mutated = (change, today) => {
+    const candidate = structuredClone(local);
+    change(candidate);
+    return validate(candidate, today);
+  };
+  const expired = "lefthook-local.yml: the skip of pre-commit command reuse-lint ended on 2026-11-30; remove it or decide a new date";
+  const skipOnly = "lefthook-local.yml: the exception for pre-commit command reuse-lint may only set skip: true";
+
+  assert.deepEqual(validate(local), []);
+  assert.deepEqual(validate(local, "2026-11-30"), []);
+  assert.deepEqual(validate(local, "2026-12-01"), [expired]);
+  assert.deepEqual(validate(local, "2027-01-01"), [expired]);
+  assert.deepEqual(validateRepositoryPolicy(undefined, "2026-11-30"), []);
+  assert.deepEqual(validateRepositoryPolicy(undefined, "2026-12-01"), [expired]);
+  for (const today of ["2026-12-1", "11.10.2026", "", "tomorrow"]) {
+    assert.deepEqual(validate(local, today), [
+      `lefthook-local.yml: the comparison date must be a calendar day; got ${today}`,
+    ]);
+  }
+
+  // Every generated job: an override without a declared exception is refused.
+  const overrides = Object.entries(generated).flatMap(([hook, body]) =>
+    Object.keys(body.commands).map((job) => [hook, job]));
+  assert.ok(overrides.length >= 9, String(overrides.length));
+  for (const [hook, job] of overrides.filter(([hook, job]) => `${hook}/${job}` !== "pre-commit/reuse-lint")) {
+    for (const body of [{ skip: true }, { run: "true" }, { env: { X: "1" } }, null]) {
+      assert.deepEqual(mutated((candidate) => {
+        candidate[hook] = { commands: { ...(candidate[hook]?.commands ?? {}), [job]: body } };
+      }), [
+        `lefthook-local.yml: ${hook} command ${job} changes a generated job without a declared exception`,
+      ], `${hook}/${job} ${JSON.stringify(body)}`);
+    }
+  }
+
+  for (const body of [{ skip: true, run: "true" }, { skip: false }, { skip: "true" }, { run: "true" }, {}, null, true]) {
+    assert.deepEqual(mutated((candidate) => { candidate["pre-commit"].commands["reuse-lint"] = body; }), [skipOnly], JSON.stringify(body));
+  }
+  for (const [name, change] of [
+    ["a hook-level skip", (candidate) => { candidate["pre-commit"].skip = true; }],
+    ["a hook-level exclusion", (candidate) => { candidate["pre-push"].exclude_tags = ["x"]; }],
+    ["a hook-level parallel switch", (candidate) => { candidate["pre-push"].parallel = true; }],
+    ["a hook without commands", (candidate) => { candidate["pre-push"] = { skip: true }; }],
+    ["a commands list", (candidate) => { candidate["pre-push"] = { commands: [] }; }],
+  ]) {
+    const findings = mutated(change);
+    assert.equal(findings.length, 1, `${name}: ${findings.join(" | ")}`);
+    assert.match(findings[0], /^lefthook-local\.yml: hook pre-(commit|push) may only declare a commands mapping$/u, name);
+  }
+
+  assert.deepEqual(mutated((candidate) => { delete candidate["pre-commit"].commands["reuse-lint"]; }), [
+    "lefthook-local.yml: the declared exception for pre-commit command reuse-lint is unused; remove it",
+  ]);
+  assert.deepEqual(mutated((candidate) => { delete candidate["pre-commit"]; }), [
+    "lefthook-local.yml: the declared exception for pre-commit command reuse-lint is unused; remove it",
+  ]);
+  assert.deepEqual(validate(local, "2026-10-11", []), [
+    "lefthook-local.yml: pre-commit command reuse-lint changes a generated job without a declared exception",
+  ]);
+  for (const pair of [[null, generated], [local, null], [[], generated], [local, "x"]]) {
+    assert.deepEqual(validateLocalHookObject(pair[0], pair[1], "2026-10-11"), [
+      "lefthook-local.yml: lefthook-local.yml and lefthook.yml must each be a mapping",
+    ]);
+  }
+});
+
 test("policy diagnostics are actionable", () => {
   const output = formatFindings(["file: reason"]);
   assert.match(output, /1 finding/u);
   assert.match(output, /- file: reason/u);
+});
+
+const engineFileRoot = path.resolve(import.meta.dirname, "..");
+const engineFileLastDay = "2027-01-09";
+const engineFileNextDay = "2027-01-10";
+const vendoredSource = "tools/figures/third_party/interfig/upstream/src/svg.ts";
+const plainEntry = (entry, listKey) => ({ ...entry, [listKey]: [...entry[listKey]] });
+
+async function lintRuleIds(today, exceptions = LINT_EXCEPTIONS) {
+  const eslint = new ESLint({
+    cwd: engineFileRoot,
+    overrideConfig: createEslintConfig({ exceptions, today }),
+    overrideConfigFile: true,
+  });
+  const results = await eslint.lintFiles(LINT_EXCEPTIONS.map((entry) => entry.path));
+  return Object.fromEntries(results.map((result) => [
+    path.relative(engineFileRoot, result.filePath).split(path.sep).join("/"),
+    [...new Set(result.messages.map((message) => String(message.ruleId)))].sort(),
+  ]));
+}
+
+function typeCheckCodes(relativePath) {
+  const read = ts.readConfigFile(path.join(engineFileRoot, "tsconfig.json"), ts.sys.readFile);
+  assert.equal(read.error, undefined);
+  const parsed = ts.parseJsonConfigFileContent(read.config, ts.sys, engineFileRoot);
+  const target = path.join(engineFileRoot, relativePath);
+  const program = ts.createProgram([target], { ...parsed.options, incremental: false, noEmit: true });
+  const diagnostics = ts.getPreEmitDiagnostics(program);
+  assert.deepEqual(diagnostics.filter((diagnostic) => diagnostic.file === undefined), []);
+  return [...new Set(diagnostics
+    .filter((diagnostic) => path.resolve(diagnostic.file.fileName) === target)
+    .map((diagnostic) => `TS${diagnostic.code}`))].sort();
+}
+
+test("engine-file exception lists are well formed and fail closed when they are not", () => {
+  assert.deepEqual(engineFileExceptionFindings(LINT_EXCEPTIONS, "rules"), []);
+  assert.deepEqual(engineFileExceptionFindings(TYPE_CHECK_EXCEPTIONS, "diagnostics"), []);
+  assert.deepEqual(LINT_EXCEPTIONS.map((entry) => [entry.path, entry.expires, entry.rules.length]), [
+    ["tools/figures/dist/loader.js", engineFileLastDay, 1],
+    ["tools/figures/dist/player.js", engineFileLastDay, 14],
+  ]);
+  const base = plainEntry(LINT_EXCEPTIONS[1], "rules");
+  const label = "engine-file exception 0";
+  for (const [name, entries, expected] of [
+    ["not a list", { ...base }, ["engine-file exceptions must be an array"]],
+    ["a null entry", [null], [`${label} must be an object`]],
+    ["an entry that is a list", [[]], [`${label} must be an object`]],
+    ["no reason", [{ ...base, reason: " " }], [`${label} has no reason`]],
+    ["a short end day", [{ ...base, expires: "2027-1-9" }], [`${label} has no calendar end day`]],
+    ["a day that does not exist", [{ ...base, expires: "2027-02-30" }], [`${label} has no calendar end day`]],
+    ["no end day", [{ ...base, expires: undefined }], [`${label} has no calendar end day`]],
+    ["a glob", [{ ...base, path: "tools/figures/dist/*.js" }], [`${label} must name one file by its literal repository path`]],
+    ["a recursive glob", [{ ...base, path: "tools/**" }], [`${label} must name one file by its literal repository path`]],
+    ["a directory", [{ ...base, path: "tools/figures/dist/" }], [`${label} must name one file by its literal repository path`]],
+    ["a relative prefix", [{ ...base, path: "./tools/figures/dist/player.js" }], [`${label} must name one file by its literal repository path`]],
+    ["an alternation", [{ ...base, path: "tools/figures/dist/@(player|x).js" }], [`${label} must name one file by its literal repository path`]],
+    ["a negation", [{ ...base, path: "!tools/figures/dist/player.js" }], [`${label} must name one file by its literal repository path`]],
+    ["no rules", [{ ...base, rules: [] }], [`${label} must list its rules as sorted, unique names`]],
+    ["a repeated rule", [{ ...base, rules: ["no-empty", "no-empty"] }], [`${label} must list its rules as sorted, unique names`]],
+    ["unsorted rules", [{ ...base, rules: ["no-undef", "no-empty"] }], [`${label} must list its rules as sorted, unique names`]],
+    ["a rule that is not a name", [{ ...base, rules: [""] }], [`${label} must list its rules as sorted, unique names`]],
+    ["an added key", [{ ...base, files: ["**"] }], [`${label} must hold exactly expires, path, reason and rules`]],
+    ["the other list's key", [{ ...base, diagnostics: ["TS1"] }], [`${label} must hold exactly expires, path, reason and rules`]],
+    ["a path named twice", [base, base], [`engine-file exception 1 repeats the path ${base.path}`]],
+  ]) {
+    assert.deepEqual(engineFileExceptionFindings(entries, "rules"), expected, name);
+    assert.throws(() => lintExceptionOverrides(entries, "2026-10-11"), new Error(expected.join("\n")), name);
+  }
+});
+
+test("engine-file exceptions apply through their last day and compare calendar days only", () => {
+  for (const day of ["2026-10-11", engineFileLastDay, "2028-02-29"]) assert.equal(isCalendarDay(day), true, day);
+  assert.equal(isCalendarDay(undefined), false);
+  for (const day of ["2027-1-9", "2027-02-30", "2027-13-01", "09.01.2027", "+010000-01", "", "tomorrow", 20270109, null]) {
+    assert.equal(isCalendarDay(day), false, String(day));
+    assert.throws(() => lintExceptionOverrides(LINT_EXCEPTIONS, day), /the comparison day must be a calendar day/u, String(day));
+  }
+  assert.equal(currentCalendarDay(new Date("2027-01-09T23:59:59.999Z")), engineFileLastDay);
+  assert.equal(currentCalendarDay(new Date("2027-01-10T00:00:00.000Z")), engineFileNextDay);
+  assert.equal(activeExceptions(LINT_EXCEPTIONS, engineFileLastDay).length, 2);
+  assert.deepEqual(activeExceptions(LINT_EXCEPTIONS, engineFileNextDay), []);
+  assert.deepEqual(lintExceptionOverrides(LINT_EXCEPTIONS, engineFileNextDay), []);
+  const overrides = lintExceptionOverrides(LINT_EXCEPTIONS, engineFileLastDay);
+  assert.deepEqual(overrides.map((override) => override.files), LINT_EXCEPTIONS.map((entry) => [entry.path]));
+  assert.deepEqual(overrides.map((override) => Object.keys(override)), Array(2).fill(["files", "rules"]));
+  assert.deepEqual(overrides[0].rules, { "@typescript-eslint/no-unused-expressions": "off" });
+  const mixed = [{ ...plainEntry(LINT_EXCEPTIONS[0], "rules"), expires: "2026-10-10" }, LINT_EXCEPTIONS[1]];
+  assert.deepEqual(lintExceptionOverrides(mixed, "2026-10-11").map((override) => override.files), [
+    ["tools/figures/dist/player.js"],
+  ]);
+  assert.equal(createEslintConfig({ today: engineFileLastDay }).length, createEslintConfig({ today: engineFileNextDay }).length + 2);
+});
+
+test("the lint exceptions hide exactly the rules their two files trip, and nothing after their last day", async () => {
+  const declared = Object.fromEntries(LINT_EXCEPTIONS.map((entry) => [entry.path, [...entry.rules]]));
+  const clean = Object.fromEntries(LINT_EXCEPTIONS.map((entry) => [entry.path, []]));
+  assert.deepEqual(await lintRuleIds(engineFileLastDay), clean);
+  // Without the entries every declared rule fires and no other one does, so
+  // no entry is unused and none hides a rule it does not name.
+  assert.deepEqual(await lintRuleIds(engineFileNextDay), declared);
+  assert.deepEqual(await lintRuleIds("2026-10-11", []), declared);
+
+  const narrowed = LINT_EXCEPTIONS.map((entry) => plainEntry(entry, "rules"));
+  narrowed[1].rules = narrowed[1].rules.filter((rule) => rule !== "no-undef");
+  assert.deepEqual(await lintRuleIds("2026-10-11", narrowed), {
+    ...clean,
+    "tools/figures/dist/player.js": ["no-undef"],
+  });
+});
+
+test("a lint exception covers its own file and no neighbour", async () => {
+  const eslint = new ESLint({
+    cwd: engineFileRoot,
+    overrideConfig: createEslintConfig({ today: "2026-10-11" }),
+    overrideConfigFile: true,
+  });
+  const source = "export const pattern = /a\\-b/;\nif (pattern) {}\n";
+  for (const [filePath, expected] of [
+    ["tools/figures/dist/player.js", []],
+    ["tools/figures/dist/player.test.js", ["no-empty", "no-useless-escape"]],
+    ["tools/figures/dist/nested/player.js", ["no-empty", "no-useless-escape"]],
+    ["tools/figures/player.js", ["no-empty", "no-useless-escape"]],
+    ["scripts/player.js", ["no-empty", "no-useless-escape"]],
+  ]) {
+    const [result] = await eslint.lintText(source, { filePath: path.join(engineFileRoot, filePath) });
+    assert.deepEqual(result.messages.map((message) => message.ruleId).sort(), expected, filePath);
+  }
+});
+
+test("a lint exception is never a whole-file ignore: the lint reads every script under tools", async () => {
+  const scripts = readdirSync(path.join(engineFileRoot, "tools"), { recursive: true })
+    .map((entry) => `tools/${entry.split(path.sep).join("/")}`)
+    .filter((entry) => /\.(?:[cm]?js|tsx?)$/u.test(entry))
+    .sort();
+  const markdownGates = ["tools/markdownlint/no-private-scratch-links.mjs", "tools/markdownlint/verify.mjs"];
+  for (const expected of [...LINT_EXCEPTIONS.map((entry) => entry.path), "tools/figures/checks.mjs", ...markdownGates]) {
+    assert.ok(scripts.includes(expected), expected);
+  }
+  const ignored = async (extra) => {
+    const eslint = new ESLint({
+      cwd: engineFileRoot,
+      overrideConfig: [...createEslintConfig({ today: "2026-10-11" }), ...extra],
+      overrideConfigFile: true,
+    });
+    const flags = await Promise.all(scripts.map((script) => eslint.isPathIgnored(script)));
+    return scripts.filter((_, index) => flags[index]);
+  };
+  assert.deepEqual(await ignored([]), []);
+  // A planted folder ignore must show up, so the empty result above is a reading.
+  assert.deepEqual(await ignored([{ ignores: ["tools/markdownlint/**"] }]), markdownGates);
+});
+
+test("the type check leaves out a file only by a dated exception", () => {
+  const config = JSON.parse(readFileSync(new URL("../tsconfig.json", import.meta.url), "utf8"));
+  assert.deepEqual(TYPE_CHECK_EXCEPTIONS.map((entry) => [entry.path, entry.expires, [...entry.diagnostics]]), [
+    [vendoredSource, engineFileLastDay, ["TS5097"]],
+  ]);
+  const validate = (change = () => {}, today = "2026-10-11", exceptions = TYPE_CHECK_EXCEPTIONS) => {
+    const candidate = structuredClone(config);
+    change(candidate);
+    return validateTypeCheckConfigObject(candidate, today, exceptions);
+  };
+  const expired = `tsconfig.json: the type-check exception for ${vendoredSource} ended on ${engineFileLastDay}; remove it or decide a new date`;
+  const unused = `tsconfig.json: the declared exception for ${vendoredSource} is unused; remove it`;
+  const undeclared = (excluded) => `tsconfig.json: exclude names ${excluded} without a declared exception`;
+
+  assert.deepEqual(validate(), []);
+  assert.deepEqual(validate(undefined, engineFileLastDay), []);
+  assert.deepEqual(validate(undefined, engineFileNextDay), [expired]);
+  const tsconfigFindings = (today) =>
+    validateRepositoryPolicy(undefined, today).filter((finding) => finding.startsWith("tsconfig.json"));
+  assert.deepEqual(tsconfigFindings(engineFileLastDay), []);
+  assert.deepEqual(tsconfigFindings(engineFileNextDay), [expired]);
+
+  for (const excluded of ["app", "tools", "tools/**", "**/*.ts", "tools/figures/third_party/interfig/upstream/src",
+    "tools/figures/third_party/interfig/upstream/src/*.ts", "tools/figures/third_party/interfig/upstream/src/model.ts"]) {
+    assert.deepEqual(validate((candidate) => { candidate.exclude.push(excluded); }), [undeclared(excluded)], excluded);
+  }
+  assert.deepEqual(validate(undefined, "2026-10-11", []), [undeclared(vendoredSource)]);
+  assert.deepEqual(validate((candidate) => { candidate.exclude.pop(); }), [unused]);
+  assert.deepEqual(validate((candidate) => { candidate.exclude = [vendoredSource]; }), [
+    "tsconfig.json: exclude must keep node_modules",
+  ]);
+  assert.deepEqual(validate((candidate) => { candidate.exclude.push(vendoredSource); }), [
+    `tsconfig.json: exclude repeats ${vendoredSource}`,
+  ]);
+});
+
+test("the type-check configuration cannot drop a file by another route", () => {
+  const config = JSON.parse(readFileSync(new URL("../tsconfig.json", import.meta.url), "utf8"));
+  const validate = (change, today = "2026-10-11", exceptions = TYPE_CHECK_EXCEPTIONS) => {
+    const candidate = structuredClone(config);
+    change(candidate);
+    return validateTypeCheckConfigObject(candidate, today, exceptions);
+  };
+  const include = "tsconfig.json: include must be exactly **/*.ts, **/*.tsx, **/*.mts and files must be absent";
+  for (const [name, change] of [
+    ["a narrowed glob", (candidate) => { candidate.include = ["app/**/*.ts", "**/*.tsx", "**/*.mts"]; }],
+    ["a dropped glob", (candidate) => { candidate.include.pop(); }],
+    ["no include", (candidate) => { delete candidate.include; }],
+    ["a files list", (candidate) => { candidate.files = ["app/book-content.ts"]; }],
+    ["an empty files list", (candidate) => { candidate.files = []; }],
+  ]) {
+    assert.deepEqual(validate(change), [include], name);
+  }
+  for (const [name, change] of [
+    ["no exclude", (candidate) => { delete candidate.exclude; }],
+    ["an exclude string", (candidate) => { candidate.exclude = vendoredSource; }],
+  ]) {
+    assert.deepEqual(validate(change), ["tsconfig.json: exclude must be a list"], name);
+  }
+  assert.deepEqual(validateTypeCheckConfigObject(null, "2026-10-11"), ["tsconfig.json: exclude must be a list"]);
+  for (const today of ["2027-1-9", "09.01.2027", "", "tomorrow"]) {
+    assert.deepEqual(validate(() => {}, today), [
+      `tsconfig.json: the comparison date must be a calendar day; got ${today}`,
+    ]);
+  }
+  const base = plainEntry(TYPE_CHECK_EXCEPTIONS[0], "diagnostics");
+  for (const [name, entry, expected] of [
+    ["a glob", { ...base, path: "tools/figures/**/svg.ts" }, "must name one file by its literal repository path"],
+    ["no end day", { ...base, expires: "" }, "has no calendar end day"],
+    ["no reason", { ...base, reason: "" }, "has no reason"],
+    ["no diagnostics", { ...base, diagnostics: [] }, "must list its diagnostics as sorted, unique names"],
+    ["an added key", { ...base, rules: ["x"] }, "must hold exactly expires, path, reason and diagnostics"],
+  ]) {
+    assert.deepEqual(validate(() => {}, "2026-10-11", [entry]), [
+      `tsconfig.json: engine-file exception 0 ${expected}`,
+    ], name);
+  }
+});
+
+test("the type-check exception names exactly what the compiler reports for its file", () => {
+  for (const entry of TYPE_CHECK_EXCEPTIONS) {
+    assert.deepEqual(typeCheckCodes(entry.path), [...entry.diagnostics], entry.path);
+  }
+  // A file the compiler accepts reports nothing, so an entry for it would not
+  // pass the comparison above.
+  assert.deepEqual(typeCheckCodes("tools/figures/third_party/interfig/upstream/src/model.ts"), []);
 });

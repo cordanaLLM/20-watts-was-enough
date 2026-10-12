@@ -10,7 +10,7 @@ import (
 func TestValidateAcceptsMinimalRepository(t *testing.T) {
 	t.Parallel()
 	root := validRepository(t)
-	result := Validate(root)
+	result := validateFixture(root)
 	if len(result.Errors) != 0 {
 		t.Fatalf("Validate() errors = %v", result.Errors)
 	}
@@ -75,7 +75,7 @@ func TestValidateReportsTampering(t *testing.T) {
 			t.Parallel()
 			root := validRepository(t)
 			test.mutate(t, root)
-			result := Validate(root)
+			result := validateFixture(root)
 			if !containsDiagnostic(result.Errors, test.diagnostic) {
 				t.Fatalf("Validate() errors = %v, want diagnostic containing %q", result.Errors, test.diagnostic)
 			}
@@ -89,9 +89,30 @@ func TestValidateIgnoresCodeLinksAndImportedClaims(t *testing.T) {
 	writeFile(t, root, "README.md", "`[not a link](missing.md)`\n")
 	writeFile(t, root, "sources/imported.md", "C-999 and eradicates hallucinations\n")
 
-	result := Validate(root)
+	result := validateFixture(root)
 	if len(result.Errors) != 0 {
 		t.Fatalf("Validate() errors = %v", result.Errors)
+	}
+}
+
+// The engine keeps backups of the files it replaces under .workingdir/, which
+// Git ignores. A copy there links to paths that only exist at the root.
+func TestValidateSkipsPrivateStateFolder(t *testing.T) {
+	t.Parallel()
+	root := validRepository(t)
+	writeFile(t, root, ".workingdir/adopt-backups/20261011T140934Z/AGENTS.md", "[principles](docs/principles.md)\n")
+	result := validateFixture(root)
+	if len(result.Errors) != 0 {
+		t.Fatalf("Validate() errors = %v", result.Errors)
+	}
+	if result.MarkdownFiles != 4 {
+		t.Fatalf("Validate() counted %d Markdown files, want 4", result.MarkdownFiles)
+	}
+
+	writeFile(t, root, "workingdir/notes.md", "[principles](docs/principles.md)\n")
+	result = validateFixture(root)
+	if !containsDiagnostic(result.Errors, "Broken link in workingdir/notes.md") {
+		t.Fatalf("Validate() errors = %v, want the tracked look-alike folder checked", result.Errors)
 	}
 }
 

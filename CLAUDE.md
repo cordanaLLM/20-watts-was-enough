@@ -1,63 +1,81 @@
 <!-- markdownlint-disable MD013 -->
 <!-- Compiled automatically by praetorctl compile-context from AGENTS.md. DO NOT EDIT DIRECTLY. -->
 
-<!-- markdownlint-disable MD013 MD025 -->
-# 20-watts-was-enough Agent Operating Harness
+<!-- markdownlint-disable MD013 -->
+# cordanaLLM/20-watts-was-enough Agent Operating Harness
 
-Run verification before concluding any turn:
+Before concluding any turn:
 
 ```bash
 make verify-all
 ```
 
-```mermaid
-flowchart LR
-    AGENT["Autonomous Agent"] --> CHECK["make verify-all"]
-    CHECK --> AUDIT["standardsctl audit"]
-    CHECK --> COMPILER["standardsctl compile-context --verify"]
-    CHECK --> GATE{"All checks Pass?"}
-    GATE -- Yes --> RECEIPT["Ed25519 Exit-0 Receipt"]
-    GATE -- No --> DISTILL["SARIF Diagnostic Distillation (<= 1500 tokens)"]
-```
+`make verify-all` = repository gate. Steps live in `Makefile`: read there, never restate; adoption executed none.
+Pass = exit 0. Signed Ed25519 Exit-0 receipt only from `praetorctl gate run`; report no receipt it did not mint. Fail -> SARIF diagnostic distillation (<= 1500 tokens).
 
-## Core Directives & Invariants (Modernized NASA JPL Power-of-10)
+## Core Directives & Invariants
 
-| Invariant | Scope | NASA Rule | Enforcement Mechanism | Failure Action |
-| :--- | :--- | :--- | :--- | :--- |
-| **HISS-01** | Control Flow | Rule 1 | Recursion strictly prohibited; call graph must be DAG; zero `goto`. | Immediate build failure |
-| **HISS-02** | Loops & I/O | Rule 2 | Scalar upper bound on all loops; explicit `context.Context` timeout on all I/O. | Semgrep / AST error |
-| **HISS-03** | Memory | Rule 3 | Zero dynamic heap allocation (`malloc` / `free`) in hot simulation/tick loops. | Allocation audit sweep |
-| **HISS-04** | Complexity | Rule 4 | Function length $\le 60$ LOC, McCabe Cyclomatic $\le 10$, Statements $\le 50$. | AST sweep blocker |
-| **HISS-07** | Error Handling | Rule 7 | Zero `.unwrap()` / `.expect()`; all errors handled or wrapped with context. | Linter / Compiler error |
-| **HISS-08** | Determinism | Rule 8 | Zero dynamic execution (`eval` / `exec`); zero banned unsafe libc (`gets` / `strcpy` / `sprintf`). | AST / Linter error |
-| **HISS-09** | Reference Safety | Rule 9 | Mandatory `// SAFETY:` proofs for all pointer arithmetic and `unsafe` blocks. | AST check blocker |
-| **HISS-10** | Warning Hygiene | Rule 10 | Zero-warning tolerance across compiler, linter, and format sweeps. | Exit code 1 |
-| **HISS-15** | 3D Testing | Rule 5 | Positive, negative, and boundary tests mandatory for all public interfaces. | CI coverage gate |
-| **HISS-16** | Context Integrity | Fleet | Single canonical `AGENTS.md`; vendor files compiled via `standardsctl compile-context`. | Pre-commit blocker |
+Adopted check = check adoption generated here (generated `make verify-all` + praetor `lefthook.yml`), as written at adoption; later edits to those files not reflected. `not enforced` = rule binds, no generated check decides it for repository languages.
+
+| Invariant | Rule | Adopted check | On fail |
+| :--- | :--- | :--- | :--- |
+| **HISS-01** control flow | recursion prohibited; call graph = DAG | not enforced | advisory |
+| **HISS-02** loops, I/O | scalar upper bound on every loop; explicit deadline on every I/O call | not enforced | advisory |
+| **HISS-03** memory | n/a: no such construct in repository languages; advisory | not enforced | advisory |
+| **HISS-04** complexity | McCabe cyclomatic <= 10, cognitive <= 15, statements <= 50; func LOC <= 60 (audit ceiling) | not enforced | advisory |
+| **HISS-05** scoping | declare every identifier in smallest lexical scope serving it | not enforced | advisory |
+| **HISS-06** concurrency | explicit scalar upper bound on every worker pool + concurrent fan-out | not enforced | advisory |
+| **HISS-07** errors | every error handled or wrapped with context | not enforced | advisory |
+| **HISS-08** determinism | zero dynamic code execution (`eval` / `exec`) | not enforced | advisory |
+| **HISS-09** reference safety | n/a: no such construct in repository languages; advisory | not enforced | advisory |
+| **HISS-10** warnings | zero warnings: compiler, linter, format sweeps | not enforced | advisory |
+| **HISS-11** supply chain | pinned lockfiles; zero floating tags; signed provenance | not enforced | advisory |
+| **HISS-12** secrets | zero credentials in Git history | not enforced | advisory |
+| **HISS-13** debt ratchet | recorded infractions never grow vs committed baseline | `praetorctl audit` ratchet vs `.standards-baseline.json` in verify-all + lefthook pre-commit/pre-push | growth fails verify-all, blocks commit, blocks push |
+| **HISS-14** append-only ABI | public API append-only; breaking change = `!` subject + `Migration:` footer | not enforced | advisory |
+| **HISS-15** 3D testing | positive + negative + boundary tests, every public interface | not enforced | advisory |
+| **HISS-16** context integrity | single canonical `AGENTS.md`; vendor files compiled via `praetorctl compile-context` | `praetorctl compile-context --verify` in verify-all + lefthook pre-commit | drift fails verify-all, blocks commit |
+| **HISS-17** state ledger | turn start `praetorctl state status`; turn end `praetorctl state sync .` | `praetorctl state sync .` in lefthook post-commit | none; records only |
+| **HISS-18** CI efficiency | diff-aware gating via `praetorctl ci filter` | not enforced | advisory |
+| **HISS-19** reuse before writing | one behavior = one implementation; extend or call existing code | not enforced | advisory |
+| **HISS-20** replayable evidence | every enforcement claim backed by fixtures replayed both directions | not enforced | advisory |
+| **HISS-21** platform neutrality | gates, hooks, emitted templates run on Linux, macOS, Windows, or skip with stated reason | not enforced | advisory |
 
 ## Operational Rules
 
-1. **Act on Verified State**:
-   Read source files and run real commands before hypothesizing or editing. Never guess flag names, library signatures, or repo configurations from memory.
+1. **Act on verified state.** Read source files, run real commands before hypothesis or edit. Never guess flag names, library signatures, repo configuration from memory.
 
-2. **Lead with Output**:
-   Provide direct answers, diffs, and commands. Avoid filler preambles, "Based on", restatements, or conversational chatter.
+2. **Lead with output.** Direct answers, diffs, commands. No filler preamble, no "Based on", no restatement, no chatter.
 
-3. **Context Transpiler First**:
-   Never edit `CLAUDE.md`, `.cursor/rules/*.mdc`, `.windsurfrules`, or `.github/copilot-instructions.md` manually. Make all agent instruction updates in `AGENTS.md` and execute:
+3. **Context transpiler first.** Never edit `CLAUDE.md`, `.gemini/GEMINI.md`, `.codex/rules.md` manually. All agent instruction updates -> `AGENTS.md`, then:
 
    ```bash
-   standardsctl compile-context
+   praetorctl compile-context
    ```
 
-4. **SARIF Diagnostic Distillation**:
-   When reporting compiler or linter errors, distill output to $\le 1,500$ tokens ($< 60$ lines). Print the top 3 root-cause failures with file/line pointers and write full SARIF logs to ephemeral storage.
+   - `AGENTS.md` = agent-only text -> caveman (internal register). `praetorctl compile-context --verify` + `praetorctl audit` run caveman lint; findings fail gate; no opt-out. Check first: `praetorctl caveman check --kind=context AGENTS.md`.
 
-5. **No Evasion Tolerated**:
-   Do not attempt `--no-verify`, `LEFTHOOK=0`, or modifying `.git/hooks`. All pull requests are authoritatively re-checked in an ephemeral isolated sandbox by `cordana-standards[bot]`.
+4. **SARIF diagnostic distillation.** Compiler/linter errors -> distill to $\le 1,500$ tokens ($< 60$ lines): top 3 root-cause failures with file/line pointers; full SARIF logs -> ephemeral storage.
 
-6. **Anti-Loop Interception**:
-   If the same AST diff and error category repeats $\ge 3$ times, halt execution immediately. Re-evaluate the underlying design instead of making micro-textual retries.
+5. **No evasion.** Never attempt `--no-verify`, `LEFTHOOK=0`, or modifying `.git/hooks`. Hooks = local gate adoption installs. Adoption adds no server-side `praetorctl` gate run. Scaffolded CI: `.github/workflows/praetor-docs.yml` runs step `Stop on a draft pull request`, `node tools/markdownlint/verify.mjs`, step `Verify figures`; `.github/workflows/praetor-api.yml` runs step `Stop on a draft pull request`, `go run tools/apicompat/gate/main.go -base="$BASE"`.
+
+6. **Anti-loop interception.** Same AST diff + error category repeats $\ge 3$ times -> halt immediately. Re-evaluate design; no micro-textual retries.
+
+## Text Register
+
+<!-- praetor:register:start -->
+Register follows the audience, then the task label of your brief (`register:` in `.standards.yaml`; labels are the router's `target_tasks`).
+
+| Register | Where | Form |
+| :--- | :--- | :--- |
+| social | forge: issues, PR bodies, review comments, commit bodies | `social-text` skill: BLUF, full sentences, scannable, enough and no more; conventional commit subject unchanged |
+| docs | docs/, README, ADR bodies | complete without bloat: newcomer path first, expert reference after; every claim points at a file, command or test; no restated code |
+| internal | briefs, agent-to-agent traffic, research fan-outs, workflow returns | `caveman` skill: fragments, no filler, verbatim code/paths/errors; facts, paths, commands, verdict |
+
+- Task rows: social = commit_message_synthesis, waiver_signoff; docs = architecture_synthesis, function_docstrings; every other label and any unlabeled text = internal. Subagent launch brief: `caveman` brief shape with `task:` = routing label.
+- Evidence above 58 lines or 1500 tokens leaves the message as a file under `.workingdir/evidence/`; return `evidence: <path> sha256:<12 hex> lines:<n>` and fetch it only when a decision needs it.
+- An internal return carries verdict, changed paths, commands run, evidence pointers and open questions, nothing else.
+<!-- praetor:register:end -->
 
 ## Primary Verification Commands
 
@@ -69,15 +87,17 @@ flowchart LR
 'npm' 'run' 'test'
 
 # Recompile and verify cross-agent context outputs
-standardsctl compile-context --verify
+praetorctl compile-context --verify
 
-# Audit repository against declared HISS-16 standards
-standardsctl audit
+# Audit repository against declared HISS standards
+praetorctl audit
 
-# Run all formatting, linting, and security gates
+# Repository gate; steps live in Makefile
 make verify-all
 ```
 
+<!-- markdownlint-enable MD013 -->
+<!-- markdownlint-disable MD025 -->
 <!-- praetor:harness:end -->
 
 ---
@@ -182,6 +202,9 @@ or consequential remote state.
    fallback and before marking pull request ready, integrating into `main`,
    merging or releasing. Changes to book source bytes or membership also
    require `npm run generate:book-pdf` and `npm run validate:book-pdf`.
+   Changes confined to `scripts/book-render-free-sources.json` paths take
+   `npm run record:book-provenance` instead of render
+   ([Decision 0090](decisions/0090-re-record-book-provenance-for-dependency-records.md)).
    [Decision 0088](decisions/0088-impact-scope-ci-and-local-validation.md) defines
    scope selection and evidence reuse; complete integration and release gates
    remain unchanged.
@@ -218,19 +241,3 @@ remains authoritative at integration and release boundaries above.
   governs executable runs and authority boundaries.
 - [`app/AGENTS.md`](app/AGENTS.md) governs interactive reader.
 - [`scripts/AGENTS.md`](scripts/AGENTS.md) governs validators and generators.
-
-## Text Register
-
-<!-- praetor:register:start -->
-Register follows the audience, then the task label of your brief (`register:` in `.standards.yaml`; labels are the router's `target_tasks`).
-
-| Register | Where | Form |
-| :--- | :--- | :--- |
-| social | forge: issues, PR bodies, review comments, commit bodies | BLUF, full sentences, scannable, enough and no more; conventional commit subject unchanged |
-| docs | docs/, README, ADR bodies | complete without bloat: newcomer path first, expert reference after; every claim points at a file, command or test; no restated code |
-| internal | briefs, agent-to-agent traffic, research fan-outs, workflow returns | fragments, no filler, verbatim code/paths/errors; facts, paths, commands, verdict |
-
-- Task rows: social = commit_message_synthesis, waiver_signoff; docs = architecture_synthesis, function_docstrings; every other label and any unlabeled text = internal. Subagent launch brief: internal register with `task:` = routing label.
-- Evidence above 58 lines or 1500 tokens leaves the message as a file under `.workingdir/evidence/`; return `evidence: <path> sha256:<12 hex> lines:<n>` and fetch it only when a decision needs it.
-- An internal return carries verdict, changed paths, commands run, evidence pointers and open questions, nothing else.
-<!-- praetor:register:end -->

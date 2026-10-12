@@ -2,7 +2,7 @@
   "schema": 1,
   "artifact": "fixture-019",
   "python_implementation": "CPython",
-  "python_version": "3.14.7",
+  "python_version": "3.14.8",
   "packages": {
     "numpy": "2.5.2"
   },

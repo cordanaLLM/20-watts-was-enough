@@ -19,5 +19,5 @@
     }
   },
   "include": ["**/*.ts", "**/*.tsx", "**/*.mts"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "tools/figures/third_party/interfig/upstream/src/svg.ts"]
 }
