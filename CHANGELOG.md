@@ -92,6 +92,16 @@ the exact diff; this file records why the project changed.
   a render-free book source, so the book provenance is re-recorded without
   a render (Decision 0090).
 
+- Vite moves from 8.2.2 to 8.3.2, which brings Rolldown 1.2.12 in place of
+  1.2.6. The site's notice list names the exact versions of the bundler
+  runtime modules it ships, so `scripts/lib/third-party-notices.mjs` and its
+  test now expect the new versions, and `THIRD_PARTY_NOTICES.txt` is
+  regenerated. The set of credited packages is unchanged; the Vite section
+  moves because its licence file now lists other bundled dependencies. The
+  notices file is a book source, so the book PDF was rendered again with
+  the locked renderer; it is byte-identical, and the manifest and semantic
+  baseline record the new source digest.
+
 - The Praetor engine pin moves from `9bf502ec6ce5` to `6622361940dc`, engine
   `main` on 2026-10-12, four commits later. The new engine refuses closing
   keywords that would close another repository's pull request, ships
