@@ -4,12 +4,12 @@
   "python_implementation": "CPython",
   "python_version": "3.14.8",
   "packages": {
-    "numpy": "2.5.2"
+    "numpy": "2.5.3"
   },
   "package_artifacts": {
     "numpy": {
-      "filename": "numpy-2.5.2-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
-      "sha256": "318b9a4c845dbea06708a29c84ee429cc3065048db34cdb799047643492050ee"
+      "filename": "numpy-2.5.3-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "sha256": "b0521d0f4aebb6e06189451025fa17a913287b13c03d5fe05c017333b654ea5b"
     }
   },
   "bit_generator": "PCG64DXSM",
