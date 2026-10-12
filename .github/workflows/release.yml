@@ -645,7 +645,7 @@ jobs:
           tooling_identity="$(docker run --rm --pull never --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             "$tooling" version --json)"
-          expected_tooling_identity="$(printf '{"version":"%s","revision":"%s","built_at":"%s","go_version":"go1.27.1","os":"linux","architecture":"amd64"}' \
+          expected_tooling_identity="$(printf '{"version":"%s","revision":"%s","built_at":"%s","go_version":"go1.27.2","os":"linux","architecture":"amd64"}' \
             "$RELEASE_TAG" "$RELEASE_COMMIT" "$RELEASE_TIMESTAMP")"
           if [[ "$tooling_identity" != "$expected_tooling_identity" ]]; then
             echo "::error::admitted 20w binary identity does not match the tag, commit, timestamp, Go version, OS, and architecture"
