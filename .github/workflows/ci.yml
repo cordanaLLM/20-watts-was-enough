@@ -179,6 +179,14 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: node scripts/audit-code-shape.mjs --base-revision "$BASE_SHA"
+      - name: Fetch the locked CLRS retained inputs
+        run: |
+          go -C tooling run ./cmd/20w experiment fetch-clrs-retained-inputs --root .. --output "$RUNNER_TEMP/clrs-retained"
+          {
+            echo "CLRS_RETAINED_INPUTS_REQUIRED=1"
+            echo "CLRS_PROMISE_TEST_INPUTS=$RUNNER_TEMP/clrs-retained"
+            echo "CLRS_SOURCE_ARCHIVE_TEST_PATH=$RUNNER_TEMP/clrs-retained/clrs-source.tar.gz"
+          } >> "$GITHUB_ENV"
       - name: Run the full quality check without workstation tests
         run: npm run check:full-without-workstation
       - name: Fuzz the untrusted JSON boundary
@@ -229,6 +237,14 @@ jobs:
         with:
           go-version-file: tooling/go.mod
           cache-dependency-path: tooling/go.sum
+      - name: Fetch the locked CLRS retained inputs
+        run: |
+          go -C tooling run ./cmd/20w experiment fetch-clrs-retained-inputs --root .. --output "$RUNNER_TEMP/clrs-retained"
+          {
+            echo "CLRS_RETAINED_INPUTS_REQUIRED=1"
+            echo "CLRS_PROMISE_TEST_INPUTS=$RUNNER_TEMP/clrs-retained"
+            echo "CLRS_SOURCE_ARCHIVE_TEST_PATH=$RUNNER_TEMP/clrs-retained/clrs-source.tar.gz"
+          } >> "$GITHUB_ENV"
       - name: Test and vet Go packages
         run: go -C tooling test ./... && go -C tooling vet ./...
 

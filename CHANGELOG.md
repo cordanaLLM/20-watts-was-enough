@@ -82,6 +82,15 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- CI now runs two CLRS retained-input tests that used to skip on every run:
+  `TestSourceEntriesPinnedArchive` and
+  `TestPromiseRetainedFourInputsFailBeforeEffectsWhenTampered`. The new
+  `20w experiment fetch-clrs-retained-inputs` command downloads the locked
+  CLRS source archive, Promise sdist and build wheels and checks each size and
+  SHA-256 against `tooling/clrs-generator/lock-input.json` and
+  `wheelhouse.json`. The Go lane and the full quality check run it before
+  `go test` and set `CLRS_RETAINED_INPUTS_REQUIRED=1`, which turns a missing
+  input into a test failure instead of a skip.
 - KaTeX moves from 0.18.6 to 0.19.0. The release reports missing glyph
   metrics through `strict` as `symbolNotInFont`, which raises under
   `strict: "error"`. `npm run validate:math` renders every formula with

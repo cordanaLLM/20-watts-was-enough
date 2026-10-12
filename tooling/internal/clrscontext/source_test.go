@@ -266,6 +266,9 @@ func TestSourceEntriesBoundedCountsAndSizes(t *testing.T) {
 func TestSourceEntriesPinnedArchive(t *testing.T) {
 	archivePath := os.Getenv("CLRS_SOURCE_ARCHIVE_TEST_PATH")
 	if archivePath == "" {
+		if clrsfixture.RetainedInputsRequired() {
+			t.Fatal(clrsfixture.RetainedInputsRequiredVariable + "=1 but CLRS_SOURCE_ARCHIVE_TEST_PATH is unset")
+		}
 		t.Skip("set CLRS_SOURCE_ARCHIVE_TEST_PATH to the retained pinned gzip; no download is performed")
 	}
 	root := filepath.Join("..", "..", "clrs-generator")
