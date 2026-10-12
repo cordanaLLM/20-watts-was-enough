@@ -402,6 +402,9 @@ func TestPromiseRetainedInputsExerciseCompleteFakeConsumer(t *testing.T) {
 func TestPromiseRetainedFourInputsFailBeforeEffectsWhenTampered(t *testing.T) {
 	directory := os.Getenv("CLRS_PROMISE_TEST_INPUTS")
 	if directory == "" {
+		if RetainedInputsRequired() {
+			t.Fatal(RetainedInputsRequiredVariable + "=1 but CLRS_PROMISE_TEST_INPUTS is unset")
+		}
 		t.Skip("explicit retained artifact path not supplied")
 	}
 	inputs := promiseLifecycleInputs(t)

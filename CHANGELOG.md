@@ -82,6 +82,15 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- CI now runs two CLRS retained-input tests that used to skip on every run:
+  `TestSourceEntriesPinnedArchive` and
+  `TestPromiseRetainedFourInputsFailBeforeEffectsWhenTampered`. The new
+  `20w experiment fetch-clrs-retained-inputs` command downloads the locked
+  CLRS source archive, Promise sdist and build wheels and checks each size and
+  SHA-256 against `tooling/clrs-generator/lock-input.json` and
+  `wheelhouse.json`. The Go lane and the full quality check run it before
+  `go test` and set `CLRS_RETAINED_INPUTS_REQUIRED=1`, which turns a missing
+  input into a test failure instead of a skip.
 - npm moves from 12.0.2 to 12.2.0. The locked archive in
   `scripts/npm-runtime-lock.json` and `scripts/install-locked-npm.mjs` names
   the new registry tarball by size (3054025 bytes) and SHA-256
