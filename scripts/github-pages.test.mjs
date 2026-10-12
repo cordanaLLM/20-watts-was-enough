@@ -724,7 +724,7 @@ test("the workflow uses GitHub's Pages artifact and deployment actions", async (
     "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7",
     "actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6",
     "actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5",
-    "actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5",
+    "actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5",
     "npm ci --no-audit",
     "npm run validate:sources",
     "node --test scripts/source-boundary.test.mjs",
@@ -1071,8 +1071,8 @@ test("third-party notices include bundler runtimes and accept the project portal
     repositoryRoot,
   });
 
-  assert.match(notices, /- rolldown@1\.2\.6 — MIT/);
-  assert.match(notices, /- vite@8\.2\.2 — MIT/);
+  assert.match(notices, /- rolldown@1\.2\.12 — MIT/);
+  assert.match(notices, /- vite@8\.3\.2 — MIT/);
   assert.match(notices, /Copyright \(c\) 2024-present VoidZero Inc\. & Contributors/);
   assert.match(notices, /Copyright \(c\) 2019-present, VoidZero Inc\. and Vite contributors/);
 });

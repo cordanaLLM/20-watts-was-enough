@@ -9,6 +9,7 @@ const pdfPrintAttemptLimit = 2;
 const maximumDevtoolsActivePortBytes = 512;
 const maximumBrowserWaitTimeoutMs = 300_000;
 const localFetchAttemptTimeoutMs = 2_000;
+const devtoolsTargetPollMs = 100;
 const localFetchDiagnosticCodes = Object.freeze([
   "ECONNREFUSED", "ECONNRESET", "EHOSTUNREACH", "ENETUNREACH", "ETIMEDOUT",
   "EAI_AGAIN", "ENOTFOUND", "UND_ERR_CONNECT_TIMEOUT", "UND_ERR_HEADERS_TIMEOUT",
@@ -154,15 +155,20 @@ export const chromiumCandidates = Object.freeze([
 ].filter((candidate) => typeof candidate === "string" && candidate.length > 0));
 
 export async function firstExistingChromium(paths = chromiumCandidates) {
+  const failures = [];
   for (const candidate of paths) {
     try {
       await access(candidate);
       return candidate;
-    } catch {
-      // Continue to the next installed browser candidate.
+    } catch (error) {
+      // No browser at this path: keep the reason and try the next candidate.
+      failures.push(error);
     }
   }
-  throw new Error("Chrome, Chromium, or Edge is required for rendered browser verification.");
+  throw new Error(
+    "Chrome, Chromium, or Edge is required for rendered browser verification.",
+    { cause: new AggregateError(failures, "No browser candidate was accessible.") },
+  );
 }
 
 function throwIfRequiredProcessExited(process) {
@@ -178,13 +184,11 @@ function throwIfRequiredProcessExited(process) {
 }
 
 function localUrlDiagnosticLabel(url) {
-  try {
-    const endpoint = new URL(url);
-    if (endpoint.protocol === "http:" || endpoint.protocol === "https:") {
-      return `${endpoint.origin}${endpoint.pathname}`.slice(0, 240);
-    }
-  } catch {
-    // Invalid or non-HTTP URLs may contain credentials or inline body data.
+  // Invalid or non-HTTP URLs may contain credentials or inline body data.
+  if (!URL.canParse(url)) return "local URL";
+  const endpoint = new URL(url);
+  if (endpoint.protocol === "http:" || endpoint.protocol === "https:") {
+    return `${endpoint.origin}${endpoint.pathname}`.slice(0, 240);
   }
   return "local URL";
 }
@@ -297,23 +301,52 @@ export async function waitForDevtoolsPort(
   throw new Error("Timed out waiting for Chrome to publish its DevTools port.");
 }
 
-export async function devtoolsPage(browserProcess, debugPort, { signal } = {}) {
+// Chrome serves its target list before the first page target exists, so one
+// read can come back without a page. The list is read again inside one bounded
+// wait until a page target with a debugger address appears.
+export async function devtoolsPage(
+  browserProcess,
+  debugPort,
+  { signal, timeoutMs = 60_000 } = {},
+) {
   if (!Number.isSafeInteger(debugPort) || debugPort < 1 || debugPort > 65_535) {
     throw new Error("Chrome DevTools port must be an integer from 1 through 65535.");
   }
+  const timeout = boundedMilliseconds(
+    timeoutMs, "DevTools page target wait timeout", maximumBrowserWaitTimeoutMs,
+  );
   const endpoint = `http://127.0.0.1:${debugPort}/json/list`;
-  const response = await waitForUrl(endpoint, browserProcess, 60_000, signal);
-  const targets = await response.json();
-  const page = targets.find((target) => target.type === "page");
-  if (!page?.webSocketDebuggerUrl) {
-    throw new Error("The headless browser did not expose a page target.");
+  const deadline = Date.now() + timeout;
+  let remaining = timeout;
+  while (remaining > 0) {
+    const response = await waitForUrl(endpoint, browserProcess, remaining, signal);
+    const targets = await response.json();
+    const page = targets.find((target) => target.type === "page" && target.webSocketDebuggerUrl);
+    if (page) return page.webSocketDebuggerUrl;
+    remaining = deadline - Date.now();
+    if (remaining > 0) {
+      await waitWithSignal(Math.min(devtoolsTargetPollMs, remaining), signal);
+      remaining = deadline - Date.now();
+    }
   }
-  return page.webSocketDebuggerUrl;
+  throw new Error("The headless browser did not expose a page target.");
 }
 
 export async function devtoolsPageFromProfile(browserProcess, profile, options = {}) {
   const port = await waitForDevtoolsPort(profile, browserProcess, options);
   return devtoolsPage(browserProcess, port, options);
+}
+
+// Closes a socket whose failure is already being reported. A close error must
+// not replace that failure, so it becomes the failure's cause when the failure
+// carries none.
+function closeSocket(socket, failure) {
+  try {
+    socket.close();
+  } catch (error) {
+    if (failure.cause === undefined && Object.isExtensible(failure)) failure.cause = error;
+  }
+  return failure;
 }
 
 export async function connectCdp(webSocketUrl, {
@@ -343,13 +376,9 @@ export async function connectCdp(webSocketUrl, {
       reject,
       event?.error instanceof Error ? event.error : new Error("Chrome DevTools connection failed."),
     );
-    const onAbort = () => {
-      try { socket.close(); } catch { /* The pending connection is already unusable. */ }
-      finish(reject, abortError(signal));
-    };
+    const onAbort = () => finish(reject, closeSocket(socket, abortError(signal)));
     const timeout = setTimeout(() => {
-      try { socket.close(); } catch { /* The pending connection is already unusable. */ }
-      finish(reject, new Error("Chrome DevTools connection timed out."));
+      finish(reject, closeSocket(socket, new Error("Chrome DevTools connection timed out.")));
     }, openTimeout);
     socket.addEventListener("open", onOpen, { once: true });
     socket.addEventListener("error", onError, { once: true });
@@ -372,7 +401,7 @@ export async function connectCdp(webSocketUrl, {
   };
   const onAbort = () => {
     markTerminal(abortError(signal));
-    try { socket.close(); } catch { /* The connection is already closing. */ }
+    closeSocket(socket, terminalError);
   };
   const onClose = () => {
     signal?.removeEventListener("abort", onAbort);
@@ -394,7 +423,7 @@ export async function connectCdp(webSocketUrl, {
       message = JSON.parse(String(event.data));
     } catch {
       markTerminal(new Error("Chrome DevTools returned an invalid JSON message."));
-      try { socket.close(); } catch { /* The connection is already closing. */ }
+      closeSocket(socket, terminalError);
       return;
     }
     if (!message.id || !pending.has(message.id)) return;

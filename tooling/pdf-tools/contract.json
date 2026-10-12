@@ -107,7 +107,7 @@
   "notice_layer": {
     "assembly": "deterministic-final-layer",
     "buildkit_lock": "../pdf-renderer/lock.json",
-    "buildkit_authority_sha256": "463c367cdc2e700a4300e0ed8a6a910ab8e15112695410baee70455cd50e892c",
+    "buildkit_authority_sha256": "bb833df0aa38edd08341868bbae0a96cb069c06b939c055e80a0146bd2dff758",
     "entries": [
       {
         "source": "notices/AUTHORS",

@@ -34,7 +34,7 @@ concurrency:
 jobs:
   sync:
     name: Apply canonical labels, milestones, and issue assignments
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read

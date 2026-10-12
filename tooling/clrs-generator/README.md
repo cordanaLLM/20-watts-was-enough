@@ -26,6 +26,11 @@ the controller, validator and fixture-import boundary.
   artifacts. Two isolated runs of the pinned resolver produced identical lock
   bytes. This closes dependency resolution only; it does not prove that the
   source imports or runs.
+- The update bot does not propose changes in this folder
+  ([Decision 0092](../../decisions/0092-exclude-the-clrs-generator-folder-from-update-proposals.md)).
+  A dependency change is a reviewed re-resolution of `lock-input.json`,
+  `pyproject.toml`, `uv.lock` and `wheelhouse.json` together, with a decision
+  record that names the new cutoff.
 - [`wheelhouse.json`](wheelhouse.json) selects one exact Python 3.13 Linux
   `amd64` wheel for each of the 61 runtime packages and binds the pinned
   Bookworm image's glibc 2.36 boundary. Sixty wheels map directly to compatible

@@ -7,6 +7,44 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- Local Git hooks now gate this repository. The Praetor engine is pinned to
+  one commit by `PRAETOR_REF` in `.github/workflows/ci.yml`;
+  `.config/lefthook/engine.sh` runs exactly that commit for the hooks and
+  `make verify-all`, and the adoption files are refreshed at it. Until
+  2026-10-11 no hook had run here and CI was the only gate. The refresh
+  records 632 engine findings as baseline debt and names 35 Markdown files
+  the style gate skips, six of them for good; both lists shrink through
+  issues in the "Ongoing — Code health and deduplication" milestone. Agent
+  context is compiled for Claude, Codex and Gemini only, and the fifteen
+  tracked files of other clients and editors are removed. The release
+  workflow's distance from the declared supply-chain level (provenance at
+  SLSA level 2, no cosign step, no counted SBOM step) is a dated exception
+  until 2027-01-09. Files that the engine writes and locks (a minified
+  figure bundle, vendored source, a Markdown gate script) fail this
+  repository's code-shape audit, lint, type check and docs validator; each
+  gate now holds a list of named entries, one path with its exact rule,
+  diagnostic or link target, that end on 2027-01-09 and fail once expired or
+  unused. The docs validator reads a client's copy of a skill once when it is
+  byte-identical to the file under `.agents/skills`, and skips the engine's
+  private state folder. Decision 0095 records the pin, the carve-outs and
+  the dated exceptions.
+
+- The ruleset that protects `main` now also requires signed commits,
+  dismisses a stale review on push and requires `CI impact plan` and the two
+  CodeQL jobs. `Go API Compatibility` and `Documentation Governance` became
+  required later the same day, once `main` reported both.
+  `.standards.yaml` declares that one person maintains the
+  repository. Nothing live was loosened. Decision 0096 records the change
+  and partly supersedes decision 0085.
+
+- `20w ci messages` refuses a `Co-authored-by` trailer that names a tool or
+  model, and a generated-with footer, in commit messages. The `impact-plan`
+  job runs it on the commits a pull request or a push to `main` adds, so the
+  76 such lines already in history are not read and nothing is rewritten.
+  `--message-file` checks a squash body before the merge. Authorship stays
+  with people; material tool use is disclosed in the pull request or under
+  `research/disclosures/`. Decision 0093 records the rule.
+
 - `npm run record:book-provenance` re-records the book source digest in
   `public/downloads/book-manifest.json` and
   `scripts/book-pdf-semantic-baseline.json` without a render when the only
@@ -44,6 +82,70 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Vite moves from 8.2.2 to 8.3.2, which brings Rolldown 1.2.12 in place of
+  1.2.6. The site's notice list names the exact versions of the bundler
+  runtime modules it ships, so `scripts/lib/third-party-notices.mjs` and its
+  test now expect the new versions, and `THIRD_PARTY_NOTICES.txt` is
+  regenerated. The set of credited packages is unchanged; the Vite section
+  moves because its licence file now lists other bundled dependencies. The
+  notices file is a book source, so the book PDF was rendered again with
+  the locked renderer; it is byte-identical, and the manifest and semantic
+  baseline record the new source digest.
+
+- The Praetor engine pin moves from `9bf502ec6ce5` to `6622361940dc`, engine
+  `main` on 2026-10-12, four commits later. The new engine refuses closing
+  keywords that would close another repository's pull request, ships
+  register skills that pass markdownlint's default rules and builds Cargo
+  output below an absolute `CARGO_TARGET_DIR`. Its audit passes at the new
+  pin with the recorded baseline (626 findings) and asks for no change to
+  an adopted file, so none is refreshed.
+
+- `main` admits squash merges only. The maintainer switched rebase merges off
+  on 2026-10-11 in the repository setting and in ruleset `21746706`; both
+  values were read back through the API that day. A pull request that carries
+  several small units lands as one commit whose body lists each unit.
+  `docs/repository-rule-crosswalk.md` records the new state.
+
+- `.standards.yaml` declares the repository description, the homepage and
+  the 20 topics that the forge carries, in place of three empty values, so
+  the committed manifest names what a settings comparison reads. The
+  homepage is declared as `https://www.cordana.dev/`; the forge held the
+  `http` form on 2026-10-11 and keeps it until a maintainer writes the
+  declared value.
+
+- Every workflow job names its runner image by version, `ubuntu-26.04`, in
+  place of the floating `ubuntu-latest`. GitHub starts to move the floating
+  label from Ubuntu 24.04 to 26.04 on 2026-10-19, in a rollout of several
+  weeks; with a named image the change happens in one reviewed pull request.
+  `npm run validate:policy` refuses any other `runs-on` value, the old label
+  included
+  ([Decision 0094](decisions/0094-name-the-hosted-runner-image-by-version.md)).
+
+- The update bot no longer proposes changes in `tooling/clrs-generator/`.
+  `renovate.json` excludes the folder, because its lock is one reviewed
+  resolution against a fixed cutoff and the five open proposals there cannot
+  pass. The repository ignore list replaces the preset's list, so the eight
+  preset entries are listed again and `npm run validate:policy` requires all
+  nine. A dependency change in the folder is a reviewed re-resolution with a
+  decision record
+  ([Decision 0092](decisions/0092-exclude-the-clrs-generator-folder-from-update-proposals.md)).
+
+- The update bot rebases one of its branches only when the branch conflicts
+  with `main` (`rebaseWhen: conflicted` in `renovate.json`). The rule set on
+  `main` requires an up-to-date branch, so the bot's automatic mode rebased
+  every untouched branch after each commit on `main`; the merge of #191
+  queued 21 CI runs for the 26 open update pull requests. A branch is now
+  brought up to date when it is about to be merged. This is a trial: the
+  setting is not pinned by the validator and is reverted if the queue time
+  does not fall.
+
+- Workflows read the Node.js version from `.node-version` instead of ten
+  literal copies. `npm run validate:policy` now fails on a
+  `node-version` input in any workflow and requires `.node-version` to hold
+  exactly the reviewed runtime version. Reviewed artifact hashes and runtime
+  versions in the validator and tests stay as they are; decision 0091 records
+  the rule.
+
 - Agent instruction files are now written in the terse internal register
   that Praetor's context gate requires, so
   `praetorctl compile-context --verify` passes again: the root `AGENTS.md`,
@@ -66,7 +168,54 @@ the exact diff; this file records why the project changed.
   no workflow, selector, impact map or test assertion moves. `CONTRIBUTING.md`
   and the maintenance automation map now link to 0088.
 
+- The update bot proposes a tool version passed as a workflow input in a
+  pull request of its own, no longer inside the "github actions" group. Two
+  such values exist, the Python version and the Buildx version, and each is
+  bound to a lock outside the workflows, so neither can merge as part of an
+  action update. `npm run validate:policy` refuses an update group that
+  could carry such a value
+  ([Decision 0097](decisions/0097-keep-workflow-tool-versions-out-of-the-action-update-group.md)).
+- The Fixture 019 runtime moves from CPython 3.14.7 to 3.14.8, a bug-fix and
+  security release of 2026-09-30. The environment lock, the base image of the
+  fixture's Dockerfile (`python:3.14.8-slim-trixie` at the digest read from
+  the registry on 2026-10-12), the manifest, the three workflow jobs that
+  provision Python and the two container checks move together. NumPy stays at
+  2.5.2 with the same wheel digest. No seed, configuration, protocol or
+  result authority changes; the fixture stays `NO_RESULT`.
+- The renderer lock moves from Docker Buildx 0.36.1 to 0.37.2, the client
+  release of 2026-09-30. The lock, the BuildKit authority digest in the
+  PDF-tools and CLRS image contracts, the four workflow steps that install
+  the client and the approved value in `npm run validate:policy` move
+  together. The BuildKit daemon stays at 0.32.2. The published PDF keeps its
+  bytes; the book manifest records the new lock digest and the renderer image
+  built from it, which differs from the previous image in its lock label only
+  ([Decision 0098](decisions/0098-move-the-renderer-lock-to-buildx-0-37-2.md)).
+
 ### Fixed
+
+- The book renderer no longer stops when Chrome serves its DevTools target
+  list before the first page target exists. `devtoolsPage` in
+  `scripts/lib/chromium-cdp.mjs` read `/json/list` once and failed with
+  "The headless browser did not expose a page target."; the hosted
+  `PDF renderer reproducibility` job failed that way once on 2026-10-11 and
+  passed on a rerun. The helper now reads the list again every 100 ms
+  inside one bounded wait (60 s by default, 300 s at most) and fails with
+  the same message when no page target appears in that time. Five tests
+  cover the wait; four of them fail against the previous helper.
+
+- `scripts/lib/chromium-cdp.mjs` no longer discards an error in six places.
+  Browser discovery reports why each candidate path was refused, as the
+  cause of its unchanged message. A socket close that fails while a
+  DevTools failure is already being reported becomes the cause of that
+  failure. The label for a URL that cannot be parsed is chosen without a
+  caught exception. `.standards-baseline.json` falls from 632 to 626
+  recorded findings, and the README block the governance engine owns names
+  the new count.
+
+- `.gitignore` ignores a private `.workingdir/` state folder at any depth.
+  The rule that the governance engine writes matches the root folder only,
+  so `make docs-lint` read untracked notes in a nested folder and failed in
+  a checkout that held them.
 
 - Two npm advisories no longer reach the published site. `dompurify` moves
   from 3.4.13 to 3.4.16 (GHSA-6688-9rhm-gjv2, GHSA-p98j-92pf-mc4p), and the
