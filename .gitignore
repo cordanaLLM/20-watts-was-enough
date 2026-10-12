@@ -4,6 +4,8 @@ Thumbs.db
 Desktop.ini
 .idea/
 .vscode/
+# Generated VS Code settings are tracked; other directories of that name stay ignored.
+!/.vscode/
 *.swp
 *~
 
@@ -18,13 +20,14 @@ assets/rendered/*.tmp
 # Dependencies, static-site output, and experiment runs
 node_modules/
 dist/
+# The figure player bundle is a tracked, generated tool output.
+!/tools/figures/dist/
 dist-github-pages/
 public/repository-files/
 .vite/
 experiments/workstation/runs/
 experiments/workstation/fixture-012/configs/*.local.json
 *.tsbuildinfo
-/.workingdir/
 .next/
 .vinext/
 .wrangler/
@@ -33,3 +36,16 @@ experiments/workstation/fixture-012/configs/*.local.json
 # Praetor gate receipt: rewritten by the pre-push hook on every push, so a tracked
 # copy is stale by construction (cordanaLLM/praetor#136); the PR template has no receipt fence.
 .standards-receipt.json
+
+# Private state folders at any depth. The engine block below anchors its rule
+# at the root (cordanaLLM/praetor#1263) and has to end this file; without this
+# line the Markdown gate reads the files of a nested folder.
+.workingdir/
+
+# BEGIN praetor private artifacts (praetorctl adopt)
+/.workingdir/
+/.workingdir2/
+/.standards/worktrees/
+/.agents/mcp_config.json
+/.standards/cache/
+# END praetor private artifacts

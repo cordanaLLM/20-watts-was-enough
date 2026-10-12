@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -28,6 +29,39 @@ func TestPublicAndPrivateCIPlanAgree(t *testing.T) {
 				t.Fatalf("public %d/%q/%q differs from private %d/%q/%q", publicCode, publicOut.String(), publicErr.String(), privateCode, privateOut.String(), privateErr.String())
 			}
 		})
+	}
+}
+
+func TestPublicAndPrivateCommitMessageCheckAgree(t *testing.T) {
+	t.Parallel()
+	directory := t.TempDir()
+	write := func(name, body string) string {
+		t.Helper()
+		messagePath := filepath.Join(directory, name)
+		if err := os.WriteFile(messagePath, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return messagePath
+	}
+	clean := write("clean.txt", "Body.\n\nSigned-off-by: A Maintainer <maintainer@example.org>\n")
+	planted := write("planted.txt", "Body.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n")
+	for _, test := range []struct {
+		arguments []string
+		code      int
+	}{
+		{[]string{"--message-file", clean}, 0},
+		{[]string{"--message-file", planted}, 1},
+		{[]string{"--root", directory, "--head", strings.Repeat("1", 40)}, 1},
+		{[]string{"--base", strings.Repeat("1", 40)}, 2},
+		{[]string{"--unknown"}, 2},
+		{nil, 2},
+	} {
+		var publicOut, publicErr, privateOut, privateErr bytes.Buffer
+		publicCode := run(append([]string{"ci", "messages"}, test.arguments...), &publicOut, &publicErr)
+		privateCode := ciplancli.Run(append([]string{"messages"}, test.arguments...), strings.NewReader(""), &privateOut, &privateErr)
+		if publicCode != test.code || privateCode != test.code || publicOut.String() != privateOut.String() || publicErr.String() != privateErr.String() {
+			t.Fatalf("arguments %q: public %d/%q/%q differs from private %d/%q/%q", test.arguments, publicCode, publicOut.String(), publicErr.String(), privateCode, privateOut.String(), privateErr.String())
+		}
 	}
 }
 

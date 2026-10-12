@@ -6,35 +6,111 @@
     ":dependencyDashboard",
     ":semanticCommits"
   ],
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/bower_components/**",
+    "**/vendor/**",
+    "**/examples/**",
+    "**/__tests__/**",
+    "**/test/**",
+    "**/tests/**",
+    "**/__fixtures__/**",
+    "tooling/clrs-generator/**"
+  ],
   "timezone": "Europe/Berlin",
-  "schedule": ["before 6am on monday"],
+  "schedule": [
+    "before 6am on monday"
+  ],
   "minimumReleaseAge": "7 days",
   "internalChecksFilter": "strict",
   "prConcurrentLimit": 3,
   "prHourlyLimit": 2,
+  "rebaseWhen": "conflicted",
   "automerge": false,
   "lockFileMaintenance": {
     "enabled": true,
-    "schedule": ["before 5am on monday"]
+    "schedule": [
+      "before 5am on monday"
+    ]
   },
   "packageRules": [
     {
-      "description": "Keep GitHub Action digest updates together for one review.",
-      "matchManagers": ["github-actions"],
+      "description": "Keep GitHub Action updates together for one review. Tool versions passed as workflow inputs stay out of the group.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchDepTypes": [
+        "!uses-with"
+      ],
       "groupName": "github actions",
       "automerge": false
     },
     {
+      "description": "A tool version passed as a workflow input is bound to a lock outside the workflow: Python to the fixture-019 environment, Buildx to the PDF renderer lock.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchDepTypes": [
+        "uses-with"
+      ],
+      "prBodyNotes": [
+        "This repository binds workflow tool versions to locks: Python to the fixture-019 environment, Buildx to the PDF renderer lock. `npm run validate:policy` fails until a bound value moves together with its lock in this pull request."
+      ],
+      "automerge": false
+    },
+    {
       "description": "Keep npm dependency declarations and the lockfile exact.",
-      "matchManagers": ["npm"],
+      "matchManagers": [
+        "npm"
+      ],
       "rangeStrategy": "pin",
       "automerge": false
     },
     {
       "description": "Major upgrades require an explicit compatibility review.",
-      "matchUpdateTypes": ["major"],
-      "labels": ["dependencies", "breaking-change"],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "labels": [
+        "dependencies",
+        "breaking-change"
+      ],
       "automerge": false
+    },
+    {
+      "description": "praetor-managed files: praetorctl adopt ships their updates and praetorctl audit locks them byte for byte",
+      "matchFileNames": [
+        ".github/workflows/praetor-docs.yml",
+        "tools/markdownlint/package.json",
+        "tools/markdownlint/package-lock.json",
+        "tools/markdownlint/markdownlint-cli2.yaml",
+        "tools/markdownlint/verify.mjs",
+        "tools/markdownlint/no-private-scratch-links.mjs",
+        "tools/figures/core.mjs",
+        "tools/figures/checks.mjs",
+        "tools/figures/build.mjs",
+        "tools/figures/types.ts",
+        "tools/figures/third_party/interfig/vendor.json",
+        "tools/figures/third_party/interfig/VENDOR.md",
+        "tools/figures/third_party/interfig/upstream/LICENSE",
+        "tools/figures/third_party/interfig/upstream/src/svg.ts",
+        "tools/figures/third_party/interfig/upstream/src/geometry.ts",
+        "tools/figures/third_party/interfig/upstream/src/model.ts",
+        "tools/figures/dist/loader.js",
+        "tools/figures/dist/player.js",
+        "tools/figures/dist/THIRD-PARTY-LICENSES.txt",
+        "tools/figures/figures.css",
+        "tools/figures/mkdocs_hook.py",
+        "tools/figures/astro.mjs",
+        "tools/figures/serve.mjs",
+        "tools/figures/README.md",
+        ".github/workflows/praetor-api.yml",
+        "tools/apicompat/gate/main.go",
+        "tools/apicompat/gate/placeholder.go",
+        ".devcontainer/devcontainer.json",
+        ".devcontainer/Dockerfile.praetor"
+      ],
+      "enabled": false
     }
   ]
 }
