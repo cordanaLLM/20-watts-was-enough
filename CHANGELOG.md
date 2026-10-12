@@ -100,6 +100,7 @@ the exact diff; this file records why the project changed.
   `scripts/validate-engineering-policy.mjs` now names v2.1.6, and the stale
   v2.0.1 checksums leave `tooling/go.sum`. The Go module files are
   render-free book sources, so the book provenance is re-recorded without
+  a render (Decision 0090).
 
 - The Node.js runtime moves from 26.8.1 to 26.10.0, the newest release past the
   seven-day update delay. Node.js 26.8.2 updated OpenSSL to 3.5.8 and Undici to
