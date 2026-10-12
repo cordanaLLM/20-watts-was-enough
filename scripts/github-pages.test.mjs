@@ -1071,8 +1071,8 @@ test("third-party notices include bundler runtimes and accept the project portal
     repositoryRoot,
   });
 
-  assert.match(notices, /- rolldown@1\.2\.6 — MIT/);
-  assert.match(notices, /- vite@8\.2\.2 — MIT/);
+  assert.match(notices, /- rolldown@1\.2\.12 — MIT/);
+  assert.match(notices, /- vite@8\.3\.2 — MIT/);
   assert.match(notices, /Copyright \(c\) 2024-present VoidZero Inc\. & Contributors/);
   assert.match(notices, /Copyright \(c\) 2019-present, VoidZero Inc\. and Vite contributors/);
 });
