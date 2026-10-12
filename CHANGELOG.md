@@ -91,6 +91,32 @@ the exact diff; this file records why the project changed.
   render-free book sources, so the book provenance is re-recorded without
   a render (Decision 0090).
 
+- The Fixture 019 runtime moves from NumPy 2.5.2 to 2.5.3, a bug-fix release
+  (StringDType UTF-8 validation, a masked-array fill-value fix and typing
+  re-exports; no change to random streams or the `PCG64DXSM` generator). The
+  environment lock, the single approved wheel digest read from PyPI on
+  2026-10-12, the hash-locked CI requirements, the Dockerfile and workflow
+  container checks, the manifest and the policy move together. No seed,
+  configuration, protocol or result authority changes; the fixture stays
+  `NO_RESULT`.
+
+- Renovate now updates lock files with the pinned Node 26.8.1 and npm
+  12.0.2, set through its `constraints` option in `renovate.json`. The hosted
+  bot had run its lock updates on Node 26.10.0 although `.node-version` names
+  26.8.1, and the strict engine check refused them (`EBADENGINE` on #162,
+  #168 and #175). The engineering policy requires both constraints to equal
+  the runtime pins, so a Node or npm move has to move them too.
+
+- Vite moves from 8.2.2 to 8.3.2, which brings Rolldown 1.2.12 in place of
+  1.2.6. The site's notice list names the exact versions of the bundler
+  runtime modules it ships, so `scripts/lib/third-party-notices.mjs` and its
+  test now expect the new versions, and `THIRD_PARTY_NOTICES.txt` is
+  regenerated. The set of credited packages is unchanged; the Vite section
+  moves because its licence file now lists other bundled dependencies. The
+  notices file is a book source, so the book PDF was rendered again with
+  the locked renderer; it is byte-identical, and the manifest and semantic
+  baseline record the new source digest.
+
 - The Praetor engine pin moves from `9bf502ec6ce5` to `6622361940dc`, engine
   `main` on 2026-10-12, four commits later. The new engine refuses closing
   keywords that would close another repository's pull request, ships

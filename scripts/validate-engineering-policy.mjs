@@ -26,9 +26,9 @@ const runtimePolicy = Object.freeze({
   npmArchiveSha256: "5dbb86c71d07a1957f2e90734092dd6a58bdcd9ebc2d8d41ca1c6e6a21d364e1",
   npmArchiveUrl: "https://registry.npmjs.org/npm/-/npm-12.0.2.tgz",
   npmVersion: "12.0.2",
-  numpyDigest: "318b9a4c845dbea06708a29c84ee429cc3065048db34cdb799047643492050ee",
-  numpyFilename: "numpy-2.5.2-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
-  numpyVersion: "2.5.2",
+  numpyDigest: "b0521d0f4aebb6e06189451025fa17a913287b13c03d5fe05c017333b654ea5b",
+  numpyFilename: "numpy-2.5.3-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+  numpyVersion: "2.5.3",
   pythonImplementation: "CPython",
   pythonVersion: "3.14.8",
 });
@@ -4212,8 +4212,20 @@ function renovateGroupFindings(config, rules, relativePath) {
   return findings;
 }
 
+// The hosted bot updates lock files with tools it installs itself. Without an
+// explicit constraint it ran a newer Node than the pinned one, and the strict
+// engine check refused every lock update; the constraints name the pins.
+function renovateToolConstraintFindings(config, relativePath) {
+  const expected = { node: runtimePolicy.nodeVersion, npm: runtimePolicy.npmVersion };
+  const constraints = config?.constraints;
+  return Object.entries(expected)
+    .filter(([tool, version]) => constraints?.[tool] !== version)
+    .map(([tool, version]) => `${relativePath}: constraints.${tool} must be ${JSON.stringify(version)}`);
+}
+
 export function validateRenovateConfigObject(config, relativePath = "renovate.json") {
   const findings = [];
+  findings.push(...renovateToolConstraintFindings(config, relativePath));
   const rules = Array.isArray(config?.packageRules) ? config.packageRules : [];
   if (rules.some((rule) => rule?.automerge === true)) {
     findings.push(`${relativePath}: automerge stays disabled until required CI and repository rules are verified`);

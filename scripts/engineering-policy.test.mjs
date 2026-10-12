@@ -512,7 +512,7 @@ test("workflow validation accepts only the reviewed action digests", () => {
 });
 
 test("scientific workflows must provision the fixture-locked Python and NumPy runtime", () => {
-  const lock = { python_version: "3.14.8", packages: { numpy: "2.5.2" } };
+  const lock = { python_version: "3.14.8", packages: { numpy: "2.5.3" } };
   const validSteps = [
     { uses: "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97", with: { "python-version": "3.14.8" } },
     { run: "python -m pip install --disable-pip-version-check --no-deps --require-hashes -r requirements-ci.txt" },
@@ -528,7 +528,7 @@ test("scientific workflows must provision the fixture-locked Python and NumPy ru
     "quality",
   ), [
     "workflow.yml: job quality must use locked Python 3.14.8",
-    "workflow.yml: job quality must install hash-locked NumPy 2.5.2 without dependencies",
+    "workflow.yml: job quality must install hash-locked NumPy 2.5.3 without dependencies",
   ]);
 });
 
@@ -538,11 +538,11 @@ test("the scientific runtime lock is the exact reviewed CPython and NumPy artifa
     artifact: "fixture-019",
     python_implementation: "CPython",
     python_version: "3.14.8",
-    packages: { numpy: "2.5.2" },
+    packages: { numpy: "2.5.3" },
     package_artifacts: {
       numpy: {
-        filename: "numpy-2.5.2-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
-        sha256: "318b9a4c845dbea06708a29c84ee429cc3065048db34cdb799047643492050ee",
+        filename: "numpy-2.5.3-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+        sha256: "b0521d0f4aebb6e06189451025fa17a913287b13c03d5fe05c017333b654ea5b",
       },
     },
     bit_generator: "PCG64DXSM",
@@ -552,14 +552,14 @@ test("the scientific runtime lock is the exact reviewed CPython and NumPy artifa
 
   const tampered = structuredClone(valid);
   tampered.python_version = "3.14.9";
-  tampered.packages.numpy = "2.5.3";
+  tampered.packages.numpy = "2.5.4";
   tampered.package_artifacts.numpy.sha256 = "0".repeat(64);
   tampered.unreviewed_package_source = "https://example.invalid";
   assert.deepEqual(validateScientificRuntimeLock(tampered), [
     "experiments/workstation/fixture-019/python-environment.lock.json: python_version must be \"3.14.8\"",
     "experiments/workstation/fixture-019/python-environment.lock.json: scientific runtime lock contains an unknown or missing field",
-    "experiments/workstation/fixture-019/python-environment.lock.json: packages must contain only NumPy 2.5.2",
-    "experiments/workstation/fixture-019/python-environment.lock.json: NumPy 2.5.2 must use the approved CPython 3.14 Linux x86_64 wheel and SHA-256 digest",
+    "experiments/workstation/fixture-019/python-environment.lock.json: packages must contain only NumPy 2.5.3",
+    "experiments/workstation/fixture-019/python-environment.lock.json: NumPy 2.5.3 must use the approved CPython 3.14 Linux x86_64 wheel and SHA-256 digest",
   ]);
 });
 
@@ -2855,7 +2855,7 @@ test("container policy withholds arm64 and enforces exact-digest runtime identit
     ['"go_version":"go1.27.1"', '"go_version":"go1.28.0"'],
     ['if [[ "$fixture_007_node" != "v26.8.1" ]]; then', "if false; then"],
     ['"Python 3.14.8"', '"Python 3.14.9"'],
-    ['numpy.__version__ == \\"2.5.2\\"', 'numpy.__version__ == \\"2.5.3\\"'],
+    ['numpy.__version__ == \\"2.5.3\\"', 'numpy.__version__ == \\"2.5.4\\"'],
   ]) {
     assertWorkflowTamper(
       "release",
@@ -3178,7 +3178,26 @@ test("the update bot leaves the CLRS generator folder alone and keeps the preset
     validateRenovateConfigObject({ ...config, packageRules: [{ automerge: true }] }),
     ["renovate.json: automerge stays disabled until required CI and repository rules are verified"],
   );
-  assert.equal(validateRenovateConfigObject(null).length, 10);
+  assert.equal(validateRenovateConfigObject(null).length, 12);
+});
+
+test("the update bot updates lock files with the pinned Node and npm", () => {
+  const config = JSON.parse(readFileSync(new URL("../renovate.json", import.meta.url), "utf8"));
+  const node = readFileSync(new URL("../.node-version", import.meta.url), "utf8").trim();
+  const npm = JSON.parse(readFileSync(new URL("./npm-runtime-lock.json", import.meta.url), "utf8")).version;
+  assert.deepEqual(config.constraints, { node, npm });
+  assert.deepEqual(validateRenovateConfigObject(config), []);
+  const nodeFinding = `renovate.json: constraints.node must be ${JSON.stringify(node)}`;
+  const npmFinding = `renovate.json: constraints.npm must be ${JSON.stringify(npm)}`;
+  const withConstraints = (constraints) => validateRenovateConfigObject({ ...config, constraints });
+  assert.deepEqual(withConstraints(undefined), [nodeFinding, npmFinding]);
+  assert.deepEqual(withConstraints({}), [nodeFinding, npmFinding]);
+  assert.deepEqual(withConstraints({ npm }), [nodeFinding]);
+  assert.deepEqual(withConstraints({ node }), [npmFinding]);
+  assert.deepEqual(withConstraints({ node: "26.10.0", npm }), [nodeFinding]);
+  assert.deepEqual(withConstraints({ node: `^${node}`, npm }), [nodeFinding]);
+  assert.deepEqual(withConstraints({ node, npm: "12.2.0-pre" }), [npmFinding]);
+  assert.deepEqual(withConstraints({ node: Number.parseInt(node, 10), npm }), [nodeFinding]);
 });
 
 test("no update group of the bot carries a workflow tool version", () => {
