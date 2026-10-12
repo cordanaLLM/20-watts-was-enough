@@ -62,6 +62,7 @@
         "scripts/lib/book-pdf-integrity.mjs",
         "scripts/lib/book-renderer-identity.mjs",
         "scripts/lib/chromium-cdp.mjs",
+        "scripts/lib/engine-file-exceptions.mjs",
         "scripts/lib/opened-file.mjs",
         "scripts/lib/pdf-metadata.mjs",
         "scripts/lib/portable-operations.mjs",

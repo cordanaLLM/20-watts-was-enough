@@ -10,9 +10,11 @@ files under `.github/`.
 - Set explicit job timeouts and bounded concurrency. Pull-request validation
   may cancel stale runs; in-progress Pages deployment must not be cancelled.
 - Run every workflow job in this public repository on GitHub-hosted
-  `ubuntu-latest`. Do not request self-hosted label or select runner through
+  `ubuntu-26.04`. Do not request self-hosted label or select runner through
   dynamic expression. Local compute requires separately reviewed,
   infrastructure-enforced trust and isolation boundary under decision 0056.
+  Label names image version; validator refuses floating `ubuntu-latest`
+  (decision 0094).
 - Use `actions/checkout` with `persist-credentials: false` unless reviewed
   step must push to repository.
 - Run JavaScript workflows on exact Node 26 pin. Install npm 12 only from

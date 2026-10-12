@@ -1,0 +1,28 @@
+# This repository's own hook jobs. Lefthook merges this file over lefthook.yml,
+# which the Praetor engine generates and which stays byte-exact so the engine
+# can verify it. The Go module lives in tooling/, so the Go jobs run there.
+pre-commit:
+  commands:
+    # Exception, one job: reuse-lint is skipped until 2026-11-30. The engine
+    # reads LICENSES/ as a REUSE declaration; this repository keeps third-party
+    # licence texts there and has no REUSE annotations yet, so the job fails on
+    # every commit. Declining the reuse-gate step drops only the workflow
+    # (cordanaLLM/praetor#1244). scripts/validate-engineering-policy.mjs refuses
+    # this skip from 2026-12-01 on. Decision 0095.
+    reuse-lint:
+      skip: true
+    gofmt:
+      glob: "*.go"
+      run: gofmt -w {staged_files}
+      stage_fixed: true
+    govet:
+      glob: "*.go"
+      run: go -C tooling vet ./...
+
+pre-push:
+  commands:
+    security:
+      run: >-
+        if command -v govulncheck >/dev/null 2>&1; then
+        govulncheck -C tooling ./...;
+        else echo govulncheck is not installed, skipping >&2; fi
