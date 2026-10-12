@@ -3194,7 +3194,8 @@ test("the update bot updates lock files with the pinned Node and npm", () => {
   assert.deepEqual(withConstraints({}), [nodeFinding, npmFinding]);
   assert.deepEqual(withConstraints({ npm }), [nodeFinding]);
   assert.deepEqual(withConstraints({ node }), [npmFinding]);
-  assert.deepEqual(withConstraints({ node: "26.10.0", npm }), [nodeFinding]);
+  const [major, minor, patch] = node.split(".").map(Number);
+  assert.deepEqual(withConstraints({ node: `${major}.${minor}.${patch + 1}`, npm }), [nodeFinding]);
   assert.deepEqual(withConstraints({ node: `^${node}`, npm }), [nodeFinding]);
   assert.deepEqual(withConstraints({ node, npm: "12.2.0-pre" }), [npmFinding]);
   assert.deepEqual(withConstraints({ node: Number.parseInt(node, 10), npm }), [nodeFinding]);
