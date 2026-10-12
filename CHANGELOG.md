@@ -82,6 +82,15 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- KaTeX moves from 0.18.6 to 0.19.0. The release reports missing glyph
+  metrics through `strict` as `symbolNotInFont`, which raises under
+  `strict: "error"`. `npm run validate:math` renders every formula with
+  `strict: "error"` and `throwOnError: true`
+  (`scripts/lib/math-validation.mjs`) and passes, so no formula in the
+  maintained sources hits the new error. `THIRD_PARTY_NOTICES.txt` names the
+  new version. KaTeX is a book source, so the book was re-rendered: the PDF
+  bytes (`pdf_sha256` `71504cda49b0`) are unchanged, and the manifest and
+  semantic baseline record the new source digest.
 - npm moves from 12.0.2 to 12.2.0. The locked archive in
   `scripts/npm-runtime-lock.json` and `scripts/install-locked-npm.mjs` names
   the new registry tarball by size (3054025 bytes) and SHA-256
