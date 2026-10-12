@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
@@ -8,7 +11,9 @@ import {
   CODE_SHAPE_POLICY,
   compareSnapshots,
   currentCalendarDate,
+  DEFAULT_BASELINE_PATH,
   exceptedFindings,
+  readBaseRevisionBaseline,
   runCodeShapeAudit,
   validateBaseline,
   validateExceptions,
@@ -246,5 +251,78 @@ test("the live audit fails without the declared exceptions", async () => {
 
 test("the tracked repository baseline passes the live ESLint audit", async () => {
   const snapshot = await runCodeShapeAudit();
+  assert.ok(snapshot.auditedFileCount > 0);
+});
+
+// A throwaway repository with one commit per entry in `commits`; an entry is
+// the baseline text to record, or null for a commit without a baseline.
+function baseRepository(t, commits) {
+  const root = mkdtempSync(path.join(os.tmpdir(), "code-shape-base-"));
+  t.after(() => rmSync(root, { force: true, recursive: true }));
+  const git = (...argumentsList) => execFileSync("git", [
+    "-c", "user.name=Code Shape Test", "-c", "user.email=code-shape@example.invalid",
+    "-c", "commit.gpgsign=false", "-c", "init.defaultBranch=main", ...argumentsList,
+  ], { cwd: root, encoding: "utf8", timeout: 30_000 }).trim();
+  git("init", "--quiet");
+  mkdirSync(path.join(root, "scripts"));
+  const baselineFile = path.join(root, "scripts", "code-shape-baseline.json");
+  return commits.map((text, index) => {
+    if (text === null) rmSync(baselineFile, { force: true });
+    else writeFileSync(baselineFile, text, "utf8");
+    git("add", "--all");
+    git("commit", "--quiet", "--allow-empty", "--message", `commit ${index}`);
+    return { root, revision: git("rev-parse", "HEAD") };
+  });
+}
+
+const trackedBaselineText = readFileSync(DEFAULT_BASELINE_PATH, "utf8");
+
+test("the base revision's recorded baseline is the comparison baseline", async (t) => {
+  const [base] = baseRepository(t, [trackedBaselineText]);
+  assert.deepEqual(
+    await readBaseRevisionBaseline(base.revision, { gitRoot: base.root }),
+    JSON.parse(trackedBaselineText),
+  );
+});
+
+test("a base revision without a recorded baseline fails instead of passing", async (t) => {
+  const [base] = baseRepository(t, [null]);
+  await assert.rejects(
+    () => readBaseRevisionBaseline(base.revision, { gitRoot: base.root }),
+    /records no scripts\/code-shape-baseline\.json/,
+  );
+});
+
+test("a base revision missing from the checkout fails instead of passing", async (t) => {
+  const [base] = baseRepository(t, [trackedBaselineText]);
+  const absent = base.revision.replace(/^./, (first) => (first === "0" ? "1" : "0"));
+  await assert.rejects(
+    () => readBaseRevisionBaseline(absent, { gitRoot: base.root }),
+    /is not a commit in this checkout/,
+  );
+});
+
+test("an empty, null or abbreviated base revision fails by name", async () => {
+  for (const revision of ["", undefined, "0".repeat(40), "abc1234", `${"a".repeat(40)}\n`]) {
+    await assert.rejects(
+      () => readBaseRevisionBaseline(revision),
+      /base revision must be a full commit object name/,
+    );
+  }
+});
+
+test("a base revision whose baseline is stricter rejects the live tree", async (t) => {
+  const stricter = JSON.parse(trackedBaselineText);
+  stricter.findings = stricter.findings.slice(1);
+  const [base] = baseRepository(t, [`${JSON.stringify(stricter, null, 2)}\n`]);
+  await assert.rejects(
+    () => runCodeShapeAudit({ baseRevision: base.revision, gitRoot: base.root }),
+    /code-shape regression\(s\):/,
+  );
+});
+
+test("the live tree passes against its own tracked baseline as a base revision", async (t) => {
+  const [base] = baseRepository(t, [trackedBaselineText]);
+  const snapshot = await runCodeShapeAudit({ baseRevision: base.revision, gitRoot: base.root });
   assert.ok(snapshot.auditedFileCount > 0);
 });
