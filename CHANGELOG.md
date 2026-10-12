@@ -91,6 +91,14 @@ the exact diff; this file records why the project changed.
   `wheelhouse.json`. The Go lane and the full quality check run it before
   `go test` and set `CLRS_RETAINED_INPUTS_REQUIRED=1`, which turns a missing
   input into a test failure instead of a skip.
+- CI now also runs `TestRetainedPromiseArchiveInputs` and
+  `TestPromiseRetainedInputsExerciseCompleteFakeConsumer`, which skipped on
+  every run because no Promise wheel was supplied. After the fetch, the Go
+  lane and the full quality check pull the builder image named in
+  `wheelhouse.json` and run `20w experiment reproduce-clrs-promise-wheel`,
+  which rebuilds the wheel twice in Docker and checks it against its locked
+  SHA-256. Both tests now fail instead of skipping when
+  `CLRS_RETAINED_INPUTS_REQUIRED=1` is set and the wheel is missing.
 - CI now runs `TestGeneratorSBOMBundleActualRetainedInput`, which used to
   skip on every run. The scanner bundle of the CLRS candidate image is
   published as five assets of the `clrs-sbom-bundle-2026-10-12` prerelease
@@ -279,6 +287,17 @@ the exact diff; this file records why the project changed.
   ([Decision 0098](decisions/0098-move-the-renderer-lock-to-buildx-0-37-2.md)).
 
 ### Fixed
+
+- Go vulnerability scanning can no longer pass without scanning. The
+  pre-push hook in `lefthook-local.yml` printed "govulncheck is not
+  installed, skipping" and exited 0 when the tool was absent, and no workflow
+  ran govulncheck. `tooling/tools/go.mod` now pins govulncheck v1.8.0 with a
+  `tool` directive, and `20w security govulncheck` runs it from there. Each
+  run first scans a planted module that calls `language.Parse` from
+  `golang.org/x/text` v0.3.5 and fails unless the scanner reports
+  GO-2021-0113; only then does it scan `tooling/`, and any reachable finding
+  or scanner error fails. The pre-push hook, the `Go lane` job and the
+  `Full quality` job run the command.
 
 - The CI step that rejects a code-shape baseline reset no longer passes when
   it has nothing to compare. It used to print "No prior code-shape baseline"

@@ -21,8 +21,7 @@ pre-commit:
 
 pre-push:
   commands:
+    # govulncheck is pinned in tooling/tools/go.mod; the command fails when
+    # the scanner misses a planted advisory, so an absent tool cannot pass.
     security:
-      run: >-
-        if command -v govulncheck >/dev/null 2>&1; then
-        govulncheck -C tooling ./...;
-        else echo govulncheck is not installed, skipping >&2; fi
+      run: go -C tooling run ./cmd/20w security govulncheck --root ..
