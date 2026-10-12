@@ -164,6 +164,14 @@ the exact diff; this file records why the project changed.
   provision Python and the two container checks move together. NumPy stays at
   2.5.2 with the same wheel digest. No seed, configuration, protocol or
   result authority changes; the fixture stays `NO_RESULT`.
+- The renderer lock moves from Docker Buildx 0.36.1 to 0.37.2, the client
+  release of 2026-09-30. The lock, the BuildKit authority digest in the
+  PDF-tools and CLRS image contracts, the four workflow steps that install
+  the client and the approved value in `npm run validate:policy` move
+  together. The BuildKit daemon stays at 0.32.2. The published PDF keeps its
+  bytes; the book manifest records the new lock digest and the renderer image
+  built from it, which differs from the previous image in its lock label only
+  ([Decision 0098](decisions/0098-move-the-renderer-lock-to-buildx-0-37-2.md)).
 
 ### Fixed
 

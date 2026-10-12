@@ -101,3 +101,4 @@ than silently changing its outcome.
 | [0095](0095-pin-the-praetor-engine-and-refresh-the-adoption.md) | Pin the Praetor engine and refresh the adoption | accepted |
 | [0096](0096-tighten-the-live-main-ruleset-to-the-rendered-policy.md) | Tighten the live main ruleset to the rendered policy | accepted |
 | [0097](0097-keep-workflow-tool-versions-out-of-the-action-update-group.md) | Keep workflow tool versions out of the action update group | accepted |
+| [0098](0098-move-the-renderer-lock-to-buildx-0-37-2.md) | Move the renderer lock to Buildx 0.37.2 | accepted |
