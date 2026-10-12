@@ -100,7 +100,7 @@ jobs:
       - name: Use the locked Python runtime
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.14.7'
+          python-version: '3.14.8'
       - name: Install the locked scientific runtime
         run: python -m pip install --disable-pip-version-check --no-deps --require-hashes -r requirements-ci.txt
       - name: Use Node.js 26
@@ -666,7 +666,7 @@ jobs:
           docker run --rm --pull never --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             --entrypoint sh "$fixture_019" -c \
-            'test "$(node --version)" = "v26.8.1" && test "$(python --version)" = "Python 3.14.7" && python -c "import numpy; assert numpy.__version__ == \"2.5.2\""'
+            'test "$(node --version)" = "v26.8.1" && test "$(python --version)" = "Python 3.14.8" && python -c "import numpy; assert numpy.__version__ == \"2.5.2\""'
           volume_007="20w-release-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-007"
           volume_019="20w-release-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-019"
           docker volume create "$volume_007"
