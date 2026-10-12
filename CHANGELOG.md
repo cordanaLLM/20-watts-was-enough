@@ -157,6 +157,13 @@ the exact diff; this file records why the project changed.
   action update. `npm run validate:policy` refuses an update group that
   could carry such a value
   ([Decision 0097](decisions/0097-keep-workflow-tool-versions-out-of-the-action-update-group.md)).
+- The Fixture 019 runtime moves from CPython 3.14.7 to 3.14.8, a bug-fix and
+  security release of 2026-09-30. The environment lock, the base image of the
+  fixture's Dockerfile (`python:3.14.8-slim-trixie` at the digest read from
+  the registry on 2026-10-12), the manifest, the three workflow jobs that
+  provision Python and the two container checks move together. NumPy stays at
+  2.5.2 with the same wheel digest. No seed, configuration, protocol or
+  result authority changes; the fixture stays `NO_RESULT`.
 
 ### Fixed
 
