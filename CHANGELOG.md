@@ -92,6 +92,15 @@ the exact diff; this file records why the project changed.
   a render-free book source, so the book provenance is re-recorded without
   a render (Decision 0090).
 
+- The Fixture 019 runtime moves from NumPy 2.5.2 to 2.5.3, a bug-fix release
+  (StringDType UTF-8 validation, a masked-array fill-value fix and typing
+  re-exports; no change to random streams or the `PCG64DXSM` generator). The
+  environment lock, the single approved wheel digest read from PyPI on
+  2026-10-12, the hash-locked CI requirements, the Dockerfile and workflow
+  container checks, the manifest and the policy move together. No seed,
+  configuration, protocol or result authority changes; the fixture stays
+  `NO_RESULT`.
+
 - Renovate now updates lock files with the pinned Node 26.8.1 and npm
   12.0.2, set through its `constraints` option in `renovate.json`. The hosted
   bot had run its lock updates on Node 26.10.0 although `.node-version` names

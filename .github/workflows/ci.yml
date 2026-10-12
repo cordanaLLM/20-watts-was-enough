@@ -662,7 +662,7 @@ jobs:
           docker run --rm --pull never --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             --entrypoint sh 20w-fixture-019:test -c \
-            'test "$(node --version)" = "v26.8.1" && test "$(python --version)" = "Python 3.14.8" && python -c "import numpy; assert numpy.__version__ == \"2.5.2\""'
+            'test "$(node --version)" = "v26.8.1" && test "$(python --version)" = "Python 3.14.8" && python -c "import numpy; assert numpy.__version__ == \"2.5.3\""'
           docker run --rm --pull never --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             20w-fixture-019:test prepare --profile smoke
