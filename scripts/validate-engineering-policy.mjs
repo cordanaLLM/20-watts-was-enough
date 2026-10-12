@@ -4212,8 +4212,20 @@ function renovateGroupFindings(config, rules, relativePath) {
   return findings;
 }
 
+// The hosted bot updates lock files with tools it installs itself. Without an
+// explicit constraint it ran a newer Node than the pinned one, and the strict
+// engine check refused every lock update; the constraints name the pins.
+function renovateToolConstraintFindings(config, relativePath) {
+  const expected = { node: runtimePolicy.nodeVersion, npm: runtimePolicy.npmVersion };
+  const constraints = config?.constraints;
+  return Object.entries(expected)
+    .filter(([tool, version]) => constraints?.[tool] !== version)
+    .map(([tool, version]) => `${relativePath}: constraints.${tool} must be ${JSON.stringify(version)}`);
+}
+
 export function validateRenovateConfigObject(config, relativePath = "renovate.json") {
   const findings = [];
+  findings.push(...renovateToolConstraintFindings(config, relativePath));
   const rules = Array.isArray(config?.packageRules) ? config.packageRules : [];
   if (rules.some((rule) => rule?.automerge === true)) {
     findings.push(`${relativePath}: automerge stays disabled until required CI and repository rules are verified`);

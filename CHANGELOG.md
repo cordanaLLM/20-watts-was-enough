@@ -82,6 +82,13 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Renovate now updates lock files with the pinned Node 26.8.1 and npm
+  12.0.2, set through its `constraints` option in `renovate.json`. The hosted
+  bot had run its lock updates on Node 26.10.0 although `.node-version` names
+  26.8.1, and the strict engine check refused them (`EBADENGINE` on #162,
+  #168 and #175). The engineering policy requires both constraints to equal
+  the runtime pins, so a Node or npm move has to move them too.
+
 - Vite moves from 8.2.2 to 8.3.2, which brings Rolldown 1.2.12 in place of
   1.2.6. The site's notice list names the exact versions of the bundler
   runtime modules it ships, so `scripts/lib/third-party-notices.mjs` and its
