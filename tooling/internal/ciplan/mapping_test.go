@@ -304,6 +304,7 @@ func TestEverySiteLaneEntrypointIsMappedToTheSiteLane(t *testing.T) {
 	paths := []string{
 		"scripts/book-edition-surface.test.mjs",
 		"scripts/book-fragment-browser.test.mjs",
+		"scripts/book-print-tail-browser.test.mjs",
 		"scripts/book-route.test.mjs",
 		"scripts/css-authority.test.mjs",
 		"scripts/github-pages.test.mjs",

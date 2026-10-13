@@ -304,6 +304,7 @@ test("full-book browser probes stay in one bounded process-isolated site-test gr
   );
   for (const probe of [
     "scripts/book-fragment-browser.test.mjs",
+    "scripts/book-print-tail-browser.test.mjs",
     "scripts/mermaid-browser.test.mjs",
     "scripts/research-object-header-browser.test.mjs",
   ]) {
