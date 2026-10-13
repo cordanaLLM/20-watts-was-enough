@@ -124,7 +124,7 @@
     "remark-math": "6.0.0"
   },
   "overrides": {
-    "mermaid@11.17.2": {
+    "mermaid@12.1.0": {
       "katex": "$katex"
     },
     "micromark-extension-math@3.1.0": {

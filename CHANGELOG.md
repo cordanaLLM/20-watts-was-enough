@@ -143,7 +143,10 @@ the exact diff; this file records why the project changed.
   421 pages. The taller diagrams pushed one display equation onto the page
   after its introducing sentence; a print rule now keeps a paragraph on the
   same page as the display equation that follows it, and the semantic
-  baseline records the moved sentinel pages.
+  baseline records the moved sentinel pages. The KaTeX override that keeps
+  Mermaid on the root `katex@0.19.0` now names `mermaid@12.1.0`; under the old
+  `mermaid@11.17.2` key the lock regained a nested `katex@0.16.47`, which is
+  affected by GHSA-238p-pmpm-9mq7.
 
 - es-module-lexer moves to 3.0.3. Version 3 names its import record fields
   (`type`, `specifier`, `glob`) instead of the terse version 2 fields, so

@@ -72,7 +72,6 @@ Bundled package inventory
 - inline-style-parser@0.2.7 — MIT
 - internmap@2.0.3 — ISC
 - is-plain-obj@4.1.0 — MIT
-- katex@0.16.47 — MIT
 - katex@0.19.0 — MIT
 - khroma@2.1.0 — see included notice
 - layout-base@1.0.2 — MIT
@@ -1219,7 +1218,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
-Packages: katex@0.16.47, katex@0.19.0
+Packages: katex@0.19.0
 Upstream notice file(s): LICENSE
 SHA-256: 766ccc1f306c885aa45542a9846bbd0a505b27a0374f146778171c2254ce18e3
 --------------------------------------------------------------------------------
