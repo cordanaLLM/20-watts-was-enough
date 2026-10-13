@@ -16,7 +16,7 @@ import { readStableOpenedFile } from "./lib/opened-file.mjs";
 const scriptPath = fileURLToPath(import.meta.url);
 const repositoryRoot = path.resolve(path.dirname(scriptPath), "..");
 const baselinePath = path.join(repositoryRoot, "scripts", "book-pdf-semantic-baseline.json");
-const evidenceRoot = path.join(repositoryRoot, ".workingdir2", "evidence", "design");
+const evidenceRoot = path.join(repositoryRoot, ".workingdir", "evidence", "design");
 const maximumBaselineBytes = 1024 * 1024;
 const maximumManifestBytes = 1024 * 1024;
 const maximumPdfBytes = 256 * 1024 * 1024;

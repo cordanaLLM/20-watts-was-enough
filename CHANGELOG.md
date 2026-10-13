@@ -133,6 +133,15 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Private working state and evidence move from `.workingdir2/` to the ignored
+  `.workingdir/` folder. The agent contract, the publication-design and
+  research-design skill references, `docs/publication-workflow.md` and the
+  evidence root of `scripts/audit-book-pdf-semantics.mjs` now name
+  `.workingdir/evidence/`. Auxiliary Git worktrees live outside the checkout.
+  Tool caches and receipt paths in the Go tooling, `translations/README.md`
+  and `tooling/clrs-specialist/README.md` still use `.workingdir2/` and move
+  in a separate change with their tests.
+
 - The Praetor engine pin moves from `6622361940dc` to `3bbde0734`, engine
   `main` on 2026-10-13, one commit later. The new engine fails its audit
   when a scanner the declared standards profile names runs in no workflow.
