@@ -175,10 +175,15 @@ jobs:
       - name: Reject high-severity dependency advisories
         run: npm audit --audit-level=high --package-lock-only --fetch-timeout=30000 --fetch-retries=1
       - name: Reject a code-shape baseline reset
-        if: github.event_name != 'workflow_dispatch'
         env:
+          EVENT_NAME: ${{ github.event_name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: node scripts/audit-code-shape.mjs --base-revision "$BASE_SHA"
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            BASE_SHA="$(git merge-base "origin/$DEFAULT_BRANCH" HEAD)"
+          fi
+          node scripts/audit-code-shape.mjs --base-revision "$BASE_SHA"
       - name: Fetch the locked CLRS retained inputs
         run: |
           go -C tooling run ./cmd/20w experiment fetch-clrs-retained-inputs --root .. --output "$RUNNER_TEMP/clrs-retained"
@@ -200,6 +205,13 @@ jobs:
         run: npm run check:full-without-workstation
       - name: Fuzz the untrusted JSON boundary
         run: go -C tooling test ./internal/strictjson -run '^$' -fuzz '^FuzzValidate$' -fuzztime=30s -fuzzminimizetime=5s -parallel=2 -timeout=2m
+      - name: Build and execute the native release binary
+        run: |
+          set -euo pipefail
+          revision="$(git rev-parse HEAD)"
+          source_timestamp="$(git show -s --format=%cI "$revision")"
+          go -C tooling run ./cmd/build-release --version v0.0.0 --revision "$revision" --built-at "$source_timestamp" --output-root ../build/native-release
+          ./build/native-release/20w-linux-amd64 validate docs --root .
       - name: Scan Go packages for known vulnerabilities
         run: go -C tooling run ./cmd/20w security govulncheck --root ..
 
@@ -267,6 +279,15 @@ jobs:
           } >> "$GITHUB_ENV"
       - name: Test and vet Go packages
         run: go -C tooling test ./... && go -C tooling vet ./...
+      - name: Fuzz the untrusted JSON boundary
+        run: go -C tooling test ./internal/strictjson -run '^$' -fuzz '^FuzzValidate$' -fuzztime=30s -fuzzminimizetime=5s -parallel=2 -timeout=2m
+      - name: Build and execute the native release binary
+        run: |
+          set -euo pipefail
+          revision="$(git rev-parse HEAD)"
+          source_timestamp="$(git show -s --format=%cI "$revision")"
+          go -C tooling run ./cmd/build-release --version v0.0.0 --revision "$revision" --built-at "$source_timestamp" --output-root ../build/native-release
+          ./build/native-release/20w-linux-amd64 validate docs --root .
       - name: Scan Go packages for known vulnerabilities
         run: go -C tooling run ./cmd/20w security govulncheck --root ..
 

@@ -29,6 +29,8 @@ import {
   formatFindings,
   generatedHookJobSkips,
   validateCiExperimentImageWorkflowObject,
+  validateCiCodeShapeResetWorkflowObject,
+  validateCiNativeReleaseWorkflowObject,
   validateCiFuzzingWorkflowObject,
   validateCiImpactWorkflowObject,
   validateCodeQlImpactWorkflowObject,
@@ -304,6 +306,7 @@ test("full-book browser probes stay in one bounded process-isolated site-test gr
   );
   for (const probe of [
     "scripts/book-fragment-browser.test.mjs",
+    "scripts/book-print-tail-browser.test.mjs",
     "scripts/mermaid-browser.test.mjs",
     "scripts/research-object-header-browser.test.mjs",
   ]) {
@@ -1059,6 +1062,86 @@ test("CI runs the strict-JSON fuzzer with explicit time and process bounds", () 
   assert.deepEqual(validateCiFuzzingWorkflowObject(detachedGate), [
     ".github/workflows/ci.yml: ci-success must require the fuzzing quality-full gate",
   ]);
+
+  const laneFinding = ".github/workflows/ci.yml: lane-go must run the exact bounded strict-JSON fuzz target after the Go tests";
+  const unfuzzedLane = structuredClone(valid);
+  unfuzzedLane.jobs["lane-go"].steps = unfuzzedLane.jobs["lane-go"].steps.filter(
+    (step) => step.name !== "Fuzz the untrusted JSON boundary",
+  );
+  assert.deepEqual(validateCiFuzzingWorkflowObject(unfuzzedLane), [laneFinding]);
+
+  const skippedLaneFuzz = structuredClone(valid);
+  skippedLaneFuzz.jobs["lane-go"].steps.find((step) => (
+    step.name === "Fuzz the untrusted JSON boundary"
+  )).if = "false";
+  assert.deepEqual(validateCiFuzzingWorkflowObject(skippedLaneFuzz), [laneFinding]);
+
+  const fuzzBeforeTests = structuredClone(valid);
+  const laneSteps = fuzzBeforeTests.jobs["lane-go"].steps;
+  const laneFuzz = laneSteps.splice(laneSteps.findIndex((step) => (
+    step.name === "Fuzz the untrusted JSON boundary"
+  )), 1)[0];
+  laneSteps.unshift(laneFuzz);
+  assert.deepEqual(validateCiFuzzingWorkflowObject(fuzzBeforeTests), [laneFinding]);
+});
+
+test("CI rejects a code-shape baseline reset on every event", () => {
+  const valid = workflow("ci");
+  assert.deepEqual(validateCiCodeShapeResetWorkflowObject(valid), []);
+  const finding = ".github/workflows/ci.yml: quality-full must reject a code-shape baseline reset on every event, dispatched runs against their merge base";
+  const resetStep = (document) => document.jobs["quality-full"].steps.find((step) => (
+    step.name === "Reject a code-shape baseline reset"
+  ));
+
+  const skippedOnDispatch = structuredClone(valid);
+  resetStep(skippedOnDispatch).if = "github.event_name != 'workflow_dispatch'";
+  assert.deepEqual(validateCiCodeShapeResetWorkflowObject(skippedOnDispatch), [finding]);
+
+  const noDispatchBase = structuredClone(valid);
+  resetStep(noDispatchBase).run = 'node scripts/audit-code-shape.mjs --base-revision "$BASE_SHA"';
+  assert.deepEqual(validateCiCodeShapeResetWorkflowObject(noDispatchBase), [finding]);
+
+  const allowedFailure = structuredClone(valid);
+  resetStep(allowedFailure)["continue-on-error"] = true;
+  assert.deepEqual(validateCiCodeShapeResetWorkflowObject(allowedFailure), [finding]);
+
+  const removed = structuredClone(valid);
+  removed.jobs["quality-full"].steps = removed.jobs["quality-full"].steps.filter(
+    (step) => step.name !== "Reject a code-shape baseline reset",
+  );
+  assert.deepEqual(validateCiCodeShapeResetWorkflowObject(removed), [finding]);
+});
+
+test("CI builds and executes the native release binary in the Go lane and the full gate", () => {
+  const valid = workflow("ci");
+  assert.deepEqual(validateCiNativeReleaseWorkflowObject(valid), []);
+  const finding = (job) => `.github/workflows/ci.yml: ${job} must build and execute the native release binary after the Go checks`;
+  const nativeStep = (document, job) => document.jobs[job].steps.find((step) => (
+    step.name === "Build and execute the native release binary"
+  ));
+
+  const removed = structuredClone(valid);
+  removed.jobs["lane-go"].steps = removed.jobs["lane-go"].steps.filter(
+    (step) => step.name !== "Build and execute the native release binary",
+  );
+  assert.deepEqual(validateCiNativeReleaseWorkflowObject(removed), [finding("lane-go")]);
+
+  const skipped = structuredClone(valid);
+  nativeStep(skipped, "quality-full").if = "false";
+  assert.deepEqual(validateCiNativeReleaseWorkflowObject(skipped), [finding("quality-full")]);
+
+  const unexecuted = structuredClone(valid);
+  const step = nativeStep(unexecuted, "lane-go");
+  step.run = step.run.replace('./build/native-release/20w-linux-amd64 validate docs --root .', "");
+  assert.ok(!step.run.includes("validate docs"));
+  assert.deepEqual(validateCiNativeReleaseWorkflowObject(unexecuted), [finding("lane-go")]);
+
+  const beforeFuzz = structuredClone(valid);
+  const steps = beforeFuzz.jobs["lane-go"].steps;
+  const nativeIndex = steps.findIndex((candidate) => candidate.name === "Build and execute the native release binary");
+  const [moved] = steps.splice(nativeIndex, 1);
+  steps.splice(steps.findIndex((candidate) => candidate.name === "Fuzz the untrusted JSON boundary"), 0, moved);
+  assert.deepEqual(validateCiNativeReleaseWorkflowObject(beforeFuzz), [finding("lane-go")]);
 });
 
 test("real PDF reproducibility acceptance stays in the renderer-selected and tagged boundaries", () => {

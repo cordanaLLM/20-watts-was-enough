@@ -7,6 +7,40 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- `npm run validate:plots` runs `scripts/generate-plots.mjs --check`, which
+  renders every plot in memory and fails when a committed SVG under
+  `public/plots/` is missing or differs. The check runs in the aggregate gate
+  and the research lane, and `scripts/research-gates.test.mjs` plants an
+  edited and a missing plot to show that it fails on each. Its first run found
+  `repeated-stimulus-skipping-cell.svg` stale in the last digit of two
+  coordinates. Node 24.21.0, 26.8.1, 26.10.0 and 26.11.1 all render the same
+  new bytes, even from the commit that added the plot, so the runtime that
+  wrote the committed file is unknown. The plot is regenerated with the pinned
+  Node 26.10.0.
+
+- Five research and site gates now have tests that plant the defect each gate
+  exists to stop. `scripts/research-gates.test.mjs` runs
+  `validate-science-taxonomies.mjs`, `generate-taxonomy-depth.mjs --check`,
+  `generate-field-coverage.mjs --check` and `audit-test-coverage.mjs --check`
+  on a copy of their inputs: the unchanged copy must pass, and a repeated
+  code, an undefined claim, a changed source byte, an edited or missing
+  generated page must each fail with the gate's own message.
+  `scripts/validate-github-pages-build.test.mjs` does the same for the built
+  Pages artifact after `npm run build`, with a linked page, an edited
+  `robots.txt`, a root `_worker.js` and a public source map. With one check
+  removed from each gate, the matching planted cases fail. The tests run as
+  `npm run test:research-gates` and `npm run test:site-build` in the research
+  and site lanes, and `npm run validate:policy` refuses an aggregate gate that
+  drops either.
+- Command tests now cover `20w github sync-labels --check`,
+  `20w github sync-metadata --check`, `20w release
+  compare-publication-manifest`, `20w translation import-candidate` and
+  `20w publication verify-pdf-tools-candidate-bundle`. Each command gets a
+  rejected input (bad colour, duplicate JSON key, drifted milestone, remote
+  repository flag, digest mismatch, stale source, unconfined output, malformed
+  or wrong-length digest) and, where the inputs exist offline, an accepted one.
+  Disabling any of the guarded checks makes a test fail.
+
 - CI scans the Git history for secrets. The new `Secret scan` job runs
   gitleaks v8.30.1, pinned in `tooling/tools/go.mod` with a `tool`
   directive, with `golang.org/x/crypto` raised from the 0.35.0 gitleaks
@@ -312,6 +346,42 @@ the exact diff; this file records why the project changed.
   ([Decision 0098](decisions/0098-move-the-renderer-lock-to-buildx-0-37-2.md)).
 
 ### Fixed
+
+- Two CI gates no longer skip. A manually dispatched full run used to
+  skip the code-shape baseline-reset check; it now compares the branch
+  against its merge base with `main`, so a dispatched branch that grows a
+  function and rewrites the baseline fails. Impact-mode pull requests that
+  touch Go used to skip the strict-JSON fuzzer, which ran only in the full
+  job; the Go lane now runs the same 30-second bounded target after its
+  tests. `npm run validate:policy` refuses a workflow that drops either
+  step, skips it or lets it fail. The repository rule crosswalk lists the
+  `Secret scan` context the live ruleset requires.
+- The native release build works again. The goldmark update to v2.1.6 left
+  the release builder's reviewed dependency pin at v2.0.1, so every tag
+  after that update would have failed in `build-release`; the pin, SBOM
+  download location and package URL now follow v2.1.6, whose licence text is
+  byte-identical to the tracked `LICENSES/goldmark-MIT.txt`. The Go lane and
+  the full job now build the native binary with a placeholder `v0.0.0`
+  version and run `validate docs` with it, so a drifted pin fails on the
+  pull request that causes it instead of at release time.
+
+- The book PDF no longer gains a blank last page in some renders. The
+  reproducibility job in main run 38372782567 rendered the same image twice
+  and got 414 pages once and 415 the second time; page 415 held only the page
+  footer. The legal notice ends 133 CSS pixels above the bottom of page 414,
+  and any unpainted node of that height appended to `body` after `#root`
+  still extends the printed flow onto a new page. Mermaid appends such a
+  node while it renders and measures text. The print block of
+  `app/globals.css` now hides every `body` child except `#root`.
+  `scripts/book-print-tail-browser.test.mjs` rebuilds the page geometry in
+  headless Chromium and requires one page with the rule, and two pages for a
+  planted node when the rule is removed.
+
+- Two Go modules that gitleaks pulls into `tooling/tools/go.mod` move past
+  open advisories: `github.com/ulikunitz/xz` from 0.5.12 to 0.5.17
+  (GHSA-jc7w-c686-c4v9) and `github.com/nwaples/rardecode/v2` from 2.1.0 to
+  2.4.2 (GHSA-rwvp-r38j-9rgg). The gitleaks canary still reports its planted
+  token.
 
 - Go vulnerability scanning can no longer pass without scanning. The
   pre-push hook in `lefthook-local.yml` printed "govulncheck is not

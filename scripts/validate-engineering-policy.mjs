@@ -1031,6 +1031,90 @@ export function validateCiFuzzingWorkflowObject(
   if (!arrayIncludes(workflow?.jobs?.["ci-success"]?.needs, "quality-full")) {
     findings.push(`${relativePath}: ci-success must require the fuzzing quality-full gate`);
   }
+  findings.push(...goLaneFuzzFindings(workflow, expectedCommand, relativePath));
+  return findings;
+}
+
+// Impact-mode pull requests that touch Go skip quality-full, so the Go lane
+// runs the same bounded target after its tests.
+function goLaneFuzzFindings(workflow, expectedCommand, relativePath) {
+  const goLane = workflow?.jobs?.["lane-go"];
+  const goSteps = Array.isArray(goLane?.steps) ? goLane.steps : [];
+  const goTestIndex = goSteps.findIndex((step) => (
+    step?.run?.trim() === "go -C tooling test ./... && go -C tooling vet ./..."
+    && step?.if === undefined
+    && continueOnErrorIsDisabled(step)
+  ));
+  const goFuzzIndex = goSteps.findIndex((step) => (
+    step?.name === "Fuzz the untrusted JSON boundary"
+    && step?.run?.trim() === expectedCommand
+    && step?.if === undefined
+    && continueOnErrorIsDisabled(step)
+  ));
+  if (
+    !continueOnErrorIsDisabled(goLane)
+    || goTestIndex < 0
+    || goFuzzIndex < 0
+    || goFuzzIndex <= goTestIndex
+  ) {
+    return [`${relativePath}: lane-go must run the exact bounded strict-JSON fuzz target after the Go tests`];
+  }
+  return [];
+}
+
+export function validateCiCodeShapeResetWorkflowObject(
+  workflow,
+  relativePath = ".github/workflows/ci.yml",
+) {
+  const steps = workflow?.jobs?.["quality-full"]?.steps;
+  const step = Array.isArray(steps)
+    ? steps.find((candidate) => candidate?.name === "Reject a code-shape baseline reset")
+    : undefined;
+  // Every event compares against a base: pull requests and pushes name one,
+  // and a dispatched run compares against its merge base with the default branch.
+  const run = typeof step?.run === "string" ? step.run : "";
+  if (
+    step === undefined
+    || step.if !== undefined
+    || !continueOnErrorIsDisabled(step)
+    || !run.includes('git merge-base "origin/$DEFAULT_BRANCH" HEAD')
+    || !run.includes('node scripts/audit-code-shape.mjs --base-revision "$BASE_SHA"')
+  ) {
+    return [
+      `${relativePath}: quality-full must reject a code-shape baseline reset on every event, dispatched runs against their merge base`,
+    ];
+  }
+  return [];
+}
+
+const ciNativeReleaseStepName = "Build and execute the native release binary";
+const ciNativeReleaseCommand = [
+  "set -euo pipefail",
+  'revision="$(git rev-parse HEAD)"',
+  'source_timestamp="$(git show -s --format=%cI "$revision")"',
+  'go -C tooling run ./cmd/build-release --version v0.0.0 --revision "$revision" --built-at "$source_timestamp" --output-root ../build/native-release',
+  './build/native-release/20w-linux-amd64 validate docs --root .',
+].join("\n");
+
+export function validateCiNativeReleaseWorkflowObject(
+  workflow,
+  relativePath = ".github/workflows/ci.yml",
+) {
+  const findings = [];
+  for (const jobName of ["lane-go", "quality-full"]) {
+    const steps = workflow?.jobs?.[jobName]?.steps;
+    const list = Array.isArray(steps) ? steps : [];
+    const fuzzIndex = list.findIndex((step) => step?.name === "Fuzz the untrusted JSON boundary");
+    const buildIndex = list.findIndex((step) => (
+      step?.name === ciNativeReleaseStepName
+      && step?.run?.trim() === ciNativeReleaseCommand
+      && step?.if === undefined
+      && continueOnErrorIsDisabled(step)
+    ));
+    if (fuzzIndex < 0 || buildIndex <= fuzzIndex) {
+      findings.push(`${relativePath}: ${jobName} must build and execute the native release binary after the Go checks`);
+    }
+  }
   return findings;
 }
 
@@ -3801,9 +3885,9 @@ const aggregateTestScripts = Object.freeze([
   "test:go", "validate:tooling", "validate:policy", "validate:topics", "test:runtime", "test:policy",
   "test:release", "check:code-shape", "test:code-shape", "check:prose", "test:prose",
   "typecheck", "lint", "test:site", "validate:translations", "test:translations",
-  "validate:docs", "test:sources", "validate:coverage", "validate:mechanism-index", "test:mechanism-index", "validate:taxonomies", "validate:math",
-  "validate:workstation", "test:workstation", "check:test-coverage", "test:readiness",
-  "build", "validate:site-build",
+  "validate:docs", "test:sources", "validate:coverage", "validate:plots", "validate:mechanism-index", "test:mechanism-index", "validate:taxonomies", "validate:math",
+  "validate:workstation", "test:workstation", "check:test-coverage", "test:readiness", "test:research-gates",
+  "build", "validate:site-build", "test:site-build",
 ]);
 
 function npmRunChain(scripts) {
@@ -4514,6 +4598,8 @@ function validateCiWorkflowPolicy(workflow, relativePath, lock, findings) {
   findings.push(...validateCiImpactWorkflowObject(workflow, relativePath));
   findings.push(...validateCiExperimentImageWorkflowObject(workflow, relativePath));
   findings.push(...validateCiFuzzingWorkflowObject(workflow, relativePath));
+  findings.push(...validateCiCodeShapeResetWorkflowObject(workflow, relativePath));
+  findings.push(...validateCiNativeReleaseWorkflowObject(workflow, relativePath));
   findings.push(...validateScientificRuntimeWorkflowObject(
     workflow,
     lock,

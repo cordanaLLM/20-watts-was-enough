@@ -1948,6 +1948,13 @@ button {
     -webkit-print-color-adjust: exact;
   }
 
+  /* Libraries append transient nodes to body; Mermaid renders and measures
+     text in an svg there. Unpainted, such a node still extends the printed
+     flow and can add a blank trailing page. */
+  body > :not(#root) {
+    display: none !important;
+  }
+
   .book-shell {
     padding: 0;
     background: #fff;
