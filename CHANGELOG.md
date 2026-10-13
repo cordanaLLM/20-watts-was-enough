@@ -154,6 +154,15 @@ the exact diff; this file records why the project changed.
   literal dynamic imports. The book provenance record is renewed without a
   render under [Decision 0090](decisions/0090-re-record-book-provenance-for-dependency-records.md).
 
+- Private working state and evidence move from `.workingdir2/` to the ignored
+  `.workingdir/` folder. The agent contract, the publication-design and
+  research-design skill references, `docs/publication-workflow.md` and the
+  evidence root of `scripts/audit-book-pdf-semantics.mjs` now name
+  `.workingdir/evidence/`. Auxiliary Git worktrees live outside the checkout.
+  Tool caches and receipt paths in the Go tooling, `translations/README.md`
+  and `tooling/clrs-specialist/README.md` still use `.workingdir2/` and move
+  in a separate change with their tests.
+
 - The decision index now lists number 0086 as void. No record was ever
   assigned that number; it stays unused so later references cannot collide.
 
