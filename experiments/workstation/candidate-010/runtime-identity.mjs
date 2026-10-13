@@ -161,7 +161,7 @@ async function candidateProductionFiles(candidateRoot) {
 }
 
 async function deriveExternalProductionDependencies(candidateRoot) {
-  await init;
+  await init();
   const dependencies = new Set();
   const files = await candidateProductionFiles(candidateRoot);
   for (const relative of files) {
@@ -174,11 +174,11 @@ async function deriveExternalProductionDependencies(candidateRoot) {
       refuse("SOURCE_PARSE", `Cannot parse production module ${relative}: ${error.message}`, error);
     }
     for (const entry of imports) {
-      if (entry.d === -2) continue;
-      if (entry.n === undefined) {
+      if (entry.type === "import-meta") continue;
+      if (entry.specifier === undefined || (entry.type === "dynamic" && entry.glob)) {
         refuse("NON_LITERAL_IMPORT", `Production module ${relative} contains a non-literal import.`);
       }
-      const specifier = entry.n;
+      const { specifier } = entry;
       if (
         specifier.startsWith(".")
         || specifier.startsWith("/")

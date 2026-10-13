@@ -317,10 +317,11 @@ async function walkCandidateFiles(root, candidateDirectory) {
 }
 
 async function relativeModuleSpecifiers(body) {
-  await init;
+  await init();
   const [imports] = parse(body);
   return [...new Set(imports
-    .map((entry) => entry.n)
+    .filter((entry) => !(entry.type === "dynamic" && entry.glob))
+    .map((entry) => entry.specifier)
     .filter((specifier) => typeof specifier === "string" && specifier.startsWith(".")))]
     .sort();
 }

@@ -100,7 +100,7 @@ test("runtime identity binds the exact Node executable, lock, and installed prod
   assert.equal(first.runtime.executable_bytes, executable.size);
   assert.match(first.runtime.executable_sha256, /^[0-9a-f]{64}$/);
   assert.deepEqual(first.external_production_dependency_names, ["es-module-lexer"]);
-  assert.equal(first.external_production_dependencies[0].version, "2.3.2");
+  assert.equal(first.external_production_dependencies[0].version, "3.0.3");
   assert.equal(first.external_production_dependencies[0].production_usage, true);
   assert.equal(first.external_production_dependencies[0].declared_section, "devDependencies");
   assert.ok(first.external_production_dependencies[0].files.some((row) => row.path === "package.json"));
@@ -114,6 +114,37 @@ test("runtime identity binds the exact Node executable, lock, and installed prod
   assert.equal(first.confirmation_claim_eligible, false);
   assert.equal(first.limits.toctou_guarantee, false);
   assert.equal(RUNTIME_IDENTITY_LIMITS.confirmation_claim_eligible, false);
+});
+
+test("dependency discovery refuses template, computed, and concatenated dynamic imports", async () => {
+  const sources = [
+    "export const load = (name) => import(`./locales/${name}.mjs`);\n",
+    "export const load = (name) => import(name);\n",
+    "export const load = (name) => import(\"./\" + name);\n",
+  ];
+  for (const source of sources) {
+    await withFixture(async ({ root, candidate }) => {
+      await writeFile(path.join(candidate, "dynamic.mjs"), source, "utf8");
+      await assert.rejects(
+        captureRuntimeIdentity({ repositoryRoot: root, candidateRoot: candidate }),
+        (error) => error instanceof RuntimeIdentityError
+          && error.code === "CANDIDATE_010_RUNTIME_IDENTITY_NON_LITERAL_IMPORT",
+        source,
+      );
+    });
+  }
+});
+
+test("dependency discovery admits a literal dynamic import and ignores import.meta", async () => {
+  await withFixture(async ({ root, candidate }) => {
+    await writeFile(
+      path.join(candidate, "dynamic.mjs"),
+      "export const here = import.meta.url;\nexport const load = () => import(\"./production.mjs\");\n",
+      "utf8",
+    );
+    const identity = await captureRuntimeIdentity({ repositoryRoot: root, candidateRoot: candidate });
+    assert.deepEqual(identity.external_production_dependency_names, ["es-module-lexer"]);
+  });
 });
 
 test("dependency discovery excludes tests and inventory hashes are deterministic but byte-sensitive", async () => {
