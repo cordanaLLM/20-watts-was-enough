@@ -313,6 +313,24 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- The book PDF no longer gains a blank last page in some renders. The
+  reproducibility job in main run 38372782567 rendered the same image twice
+  and got 414 pages once and 415 the second time; page 415 held only the page
+  footer. The legal notice ends 133 CSS pixels above the bottom of page 414,
+  and any unpainted node of that height appended to `body` after `#root`
+  still extends the printed flow onto a new page. Mermaid appends such a
+  node while it renders and measures text. The print block of
+  `app/globals.css` now hides every `body` child except `#root`.
+  `scripts/book-print-tail-browser.test.mjs` rebuilds the page geometry in
+  headless Chromium and requires one page with the rule, and two pages for a
+  planted node when the rule is removed.
+
+- Two Go modules that gitleaks pulls into `tooling/tools/go.mod` move past
+  open advisories: `github.com/ulikunitz/xz` from 0.5.12 to 0.5.17
+  (GHSA-jc7w-c686-c4v9) and `github.com/nwaples/rardecode/v2` from 2.1.0 to
+  2.4.2 (GHSA-rwvp-r38j-9rgg). The gitleaks canary still reports its planted
+  token.
+
 - Go vulnerability scanning can no longer pass without scanning. The
   pre-push hook in `lefthook-local.yml` printed "govulncheck is not
   installed, skipping" and exited 0 when the tool was absent, and no workflow
