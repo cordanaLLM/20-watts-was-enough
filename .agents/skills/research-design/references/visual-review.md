@@ -57,7 +57,7 @@ visual hand-off rather than inferring a pass from adjacent checks.
 ## Evidence record
 
 Retain bounded screenshots and observations under an ignored working-evidence
-directory such as `.workingdir2/evidence/design/YYYY-MM-DD-<change>/`. Record:
+directory such as `.workingdir/evidence/design/YYYY-MM-DD-<change>/`. Record:
 
 - source commit and local URL;
 - browser identity;

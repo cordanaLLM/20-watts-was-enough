@@ -198,3 +198,30 @@ test("test coverage check accepts the tree and refuses stale or missing reports"
       ));
   });
 });
+
+test("plot check accepts the committed plots and refuses a stale or missing plot", async (t) => {
+  await withSandbox(["public/plots"], async (root) => {
+    const run = () => runGate(root, path.join(projectRoot, "scripts", "generate-plots.mjs"), ["--check"]);
+    const plot = "public/plots/repeated-stimulus-skipping-cell.svg";
+
+    await t.test("baseline passes", () => {
+      const result = run();
+      assert.equal(result.status, 0, result.output);
+      assert.match(result.output, /Validated \d+ plots in public\/plots/u);
+    });
+    await t.test("an edited plot is refused", () =>
+      withPlant(
+        root,
+        plot,
+        (bytes) => Buffer.from(bytes.toString("utf8").replace("540.4540308838538", "540.4540308838539")),
+        () => assertRefused(run(), /Plots are missing or stale.*\n(?:.*\n)*public\/plots\/repeated-stimulus-skipping-cell\.svg/u),
+      ));
+    await t.test("a missing plot is refused", () =>
+      withPlant(
+        root,
+        plot,
+        () => null,
+        () => assertRefused(run(), /public\/plots\/repeated-stimulus-skipping-cell\.svg/u),
+      ));
+  });
+});
