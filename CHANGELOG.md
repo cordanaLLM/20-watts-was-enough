@@ -139,7 +139,11 @@ the exact diff; this file records why the project changed.
   text, and `LICENSING.md` states where the module's source code is. The
   notice generator refuses a bundled EPL-2.0 package that `LICENSING.md` does
   not name at its exact version, so each update has to renew the offer. The
-  book is re-rendered for the new diagram output.
+  book is re-rendered for the new diagram output, which grows it from 414 to
+  421 pages. The taller diagrams pushed one display equation onto the page
+  after its introducing sentence; a print rule now keeps a paragraph on the
+  same page as the display equation that follows it, and the semantic
+  baseline records the moved sentinel pages.
 
 - es-module-lexer moves to 3.0.3. Version 3 names its import record fields
   (`type`, `specifier`, `glob`) instead of the terse version 2 fields, so
