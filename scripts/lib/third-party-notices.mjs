@@ -37,6 +37,9 @@ const VIRTUAL_MODULE_PACKAGES = Object.freeze({
     packagePath: "node_modules/vite",
   },
 });
+// Licences whose object-code distribution requires telling recipients where
+// the source code is; LICENSING.md must name each such bundled package.
+const SOURCE_OFFER_LICENSES = new Set(["EPL-2.0"]);
 const PROJECT_VIRTUAL_MODULES = new Set([
   "\0virtual:portal-document-index",
 ]);
@@ -157,6 +160,17 @@ function collectPackageNotices(root, repositoryRoot, texts, expectedIdentity = n
   };
 }
 
+function assertSourceOffers(packages, repositoryRoot) {
+  const offerRequired = packages.filter(({ license }) => SOURCE_OFFER_LICENSES.has(license));
+  if (offerRequired.length === 0) return;
+  const licensing = textFile(path.join(repositoryRoot, "LICENSING.md"), repositoryRoot);
+  for (const { identity, license } of offerRequired) {
+    if (!licensing.includes(`\`${identity}\``)) {
+      throw new Error(`LICENSING.md lacks the ${license} source offer for ${identity}`);
+    }
+  }
+}
+
 export function renderThirdPartyNotices({ moduleIds, repositoryRoot }) {
   const roots = new Map();
   for (const root of [...moduleIds].map(packageRoot).filter((value) => value !== null)) {
@@ -188,6 +202,7 @@ export function renderThirdPartyNotices({ moduleIds, repositoryRoot }) {
   }
 
   packages.sort((left, right) => left.identity.localeCompare(right.identity, "en"));
+  assertSourceOffers(packages, repositoryRoot);
   const blocks = [...texts.entries()].sort(([left], [right]) => left.localeCompare(right, "en"));
   const ofl = textFile(path.join(repositoryRoot, "LICENSES", "OFL-1.1.txt"), repositoryRoot);
   const inventory = packages

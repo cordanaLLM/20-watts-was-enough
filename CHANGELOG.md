@@ -133,6 +133,13 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Mermaid moves to version 12. Its diagram layout pulls in `elkjs@0.9.3`
+  under the Eclipse Public License 2.0, so the web edition now bundles one
+  weak-copyleft module. `THIRD_PARTY_NOTICES.txt` carries the full EPL-2.0
+  text, and `LICENSING.md` states where the module's source code is. The
+  notice generator refuses a bundled EPL-2.0 package that `LICENSING.md` does
+  not name at its exact version, so each update has to renew the offer. The
+  book is re-rendered for the new diagram output.
 - The Praetor engine pin moves from `6622361940dc` to `3bbde0734`, engine
   `main` on 2026-10-13, one commit later. The new engine fails its audit
   when a scanner the declared standards profile names runs in no workflow.
