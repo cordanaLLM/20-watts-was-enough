@@ -4093,6 +4093,29 @@ export function validateTopicRegistryScriptsObject(manifest, relativePath = "pac
   return findings;
 }
 
+const taxonomyImporterCheck = "python scripts/import-science-taxonomies.py --check";
+
+export function validateTaxonomyImporterScriptObject(manifest, relativePath = "package.json") {
+  const commands = String(manifest?.scripts?.["validate:taxonomies"] ?? "").split(" && ");
+  if (!commands.includes(taxonomyImporterCheck)) {
+    return [`${relativePath}: validate:taxonomies must rebuild the taxonomy JSON from its official sources`];
+  }
+  return [];
+}
+
+export function validateResearchLanePythonWorkflowObject(workflow, relativePath = "workflow.yml") {
+  const steps = workflow?.jobs?.["lane-research"]?.steps;
+  if (!Array.isArray(steps)) {
+    return [`${relativePath}: job lane-research must run the research checks`];
+  }
+  const setup = steps.findIndex((step) => step?.uses?.startsWith("actions/setup-python@"));
+  const checks = steps.findIndex((step) => step?.run === "npm run check:lane-research");
+  if (setup < 0 || steps[setup].with?.["python-version"] !== runtimePolicy.pythonVersion || checks < setup) {
+    return [`${relativePath}: job lane-research must use locked Python ${runtimePolicy.pythonVersion} before the research checks`];
+  }
+  return [];
+}
+
 const requiredPackageScripts = [
   "check",
   "check:code-shape",
@@ -4212,6 +4235,7 @@ function validatePackage(root, findings) {
     relativePath,
   ));
   findings.push(...validateTopicRegistryScriptsObject(manifest, relativePath));
+  findings.push(...validateTaxonomyImporterScriptObject(manifest, relativePath));
   findings.push(...validatePackageScripts(manifest, relativePath));
   findings.push(...validatePackageDependenciesAndMetadata(manifest, relativePath));
 }
@@ -4600,6 +4624,7 @@ function validateCiWorkflowPolicy(workflow, relativePath, lock, findings) {
   findings.push(...validateCiFuzzingWorkflowObject(workflow, relativePath));
   findings.push(...validateCiCodeShapeResetWorkflowObject(workflow, relativePath));
   findings.push(...validateCiNativeReleaseWorkflowObject(workflow, relativePath));
+  findings.push(...validateResearchLanePythonWorkflowObject(workflow, relativePath));
   findings.push(...validateScientificRuntimeWorkflowObject(
     workflow,
     lock,
