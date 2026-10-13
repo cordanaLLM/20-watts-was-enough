@@ -1,0 +1,11 @@
+# Reviewed gitleaks false positives in the history reachable from HEAD.
+# The secret-scan CI job reads this file; each entry is one finding
+# fingerprint (commit:file:rule:line) with the reason it is not a secret.
+
+# A workflow file name, "praetor-api-2.yml", follows the word "api" in a test list.
+4f1b8926e5fc664625c5742b8036737fe0b05fc4:scripts/engineering-policy.test.mjs:generic-api-key:3266
+# An Ed25519 public root key of the fixture-026 registry; public keys are not secrets.
+89d8f82b6e4660a72c0b67f46ec3b66705b6bd6b:experiments/workstation/fixture-026/configs/rsd-t02-system-family-registry.json:generic-api-key:27
+89d8f82b6e4660a72c0b67f46ec3b66705b6bd6b:experiments/workstation/fixture-026/rsd-t02-system-family-registry.schema.json:generic-api-key:57
+# Prose: the word after "access," at a line break of a research audit.
+dd434a0c98050f1e2d27bfd611f6c7590a5d70e6:research/audits/2026-08-05-social-choice-institutions.md:generic-api-key:674

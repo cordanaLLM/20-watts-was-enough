@@ -31,6 +31,7 @@
         ".gitattributes",
         ".gitignore",
         ".gitleaks.toml",
+        ".gitleaksignore",
         ".npmrc",
         "AGENTS.md",
         "CLAUDE.md",
@@ -217,6 +218,7 @@
         "tooling/internal/githubmilestones/**",
         "tooling/internal/githubprmetadata/**",
         "tooling/internal/repositorymanifest/**",
+        "tooling/internal/secretscan/**",
         "tooling/internal/vulnscan/**",
         "tooling/tools/**"
       ],

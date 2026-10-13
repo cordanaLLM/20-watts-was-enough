@@ -50,6 +50,9 @@
             "context": "CI impact plan"
           },
           {
+            "context": "Secret scan"
+          },
+          {
             "context": "JavaScript and TypeScript analysis"
           },
           {

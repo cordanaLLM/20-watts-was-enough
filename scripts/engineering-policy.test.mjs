@@ -175,6 +175,7 @@ function runCiSuccessGate(source, overrides = {}) {
     RESULT_WORKSTATION_ARTIFACTS: "success",
     RESULT_CONTAINER: "success",
     RESULT_DEPENDENCY_REVIEW: "skipped",
+    RESULT_SECRET_SCAN: "success",
     ...overrides,
   };
   return spawnSync(BASH, ["-c", source], { encoding: "utf8", env: environment });
@@ -1670,6 +1671,67 @@ test("CI workstation and success authority cannot be conditionally skipped", () 
   assert.ok(validateCiImpactWorkflowObject(forgedSuccess).includes(successFinding));
 });
 
+test("CI proves the pinned gitleaks on a planted secret before it scans the history", () => {
+  const valid = workflow("ci");
+  const finding = ".github/workflows/ci.yml: secret-scan must prove the pinned gitleaks on a planted secret, then scan the full history reachable from HEAD and fail closed";
+  const vectorFinding = ".github/workflows/ci.yml: ci-success must unconditionally inspect the exact fail-closed state vector";
+  const needsFinding = ".github/workflows/ci.yml: ci-success must depend on every full, impact, matrix, container, and PR gate";
+  const successFinding = ".github/workflows/ci.yml: ci-success must reject unexpected states and any skipped selected lane";
+  assert.deepEqual(validateCiImpactWorkflowObject(valid), []);
+
+  for (const mutate of [
+    (job) => { job.if = "github.event_name == 'pull_request'"; },
+    (job) => { job.needs = "impact-plan"; },
+    (job) => { job["continue-on-error"] = true; },
+    (job) => { job["timeout-minutes"] = 600; },
+    (job) => { job.permissions.contents = "write"; },
+    (job) => { delete job.steps[0].with["fetch-depth"]; },
+    (job) => { job.steps[0].with["persist-credentials"] = true; },
+    (job) => { job.steps.splice(2, 1); },
+    (job) => { [job.steps[2], job.steps[3]] = [job.steps[3], job.steps[2]]; },
+    (job) => { job.steps[2]["continue-on-error"] = true; },
+    (job) => { job.steps[2].run = "echo go -C tooling run ./cmd/20w security gitleaks-canary --root .."; },
+    (job) => { job.steps[3].run += " || true"; },
+    (job) => { job.steps[3].run = job.steps[3].run.replace("--exit-code 1", "--exit-code 0"); },
+    (job) => { job.steps[3].run = job.steps[3].run.replace(" --ignore-gitleaks-allow", ""); },
+    (job) => { job.steps[3].run = job.steps[3].run.replace("--log-opts=HEAD", "--log-opts=-1"); },
+    (job) => { job.steps[3].if = "false"; },
+    (job) => { delete job.steps[3]["working-directory"]; },
+  ]) {
+    const weakened = structuredClone(valid);
+    const before = JSON.stringify(weakened.jobs["secret-scan"]);
+    mutate(weakened.jobs["secret-scan"]);
+    assert.notEqual(JSON.stringify(weakened.jobs["secret-scan"]), before, "the mutation must change the job");
+    assert.ok(validateCiImpactWorkflowObject(weakened).includes(finding));
+  }
+
+  const removed = structuredClone(valid);
+  delete removed.jobs["secret-scan"];
+  assert.ok(validateCiImpactWorkflowObject(removed).includes(finding));
+
+  const unwired = structuredClone(valid);
+  unwired.jobs["ci-success"].needs = unwired.jobs["ci-success"].needs.filter((job) => job !== "secret-scan");
+  assert.ok(validateCiImpactWorkflowObject(unwired).includes(needsFinding));
+
+  const forged = structuredClone(valid);
+  const forgedStep = forged.jobs["ci-success"].steps.find((step) => step.name === "Require every expected gate state");
+  forgedStep.env.RESULT_SECRET_SCAN = "success";
+  assert.ok(validateCiImpactWorkflowObject(forged).includes(vectorFinding));
+
+  for (const replacement of [
+    'require_state secret-scan "$RESULT_SECRET_SCAN" skipped\n',
+    "",
+    'if false; then require_state secret-scan "$RESULT_SECRET_SCAN" success\nfi\n',
+  ]) {
+    const unchecked = structuredClone(valid);
+    const step = unchecked.jobs["ci-success"].steps.find((candidate) => candidate.name === "Require every expected gate state");
+    const before = step.run;
+    step.run = before.replace('require_state secret-scan "$RESULT_SECRET_SCAN" success\n', replacement);
+    assert.notEqual(step.run, before, "the mutation must change the script");
+    assert.ok(validateCiImpactWorkflowObject(unchecked).includes(successFinding));
+  }
+});
+
 test("CI success accepts only the exact full or selected impact state vector", () => {
   const subject = workflow("ci");
   const source = subject.jobs["ci-success"].steps.find((step) => (
@@ -1758,6 +1820,15 @@ test("CI success accepts only the exact full or selected impact state vector", (
   assert.notEqual(runCiSuccessGate(source, {
     SELECT_GO: "true",
   }).status, 0, "full mode must expose false semantic selectors");
+  for (const state of ["failure", "skipped", "cancelled", ""]) {
+    assert.notEqual(runCiSuccessGate(source, {
+      RESULT_SECRET_SCAN: state,
+    }).status, 0, `a full plan may not accept a secret scan state of "${state}"`);
+    assert.notEqual(runCiSuccessGate(source, {
+      ...impact,
+      RESULT_SECRET_SCAN: state,
+    }).status, 0, `an impact plan may not accept a secret scan state of "${state}"`);
+  }
   assert.notEqual(runCiSuccessGate(source, {
     SELECT_DEPENDENCY: "true",
   }).status, 0, "full mode must expose a false dependency selector");
