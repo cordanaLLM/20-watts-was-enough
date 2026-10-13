@@ -7,6 +7,21 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- Five research and site gates now have tests that plant the defect each gate
+  exists to stop. `scripts/research-gates.test.mjs` runs
+  `validate-science-taxonomies.mjs`, `generate-taxonomy-depth.mjs --check`,
+  `generate-field-coverage.mjs --check` and `audit-test-coverage.mjs --check`
+  on a copy of their inputs: the unchanged copy must pass, and a repeated
+  code, an undefined claim, a changed source byte, an edited or missing
+  generated page must each fail with the gate's own message.
+  `scripts/validate-github-pages-build.test.mjs` does the same for the built
+  Pages artifact after `npm run build`, with a linked page, an edited
+  `robots.txt`, a root `_worker.js` and a public source map. With one check
+  removed from each gate, the matching planted cases fail. The tests run as
+  `npm run test:research-gates` and `npm run test:site-build` in the research
+  and site lanes, and `npm run validate:policy` refuses an aggregate gate that
+  drops either.
+
 - CI scans the Git history for secrets. The new `Secret scan` job runs
   gitleaks v8.30.1, pinned in `tooling/tools/go.mod` with a `tool`
   directive, with `golang.org/x/crypto` raised from the 0.35.0 gitleaks
