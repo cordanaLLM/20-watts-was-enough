@@ -66,3 +66,49 @@ func TestRunPublicationVerifyPDFToolsCandidateBundleRequiresIndependentIdentity(
 		t.Fatalf("run() exit/stdout/stderr = %d/%q/%q", exit, stdout.String(), stderr.String())
 	}
 }
+
+func TestRunPublicationVerifyPDFToolsCandidateBundleRejectsMalformedSHA256(t *testing.T) {
+	t.Parallel()
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exit := run([]string{
+		"publication", "verify-pdf-tools-candidate-bundle",
+		"--bundle", "build/release-inputs/candidate.tar",
+		"--sha256", "not-a-valid-sha256",
+	}, &stdout, &stderr)
+	if exit != 1 || !strings.Contains(stderr.String(), "candidate publication bundle requires an exact SHA-256 identity") {
+		t.Fatalf("run() exit/stdout/stderr = %d/%q/%q", exit, stdout.String(), stderr.String())
+	}
+}
+
+func TestRunPublicationVerifyPDFToolsCandidateBundleRejectsDisallowedBundleLocation(t *testing.T) {
+	t.Parallel()
+	root := filepath.Clean(filepath.Join("..", "..", ".."))
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exit := run([]string{
+		"publication", "verify-pdf-tools-candidate-bundle",
+		"--root", root,
+		"--bundle", "concept/candidate.tar",
+		"--sha256", strings.Repeat("a", 64),
+	}, &stdout, &stderr)
+	if exit != 1 || !strings.Contains(stderr.String(), "PDF-tools candidate publication bundle must be a safe repository-relative .tar path under publication or release evidence") {
+		t.Fatalf("run() exit/stdout/stderr = %d/%q/%q", exit, stdout.String(), stderr.String())
+	}
+}
+
+func TestRunPublicationVerifyPDFToolsCandidateBundleBoundaryDigestLength(t *testing.T) {
+	t.Parallel()
+	for _, sha := range []string{strings.Repeat("a", 63), strings.Repeat("a", 65)} {
+		var stdout bytes.Buffer
+		var stderr bytes.Buffer
+		exit := run([]string{
+			"publication", "verify-pdf-tools-candidate-bundle",
+			"--bundle", "build/release-inputs/candidate.tar",
+			"--sha256", sha,
+		}, &stdout, &stderr)
+		if exit != 1 || !strings.Contains(stderr.String(), "candidate publication bundle requires an exact SHA-256 identity") {
+			t.Fatalf("run() exit/stdout/stderr = %d/%q/%q", exit, stdout.String(), stderr.String())
+		}
+	}
+}

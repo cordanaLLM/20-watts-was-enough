@@ -21,6 +21,14 @@ the exact diff; this file records why the project changed.
   `npm run test:research-gates` and `npm run test:site-build` in the research
   and site lanes, and `npm run validate:policy` refuses an aggregate gate that
   drops either.
+- Command tests now cover `20w github sync-labels --check`,
+  `20w github sync-metadata --check`, `20w release
+  compare-publication-manifest`, `20w translation import-candidate` and
+  `20w publication verify-pdf-tools-candidate-bundle`. Each command gets a
+  rejected input (bad colour, duplicate JSON key, drifted milestone, remote
+  repository flag, digest mismatch, stale source, unconfined output, malformed
+  or wrong-length digest) and, where the inputs exist offline, an accepted one.
+  Disabling any of the guarded checks makes a test fail.
 
 - CI scans the Git history for secrets. The new `Secret scan` job runs
   gitleaks v8.30.1, pinned in `tooling/tools/go.mod` with a `tool`
