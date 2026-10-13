@@ -304,6 +304,7 @@ func TestEverySiteLaneEntrypointIsMappedToTheSiteLane(t *testing.T) {
 	paths := []string{
 		"scripts/book-edition-surface.test.mjs",
 		"scripts/book-fragment-browser.test.mjs",
+		"scripts/book-print-tail-browser.test.mjs",
 		"scripts/book-route.test.mjs",
 		"scripts/css-authority.test.mjs",
 		"scripts/github-pages.test.mjs",
@@ -321,6 +322,7 @@ func TestEverySiteLaneEntrypointIsMappedToTheSiteLane(t *testing.T) {
 		"scripts/translation-vite-build.test.mjs",
 		"scripts/validate-css-authority.mjs",
 		"scripts/validate-github-pages-build.mjs",
+		"scripts/validate-github-pages-build.test.mjs",
 		"scripts/validate-translations.mjs",
 	}
 	for _, path := range paths {
