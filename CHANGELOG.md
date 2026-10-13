@@ -21,6 +21,13 @@ the exact diff; this file records why the project changed.
   `npm run test:research-gates` and `npm run test:site-build` in the research
   and site lanes, and `npm run validate:policy` refuses an aggregate gate that
   drops either.
+- Two regression tests cover fixes that had none. A browser test in
+  `scripts/github-pages.test.mjs` reads the computed list markers of rendered
+  portal prose (disc, decimal, and circle and lower-alpha for nested lists,
+  all outside) and fails once the list rules in `app/globals.css` are
+  removed. A policy test builds a temporary tree and checks that the
+  portable-operation scan skips `.claude/worktrees` but still reports a
+  PowerShell script elsewhere under `.claude` and in the source tree.
 
 - CI scans the Git history for secrets. The new `Secret scan` job runs
   gitleaks v8.30.1, pinned in `tooling/tools/go.mod` with a `tool`

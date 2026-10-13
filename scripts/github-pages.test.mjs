@@ -906,6 +906,88 @@ test("portal document routes preserve native links and focus their destination h
   });
 });
 
+test("rendered portal prose preserves list markers and outside positioning", {
+  timeout: 120_000,
+}, async () => {
+  await withPortalBrowser(async (cdp, portalUrl) => {
+    const route = new URL("concept/00-thesis-and-principles/", portalUrl);
+    const navigation = await cdp.send("Page.navigate", { url: route.href });
+    assert.equal(navigation.errorText, undefined);
+    await waitForBrowserState(
+      cdp,
+      portalStateExpression,
+      (snapshot) => snapshot.pathname === route.pathname && snapshot.readerPresent,
+      "thesis route did not render",
+      60_000,
+    );
+    await waitForBrowserState(
+      cdp,
+      `Boolean(document.querySelector(".portal-prose ul") && document.querySelector(".portal-prose ol"))`,
+      Boolean,
+      "rendered portal prose did not expose list elements",
+      60_000,
+    );
+
+    // No canonical chapter holds a nested list, so the test appends one nested
+    // list of each kind inside the rendered prose to reach the descendant rules.
+    await evaluateInBrowser(cdp, `(() => {
+      const prose = document.querySelector(".portal-prose");
+      const parentUl = prose.querySelector("ul");
+      const parentOl = prose.querySelector("ol");
+      const ulItem = parentUl.querySelector("li");
+      const olItem = parentOl.querySelector("li");
+
+      const nestedUl = document.createElement("ul");
+      const nestedUlItem = document.createElement("li");
+      nestedUlItem.textContent = "nested unordered item";
+      nestedUl.appendChild(nestedUlItem);
+      ulItem.appendChild(nestedUl);
+
+      const nestedOl = document.createElement("ol");
+      const nestedOlItem = document.createElement("li");
+      nestedOlItem.textContent = "nested ordered item";
+      nestedOl.appendChild(nestedOlItem);
+      olItem.appendChild(nestedOl);
+    })()`);
+
+    const listStyles = await evaluateInBrowser(cdp, `(() => {
+      const prose = document.querySelector(".portal-prose");
+      const ul = prose.querySelector("ul");
+      const ol = prose.querySelector("ol");
+      const nestedUl = prose.querySelector("ul ul");
+      const nestedOl = prose.querySelector("ol ol");
+
+      return {
+        ul: {
+          listStyleType: getComputedStyle(ul).listStyleType,
+          listStylePosition: getComputedStyle(ul).listStylePosition,
+        },
+        ol: {
+          listStyleType: getComputedStyle(ol).listStyleType,
+          listStylePosition: getComputedStyle(ol).listStylePosition,
+        },
+        nestedUl: {
+          listStyleType: getComputedStyle(nestedUl).listStyleType,
+          listStylePosition: getComputedStyle(nestedUl).listStylePosition,
+        },
+        nestedOl: {
+          listStyleType: getComputedStyle(nestedOl).listStyleType,
+          listStylePosition: getComputedStyle(nestedOl).listStylePosition,
+        },
+      };
+    })()`);
+
+    assert.equal(listStyles.ul.listStyleType, "disc");
+    assert.equal(listStyles.ul.listStylePosition, "outside");
+    assert.equal(listStyles.ol.listStyleType, "decimal");
+    assert.equal(listStyles.ol.listStylePosition, "outside");
+    assert.equal(listStyles.nestedUl.listStyleType, "circle");
+    assert.equal(listStyles.nestedUl.listStylePosition, "outside");
+    assert.equal(listStyles.nestedOl.listStyleType, "lower-alpha");
+    assert.equal(listStyles.nestedOl.listStylePosition, "outside");
+  });
+});
+
 test("only genuinely overflowing Markdown tables become labelled keyboard regions", async () => {
   const [markdown, overflowRegion] = await Promise.all([
     source("app/components/markdown-document.tsx"),
