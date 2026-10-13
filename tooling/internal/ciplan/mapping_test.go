@@ -322,6 +322,7 @@ func TestEverySiteLaneEntrypointIsMappedToTheSiteLane(t *testing.T) {
 		"scripts/translation-vite-build.test.mjs",
 		"scripts/validate-css-authority.mjs",
 		"scripts/validate-github-pages-build.mjs",
+		"scripts/validate-github-pages-build.test.mjs",
 		"scripts/validate-translations.mjs",
 	}
 	for _, path := range paths {

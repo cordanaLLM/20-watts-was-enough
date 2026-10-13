@@ -3886,8 +3886,8 @@ const aggregateTestScripts = Object.freeze([
   "test:release", "check:code-shape", "test:code-shape", "check:prose", "test:prose",
   "typecheck", "lint", "test:site", "validate:translations", "test:translations",
   "validate:docs", "test:sources", "validate:coverage", "validate:mechanism-index", "test:mechanism-index", "validate:taxonomies", "validate:math",
-  "validate:workstation", "test:workstation", "check:test-coverage", "test:readiness",
-  "build", "validate:site-build",
+  "validate:workstation", "test:workstation", "check:test-coverage", "test:readiness", "test:research-gates",
+  "build", "validate:site-build", "test:site-build",
 ]);
 
 function npmRunChain(scripts) {
