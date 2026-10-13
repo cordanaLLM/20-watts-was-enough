@@ -1578,6 +1578,7 @@ const ciImpactSuccessExpectedNeeds = [
   "workstation-artifacts",
   "container-smoke",
   "dependency-review",
+  "secret-scan",
 ];
 
 const ciImpactSuccessExpectedEnvironment = {
@@ -1603,6 +1604,7 @@ const ciImpactSuccessExpectedEnvironment = {
   RESULT_WORKSTATION_ARTIFACTS: "${{ needs.workstation-artifacts.result }}",
   RESULT_CONTAINER: "${{ needs.container-smoke.result }}",
   RESULT_DEPENDENCY_REVIEW: "${{ needs.dependency-review.result }}",
+  RESULT_SECRET_SCAN: "${{ needs.secret-scan.result }}",
 };
 
 function validateCiImpactSuccessNeedsAndEnvironment(success, successStep, relativePath, findings) {
@@ -1666,11 +1668,49 @@ function validateCiImpactSuccessScript(successSource, relativePath, findings) {
         successSource,
         'require_state dependency-review "$RESULT_DEPENDENCY_REVIEW" skipped',
       ) === 2
+      && countOccurrences(
+        successSource,
+        'require_state secret-scan "$RESULT_SECRET_SCAN" success\n',
+      ) === 1
+      && String(successSource ?? "").includes(
+        'require_state impact-plan "$RESULT_PLAN" success\nrequire_state secret-scan "$RESULT_SECRET_SCAN" success\n',
+      )
       && String(successSource ?? "").includes([
         'for selector in "$SELECT_CONTAINER" "$SELECT_DEPENDENCY" "$SELECT_GO" "$SELECT_RELEASE" \\',
         '      "$SELECT_RESEARCH" "$SELECT_SITE"; do',
       ].join("\n")),
     `${relativePath}: ci-success must reject unexpected states and any skipped selected lane`,
+  );
+}
+
+const ciSecretScanCommand = "go tool gitleaks git --no-banner --redact --ignore-gitleaks-allow"
+  + " --timeout 300 --exit-code 1 --log-opts=HEAD ../..";
+
+function validateCiSecretScanJob(jobs, relativePath, findings) {
+  const job = jobs["secret-scan"];
+  const steps = job?.steps ?? [];
+  const [checkout, go, canary, scan] = steps;
+  recordExpectation(
+    findings,
+    [
+      job?.if === undefined,
+      job?.needs === undefined,
+      Number.isInteger(job?.["timeout-minutes"]) && job["timeout-minutes"] <= 30,
+      Object.keys(job?.permissions ?? {}).length === 1 && job?.permissions?.contents === "read",
+      continueOnErrorIsDisabled(job),
+      steps.length === 4,
+      steps.every((step) => continueOnErrorIsDisabled(step) && step?.if === undefined),
+      String(checkout?.uses ?? "").startsWith("actions/checkout@"),
+      checkout?.with?.["fetch-depth"] === 0,
+      checkout?.with?.["persist-credentials"] === false,
+      String(go?.uses ?? "").startsWith("actions/setup-go@"),
+      go?.with?.["go-version-file"] === "tooling/go.mod",
+      canary?.run === "go -C tooling run ./cmd/20w security gitleaks-canary --root ..",
+      canary?.["working-directory"] === undefined,
+      scan?.["working-directory"] === "tooling/tools",
+      scan?.run === ciSecretScanCommand,
+    ].every(Boolean),
+    `${relativePath}: secret-scan must prove the pinned gitleaks on a planted secret, then scan the full history reachable from HEAD and fail closed`,
   );
 }
 
@@ -1717,6 +1757,7 @@ export function validateCiImpactWorkflowObject(
   validateCiImpactPlanJob(workflow, jobs, relativePath, findings);
   validateCiImpactLaneJobs(jobs, relativePath, findings);
   validateCiImpactWorkstationJobs(jobs, relativePath, findings);
+  validateCiSecretScanJob(jobs, relativePath, findings);
   validateCiImpactSuccessJob(jobs, relativePath, findings);
   return findings;
 }

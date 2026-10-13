@@ -7,6 +7,23 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- CI scans the Git history for secrets. The new `Secret scan` job runs
+  gitleaks v8.30.1, pinned in `tooling/tools/go.mod` with a `tool`
+  directive, with `golang.org/x/crypto` raised from the 0.35.0 gitleaks
+  asks for to 0.57.0, past nine advisories fixed in 0.52.0. It first runs
+  `20w security gitleaks-canary`, which commits a GitHub token shape built
+  at run time to a temporary repository and fails unless the scanner
+  reports exactly that one `github-pat` finding. Only
+  then does it scan every commit reachable from `HEAD` with the rules of
+  `.gitleaks.toml`, and any finding or scanner error fails. Four findings in
+  existing history are not credentials (a workflow file name, an Ed25519
+  public key twice, one sentence of prose); `.gitleaksignore` lists each by
+  its exact fingerprint with the reason. `CI success` requires the job,
+  `.github/rulesets/main.json` requires its context, and
+  `npm run validate:policy` refuses a job that skips the canary, scans less
+  than the full history or can pass on failure. Decision 0099 records the
+  job and the two scanners it does not add.
+
 - Local Git hooks now gate this repository. The Praetor engine is pinned to
   one commit by `PRAETOR_REF` in `.github/workflows/ci.yml`;
   `.config/lefthook/engine.sh` runs exactly that commit for the hooks and
@@ -81,6 +98,14 @@ the exact diff; this file records why the project changed.
   repository map link to them.
 
 ### Changed
+
+- The Praetor engine pin moves from `6622361940dc` to `3bbde0734`, engine
+  `main` on 2026-10-13, one commit later. The new engine fails its audit
+  when a scanner the declared standards profile names runs in no workflow.
+  Here it named gitleaks, semgrep and trivy. Gitleaks now runs (see Added);
+  semgrep and trivy are dated exceptions in `.standards.yaml` until
+  2027-01-11, each with the reason no job runs it yet. The audit passes at
+  the new pin with the recorded baseline (626 findings).
 
 - CI now runs two CLRS retained-input tests that used to skip on every run:
   `TestSourceEntriesPinnedArchive` and
