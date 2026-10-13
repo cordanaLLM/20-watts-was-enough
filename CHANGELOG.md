@@ -9,9 +9,11 @@ the exact diff; this file records why the project changed.
 
 - CI scans the Git history for secrets. The new `Secret scan` job runs
   gitleaks v8.30.1, pinned in `tooling/tools/go.mod` with a `tool`
-  directive. It first runs `20w security gitleaks-canary`, which commits a
-  GitHub token shape built at run time to a temporary repository and fails
-  unless the scanner reports exactly that one `github-pat` finding. Only
+  directive, with `golang.org/x/crypto` raised from the 0.35.0 gitleaks
+  asks for to 0.57.0, past nine advisories fixed in 0.52.0. It first runs
+  `20w security gitleaks-canary`, which commits a GitHub token shape built
+  at run time to a temporary repository and fails unless the scanner
+  reports exactly that one `github-pat` finding. Only
   then does it scan every commit reachable from `HEAD` with the rules of
   `.gitleaks.toml`, and any finding or scanner error fails. Four findings in
   existing history are not credentials (a workflow file name, an Ed25519

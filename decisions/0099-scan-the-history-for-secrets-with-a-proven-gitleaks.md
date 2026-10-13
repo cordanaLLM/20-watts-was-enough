@@ -31,7 +31,11 @@ clean history.
 
 1. CI runs a `Secret scan` job on every pull request to `main` and every
    push to `main`. Gitleaks v8.30.1 is pinned in `tooling/tools/go.mod` and
-   runs as `go tool gitleaks`, so `go.sum` fixes its bytes.
+   runs as `go tool gitleaks`, so `go.sum` fixes its bytes. Gitleaks asks
+   for `golang.org/x/crypto` 0.35.0, which dependency review refuses for nine
+   advisories fixed in 0.52.0. The tools module raises it to 0.57.0, the
+   newest release older than the update bot's seven-day minimum, and
+   `golang.org/x/text` moves to 0.42.0 with it.
 2. The job first runs `20w security gitleaks-canary`. The command commits a
    GitHub personal access token shape, built at run time from a hash, to a
    temporary repository and scans it with the history-scan arguments. It
