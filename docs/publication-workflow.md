@@ -236,7 +236,7 @@ entry, or an already bundled parent; the enclosing archive supplies the
 binding. This includes the optional WASI subtree in the current lock.
 
 `node scripts/audit-book-pdf-semantics.mjs --evidence-dir
-.workingdir2/evidence/design/<new-directory-name>` captures plain `pdfinfo`,
+.workingdir/evidence/design/<new-directory-name>` captures plain `pdfinfo`,
 `pdfinfo -struct`, `pdfinfo -struct-text`, default text extraction and raw text
 extraction as separate bounded streams. Evidence is published atomically under
 that declared root; a semantic mismatch retains the streams with an explicit
