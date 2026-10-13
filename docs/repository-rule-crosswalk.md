@@ -141,9 +141,9 @@ API still lacks its own origin certificate for the proxied hostname.
 
 The active `main` ruleset blocks branch deletion and non-fast-forward updates
 and requires signed commits and a pull request. Its exact strict contexts are
-`CI success`, `PR title`, `CI impact plan`,
+`CI success`, `PR title`, `CI impact plan`, `Secret scan`,
 `JavaScript and TypeScript analysis`, `Go analysis`, `Go API Compatibility`
-and `Documentation Governance`. A new push dismisses
+and `Documentation Governance` (rulesets API read-back, 2026-10-13). A new push dismisses
 an earlier review, and CodeQL must report no high-or-higher security alert or
 analysis error. No actor, including the maintainer, can bypass it. The GitHub
 rulesets API is authoritative for its current activation state.
@@ -157,7 +157,9 @@ tightened towards, and lists where the live ruleset stays stricter than the
 file. `Go API Compatibility` and `Documentation Governance` waited until
 `main` reported them, because requiring a check that no run reports blocks
 every open pull request. They were added later on 2026-10-11, and the
-read-back showed the seven contexts above.
+read-back showed seven contexts. `Secret scan` followed after
+[Decision 0099](../decisions/0099-scan-the-history-for-secrets-with-a-proven-gitleaks.md)
+put the job on `main`; the read-back on 2026-10-13 showed the eight above.
 
 ## Staged controls and exit conditions
 

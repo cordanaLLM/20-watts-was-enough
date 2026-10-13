@@ -313,6 +313,16 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- Two CI gates no longer skip. A manually dispatched full run used to
+  skip the code-shape baseline-reset check; it now compares the branch
+  against its merge base with `main`, so a dispatched branch that grows a
+  function and rewrites the baseline fails. Impact-mode pull requests that
+  touch Go used to skip the strict-JSON fuzzer, which ran only in the full
+  job; the Go lane now runs the same 30-second bounded target after its
+  tests. `npm run validate:policy` refuses a workflow that drops either
+  step, skips it or lets it fail. The repository rule crosswalk lists the
+  `Secret scan` context the live ruleset requires.
+
 - The book PDF no longer gains a blank last page in some renders. The
   reproducibility job in main run 38372782567 rendered the same image twice
   and got 414 pages once and 415 the second time; page 415 held only the page

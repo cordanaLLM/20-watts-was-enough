@@ -29,6 +29,7 @@ import {
   formatFindings,
   generatedHookJobSkips,
   validateCiExperimentImageWorkflowObject,
+  validateCiCodeShapeResetWorkflowObject,
   validateCiFuzzingWorkflowObject,
   validateCiImpactWorkflowObject,
   validateCodeQlImpactWorkflowObject,
@@ -1060,6 +1061,54 @@ test("CI runs the strict-JSON fuzzer with explicit time and process bounds", () 
   assert.deepEqual(validateCiFuzzingWorkflowObject(detachedGate), [
     ".github/workflows/ci.yml: ci-success must require the fuzzing quality-full gate",
   ]);
+
+  const laneFinding = ".github/workflows/ci.yml: lane-go must run the exact bounded strict-JSON fuzz target after the Go tests";
+  const unfuzzedLane = structuredClone(valid);
+  unfuzzedLane.jobs["lane-go"].steps = unfuzzedLane.jobs["lane-go"].steps.filter(
+    (step) => step.name !== "Fuzz the untrusted JSON boundary",
+  );
+  assert.deepEqual(validateCiFuzzingWorkflowObject(unfuzzedLane), [laneFinding]);
+
+  const skippedLaneFuzz = structuredClone(valid);
+  skippedLaneFuzz.jobs["lane-go"].steps.find((step) => (
+    step.name === "Fuzz the untrusted JSON boundary"
+  )).if = "false";
+  assert.deepEqual(validateCiFuzzingWorkflowObject(skippedLaneFuzz), [laneFinding]);
+
+  const fuzzBeforeTests = structuredClone(valid);
+  const laneSteps = fuzzBeforeTests.jobs["lane-go"].steps;
+  const laneFuzz = laneSteps.splice(laneSteps.findIndex((step) => (
+    step.name === "Fuzz the untrusted JSON boundary"
+  )), 1)[0];
+  laneSteps.unshift(laneFuzz);
+  assert.deepEqual(validateCiFuzzingWorkflowObject(fuzzBeforeTests), [laneFinding]);
+});
+
+test("CI rejects a code-shape baseline reset on every event", () => {
+  const valid = workflow("ci");
+  assert.deepEqual(validateCiCodeShapeResetWorkflowObject(valid), []);
+  const finding = ".github/workflows/ci.yml: quality-full must reject a code-shape baseline reset on every event, dispatched runs against their merge base";
+  const resetStep = (document) => document.jobs["quality-full"].steps.find((step) => (
+    step.name === "Reject a code-shape baseline reset"
+  ));
+
+  const skippedOnDispatch = structuredClone(valid);
+  resetStep(skippedOnDispatch).if = "github.event_name != 'workflow_dispatch'";
+  assert.deepEqual(validateCiCodeShapeResetWorkflowObject(skippedOnDispatch), [finding]);
+
+  const noDispatchBase = structuredClone(valid);
+  resetStep(noDispatchBase).run = 'node scripts/audit-code-shape.mjs --base-revision "$BASE_SHA"';
+  assert.deepEqual(validateCiCodeShapeResetWorkflowObject(noDispatchBase), [finding]);
+
+  const allowedFailure = structuredClone(valid);
+  resetStep(allowedFailure)["continue-on-error"] = true;
+  assert.deepEqual(validateCiCodeShapeResetWorkflowObject(allowedFailure), [finding]);
+
+  const removed = structuredClone(valid);
+  removed.jobs["quality-full"].steps = removed.jobs["quality-full"].steps.filter(
+    (step) => step.name !== "Reject a code-shape baseline reset",
+  );
+  assert.deepEqual(validateCiCodeShapeResetWorkflowObject(removed), [finding]);
 });
 
 test("real PDF reproducibility acceptance stays in the renderer-selected and tagged boundaries", () => {
