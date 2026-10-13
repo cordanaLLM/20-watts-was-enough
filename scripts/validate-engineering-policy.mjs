@@ -1041,7 +1041,7 @@ function goLaneFuzzFindings(workflow, expectedCommand, relativePath) {
   const goLane = workflow?.jobs?.["lane-go"];
   const goSteps = Array.isArray(goLane?.steps) ? goLane.steps : [];
   const goTestIndex = goSteps.findIndex((step) => (
-    step?.run?.trim() === "go -C tooling test ./... && go -C tooling vet ./..."
+    step?.run?.trim() === goRaceTestCommand
     && step?.if === undefined
     && continueOnErrorIsDisabled(step)
   ));
