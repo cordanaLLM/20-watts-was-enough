@@ -7,6 +7,17 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- `npm run validate:plots` runs `scripts/generate-plots.mjs --check`, which
+  renders every plot in memory and fails when a committed SVG under
+  `public/plots/` is missing or differs. The check runs in the aggregate gate
+  and the research lane, and `scripts/research-gates.test.mjs` plants an
+  edited and a missing plot to show that it fails on each. Its first run found
+  `repeated-stimulus-skipping-cell.svg` stale in the last digit of two
+  coordinates. Node 24.21.0, 26.8.1, 26.10.0 and 26.11.1 all render the same
+  new bytes, even from the commit that added the plot, so the runtime that
+  wrote the committed file is unknown. The plot is regenerated with the pinned
+  Node 26.10.0.
+
 - Five research and site gates now have tests that plant the defect each gate
   exists to stop. `scripts/research-gates.test.mjs` runs
   `validate-science-taxonomies.mjs`, `generate-taxonomy-depth.mjs --check`,
@@ -21,6 +32,14 @@ the exact diff; this file records why the project changed.
   `npm run test:research-gates` and `npm run test:site-build` in the research
   and site lanes, and `npm run validate:policy` refuses an aggregate gate that
   drops either.
+- Command tests now cover `20w github sync-labels --check`,
+  `20w github sync-metadata --check`, `20w release
+  compare-publication-manifest`, `20w translation import-candidate` and
+  `20w publication verify-pdf-tools-candidate-bundle`. Each command gets a
+  rejected input (bad colour, duplicate JSON key, drifted milestone, remote
+  repository flag, digest mismatch, stale source, unconfined output, malformed
+  or wrong-length digest) and, where the inputs exist offline, an accepted one.
+  Disabling any of the guarded checks makes a test fail.
 
 - CI scans the Git history for secrets. The new `Secret scan` job runs
   gitleaks v8.30.1, pinned in `tooling/tools/go.mod` with a `tool`
@@ -113,6 +132,18 @@ the exact diff; this file records why the project changed.
   repository map link to them.
 
 ### Changed
+
+- Private working state and evidence move from `.workingdir2/` to the ignored
+  `.workingdir/` folder. The agent contract, the publication-design and
+  research-design skill references, `docs/publication-workflow.md` and the
+  evidence root of `scripts/audit-book-pdf-semantics.mjs` now name
+  `.workingdir/evidence/`. Auxiliary Git worktrees live outside the checkout.
+  Tool caches and receipt paths in the Go tooling, `translations/README.md`
+  and `tooling/clrs-specialist/README.md` still use `.workingdir2/` and move
+  in a separate change with their tests.
+
+- The decision index now lists number 0086 as void. No record was ever
+  assigned that number; it stays unused so later references cannot collide.
 
 - The Praetor engine pin moves from `6622361940dc` to `3bbde0734`, engine
   `main` on 2026-10-13, one commit later. The new engine fails its audit
