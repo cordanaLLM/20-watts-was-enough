@@ -28,11 +28,28 @@ type publicationLock struct {
 	path     string
 }
 
-func acquirePublicationLock(repositoryRoot string) (_ *publicationLock, returnError error) {
+func acquirePublicationLock(repositoryRoot string) (*publicationLock, error) {
 	lockPath := filepath.Join(repositoryRoot, "tmp", "pdf-renderer-book.lock")
+	lock, err := createPublicationLock(lockPath)
+	if !errors.Is(err, os.ErrExist) {
+		return lock, err
+	}
+	// A lock whose recorded owner process on this host has exited is stale:
+	// remove it and try exactly once more. Every other lock stays in force.
+	if recoverErr := removeStalePublicationLock(lockPath); recoverErr != nil {
+		return nil, fmt.Errorf("full-book PDF generation is already locked: %s: %w", lockPath, recoverErr)
+	}
+	lock, err = createPublicationLock(lockPath)
+	if errors.Is(err, os.ErrExist) {
+		return nil, fmt.Errorf("full-book PDF generation is already locked: %s", lockPath)
+	}
+	return lock, err
+}
+
+func createPublicationLock(lockPath string) (_ *publicationLock, returnError error) {
 	file, err := os.OpenFile(lockPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if errors.Is(err, os.ErrExist) {
-		return nil, errors.New("full-book PDF generation is already locked")
+		return nil, err
 	}
 	if err != nil {
 		return nil, fmt.Errorf("acquire full-book PDF generation lock: %w", err)
@@ -55,7 +72,11 @@ func acquirePublicationLock(repositoryRoot string) (_ *publicationLock, returnEr
 	if err != nil {
 		return nil, err
 	}
-	if _, err := file.WriteString(token + "\n"); err != nil {
+	host, err := os.Hostname()
+	if err != nil {
+		return nil, fmt.Errorf("identify full-book PDF generation lock host: %w", err)
+	}
+	if _, err := file.WriteString(formatPublicationLockOwner(os.Getpid(), host, token)); err != nil {
 		return nil, fmt.Errorf("write full-book PDF generation lock: %w", err)
 	}
 	if err := file.Sync(); err != nil {

@@ -1,7 +1,45 @@
 import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
-import { copyFile, lstat, open, rename, rm } from "node:fs/promises";
+import { copyFile, lstat, open, readFile, rename, rm } from "node:fs/promises";
+import { hostname } from "node:os";
 import path from "node:path";
+
+// Same owner record as tooling/internal/pdfrender/publication_lock_owner.go,
+// so either writer can recover a lock the other left behind.
+const maximumLockOwnerBytes = 4096;
+const lockOwnerPattern = /^pid=([1-9][0-9]*)\nhost=([^\n]+)\ntoken=([^\n]+)\n$/u;
+
+export function parseLockOwner(body) {
+  const match = lockOwnerPattern.exec(body);
+  if (!match || !Number.isSafeInteger(Number(match[1]))) return undefined;
+  return { pid: Number(match[1]), host: match[2] };
+}
+
+function processExited(pid) {
+  try {
+    process.kill(pid, 0);
+    return false;
+  } catch (error) {
+    return error?.code === "ESRCH";
+  }
+}
+
+// Removes the lock only when its owner record names an exited process on this
+// host and the file is still the one that was read; returns why it was kept.
+async function removeStaleLock(file) {
+  const before = await lstat(file);
+  if (!before.isFile() || before.size > maximumLockOwnerBytes) return "lock is not a small regular file";
+  const owner = parseLockOwner(await readFile(file, "utf8"));
+  if (!owner) return "lock owner record is not pid, host and token lines";
+  if (owner.host !== hostname()) return `lock is held by host ${owner.host}, not this host`;
+  if (owner.pid === process.pid || !processExited(owner.pid)) {
+    return `lock owner process ${owner.pid} is still running`;
+  }
+  const current = await lstat(file);
+  if (current.dev !== before.dev || current.ino !== before.ino) return "lock changed while its owner was checked";
+  await rm(file);
+  return undefined;
+}
 
 async function regularFileExists(file, operations) {
   try {
@@ -82,18 +120,30 @@ export async function replaceFilePair(
   }
 }
 
-export async function acquireExclusiveFileLock(file, label = "generated publication") {
-  let handle;
+async function openExclusiveLock(file, label) {
   try {
-    handle = await open(file, "wx", 0o600);
+    return await open(file, "wx", 0o600);
   } catch (error) {
-    if (error?.code === "EEXIST") {
-      throw new Error(`${label} is already locked: ${file}`, { cause: error });
-    }
-    throw error;
+    if (error?.code !== "EEXIST") throw error;
+    // A lock that disappears while it is checked is simply retried.
+    const kept = await removeStaleLock(file).catch((failure) => {
+      if (failure?.code === "ENOENT") return undefined;
+      throw failure;
+    });
+    if (kept) throw new Error(`${label} is already locked: ${file}: ${kept}`, { cause: error });
   }
   try {
-    await handle.writeFile(`${process.pid} ${randomUUID()}\n`, "utf8");
+    return await open(file, "wx", 0o600);
+  } catch (error) {
+    if (error?.code === "EEXIST") throw new Error(`${label} is already locked: ${file}`, { cause: error });
+    throw error;
+  }
+}
+
+export async function acquireExclusiveFileLock(file, label = "generated publication") {
+  let handle = await openExclusiveLock(file, label);
+  try {
+    await handle.writeFile(`pid=${process.pid}\nhost=${hostname()}\ntoken=${randomUUID()}\n`, "utf8");
     const identity = await handle.stat();
     let released = false;
     return Object.freeze({

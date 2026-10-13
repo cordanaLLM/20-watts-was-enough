@@ -345,6 +345,18 @@ the exact diff; this file records why the project changed.
   the full job now build the native binary with a placeholder `v0.0.0`
   version and run `validate docs` with it, so a drifted pin fails on the
   pull request that causes it instead of at release time.
+- A full-book PDF lock left by a killed process no longer blocks every later
+  render. `tmp/pdf-renderer-book.lock` now records the owner's process
+  identifier, host name and a random token, written the same way by the Go
+  renderer (`tooling/internal/pdfrender/publication_lock_owner.go`) and by
+  `scripts/lib/atomic-file-pair.mjs`. When the lock exists, either writer
+  removes it and retries once only if the record names a process on this
+  host that the operating system reports as gone and the file is still the
+  one it read. A running owner, another host, the earlier record format or
+  any unreadable record keeps the lock, as before. Tests cover recovery, each
+  kept case and the record format, and seven mutations of the checks each
+  make a test fail. The Windows check uses `OpenProcess`; it passes
+  `GOOS=windows go vet` locally and has not run on Windows.
 
 - The book PDF no longer gains a blank last page in some renders. The
   reproducibility job in main run 38372782567 rendered the same image twice
