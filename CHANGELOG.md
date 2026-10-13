@@ -140,6 +140,19 @@ the exact diff; this file records why the project changed.
   notice generator refuses a bundled EPL-2.0 package that `LICENSING.md` does
   not name at its exact version, so each update has to renew the offer. The
   book is re-rendered for the new diagram output.
+
+- es-module-lexer moves to 3.0.3. Version 3 names its import record fields
+  (`type`, `specifier`, `glob`) instead of the terse version 2 fields, so
+  Candidate 010's runtime identity and source bundle read the new fields. A
+  template-literal dynamic import now reports a glob specifier; both readers
+  treat it as non-literal, and the runtime identity still refuses it.
+  `runtime-identity.test.mjs` covers template, computed, concatenated and
+  literal dynamic imports. The book provenance record is renewed without a
+  render under [Decision 0090](decisions/0090-re-record-book-provenance-for-dependency-records.md).
+
+- The decision index now lists number 0086 as void. No record was ever
+  assigned that number; it stays unused so later references cannot collide.
+
 - The Praetor engine pin moves from `6622361940dc` to `3bbde0734`, engine
   `main` on 2026-10-13, one commit later. The new engine fails its audit
   when a scanner the declared standards profile names runs in no workflow.
