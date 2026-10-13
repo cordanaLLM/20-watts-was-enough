@@ -7,6 +7,17 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- `npm run validate:plots` runs `scripts/generate-plots.mjs --check`, which
+  renders every plot in memory and fails when a committed SVG under
+  `public/plots/` is missing or differs. The check runs in the aggregate gate
+  and the research lane, and `scripts/research-gates.test.mjs` plants an
+  edited and a missing plot to show that it fails on each. Its first run found
+  `repeated-stimulus-skipping-cell.svg` stale in the last digit of two
+  coordinates. Node 24.21.0, 26.8.1, 26.10.0 and 26.11.1 all render the same
+  new bytes, even from the commit that added the plot, so the runtime that
+  wrote the committed file is unknown. The plot is regenerated with the pinned
+  Node 26.10.0.
+
 - Five research and site gates now have tests that plant the defect each gate
   exists to stop. `scripts/research-gates.test.mjs` runs
   `validate-science-taxonomies.mjs`, `generate-taxonomy-depth.mjs --check`,
