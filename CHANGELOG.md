@@ -22,6 +22,19 @@ the exact diff; this file records why the project changed.
   and site lanes, and `npm run validate:policy` refuses an aggregate gate that
   drops either.
 
+- The Go tests run under the race detector, as Decision 0088 already
+  required of the complete Go gate: `test:go` and the CI Go lane now call
+  `go -C tooling test -race ./...`. The whole module passes in about 80
+  seconds locally. A planted test with two unlocked goroutine increments
+  passes without `-race` and fails with it. Both CI Go jobs also run
+  `go vet` for `windows/amd64` and `darwin/arm64`. Release builds withhold
+  every target the build host cannot execute, so the Windows Job Object
+  code and the macOS process-tree code were compiled nowhere before. A
+  type error planted behind a `windows` or `darwin` build tag passes Linux
+  `go vet` and fails the matching target. Engineering policy refuses either
+  gate when it is missing, conditional, allowed to fail or out of order.
+  This type-checks both platforms but does not run them; no CI job runs on
+  Windows or macOS.
 - CI scans the Git history for secrets. The new `Secret scan` job runs
   gitleaks v8.30.1, pinned in `tooling/tools/go.mod` with a `tool`
   directive, with `golang.org/x/crypto` raised from the 0.35.0 gitleaks
