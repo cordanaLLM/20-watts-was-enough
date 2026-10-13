@@ -34,7 +34,7 @@ const (
 	goNoticesName   = "20w-third-party-notices.txt"
 	toolingModule   = "github.com/cordanaLLM/20-watts-was-enough/tooling"
 	goldmarkModule  = "github.com/yuin/goldmark/v2"
-	goldmarkVersion = "v2.0.1"
+	goldmarkVersion = "v2.1.6"
 )
 
 var (
@@ -402,7 +402,7 @@ func renderGoSBOM(options Options, dependencies []dependency) ([]byte, error) {
 			"name":             module.Path,
 			"SPDXID":           fmt.Sprintf("SPDXRef-Package-Go-%03d", index+1),
 			"versionInfo":      module.Version,
-			"downloadLocation": "https://proxy.golang.org/github.com/yuin/goldmark/v2/@v/v2.0.1.zip",
+			"downloadLocation": "https://proxy.golang.org/" + goldmarkModule + "/@v/" + goldmarkVersion + ".zip",
 			"filesAnalyzed":    false,
 			"licenseConcluded": "MIT",
 			"licenseDeclared":  "MIT",
@@ -410,7 +410,7 @@ func renderGoSBOM(options Options, dependencies []dependency) ([]byte, error) {
 			"externalRefs": []map[string]string{{
 				"referenceCategory": "PACKAGE-MANAGER",
 				"referenceType":     "purl",
-				"referenceLocator":  "pkg:golang/github.com/yuin/goldmark/v2@v2.0.1",
+				"referenceLocator":  "pkg:golang/" + goldmarkModule + "@" + goldmarkVersion,
 			}},
 			"comment": "Go module checksum " + module.Sum,
 		})

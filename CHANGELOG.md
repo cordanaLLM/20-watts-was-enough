@@ -322,6 +322,14 @@ the exact diff; this file records why the project changed.
   tests. `npm run validate:policy` refuses a workflow that drops either
   step, skips it or lets it fail. The repository rule crosswalk lists the
   `Secret scan` context the live ruleset requires.
+- The native release build works again. The goldmark update to v2.1.6 left
+  the release builder's reviewed dependency pin at v2.0.1, so every tag
+  after that update would have failed in `build-release`; the pin, SBOM
+  download location and package URL now follow v2.1.6, whose licence text is
+  byte-identical to the tracked `LICENSES/goldmark-MIT.txt`. The Go lane and
+  the full job now build the native binary with a placeholder `v0.0.0`
+  version and run `validate docs` with it, so a drifted pin fails on the
+  pull request that causes it instead of at release time.
 
 - The book PDF no longer gains a blank last page in some renders. The
   reproducibility job in main run 38372782567 rendered the same image twice

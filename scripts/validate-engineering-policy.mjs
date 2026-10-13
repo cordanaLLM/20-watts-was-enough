@@ -1087,6 +1087,37 @@ export function validateCiCodeShapeResetWorkflowObject(
   return [];
 }
 
+const ciNativeReleaseStepName = "Build and execute the native release binary";
+const ciNativeReleaseCommand = [
+  "set -euo pipefail",
+  'revision="$(git rev-parse HEAD)"',
+  'source_timestamp="$(git show -s --format=%cI "$revision")"',
+  'go -C tooling run ./cmd/build-release --version v0.0.0 --revision "$revision" --built-at "$source_timestamp" --output-root ../build/native-release',
+  './build/native-release/20w-linux-amd64 validate docs --root .',
+].join("\n");
+
+export function validateCiNativeReleaseWorkflowObject(
+  workflow,
+  relativePath = ".github/workflows/ci.yml",
+) {
+  const findings = [];
+  for (const jobName of ["lane-go", "quality-full"]) {
+    const steps = workflow?.jobs?.[jobName]?.steps;
+    const list = Array.isArray(steps) ? steps : [];
+    const fuzzIndex = list.findIndex((step) => step?.name === "Fuzz the untrusted JSON boundary");
+    const buildIndex = list.findIndex((step) => (
+      step?.name === ciNativeReleaseStepName
+      && step?.run?.trim() === ciNativeReleaseCommand
+      && step?.if === undefined
+      && continueOnErrorIsDisabled(step)
+    ));
+    if (fuzzIndex < 0 || buildIndex <= fuzzIndex) {
+      findings.push(`${relativePath}: ${jobName} must build and execute the native release binary after the Go checks`);
+    }
+  }
+  return findings;
+}
+
 const pdfReproducibilitySetupAction = "docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069";
 const pdfReproducibilityBuildKit = "image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8";
 const privateGoCommandEnvironment = Object.freeze({
@@ -4568,6 +4599,7 @@ function validateCiWorkflowPolicy(workflow, relativePath, lock, findings) {
   findings.push(...validateCiExperimentImageWorkflowObject(workflow, relativePath));
   findings.push(...validateCiFuzzingWorkflowObject(workflow, relativePath));
   findings.push(...validateCiCodeShapeResetWorkflowObject(workflow, relativePath));
+  findings.push(...validateCiNativeReleaseWorkflowObject(workflow, relativePath));
   findings.push(...validateScientificRuntimeWorkflowObject(
     workflow,
     lock,
