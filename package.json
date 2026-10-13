@@ -99,7 +99,7 @@
     "validate:coverage": "node scripts/generate-field-coverage.mjs --check",
     "generate:taxonomies": "python scripts/import-science-taxonomies.py && node scripts/generate-taxonomy-depth.mjs",
     "generate:third-party-notices": "node scripts/generate-third-party-notices.mjs",
-    "validate:taxonomies": "node scripts/validate-science-taxonomies.mjs && node scripts/generate-taxonomy-depth.mjs --check",
+    "validate:taxonomies": "node scripts/validate-science-taxonomies.mjs && node scripts/generate-taxonomy-depth.mjs --check && python scripts/import-science-taxonomies.py --check",
     "generate:book-pdf": "go -C tooling run ./cmd/20w publication render-pdf --root ..",
     "validate:book-pdf": "node scripts/validate-book-pdf.mjs",
     "record:book-provenance": "node scripts/record-book-provenance.mjs",
