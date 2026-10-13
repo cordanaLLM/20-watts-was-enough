@@ -142,6 +142,9 @@ the exact diff; this file records why the project changed.
   and `tooling/clrs-specialist/README.md` still use `.workingdir2/` and move
   in a separate change with their tests.
 
+- The decision index now lists number 0086 as void. No record was ever
+  assigned that number; it stays unused so later references cannot collide.
+
 - The Praetor engine pin moves from `6622361940dc` to `3bbde0734`, engine
   `main` on 2026-10-13, one commit later. The new engine fails its audit
   when a scanner the declared standards profile names runs in no workflow.
