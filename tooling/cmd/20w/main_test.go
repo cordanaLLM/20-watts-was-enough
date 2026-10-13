@@ -173,6 +173,109 @@ func TestRunGitHubSyncLabelsCheckUsesLocalManifestOnly(t *testing.T) {
 	}
 }
 
+func TestRunGitHubSyncLabelsCheckRejectsInvalidLabelColor(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".github"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	invalidManifest := `{"schema":1,"labels":[{"name":"area:test","color":"invalid","description":"Test label"}]}`
+	if err := os.WriteFile(filepath.Join(root, ".github", "labels.json"), []byte(invalidManifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := run([]string{"github", "sync-labels", "--root", root, "--check"}, &stdout, &stderr)
+	if exitCode != 1 || !strings.Contains(stderr.String(), `Load GitHub label manifest: label "area:test" needs a lowercase six-digit color`) {
+		t.Fatalf("run() exit/stderr = %d/%q", exitCode, stderr.String())
+	}
+}
+
+func TestRunGitHubSyncLabelsCheckRejectsDuplicateJSONKey(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".github"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	duplicateManifest := `{"schema":1,"schema":1,"labels":[]}`
+	if err := os.WriteFile(filepath.Join(root, ".github", "labels.json"), []byte(duplicateManifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := run([]string{"github", "sync-labels", "--root", root, "--check"}, &stdout, &stderr)
+	if exitCode != 1 || !strings.Contains(stderr.String(), `Load GitHub label manifest: validate unambiguous label JSON: JSON object repeats name "schema"`) {
+		t.Fatalf("run() exit/stderr = %d/%q", exitCode, stderr.String())
+	}
+}
+
+func TestRunGitHubSyncLabelsCheckRejectsEmptyLabelsManifest(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".github"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	emptyManifest := `{"schema":1,"labels":[]}`
+	if err := os.WriteFile(filepath.Join(root, ".github", "labels.json"), []byte(emptyManifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := run([]string{"github", "sync-labels", "--root", root, "--check"}, &stdout, &stderr)
+	if exitCode != 1 || !strings.Contains(stderr.String(), "Load GitHub label manifest: label manifest must contain between 1 and 128 labels") {
+		t.Fatalf("run() exit/stderr = %d/%q", exitCode, stderr.String())
+	}
+}
+
+func TestRunGitHubSyncLabelsCheckRejectsRemoteRepositoryFlag(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".github"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifest := `{"schema":1,"labels":[{"name":"area:test","color":"0e8a16","description":"Test label"}]}`
+	if err := os.WriteFile(filepath.Join(root, ".github", "labels.json"), []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := run([]string{
+		"github", "sync-labels", "--root", root, "--check", "--repository", "owner/repo",
+	}, &stdout, &stderr)
+	if exitCode != 2 || !strings.Contains(stderr.String(), "github sync-labels --check does not accept --repository") {
+		t.Fatalf("run() exit/stderr = %d/%q", exitCode, stderr.String())
+	}
+}
+
+const (
+	validTestLabels = `{"schema":1,"labels":[
+  {"name":"type:feat","color":"0e8a16","description":"Feature"},
+  {"name":"severity:p2","color":"0e8a16","description":"Priority"},
+  {"name":"status:needs-triage","color":"ededed","description":"Needs triage"},
+  {"name":"status:blocked","color":"e99695","description":"Blocked"},
+  {"name":"status:in-progress","color":"1d76db","description":"In progress"},
+  {"name":"status:waiting-on-author","color":"fbca04","description":"Waiting"},
+  {"name":"status:wontfix","color":"555555","description":"Closed deliberately"},
+  {"name":"area:test","color":"0e8a16","description":"Test area"}
+]}`
+	validTestMilestones = `{"schema":1,"milestones":[{"id":"M0","title":"M0 — Evidence contracts","state":"open","roadmap":"concept/90-research-roadmap.md#stage-0--evidence-synthesis-and-contracts","summary":"Make one evidence boundary inspectable before execution begins."}]}`
+	validTestIssues     = `{"schema":1,"repository":"owner/repository","assignments":[{"issue":7,"milestone":"M0"}]}`
+)
+
+func writeTestMetadataManifests(t *testing.T, root, labels, milestones, issues string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(root, ".github"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, body := range map[string]string{
+		"labels.json": labels, "milestones.json": milestones, "issue-milestones.json": issues,
+	} {
+		if err := os.WriteFile(filepath.Join(root, ".github", name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestRunGitHubSyncMetadataChecksAllLocalAuthorities(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
@@ -219,6 +322,59 @@ func TestRunGitHubSyncMetadataChecksAllLocalAuthorities(t *testing.T) {
 	exitCode := run([]string{"github", "sync-metadata", "--root", root, "--check"}, &stdout, &stderr)
 	if exitCode != 0 || !strings.Contains(stdout.String(), "15 managed labels, 1 managed milestones, and 1 managed issue assignments") {
 		t.Fatalf("run() exit/stdout/stderr = %d/%q/%q", exitCode, stdout.String(), stderr.String())
+	}
+}
+
+func TestRunGitHubSyncMetadataCheckRejectsDriftedMilestoneReference(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	driftedIssues := `{"schema":1,"repository":"owner/repository","assignments":[{"issue":7,"milestone":"M1"}]}`
+	writeTestMetadataManifests(t, root, validTestLabels, validTestMilestones, driftedIssues)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := run([]string{"github", "sync-metadata", "--root", root, "--check"}, &stdout, &stderr)
+	if exitCode != 1 || !strings.Contains(stderr.String(), "Validate pull-request metadata authorities: managed issue 7 maps to unknown milestone M1") {
+		t.Fatalf("run() exit/stderr = %d/%q", exitCode, stderr.String())
+	}
+}
+
+func TestRunGitHubSyncMetadataCheckRejectsDuplicateJSONKey(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	duplicateLabels := `{"schema":1,"schema":1,"labels":[]}`
+	writeTestMetadataManifests(t, root, duplicateLabels, validTestMilestones, validTestIssues)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := run([]string{"github", "sync-metadata", "--root", root, "--check"}, &stdout, &stderr)
+	if exitCode != 1 || !strings.Contains(stderr.String(), `Load GitHub label manifest: validate unambiguous label JSON: JSON object repeats name "schema"`) {
+		t.Fatalf("run() exit/stderr = %d/%q", exitCode, stderr.String())
+	}
+}
+
+func TestRunGitHubSyncMetadataCheckRejectsRemoteRepositoryFlag(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	writeTestMetadataManifests(t, root, validTestLabels, validTestMilestones, validTestIssues)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := run([]string{
+		"github", "sync-metadata", "--root", root, "--check", "--repository", "owner/repo",
+	}, &stdout, &stderr)
+	if exitCode != 2 || !strings.Contains(stderr.String(), "github sync-metadata --check does not accept --repository") {
+		t.Fatalf("run() exit/stderr = %d/%q", exitCode, stderr.String())
+	}
+}
+
+func TestRunGitHubSyncMetadataCheckRejectsEmptyMilestonesManifest(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	emptyMilestones := `{"schema":1,"milestones":[]}`
+	writeTestMetadataManifests(t, root, validTestLabels, emptyMilestones, validTestIssues)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := run([]string{"github", "sync-metadata", "--root", root, "--check"}, &stdout, &stderr)
+	if exitCode != 1 || !strings.Contains(stderr.String(), "Load GitHub milestone manifest: milestone manifest must contain between 1 and 16 milestones") {
+		t.Fatalf("run() exit/stderr = %d/%q", exitCode, stderr.String())
 	}
 }
 
@@ -387,6 +543,152 @@ func TestRunReleaseComparePublicationManifestUsesTheGoAuthority(t *testing.T) {
 	}, &stdout, &stderr)
 	if exitCode != 0 || !strings.Contains(stdout.String(), "adds one OCI") {
 		t.Fatalf("compare manifests exit/stdout/stderr = %d/%q/%q", exitCode, stdout.String(), stderr.String())
+	}
+}
+
+func TestRunReleaseComparePublicationManifestRejectsMismatchedDigest(t *testing.T) {
+	t.Parallel()
+	sourceRoot := t.TempDir()
+	publicationRoot := t.TempDir()
+	bookDigest := fmt.Sprintf("%x", sha256.Sum256([]byte("book")))
+	tamperedDigest := fmt.Sprintf("%x", sha256.Sum256([]byte("tampered")))
+	ociDigest := fmt.Sprintf("%x", sha256.Sum256([]byte("{}")))
+	if err := os.WriteFile(filepath.Join(sourceRoot, "SHA256SUMS"), []byte(bookDigest+"  book.pdf\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(publicationRoot, "SHA256SUMS"),
+		[]byte(tamperedDigest+"  book.pdf\n"+ociDigest+"  oci-images.json\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := run([]string{
+		"release", "compare-publication-manifest",
+		"--source", filepath.Join(sourceRoot, "SHA256SUMS"),
+		"--publication", filepath.Join(publicationRoot, "SHA256SUMS"),
+	}, &stdout, &stderr)
+	if exitCode != 1 || !strings.Contains(stderr.String(), "publication SHA256SUMS changes verified source asset book.pdf") {
+		t.Fatalf("run() exit/stderr = %d/%q", exitCode, stderr.String())
+	}
+}
+
+func TestRunReleaseComparePublicationManifestRejectsMissingFile(t *testing.T) {
+	t.Parallel()
+	publicationRoot := t.TempDir()
+	bookDigest := fmt.Sprintf("%x", sha256.Sum256([]byte("book")))
+	ociDigest := fmt.Sprintf("%x", sha256.Sum256([]byte("{}")))
+	if err := os.WriteFile(filepath.Join(publicationRoot, "SHA256SUMS"),
+		[]byte(bookDigest+"  book.pdf\n"+ociDigest+"  oci-images.json\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := run([]string{
+		"release", "compare-publication-manifest",
+		"--source", filepath.Join(t.TempDir(), "nonexistent", "SHA256SUMS"),
+		"--publication", filepath.Join(publicationRoot, "SHA256SUMS"),
+	}, &stdout, &stderr)
+	if exitCode != 1 || !strings.Contains(stderr.String(), "read source SHA256SUMS:") {
+		t.Fatalf("run() exit/stderr = %d/%q", exitCode, stderr.String())
+	}
+}
+
+func TestRunReleaseComparePublicationManifestRejectsExtraEntry(t *testing.T) {
+	t.Parallel()
+	sourceRoot := t.TempDir()
+	publicationRoot := t.TempDir()
+	bookDigest := fmt.Sprintf("%x", sha256.Sum256([]byte("book")))
+	extraDigest := fmt.Sprintf("%x", sha256.Sum256([]byte("extra")))
+	ociDigest := fmt.Sprintf("%x", sha256.Sum256([]byte("{}")))
+	if err := os.WriteFile(filepath.Join(sourceRoot, "SHA256SUMS"), []byte(bookDigest+"  book.pdf\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(publicationRoot, "SHA256SUMS"),
+		[]byte(bookDigest+"  book.pdf\n"+extraDigest+"  extra.pdf\n"+ociDigest+"  oci-images.json\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := run([]string{
+		"release", "compare-publication-manifest",
+		"--source", filepath.Join(sourceRoot, "SHA256SUMS"),
+		"--publication", filepath.Join(publicationRoot, "SHA256SUMS"),
+	}, &stdout, &stderr)
+	if exitCode != 1 || !strings.Contains(stderr.String(), "publication SHA256SUMS must add exactly one OCI image identity") {
+		t.Fatalf("run() exit/stderr = %d/%q", exitCode, stderr.String())
+	}
+}
+
+func TestRunReleaseComparePublicationManifestRejectsEmptyManifest(t *testing.T) {
+	t.Parallel()
+	sourceRoot := t.TempDir()
+	publicationRoot := t.TempDir()
+	ociDigest := fmt.Sprintf("%x", sha256.Sum256([]byte("{}")))
+	if err := os.WriteFile(filepath.Join(sourceRoot, "SHA256SUMS"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(publicationRoot, "SHA256SUMS"),
+		[]byte(ociDigest+"  oci-images.json\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := run([]string{
+		"release", "compare-publication-manifest",
+		"--source", filepath.Join(sourceRoot, "SHA256SUMS"),
+		"--publication", filepath.Join(publicationRoot, "SHA256SUMS"),
+	}, &stdout, &stderr)
+	if exitCode != 1 || !strings.Contains(stderr.String(), "SHA256SUMS contains no release assets") {
+		t.Fatalf("run() exit/stderr = %d/%q", exitCode, stderr.String())
+	}
+}
+
+func TestRunReleaseComparePublicationManifestRejectsDuplicateEntry(t *testing.T) {
+	t.Parallel()
+	sourceRoot := t.TempDir()
+	publicationRoot := t.TempDir()
+	bookDigest := fmt.Sprintf("%x", sha256.Sum256([]byte("book")))
+	ociDigest := fmt.Sprintf("%x", sha256.Sum256([]byte("{}")))
+	if err := os.WriteFile(filepath.Join(sourceRoot, "SHA256SUMS"),
+		[]byte(bookDigest+"  book.pdf\n"+bookDigest+"  book.pdf\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(publicationRoot, "SHA256SUMS"),
+		[]byte(bookDigest+"  book.pdf\n"+ociDigest+"  oci-images.json\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := run([]string{
+		"release", "compare-publication-manifest",
+		"--source", filepath.Join(sourceRoot, "SHA256SUMS"),
+		"--publication", filepath.Join(publicationRoot, "SHA256SUMS"),
+	}, &stdout, &stderr)
+	if exitCode != 1 || !strings.Contains(stderr.String(), "duplicate SHA256SUMS asset name: book.pdf") {
+		t.Fatalf("run() exit/stderr = %d/%q", exitCode, stderr.String())
+	}
+}
+
+func TestRunReleaseComparePublicationManifestRejectsPublicationMissingOCI(t *testing.T) {
+	t.Parallel()
+	sourceRoot := t.TempDir()
+	publicationRoot := t.TempDir()
+	bookDigest := fmt.Sprintf("%x", sha256.Sum256([]byte("book")))
+	if err := os.WriteFile(filepath.Join(sourceRoot, "SHA256SUMS"), []byte(bookDigest+"  book.pdf\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(publicationRoot, "SHA256SUMS"), []byte(bookDigest+"  book.pdf\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := run([]string{
+		"release", "compare-publication-manifest",
+		"--source", filepath.Join(sourceRoot, "SHA256SUMS"),
+		"--publication", filepath.Join(publicationRoot, "SHA256SUMS"),
+	}, &stdout, &stderr)
+	if exitCode != 1 || !strings.Contains(stderr.String(), "publication assets must include oci-images.json") {
+		t.Fatalf("run() exit/stderr = %d/%q", exitCode, stderr.String())
 	}
 }
 
