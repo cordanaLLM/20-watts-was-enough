@@ -15,11 +15,12 @@ import { summarizeFixture026RsdT02FamilyCoverage } from "../experiments/workstat
 import { stripHtmlTagSyntax } from "./lib/plain-text.mjs";
 
 const root = process.cwd();
+const checkOnly = process.argv.includes("--check");
 const specs = JSON.parse(
   await readFile(path.join(root, "assets", "plots", "core-models.json"), "utf8"),
 );
 const outputDirectory = path.join(root, "public", "plots");
-await mkdir(outputDirectory, { recursive: true });
+if (!checkOnly) await mkdir(outputDirectory, { recursive: true });
 
 const W = 1100;
 const H = 660;
@@ -2793,12 +2794,29 @@ async function validatePlotSource(spec) {
   }
 }
 
+async function readCommittedPlot(filePath) {
+  try {
+    return await readFile(filePath, "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
+const stalePlots = [];
 for (const spec of specs) {
   await validatePlotSource(spec);
   const renderer = renderers[spec.id];
   if (!renderer) throw new Error(`No plot renderer for ${spec.id}`);
-  const svg = await renderer(spec);
-  await writeFile(path.join(outputDirectory, `${spec.id}.svg`), `${svg}\n`, "utf8");
+  const svg = `${await renderer(spec)}\n`;
+  const plotPath = path.join(outputDirectory, `${spec.id}.svg`);
+  if (!checkOnly) await writeFile(plotPath, svg, "utf8");
+  else if ((await readCommittedPlot(plotPath)) !== svg) stalePlots.push(path.relative(root, plotPath));
 }
 
-console.log(`Generated ${specs.length} plots in ${path.relative(root, outputDirectory)}.`);
+if (stalePlots.length > 0) {
+  console.error(`Plots are missing or stale; run npm run generate:plots:\n${stalePlots.join("\n")}`);
+  process.exit(1);
+}
+const verb = checkOnly ? "Validated" : "Generated";
+console.log(`${verb} ${specs.length} plots in ${path.relative(root, outputDirectory)}.`);
