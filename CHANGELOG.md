@@ -133,6 +133,21 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Mermaid moves to version 12. Its diagram layout pulls in `elkjs@0.9.3`
+  under the Eclipse Public License 2.0, so the web edition now bundles one
+  weak-copyleft module. `THIRD_PARTY_NOTICES.txt` carries the full EPL-2.0
+  text, and `LICENSING.md` states where the module's source code is. The
+  notice generator refuses a bundled EPL-2.0 package that `LICENSING.md` does
+  not name at its exact version, so each update has to renew the offer. The
+  book is re-rendered for the new diagram output, which grows it from 414 to
+  421 pages. The taller diagrams pushed one display equation onto the page
+  after its introducing sentence; a print rule now keeps a paragraph on the
+  same page as the display equation that follows it, and the semantic
+  baseline records the moved sentinel pages. The KaTeX override that keeps
+  Mermaid on the root `katex@0.19.0` now names `mermaid@12.1.0`; under the old
+  `mermaid@11.17.2` key the lock regained a nested `katex@0.16.47`, which is
+  affected by GHSA-238p-pmpm-9mq7.
+
 - es-module-lexer moves to 3.0.3. Version 3 names its import record fields
   (`type`, `specifier`, `glob`) instead of the terse version 2 fields, so
   Candidate 010's runtime identity and source bundle read the new fields. A
