@@ -21,6 +21,7 @@ import {
 } from "./lib/engine-file-exceptions.mjs";
 import {
   validateOperationalFilePaths,
+  validatePortableOperationsTree,
   validatePortableWorkflowObject,
 } from "./lib/portable-operations.mjs";
 
@@ -503,6 +504,26 @@ test("portable operations reject host-specific scripts without rejecting Go port
     "experiments/workstation/fixture-012/workstation-acquisition.mjs: host-specific operational artifact is forbidden; use the portable Go command or a scoped container",
     "scripts/check.ps1: host-specific operational artifact is forbidden; use the portable Go command or a scoped container",
   ]);
+});
+
+test("the portable-operation scan skips agent worktrees and still scans the source tree", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "20w-portable-scan-"));
+  try {
+    mkdirSync(path.join(root, ".claude/worktrees/agent/scripts"), { recursive: true });
+    writeFileSync(path.join(root, ".claude/worktrees/agent/scripts/check.ps1"), "Write-Output agent\n");
+    assert.deepEqual(validatePortableOperationsTree(root), []);
+
+    mkdirSync(path.join(root, ".claude/settings"), { recursive: true });
+    writeFileSync(path.join(root, ".claude/settings/hook.ps1"), "Write-Output hook\n");
+    mkdirSync(path.join(root, "tools"));
+    writeFileSync(path.join(root, "tools/run.ps1"), "Write-Output tool\n");
+    assert.deepEqual(validatePortableOperationsTree(root), [
+      ".claude/settings/hook.ps1: host-specific operational artifact is forbidden; use the portable Go command or a scoped container",
+      "tools/run.ps1: host-specific operational artifact is forbidden; use the portable Go command or a scoped container",
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("portable workflows reject Windows runners and PowerShell entry points", () => {
