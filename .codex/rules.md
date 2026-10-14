@@ -212,8 +212,9 @@ or consequential remote state.
    authority, architecture, policy, licensing, publication, or release rule
    changes durably.
 6. Use Conventional Commit message and push only clean, validated tree.
-7. Keep auxiliary Git worktrees under ignored
-   `.workingdir2/worktrees/` directory instead of creating repository siblings.
+7. Keep auxiliary Git worktrees in dedicated worktree folder outside
+   checkout, never as repository siblings. Private state and evidence go
+   under ignored `.workingdir/` only.
 
 ## Common commands
 

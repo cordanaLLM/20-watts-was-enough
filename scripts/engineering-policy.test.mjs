@@ -60,11 +60,13 @@ import {
   validateReleaseWorkflowObject,
   validateRenovateConfigObject,
   validateRetiredHostingPaths,
+  validateResearchLanePythonWorkflowObject,
   validateRepositoryPolicy,
   validateScientificRuntimeLock,
   validateScientificRuntimeWorkflowObject,
   validateToolingValidationScript,
   validateTypeCheckConfigObject,
+  validateTaxonomyImporterScriptObject,
   validateTopicRegistryScriptsObject,
   validateUnpinnedImageSourceLabels,
   validateWorkstationShardScriptsObject,
@@ -289,6 +291,41 @@ test("the topic registry validator runs in the aggregate gate and every impact p
     assert.deepEqual(validateTopicRegistryScriptsObject(tampered), [finding]);
   }
   assert.equal(validateTopicRegistryScriptsObject({}).length, 3);
+});
+
+test("the taxonomy gate rebuilds the taxonomy JSON from its sources in every lane that runs it", () => {
+  const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert.deepEqual(validateTaxonomyImporterScriptObject(manifest), []);
+  const finding = "package.json: validate:taxonomies must rebuild the taxonomy JSON from its official sources";
+  for (const command of [
+    manifest.scripts["validate:taxonomies"].replace(" && python scripts/import-science-taxonomies.py --check", ""),
+    manifest.scripts["validate:taxonomies"].replace("import-science-taxonomies.py --check", "import-science-taxonomies.py"),
+    "echo python scripts/import-science-taxonomies.py --check",
+  ]) {
+    const tampered = structuredClone(manifest);
+    tampered.scripts["validate:taxonomies"] = command;
+    assert.deepEqual(validateTaxonomyImporterScriptObject(tampered), [finding]);
+  }
+  assert.deepEqual(validateTaxonomyImporterScriptObject({}), [finding]);
+
+  const ci = workflow("ci");
+  assert.deepEqual(validateResearchLanePythonWorkflowObject(ci), []);
+  const laneFinding = "workflow.yml: job lane-research must use locked Python 3.14.8 before the research checks";
+  const steps = ci.jobs["lane-research"].steps;
+  const setup = steps.findIndex((step) => step.uses?.startsWith("actions/setup-python@"));
+  const withoutPython = structuredClone(ci);
+  withoutPython.jobs["lane-research"].steps.splice(setup, 1);
+  assert.deepEqual(validateResearchLanePythonWorkflowObject(withoutPython), [laneFinding]);
+  const otherPython = structuredClone(ci);
+  otherPython.jobs["lane-research"].steps[setup].with["python-version"] = "3.14";
+  assert.deepEqual(validateResearchLanePythonWorkflowObject(otherPython), [laneFinding]);
+  const lateSetup = structuredClone(ci);
+  const [moved] = lateSetup.jobs["lane-research"].steps.splice(setup, 1);
+  lateSetup.jobs["lane-research"].steps.push(moved);
+  assert.deepEqual(validateResearchLanePythonWorkflowObject(lateSetup), [laneFinding]);
+  assert.deepEqual(validateResearchLanePythonWorkflowObject({}), [
+    "workflow.yml: job lane-research must run the research checks",
+  ]);
 });
 
 test("full-book browser probes stay in one bounded process-isolated site-test group", () => {

@@ -1159,6 +1159,33 @@ test("third-party notices include bundler runtimes and accept the project portal
   assert.match(notices, /Copyright \(c\) 2019-present, VoidZero Inc\. and Vite contributors/);
 });
 
+test("third-party notices require a LICENSING.md source offer for each EPL package", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "notices-source-offer-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const packagePath = path.join(root, "node_modules", "epl-fixture");
+  await mkdir(packagePath, { recursive: true });
+  await writeFile(
+    path.join(packagePath, "package.json"),
+    JSON.stringify({ name: "epl-fixture", version: "1.2.3", license: "EPL-2.0" }),
+  );
+  await writeFile(path.join(packagePath, "LICENSE.md"), "Eclipse Public License - v 2.0\n");
+  await mkdir(path.join(root, "LICENSES"));
+  await writeFile(path.join(root, "LICENSES", "OFL-1.1.txt"), "SIL Open Font License fixture\n");
+  const moduleIds = new Set([path.join(packagePath, "index.js")]);
+
+  await writeFile(path.join(root, "LICENSING.md"), "Source of `epl-fixture@1.2.2` is upstream.\n");
+  assert.throws(
+    () => renderThirdPartyNotices({ moduleIds, repositoryRoot: root }),
+    /LICENSING\.md lacks the EPL-2\.0 source offer for epl-fixture@1\.2\.3/,
+  );
+
+  await writeFile(path.join(root, "LICENSING.md"), "Source of `epl-fixture@1.2.3` is upstream.\n");
+  assert.match(
+    renderThirdPartyNotices({ moduleIds, repositoryRoot: root }),
+    /- epl-fixture@1\.2\.3 — EPL-2\.0/,
+  );
+});
+
 test("third-party notices fail closed on an unknown virtual bundle module", () => {
   assert.throws(
     () => renderThirdPartyNotices({
