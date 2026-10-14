@@ -144,9 +144,15 @@ export async function replaceFilePair(
   }
 }
 
+// O_CREAT | O_EXCL makes creation itself the existence check, so nothing
+// races between a test and the open; both attempts share this one call.
+function createLockFile(file) {
+  return open(file, "wx", 0o600);
+}
+
 async function openExclusiveLock(file, label) {
   try {
-    return await open(file, "wx", 0o600);
+    return await createLockFile(file);
   } catch (error) {
     if (error?.code !== "EEXIST") throw error;
     // A lock that disappears while it is checked is simply retried.
@@ -157,7 +163,7 @@ async function openExclusiveLock(file, label) {
     if (kept) throw new Error(`${label} is already locked: ${file}: ${kept}`, { cause: error });
   }
   try {
-    return await open(file, "wx", 0o600);
+    return await createLockFile(file);
   } catch (error) {
     if (error?.code === "EEXIST") throw new Error(`${label} is already locked: ${file}`, { cause: error });
     throw error;
