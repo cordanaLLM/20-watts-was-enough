@@ -27,7 +27,7 @@
     "check:lane-site": "npm run test:site && npm run validate:translations && npm run test:translations && npm run build && npm run validate:site-build && npm run test:site-build",
     "validate:runtime": "node scripts/validate-node-runtime.mjs",
     "test:runtime": "node --test --experimental-test-isolation=none experiments/workstation/lib/node-runtime-policy.test.mjs",
-    "test:go": "go -C tooling test ./... && go -C tooling vet ./...",
+    "test:go": "go -C tooling test -race ./... && go -C tooling vet ./...",
     "validate:tooling": "go -C tooling run ./cmd/20w experiment validate --root .. && go -C tooling run ./cmd/20w github sync-metadata --root .. --check && go -C tooling run ./cmd/20w publication render-pdf --root .. --check && go -C tooling run ./cmd/20w publication verify-pdf-tools --root .. && go -C tooling run ./cmd/20w publication verify-public-transport --root .. --check",
     "typecheck": "tsc --noEmit --pretty false",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern tmp",
