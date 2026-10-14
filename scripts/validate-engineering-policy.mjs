@@ -1041,7 +1041,7 @@ function goLaneFuzzFindings(workflow, expectedCommand, relativePath) {
   const goLane = workflow?.jobs?.["lane-go"];
   const goSteps = Array.isArray(goLane?.steps) ? goLane.steps : [];
   const goTestIndex = goSteps.findIndex((step) => (
-    step?.run?.trim() === "go -C tooling test ./... && go -C tooling vet ./..."
+    step?.run?.trim() === goRaceTestCommand
     && step?.if === undefined
     && continueOnErrorIsDisabled(step)
   ));
@@ -1118,7 +1118,55 @@ export function validateCiNativeReleaseWorkflowObject(
   return findings;
 }
 
-const pdfReproducibilitySetupAction = "docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069";
+// Release builds withhold every target the build host cannot execute, so the
+// Windows and macOS sources compile nowhere else (decision 0037 keeps the
+// Windows implementation authoritative).
+const goRaceTestCommand = "go -C tooling test -race ./... && go -C tooling vet ./...";
+const goCrossPlatformVetStep = "Type-check the Windows and macOS builds";
+const goCrossPlatformVetCommand = [
+  "GOOS=windows GOARCH=amd64 go -C tooling vet ./...",
+  "GOOS=darwin GOARCH=arm64 go -C tooling vet ./...",
+].join("\n");
+
+export function validateGoGateScriptObject(scripts, relativePath = "package.json") {
+  if (scripts?.["test:go"] !== goRaceTestCommand) {
+    return [`${relativePath}: test:go must run the complete tooling test gate under the race detector and vet`];
+  }
+  return [];
+}
+
+function unconditionalStepIndex(steps, accepts) {
+  return steps.findIndex((step) => accepts(step) && step?.if === undefined && continueOnErrorIsDisabled(step));
+}
+
+export function validateCiGoRaceAndPlatformWorkflowObject(
+  workflow,
+  relativePath = ".github/workflows/ci.yml",
+) {
+  const findings = [];
+  const gates = [
+    ["lane-go", (step) => step?.name === "Test and vet Go packages" && step?.run?.trim() === goRaceTestCommand],
+    ["quality-full", (step) => step?.run?.trim() === "npm run check:full-without-workstation"],
+  ];
+  for (const [jobName, isTestStep] of gates) {
+    const steps = workflow?.jobs?.[jobName]?.steps;
+    const testIndex = Array.isArray(steps) ? unconditionalStepIndex(steps, isTestStep) : -1;
+    const vetIndex = Array.isArray(steps)
+      ? unconditionalStepIndex(steps, (step) => (
+        step?.name === goCrossPlatformVetStep && step?.run?.trim() === goCrossPlatformVetCommand
+      ))
+      : -1;
+    if (testIndex < 0) {
+      findings.push(`${relativePath}: ${jobName} must run the Go tests under the race detector`);
+    }
+    if (vetIndex < 0 || vetIndex <= testIndex) {
+      findings.push(`${relativePath}: ${jobName} must type-check the Windows and macOS builds after the Go tests`);
+    }
+  }
+  return findings;
+}
+
+const pdfReproducibilitySetupAction ="docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069";
 const pdfReproducibilityBuildKit = "image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8";
 const privateGoCommandEnvironment = Object.freeze({
   CGO_ENABLED: "0",
@@ -4093,6 +4141,29 @@ export function validateTopicRegistryScriptsObject(manifest, relativePath = "pac
   return findings;
 }
 
+const taxonomyImporterCheck = "python scripts/import-science-taxonomies.py --check";
+
+export function validateTaxonomyImporterScriptObject(manifest, relativePath = "package.json") {
+  const commands = String(manifest?.scripts?.["validate:taxonomies"] ?? "").split(" && ");
+  if (!commands.includes(taxonomyImporterCheck)) {
+    return [`${relativePath}: validate:taxonomies must rebuild the taxonomy JSON from its official sources`];
+  }
+  return [];
+}
+
+export function validateResearchLanePythonWorkflowObject(workflow, relativePath = "workflow.yml") {
+  const steps = workflow?.jobs?.["lane-research"]?.steps;
+  if (!Array.isArray(steps)) {
+    return [`${relativePath}: job lane-research must run the research checks`];
+  }
+  const setup = steps.findIndex((step) => step?.uses?.startsWith("actions/setup-python@"));
+  const checks = steps.findIndex((step) => step?.run === "npm run check:lane-research");
+  if (setup < 0 || steps[setup].with?.["python-version"] !== runtimePolicy.pythonVersion || checks < setup) {
+    return [`${relativePath}: job lane-research must use locked Python ${runtimePolicy.pythonVersion} before the research checks`];
+  }
+  return [];
+}
+
 const requiredPackageScripts = [
   "check",
   "check:code-shape",
@@ -4145,10 +4216,7 @@ function validatePackageScripts(manifest, relativePath) {
   if (manifest.packageManager !== `npm@${runtimePolicy.npmVersion}`) {
     findings.push(`${relativePath}: packageManager must be npm@${runtimePolicy.npmVersion}`);
   }
-  const expectedGoTest = "go -C tooling test ./... && go -C tooling vet ./...";
-  if (scripts["test:go"] !== expectedGoTest) {
-    findings.push(`${relativePath}: test:go must run the complete tooling test and vet gates`);
-  }
+  findings.push(...validateGoGateScriptObject(scripts, relativePath));
   findings.push(...validateToolingValidationScript(scripts["validate:tooling"], relativePath));
   if (
     typeof scripts.test !== "string"
@@ -4212,6 +4280,7 @@ function validatePackage(root, findings) {
     relativePath,
   ));
   findings.push(...validateTopicRegistryScriptsObject(manifest, relativePath));
+  findings.push(...validateTaxonomyImporterScriptObject(manifest, relativePath));
   findings.push(...validatePackageScripts(manifest, relativePath));
   findings.push(...validatePackageDependenciesAndMetadata(manifest, relativePath));
 }
@@ -4600,6 +4669,8 @@ function validateCiWorkflowPolicy(workflow, relativePath, lock, findings) {
   findings.push(...validateCiFuzzingWorkflowObject(workflow, relativePath));
   findings.push(...validateCiCodeShapeResetWorkflowObject(workflow, relativePath));
   findings.push(...validateCiNativeReleaseWorkflowObject(workflow, relativePath));
+  findings.push(...validateCiGoRaceAndPlatformWorkflowObject(workflow, relativePath));
+  findings.push(...validateResearchLanePythonWorkflowObject(workflow, relativePath));
   findings.push(...validateScientificRuntimeWorkflowObject(
     workflow,
     lock,

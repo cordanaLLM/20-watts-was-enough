@@ -27,7 +27,7 @@
     "check:lane-site": "npm run test:site && npm run validate:translations && npm run test:translations && npm run build && npm run validate:site-build && npm run test:site-build",
     "validate:runtime": "node scripts/validate-node-runtime.mjs",
     "test:runtime": "node --test --experimental-test-isolation=none experiments/workstation/lib/node-runtime-policy.test.mjs",
-    "test:go": "go -C tooling test ./... && go -C tooling vet ./...",
+    "test:go": "go -C tooling test -race ./... && go -C tooling vet ./...",
     "validate:tooling": "go -C tooling run ./cmd/20w experiment validate --root .. && go -C tooling run ./cmd/20w github sync-metadata --root .. --check && go -C tooling run ./cmd/20w publication render-pdf --root .. --check && go -C tooling run ./cmd/20w publication verify-pdf-tools --root .. && go -C tooling run ./cmd/20w publication verify-public-transport --root .. --check",
     "typecheck": "tsc --noEmit --pretty false",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern tmp",
@@ -100,7 +100,7 @@
     "validate:plots": "node scripts/generate-plots.mjs --check",
     "generate:taxonomies": "python scripts/import-science-taxonomies.py && node scripts/generate-taxonomy-depth.mjs",
     "generate:third-party-notices": "node scripts/generate-third-party-notices.mjs",
-    "validate:taxonomies": "node scripts/validate-science-taxonomies.mjs && node scripts/generate-taxonomy-depth.mjs --check",
+    "validate:taxonomies": "node scripts/validate-science-taxonomies.mjs && node scripts/generate-taxonomy-depth.mjs --check && python scripts/import-science-taxonomies.py --check",
     "generate:book-pdf": "go -C tooling run ./cmd/20w publication render-pdf --root ..",
     "validate:book-pdf": "node scripts/validate-book-pdf.mjs",
     "record:book-provenance": "node scripts/record-book-provenance.mjs",
@@ -114,7 +114,7 @@
   "dependencies": {
     "github-slugger": "2.0.0",
     "katex": "0.19.0",
-    "mermaid": "11.17.2",
+    "mermaid": "12.1.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-markdown": "10.1.0",
@@ -124,7 +124,7 @@
     "remark-math": "6.0.0"
   },
   "overrides": {
-    "mermaid@11.17.2": {
+    "mermaid@12.1.0": {
       "katex": "$katex"
     },
     "micromark-extension-math@3.1.0": {
@@ -143,7 +143,7 @@
     "@vitejs/plugin-react": "6.1.2",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
-    "es-module-lexer": "2.3.2",
+    "es-module-lexer": "3.0.3",
     "eslint": "9.39.5",
     "eslint-plugin-jsx-a11y": "6.10.2",
     "eslint-plugin-react": "7.37.5",

@@ -6,10 +6,10 @@
   "artifact": {
     "pdf": "public/downloads/20-watts-was-enough-full-concept-book.pdf",
     "manifest": "public/downloads/book-manifest.json",
-    "pdf_sha256": "71504cda49b08493264585c05b6aa6403d6c9007c9fd24f7be5f1231689ba8c7",
-    "manifest_sha256": "b4ba55ce0d33a8ab79db7107dd4ea83083751ba8b6d16a29823ef4ccc71a3513",
-    "size_bytes": 12829758,
-    "pages": 414,
+    "pdf_sha256": "219a4e37881af20b559675920f1e99e1f5432d9d0b5f7ed67b9adde25d465360",
+    "manifest_sha256": "058afdd0ee8eb40ad0a39b214946141fd2d81add96592ef849eb293da372392e",
+    "size_bytes": 14378530,
+    "pages": 421,
     "page_size_name": "A4",
     "page_size_points": {
       "width": 594.96,
@@ -18,7 +18,7 @@
     "pdf_version": "1.4",
     "tagged": true,
     "source_ref": "main",
-    "source_digest": "f398bf90a3e67e62e16cd5e5f89509eb78f15826b4d2310b4152d5f958efea85",
+    "source_digest": "2cc96089f8073a34b6477248c538d17586dfa5509545d285f32cf3c54d50f397",
     "version": "0.4.1"
   },
   "tools": {
@@ -40,7 +40,7 @@
       },
       "stdout": {
         "bytes": 627,
-        "sha256": "097d3d8da42a545ac5d8b74124f7a1054e99c6653baaebb4ed285c29c5a54df0"
+        "sha256": "b81c3a8ab475b0081c03544a6186f7f996406a817b9cb41d167ac0c120776f85"
       }
     },
     "structure": {
@@ -50,8 +50,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "stdout": {
-        "bytes": 1094856,
-        "sha256": "d3b003baf296de0b8b16de43c0ff826e8e0e101a984c216f3454be96548b4dd1"
+        "bytes": 1095108,
+        "sha256": "8811f90c57ea33b16f50f19126eb6358f8dbd5d8e1d1c5b1bfb88d49b20fdc96"
       }
     },
     "structure_text": {
@@ -61,8 +61,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "stdout": {
-        "bytes": 2463438,
-        "sha256": "6bf78aa7abaa59187b2a1d7e4bf60be175f54e3204832df71135653da3c4f5d7"
+        "bytes": 2463347,
+        "sha256": "df56df41a1f98ef2e77e0219104ac55625939a76929c503ca17201554719294c"
       }
     },
     "default_text": {
@@ -72,8 +72,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "stdout": {
-        "bytes": 1120819,
-        "sha256": "7068503d5369d21cc47f88ca272eb343558e3d97dca60e1c28244295bdc41a32"
+        "bytes": 1120865,
+        "sha256": "56fd3d619514116ecf711857b25722ff5d9ef53f34918a0e2381b56b06d2007b"
       }
     },
     "raw_text": {
@@ -83,8 +83,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "stdout": {
-        "bytes": 1111395,
-        "sha256": "45a93d6c3495d2942747dd5c43bfc2908d643c2435d012239c974aa4fbb5bf05"
+        "bytes": 1111372,
+        "sha256": "9d738eab95e194b1b17f2bc4ded553c36ce043936bdcbb6f18858b23b7d94ec5"
       }
     }
   },
@@ -155,7 +155,7 @@
     {
       "id": "lifecycle-equation-late",
       "class": "table-displayed-equation",
-      "recorded_page": 35,
+      "recorded_page": 36,
       "default_anchor": "expected recovery are joules over the same observation",
       "default_fragments": [
         "expected recovery are joules over the same observation",
@@ -181,7 +181,7 @@
     {
       "id": "admissible-action-equation-late",
       "class": "table-displayed-equation",
-      "recorded_page": 130,
+      "recorded_page": 132,
       "default_anchor": "The held translation assigns controller i an admissible action set",
       "default_fragments": [
         "The held translation assigns controller i an admissible action set",
@@ -200,7 +200,8 @@
       "raw_fragments": [
         "The held translation assigns controller an admissible action set",
         "where is observation age in seconds",
-        "the notation does not make them interchangeable.\ni\nU",
+        "the notation does not make them interchangeable.",
+        "i\nU ​ (t) = i E",
         "(t) ∈ i( i i i i i ) i U ​ (t), i"
       ],
       "state": "known-debt",
@@ -209,7 +210,7 @@
     {
       "id": "adiabatic-equation-fragmented",
       "class": "diagram-figure",
-      "recorded_page": 379,
+      "recorded_page": 386,
       "default_anchor": "Four normalized adiabatic energy curves form different U-shaped crossovers",
       "default_fragments": [
         "Four normalized adiabatic energy curves form different U-shaped crossovers",
@@ -236,7 +237,7 @@
     {
       "id": "field-coverage-heading-merged",
       "class": "diagram-figure",
-      "recorded_page": 388,
+      "recorded_page": 395,
       "default_anchor": "This is the repository's breadth control",
       "default_fragments": [
         "This is the repository's breadth control",

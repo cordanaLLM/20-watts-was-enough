@@ -21,6 +21,7 @@ import {
 } from "./lib/engine-file-exceptions.mjs";
 import {
   validateOperationalFilePaths,
+  validatePortableOperationsTree,
   validatePortableWorkflowObject,
 } from "./lib/portable-operations.mjs";
 
@@ -32,6 +33,7 @@ import {
   validateCiCodeShapeResetWorkflowObject,
   validateCiNativeReleaseWorkflowObject,
   validateCiFuzzingWorkflowObject,
+  validateCiGoRaceAndPlatformWorkflowObject,
   validateCiImpactWorkflowObject,
   validateCodeQlImpactWorkflowObject,
   validateCurrentResearchDisclosure,
@@ -40,6 +42,7 @@ import {
   validateExperimentReportIdentity,
   validateExperimentRunFailureForm,
   validateFundingConfig,
+  validateGoGateScriptObject,
   validateGoCodeQlWorkflowObject,
   validateGoRuntimeWorkflowObject,
   validateIssueConfig,
@@ -59,11 +62,13 @@ import {
   validateReleaseWorkflowObject,
   validateRenovateConfigObject,
   validateRetiredHostingPaths,
+  validateResearchLanePythonWorkflowObject,
   validateRepositoryPolicy,
   validateScientificRuntimeLock,
   validateScientificRuntimeWorkflowObject,
   validateToolingValidationScript,
   validateTypeCheckConfigObject,
+  validateTaxonomyImporterScriptObject,
   validateTopicRegistryScriptsObject,
   validateUnpinnedImageSourceLabels,
   validateWorkstationShardScriptsObject,
@@ -290,6 +295,41 @@ test("the topic registry validator runs in the aggregate gate and every impact p
   assert.equal(validateTopicRegistryScriptsObject({}).length, 3);
 });
 
+test("the taxonomy gate rebuilds the taxonomy JSON from its sources in every lane that runs it", () => {
+  const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert.deepEqual(validateTaxonomyImporterScriptObject(manifest), []);
+  const finding = "package.json: validate:taxonomies must rebuild the taxonomy JSON from its official sources";
+  for (const command of [
+    manifest.scripts["validate:taxonomies"].replace(" && python scripts/import-science-taxonomies.py --check", ""),
+    manifest.scripts["validate:taxonomies"].replace("import-science-taxonomies.py --check", "import-science-taxonomies.py"),
+    "echo python scripts/import-science-taxonomies.py --check",
+  ]) {
+    const tampered = structuredClone(manifest);
+    tampered.scripts["validate:taxonomies"] = command;
+    assert.deepEqual(validateTaxonomyImporterScriptObject(tampered), [finding]);
+  }
+  assert.deepEqual(validateTaxonomyImporterScriptObject({}), [finding]);
+
+  const ci = workflow("ci");
+  assert.deepEqual(validateResearchLanePythonWorkflowObject(ci), []);
+  const laneFinding = "workflow.yml: job lane-research must use locked Python 3.14.8 before the research checks";
+  const steps = ci.jobs["lane-research"].steps;
+  const setup = steps.findIndex((step) => step.uses?.startsWith("actions/setup-python@"));
+  const withoutPython = structuredClone(ci);
+  withoutPython.jobs["lane-research"].steps.splice(setup, 1);
+  assert.deepEqual(validateResearchLanePythonWorkflowObject(withoutPython), [laneFinding]);
+  const otherPython = structuredClone(ci);
+  otherPython.jobs["lane-research"].steps[setup].with["python-version"] = "3.14";
+  assert.deepEqual(validateResearchLanePythonWorkflowObject(otherPython), [laneFinding]);
+  const lateSetup = structuredClone(ci);
+  const [moved] = lateSetup.jobs["lane-research"].steps.splice(setup, 1);
+  lateSetup.jobs["lane-research"].steps.push(moved);
+  assert.deepEqual(validateResearchLanePythonWorkflowObject(lateSetup), [laneFinding]);
+  assert.deepEqual(validateResearchLanePythonWorkflowObject({}), [
+    "workflow.yml: job lane-research must run the research checks",
+  ]);
+});
+
 test("full-book browser probes stay in one bounded process-isolated site-test group", () => {
   const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   const command = manifest.scripts?.["test:site"];
@@ -466,6 +506,26 @@ test("portable operations reject host-specific scripts without rejecting Go port
     "experiments/workstation/fixture-012/workstation-acquisition.mjs: host-specific operational artifact is forbidden; use the portable Go command or a scoped container",
     "scripts/check.ps1: host-specific operational artifact is forbidden; use the portable Go command or a scoped container",
   ]);
+});
+
+test("the portable-operation scan skips agent worktrees and still scans the source tree", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "20w-portable-scan-"));
+  try {
+    mkdirSync(path.join(root, ".claude/worktrees/agent/scripts"), { recursive: true });
+    writeFileSync(path.join(root, ".claude/worktrees/agent/scripts/check.ps1"), "Write-Output agent\n");
+    assert.deepEqual(validatePortableOperationsTree(root), []);
+
+    mkdirSync(path.join(root, ".claude/settings"), { recursive: true });
+    writeFileSync(path.join(root, ".claude/settings/hook.ps1"), "Write-Output hook\n");
+    mkdirSync(path.join(root, "tools"));
+    writeFileSync(path.join(root, "tools/run.ps1"), "Write-Output tool\n");
+    assert.deepEqual(validatePortableOperationsTree(root), [
+      ".claude/settings/hook.ps1: host-specific operational artifact is forbidden; use the portable Go command or a scoped container",
+      "tools/run.ps1: host-specific operational artifact is forbidden; use the portable Go command or a scoped container",
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("portable workflows reject Windows runners and PowerShell entry points", () => {
@@ -1142,6 +1202,53 @@ test("CI builds and executes the native release binary in the Go lane and the fu
   const [moved] = steps.splice(nativeIndex, 1);
   steps.splice(steps.findIndex((candidate) => candidate.name === "Fuzz the untrusted JSON boundary"), 0, moved);
   assert.deepEqual(validateCiNativeReleaseWorkflowObject(beforeFuzz), [finding("lane-go")]);
+});
+
+test("Go gates run under the race detector and type-check the Windows and macOS builds", () => {
+  const scripts = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).scripts;
+  assert.deepEqual(validateGoGateScriptObject(scripts), []);
+  assert.deepEqual(validateGoGateScriptObject({
+    ...scripts,
+    "test:go": "go -C tooling test ./... && go -C tooling vet ./...",
+  }), ["package.json: test:go must run the complete tooling test gate under the race detector and vet"]);
+
+  const valid = workflow("ci");
+  assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(valid), []);
+  const step = (copy, job, name) => copy.jobs[job].steps.find((candidate) => candidate.name === name);
+
+  const withoutRace = structuredClone(valid);
+  const laneTest = step(withoutRace, "lane-go", "Test and vet Go packages");
+  laneTest.run = laneTest.run.replace(" -race", "");
+  assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(withoutRace), [
+    ".github/workflows/ci.yml: lane-go must run the Go tests under the race detector",
+  ]);
+
+  const withoutMacOS = structuredClone(valid);
+  const qualityVet = step(withoutMacOS, "quality-full", "Type-check the Windows and macOS builds");
+  qualityVet.run = qualityVet.run.split("\n")[0];
+  assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(withoutMacOS), [
+    ".github/workflows/ci.yml: quality-full must type-check the Windows and macOS builds after the Go tests",
+  ]);
+
+  const skipped = structuredClone(valid);
+  step(skipped, "lane-go", "Type-check the Windows and macOS builds").if = "false";
+  assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(skipped), [
+    ".github/workflows/ci.yml: lane-go must type-check the Windows and macOS builds after the Go tests",
+  ]);
+
+  const beforeTests = structuredClone(valid);
+  const steps = beforeTests.jobs["quality-full"].steps;
+  const vetIndex = steps.findIndex((candidate) => candidate.name === "Type-check the Windows and macOS builds");
+  steps.unshift(...steps.splice(vetIndex, 1));
+  assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(beforeTests), [
+    ".github/workflows/ci.yml: quality-full must type-check the Windows and macOS builds after the Go tests",
+  ]);
+
+  const allowedFailure = structuredClone(valid);
+  step(allowedFailure, "lane-go", "Test and vet Go packages")["continue-on-error"] = true;
+  assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(allowedFailure), [
+    ".github/workflows/ci.yml: lane-go must run the Go tests under the race detector",
+  ]);
 });
 
 test("real PDF reproducibility acceptance stays in the renderer-selected and tagged boundaries", () => {
