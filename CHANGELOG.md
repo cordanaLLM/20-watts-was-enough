@@ -400,6 +400,14 @@ the exact diff; this file records why the project changed.
   the full job now build the native binary with a placeholder `v0.0.0`
   version and run `validate docs` with it, so a drifted pin fails on the
   pull request that causes it instead of at release time.
+- `npm run validate:taxonomies` now rebuilds
+  `research/taxonomies/fine-grained-fields.json` from the official sources
+  under `sources/taxonomies/2026-08-25/` with
+  `python scripts/import-science-taxonomies.py --check`. Before, the gate
+  hashed the sources and compared `field-depth.md` with the JSON, so a hand
+  edit of the JSON passed once `field-depth.md` was regenerated. The research
+  lane in `ci.yml` now sets up the locked Python 3.14.8 for that step, and the
+  engineering policy refuses a script or research lane without it.
 
 - The book PDF no longer gains a blank last page in some renders. The
   reproducibility job in main run 38372782567 rendered the same image twice
