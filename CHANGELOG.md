@@ -133,6 +133,15 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- es-module-lexer moves to 3.0.3. Version 3 names its import record fields
+  (`type`, `specifier`, `glob`) instead of the terse version 2 fields, so
+  Candidate 010's runtime identity and source bundle read the new fields. A
+  template-literal dynamic import now reports a glob specifier; both readers
+  treat it as non-literal, and the runtime identity still refuses it.
+  `runtime-identity.test.mjs` covers template, computed, concatenated and
+  literal dynamic imports. The book provenance record is renewed without a
+  render under [Decision 0090](decisions/0090-re-record-book-provenance-for-dependency-records.md).
+
 - Private working state and evidence move from `.workingdir2/` to the ignored
   `.workingdir/` folder. The agent contract, the publication-design and
   research-design skill references, `docs/publication-workflow.md` and the
