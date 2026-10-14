@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { copyFile, mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -6,6 +7,7 @@ import test from "node:test";
 
 import {
   acquireExclusiveFileLock,
+  parseLockOwner,
   replaceFilePair,
 } from "./atomic-file-pair.mjs";
 
@@ -102,5 +104,67 @@ test("exclusive publication lock rejects overlap and is reusable after release",
     await next.release();
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+function exitedProcessId() {
+  const child = spawnSync(process.execPath, ["-e", ""], { timeout: 30_000 });
+  assert.equal(child.status, 0);
+  return child.pid;
+}
+
+const lockOwner = (pid, host, token = "token") => `pid=${pid}\nhost=${host}\ntoken=${token}\n`;
+
+test("exclusive publication lock recovers a lock whose owner process exited", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "20w-publication-lock-"));
+  try {
+    const file = path.join(root, "book.lock");
+    await writeFile(file, lockOwner(exitedProcessId(), os.hostname(), "stale"));
+    const lock = await acquireExclusiveFileLock(file, "book render");
+    assert.equal(parseLockOwner(await readFile(file, "utf8"))?.pid, process.pid);
+    await lock.release();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("exclusive publication lock keeps every lock it cannot prove stale", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "20w-publication-lock-"));
+  try {
+    const kept = {
+      "running parent process": lockOwner(process.ppid, os.hostname()),
+      "this process": lockOwner(process.pid, os.hostname()),
+      "exited owner elsewhere": lockOwner(exitedProcessId(), `${os.hostname()}-other`),
+      "earlier pid and identity record": `${exitedProcessId()} 0123\n`,
+      "oversized record": "x".repeat(4097),
+    };
+    for (const [name, body] of Object.entries(kept)) {
+      const file = path.join(root, `${name.replaceAll(" ", "-")}.lock`);
+      await writeFile(file, body);
+      await assert.rejects(acquireExclusiveFileLock(file, "book render"), /already locked/u, name);
+      assert.equal(await readFile(file, "utf8"), body, name);
+    }
+    if (process.platform !== "win32") {
+      const target = path.join(root, "stale-target.lock");
+      const body = lockOwner(exitedProcessId(), os.hostname(), "stale");
+      await writeFile(target, body);
+      const file = path.join(root, "symlinked.lock");
+      await symlink(target, file);
+      await assert.rejects(acquireExclusiveFileLock(file, "book render"), /not a small regular file/u);
+      assert.equal(await readFile(target, "utf8"), body);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("lock owner records match the Go renderer format exactly", () => {
+  assert.deepEqual(parseLockOwner(lockOwner(1, "host")), { pid: 1, host: "host" });
+  for (const body of [
+    lockOwner(0, "host"), lockOwner("-1", "host"), lockOwner("+1", "host"), lockOwner("01", "host"),
+    lockOwner(1, ""), lockOwner(1, "host", ""), `${lockOwner(1, "host")}extra=1\n`,
+    "host=host\npid=1\ntoken=token\n", lockOwner(1, "host").slice(0, -1),
+  ]) {
+    assert.equal(parseLockOwner(body), undefined, JSON.stringify(body));
   }
 });
