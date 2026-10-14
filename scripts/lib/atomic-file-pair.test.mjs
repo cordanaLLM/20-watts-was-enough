@@ -144,6 +144,15 @@ test("exclusive publication lock keeps every lock it cannot prove stale", async 
       await assert.rejects(acquireExclusiveFileLock(file, "book render"), /already locked/u, name);
       assert.equal(await readFile(file, "utf8"), body, name);
     }
+    if (process.platform !== "win32") {
+      const target = path.join(root, "stale-target.lock");
+      const body = lockOwner(exitedProcessId(), os.hostname(), "stale");
+      await writeFile(target, body);
+      const file = path.join(root, "symlinked.lock");
+      await symlink(target, file);
+      await assert.rejects(acquireExclusiveFileLock(file, "book render"), /not a small regular file/u);
+      assert.equal(await readFile(target, "utf8"), body);
+    }
   } finally {
     await rm(root, { recursive: true, force: true });
   }

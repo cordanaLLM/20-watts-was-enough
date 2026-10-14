@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
-import { copyFile, lstat, open, readFile, rename, rm } from "node:fs/promises";
+import { copyFile, lstat, open, rename, rm } from "node:fs/promises";
 import { hostname } from "node:os";
 import path from "node:path";
 
@@ -24,19 +24,43 @@ function processExited(pid) {
   }
 }
 
+// Opens the lock without following a symlink; the owner record and identity
+// come from this handle, never from a second lookup of the path.
+async function openLockRecord(file) {
+  try {
+    return await open(file, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+  } catch (error) {
+    if (error?.code === "ELOOP") return undefined;
+    throw error;
+  }
+}
+
 // Removes the lock only when its owner record names an exited process on this
 // host and the file is still the one that was read; returns why it was kept.
 async function removeStaleLock(file) {
-  const before = await lstat(file);
-  if (!before.isFile() || before.size > maximumLockOwnerBytes) return "lock is not a small regular file";
-  const owner = parseLockOwner(await readFile(file, "utf8"));
-  if (!owner) return "lock owner record is not pid, host and token lines";
-  if (owner.host !== hostname()) return `lock is held by host ${owner.host}, not this host`;
-  if (owner.pid === process.pid || !processExited(owner.pid)) {
-    return `lock owner process ${owner.pid} is still running`;
+  const handle = await openLockRecord(file);
+  if (!handle) return "lock is not a small regular file";
+  let before;
+  try {
+    before = await handle.stat();
+    if (!before.isFile() || before.size > maximumLockOwnerBytes) return "lock is not a small regular file";
+    const owner = parseLockOwner(await handle.readFile("utf8"));
+    if (!owner) return "lock owner record is not pid, host and token lines";
+    if (owner.host !== hostname()) return `lock is held by host ${owner.host}, not this host`;
+    if (owner.pid === process.pid || !processExited(owner.pid)) {
+      return `lock owner process ${owner.pid} is still running`;
+    }
+  } finally {
+    await handle.close();
   }
-  const current = await lstat(file);
-  if (current.dev !== before.dev || current.ino !== before.ino) return "lock changed while its owner was checked";
+  const again = await openLockRecord(file);
+  if (!again) return "lock changed while its owner was checked";
+  try {
+    const current = await again.stat();
+    if (current.dev !== before.dev || current.ino !== before.ino) return "lock changed while its owner was checked";
+  } finally {
+    await again.close();
+  }
   await rm(file);
   return undefined;
 }
