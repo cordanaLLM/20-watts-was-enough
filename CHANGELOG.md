@@ -32,6 +32,13 @@ the exact diff; this file records why the project changed.
   `npm run test:research-gates` and `npm run test:site-build` in the research
   and site lanes, and `npm run validate:policy` refuses an aggregate gate that
   drops either.
+- Two regression tests cover fixes that had none. A browser test in
+  `scripts/github-pages.test.mjs` reads the computed list markers of rendered
+  portal prose (disc, decimal, and circle and lower-alpha for nested lists,
+  all outside) and fails once the list rules in `app/globals.css` are
+  removed. A policy test builds a temporary tree and checks that the
+  portable-operation scan skips `.claude/worktrees` but still reports a
+  PowerShell script elsewhere under `.claude` and in the source tree.
 - Command tests now cover `20w github sync-labels --check`,
   `20w github sync-metadata --check`, `20w release
   compare-publication-manifest`, `20w translation import-candidate` and
@@ -145,6 +152,30 @@ the exact diff; this file records why the project changed.
   repository map link to them.
 
 ### Changed
+
+- Mermaid moves to version 12. Its diagram layout pulls in `elkjs@0.9.3`
+  under the Eclipse Public License 2.0, so the web edition now bundles one
+  weak-copyleft module. `THIRD_PARTY_NOTICES.txt` carries the full EPL-2.0
+  text, and `LICENSING.md` states where the module's source code is. The
+  notice generator refuses a bundled EPL-2.0 package that `LICENSING.md` does
+  not name at its exact version, so each update has to renew the offer. The
+  book is re-rendered for the new diagram output, which grows it from 414 to
+  421 pages. The taller diagrams pushed one display equation onto the page
+  after its introducing sentence; a print rule now keeps a paragraph on the
+  same page as the display equation that follows it, and the semantic
+  baseline records the moved sentinel pages. The KaTeX override that keeps
+  Mermaid on the root `katex@0.19.0` now names `mermaid@12.1.0`; under the old
+  `mermaid@11.17.2` key the lock regained a nested `katex@0.16.47`, which is
+  affected by GHSA-238p-pmpm-9mq7.
+
+- es-module-lexer moves to 3.0.3. Version 3 names its import record fields
+  (`type`, `specifier`, `glob`) instead of the terse version 2 fields, so
+  Candidate 010's runtime identity and source bundle read the new fields. A
+  template-literal dynamic import now reports a glob specifier; both readers
+  treat it as non-literal, and the runtime identity still refuses it.
+  `runtime-identity.test.mjs` covers template, computed, concatenated and
+  literal dynamic imports. The book provenance record is renewed without a
+  render under [Decision 0090](decisions/0090-re-record-book-provenance-for-dependency-records.md).
 
 - Private working state and evidence move from `.workingdir2/` to the ignored
   `.workingdir/` folder. The agent contract, the publication-design and
@@ -389,6 +420,14 @@ the exact diff; this file records why the project changed.
   the full job now build the native binary with a placeholder `v0.0.0`
   version and run `validate docs` with it, so a drifted pin fails on the
   pull request that causes it instead of at release time.
+- `npm run validate:taxonomies` now rebuilds
+  `research/taxonomies/fine-grained-fields.json` from the official sources
+  under `sources/taxonomies/2026-08-25/` with
+  `python scripts/import-science-taxonomies.py --check`. Before, the gate
+  hashed the sources and compared `field-depth.md` with the JSON, so a hand
+  edit of the JSON passed once `field-depth.md` was regenerated. The research
+  lane in `ci.yml` now sets up the locked Python 3.14.8 for that step, and the
+  engineering policy refuses a script or research lane without it.
 
 - The book PDF no longer gains a blank last page in some renders. The
   reproducibility job in main run 38372782567 rendered the same image twice

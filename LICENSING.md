@@ -57,6 +57,17 @@ The static web distribution accompanies these project licences with
 under [`LICENSES/`](LICENSES/). Its build fails if the notices do not match the
 packages actually bundled into the browser application.
 
+The browser application bundles `elkjs@0.9.3`, which Mermaid uses for diagram
+layout, under the Eclipse Public License 2.0; the full licence text is in
+[`THIRD_PARTY_NOTICES.txt`](THIRD_PARTY_NOTICES.txt). The bundled file is
+JavaScript compiled from Java. Its source code is available from the
+[elkjs repository at tag `0.9.3`](https://github.com/kieler/elkjs/tree/0.9.3)
+(commit `a8304cf79fde75bc2ab1a89d28320f53f8637436`) and the
+[Eclipse Layout Kernel repository](https://github.com/eclipse/elk) that the
+elkjs build compiles. The EPL applies to that module only; it does not change
+the licences of the project's own files. The web build fails when an EPL-2.0
+package is bundled without a matching source offer here.
+
 Tagged native `20w` files carry a separate generated Go-module notice and SPDX
 inventory. The reviewed Goldmark MIT text is retained verbatim in
 [`LICENSES/goldmark-MIT.txt`](LICENSES/goldmark-MIT.txt); release preparation
