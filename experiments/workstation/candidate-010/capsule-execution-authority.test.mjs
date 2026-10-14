@@ -254,7 +254,7 @@ test("dependency byte mutation during callback invalidates authority before it c
     capsule = await build(value);
     const authority = await authorityModule(capsule);
     const input = { executionCapsule: capsule, expectedSourceBundle: value.expectedSourceBundle };
-    const target = path.join(capsule.local.dependency_root, "es-module-lexer", "lexer.js");
+    const target = path.join(capsule.local.dependency_root, "es-module-lexer", "dist", "lexer.js");
     await assert.rejects(
       authority.withVerifiedCapsuleExecutionAuthority(input, async (capability) => {
         await chmod(target, 0o600);

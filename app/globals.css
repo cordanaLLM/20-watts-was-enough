@@ -2079,6 +2079,12 @@ button {
     widows: 3;
   }
 
+  /* A sentence that introduces a display equation stays on its page. */
+  .book-prose p:has(+ .equation-overflow-frame),
+  .book-prose p:has(+ .katex-display) {
+    break-after: avoid;
+  }
+
   .book-prose a {
     color: #174b30;
     text-decoration-thickness: 0.3pt;
