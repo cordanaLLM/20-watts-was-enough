@@ -56,7 +56,7 @@
     "validate:translations": "node scripts/validate-translations.mjs",
     "test:translations": "node --test --experimental-test-isolation=none scripts/translation-manifest.test.mjs scripts/translation-pages.test.mjs scripts/translation-vite-build.test.mjs",
     "validate:site-build": "node scripts/validate-github-pages-build.mjs",
-    "test:site-build": "node --test --experimental-test-isolation=none scripts/validate-github-pages-build.test.mjs",
+    "test:site-build": "node --test --experimental-test-isolation=none scripts/validate-github-pages-build.test.mjs scripts/github-pages-dist-browser.test.mjs",
     "validate:github-pages": "node scripts/validate-github-pages-build.mjs",
     "test:github-pages": "node --test --experimental-test-isolation=none scripts/github-pages.test.mjs scripts/book-edition-surface.test.mjs scripts/language-access.test.mjs scripts/pages-base.test.mjs scripts/pages-seo.test.mjs scripts/publication-unification.test.mjs scripts/research-object-header.test.mjs scripts/translation-pages.test.mjs scripts/translation-vite-build.test.mjs && npm run build:github-pages && npm run validate:github-pages",
     "workstation:candidate-010": "node experiments/workstation/candidate-010/runner.mjs",

@@ -7,6 +7,16 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- A browser test now opens the built site, not only the development server.
+  `scripts/github-pages-dist-browser.test.mjs` serves `dist-github-pages/`
+  with `vite preview` and opens the portal root and one document route in
+  headless Chromium. It requires every script that the portal and book entry
+  pages reference to load as JavaScript, and it fails on any failed
+  same-origin request. It runs in `npm run test:site-build` after
+  `npm run build` and fails, rather than skips, when the build is missing.
+  With the book entry script, a lazy document chunk or `index.html` deleted
+  from the build, the test fails.
+
 - `npm run validate:plots` runs `scripts/generate-plots.mjs --check`, which
   renders every plot in memory and fails when a committed SVG under
   `public/plots/` is missing or differs. The check runs in the aggregate gate
