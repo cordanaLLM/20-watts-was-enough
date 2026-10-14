@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at": "2026-10-11T23:18:03Z",
+  "generated_at": "2026-10-13T18:34:11Z",
   "repository": "cordanaLLM/20-watts-was-enough",
-  "commit_sha": "f4fa2efd18d679d6c275488438c9285b68f10d03",
+  "commit_sha": "5173c8710d317244e62424bc82f5913ce6a13d77",
   "total_infractions": 626,
   "infractions": [
     {
@@ -3571,7 +3571,7 @@
     {
       "rule_id": "HISS-02",
       "file_path": "tooling/cmd/20w/main.go",
-      "line_number": 175,
+      "line_number": 178,
       "message": "Context without a deadline reaches a call; derive it with context.WithTimeout or context.WithDeadline",
       "anchor": "fn:runCIWorkstation",
       "fingerprint": "tooling/cmd/20w/main.go:HISS-02:fn:runCIWorkstation#1"
@@ -3579,7 +3579,7 @@
     {
       "rule_id": "HISS-02",
       "file_path": "tooling/cmd/20w/main.go",
-      "line_number": 368,
+      "line_number": 371,
       "message": "Context without a deadline reaches a call; derive it with context.WithTimeout or context.WithDeadline",
       "anchor": "fn:runPublicationRenderPDFWithRenderer",
       "fingerprint": "tooling/cmd/20w/main.go:HISS-02:fn:runPublicationRenderPDFWithRenderer#1"
@@ -4230,31 +4230,31 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/publication.go",
-      "line_number": 42,
+      "line_number": 59,
       "message": "Legacy unchecked error assignment",
-      "anchor": "fn:acquirePublicationLock",
-      "fingerprint": "tooling/internal/pdfrender/publication.go:HISS-07:fn:acquirePublicationLock#1"
+      "anchor": "fn:createPublicationLock",
+      "fingerprint": "tooling/internal/pdfrender/publication.go:HISS-07:fn:createPublicationLock#1"
     },
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/publication.go",
-      "line_number": 47,
+      "line_number": 64,
       "message": "Legacy unchecked error assignment",
-      "anchor": "fn:acquirePublicationLock",
-      "fingerprint": "tooling/internal/pdfrender/publication.go:HISS-07:fn:acquirePublicationLock#2"
+      "anchor": "fn:createPublicationLock",
+      "fingerprint": "tooling/internal/pdfrender/publication.go:HISS-07:fn:createPublicationLock#2"
     },
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/publication.go",
-      "line_number": 50,
+      "line_number": 67,
       "message": "Legacy unchecked error assignment",
-      "anchor": "fn:acquirePublicationLock",
-      "fingerprint": "tooling/internal/pdfrender/publication.go:HISS-07:fn:acquirePublicationLock#3"
+      "anchor": "fn:createPublicationLock",
+      "fingerprint": "tooling/internal/pdfrender/publication.go:HISS-07:fn:createPublicationLock#3"
     },
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/publication.go",
-      "line_number": 139,
+      "line_number": 160,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:publishRenderPair",
       "fingerprint": "tooling/internal/pdfrender/publication.go:HISS-07:fn:publishRenderPair#1"
@@ -4262,7 +4262,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/publication.go",
-      "line_number": 150,
+      "line_number": 171,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:publishRenderPair",
       "fingerprint": "tooling/internal/pdfrender/publication.go:HISS-07:fn:publishRenderPair#2"
@@ -4270,7 +4270,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/publication.go",
-      "line_number": 192,
+      "line_number": 213,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:replacePublishedPair",
       "fingerprint": "tooling/internal/pdfrender/publication.go:HISS-07:fn:replacePublishedPair#1"
@@ -4278,7 +4278,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/publication.go",
-      "line_number": 275,
+      "line_number": 296,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:copyRegularFileExclusive",
       "fingerprint": "tooling/internal/pdfrender/publication.go:HISS-07:fn:copyRegularFileExclusive#1"
