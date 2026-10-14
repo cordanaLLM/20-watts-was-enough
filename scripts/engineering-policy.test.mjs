@@ -33,6 +33,7 @@ import {
   validateCiCodeShapeResetWorkflowObject,
   validateCiNativeReleaseWorkflowObject,
   validateCiFuzzingWorkflowObject,
+  validateCiGoRaceAndPlatformWorkflowObject,
   validateCiImpactWorkflowObject,
   validateCodeQlImpactWorkflowObject,
   validateCurrentResearchDisclosure,
@@ -41,6 +42,7 @@ import {
   validateExperimentReportIdentity,
   validateExperimentRunFailureForm,
   validateFundingConfig,
+  validateGoGateScriptObject,
   validateGoCodeQlWorkflowObject,
   validateGoRuntimeWorkflowObject,
   validateIssueConfig,
@@ -1200,6 +1202,53 @@ test("CI builds and executes the native release binary in the Go lane and the fu
   const [moved] = steps.splice(nativeIndex, 1);
   steps.splice(steps.findIndex((candidate) => candidate.name === "Fuzz the untrusted JSON boundary"), 0, moved);
   assert.deepEqual(validateCiNativeReleaseWorkflowObject(beforeFuzz), [finding("lane-go")]);
+});
+
+test("Go gates run under the race detector and type-check the Windows and macOS builds", () => {
+  const scripts = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).scripts;
+  assert.deepEqual(validateGoGateScriptObject(scripts), []);
+  assert.deepEqual(validateGoGateScriptObject({
+    ...scripts,
+    "test:go": "go -C tooling test ./... && go -C tooling vet ./...",
+  }), ["package.json: test:go must run the complete tooling test gate under the race detector and vet"]);
+
+  const valid = workflow("ci");
+  assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(valid), []);
+  const step = (copy, job, name) => copy.jobs[job].steps.find((candidate) => candidate.name === name);
+
+  const withoutRace = structuredClone(valid);
+  const laneTest = step(withoutRace, "lane-go", "Test and vet Go packages");
+  laneTest.run = laneTest.run.replace(" -race", "");
+  assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(withoutRace), [
+    ".github/workflows/ci.yml: lane-go must run the Go tests under the race detector",
+  ]);
+
+  const withoutMacOS = structuredClone(valid);
+  const qualityVet = step(withoutMacOS, "quality-full", "Type-check the Windows and macOS builds");
+  qualityVet.run = qualityVet.run.split("\n")[0];
+  assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(withoutMacOS), [
+    ".github/workflows/ci.yml: quality-full must type-check the Windows and macOS builds after the Go tests",
+  ]);
+
+  const skipped = structuredClone(valid);
+  step(skipped, "lane-go", "Type-check the Windows and macOS builds").if = "false";
+  assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(skipped), [
+    ".github/workflows/ci.yml: lane-go must type-check the Windows and macOS builds after the Go tests",
+  ]);
+
+  const beforeTests = structuredClone(valid);
+  const steps = beforeTests.jobs["quality-full"].steps;
+  const vetIndex = steps.findIndex((candidate) => candidate.name === "Type-check the Windows and macOS builds");
+  steps.unshift(...steps.splice(vetIndex, 1));
+  assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(beforeTests), [
+    ".github/workflows/ci.yml: quality-full must type-check the Windows and macOS builds after the Go tests",
+  ]);
+
+  const allowedFailure = structuredClone(valid);
+  step(allowedFailure, "lane-go", "Test and vet Go packages")["continue-on-error"] = true;
+  assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(allowedFailure), [
+    ".github/workflows/ci.yml: lane-go must run the Go tests under the race detector",
+  ]);
 });
 
 test("real PDF reproducibility acceptance stays in the renderer-selected and tagged boundaries", () => {
