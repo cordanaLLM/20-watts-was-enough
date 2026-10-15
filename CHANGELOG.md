@@ -18,6 +18,14 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- Research-watch publication wrapper `scripts/research-watch-publish.mjs` runs
+  the daily lead ingester and publishes updated public catalogs to branch
+  `research-watch/ingest` as a pull request against `main` using GitHub GraphQL
+  `createCommitOnBranch`, providing web-flow signed commits without local Git
+  pushes. Credentials are read strictly from systemd credential storage, with
+  hard allow-listing of the three ingest output files, bounded timeouts and
+  retries, and `--dry-run` inspection.
+
 - Read-only research-watch ingestion v1 (#267) merges fleet issue leads by
   external identifier, retains closed items, and keeps private origins out of
   the public repository. The CLI has offline tests; no workflow is added yet.
