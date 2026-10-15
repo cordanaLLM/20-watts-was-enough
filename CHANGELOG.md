@@ -448,6 +448,16 @@ the exact diff; this file records why the project changed.
   edited files are book sources, so the book was re-rendered: the PDF is
   byte-identical, and the manifest and semantic baseline record the new
   source digest.
+- Both agent personas name the model tier that Praetor engine `2d23b29`
+  (cordanaLLM/praetor#1341) requires: `repo-auditor` takes `pro` and
+  `repo-gatekeeper` takes `flash`. Without the key,
+  `praetorctl compile-context --verify` failed on `main`. The local engine
+  pin `PRAETOR_REF` in `.github/workflows/ci.yml` moves from `3bbde07` to
+  `2d23b29`, because the older engine copies the tier into the Claude Code
+  projection unmapped (`model: pro`) while the new one maps it to a Claude
+  model. The new engine locks a newer `tools/apicompat/gate/main.go`, which
+  is taken unchanged from `praetorctl adopt`; the other files that adopt
+  would rewrite stay as they are.
 
 - Release notes on the forge no longer break mid-sentence. The release
   body is the CHANGELOG section, which wraps at 80 columns, and the forge
