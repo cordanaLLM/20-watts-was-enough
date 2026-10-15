@@ -10,10 +10,10 @@ import (
 )
 
 const (
-	expectedGeneratorLockInputSHA256  = "ea0e8f7d2d3ce347e82cbdd0e956dceca3da27ee499b52e18a6f6010526a5a19"
-	expectedGeneratorDependencySHA256 = "1aff6ff0e589539e07b3ee75579803ebd66636ab35568661680a703ed38ab640"
-	expectedGeneratorWheelhouseSHA256 = "06f86574c8457337919bc2380b1fca899215bacd3c040cb127ea2d27ff9dcd06"
-	expectedGeneratorImageSHA256      = "a151b613114ee7b156e06254b892def65b9f03a8464369e9e6edb27a44a79ca3"
+	expectedGeneratorLockInputSHA256  = "d870c16ccc39f3c7df7817261c9c9f60e575db49903d1830ba0a1daa80aa26a9"
+	expectedGeneratorDependencySHA256 = "b65e3bc81c1590055b75d8cbfb8e27c97649b6e1bfd960072e81e475bb7de0a2"
+	expectedGeneratorWheelhouseSHA256 = "eeea0ebcaecb5742f40fc4f13f2e136e79f6e4ee4a3510d742c8039ac7ca9c32"
+	expectedGeneratorImageSHA256      = "e5dbfb130847dacd1fc1d99f8437fffd5d34f826a9e16060dffe3ea89f29257c"
 )
 
 func TestTrackedGeneratorImageFoundationIsClosedAndBlocked(t *testing.T) {
@@ -48,25 +48,25 @@ func TestParseGeneratorLockInputRejectsCandidateOrSourceDrift(t *testing.T) {
 	source := trackedSourceRecord(t)
 	valid := string(trackedGeneratorFile(t, "lock-input.json"))
 	tests := map[string]string{
-		"duplicate":          strings.Replace(valid, `"authority": "NO_RESULT"`, `"authority": "NO_RESULT", "authority": "NO_RESULT"`, 1),
-		"unknown":            strings.Replace(valid, `"schema_version": 1`, `"schema_version": 1, "extra": true`, 1),
-		"trailing":           valid + `{}`,
-		"noncanonical":       strings.Replace(valid, "  \"authority\"", "    \"authority\"", 1),
-		"wrong authority":    strings.Replace(valid, `"NO_RESULT"`, `"RESULT"`, 1),
-		"ready state":        strings.Replace(valid, `"candidate_only"`, `"locked"`, 1),
-		"wrong platform":     strings.Replace(valid, `"linux/amd64"`, `"linux/arm64"`, 1),
-		"mutable index":      strings.Replace(valid, `https://pypi.org/simple`, `https://example.invalid/simple`, 1),
-		"source archive":     strings.Replace(valid, lockedSourceArchiveSHA256, strings.Repeat("a", 64), 1),
-		"archive size":       strings.Replace(valid, `"archive_size_bytes": 5347008`, `"archive_size_bytes": 1`, 1),
-		"newer Python":       strings.Replace(valid, `"version": "3.13.15"`, `"version": "3.14.7"`, 1),
-		"mutable base":       strings.Replace(valid, `@sha256:c45a22ea000adfd9cda29364bbe7edd23001ce5cc2ad15857cfbf7766943b9ca`, ``, 1),
-		"resolver drift":     strings.Replace(valid, `"version": "0.12.9"`, `"version": "0.12.8"`, 1),
-		"cutoff drift":       strings.Replace(valid, `"exclude_newer": "2026-08-31T13:22:50Z"`, `"exclude_newer": "2026-09-01T00:00:00Z"`, 1),
-		"constraint drift":   strings.Replace(valid, `jax>=0.4.31`, `jax>=0.4.30`, 1),
-		"candidate drift":    strings.Replace(valid, `"requirement": "jax==0.11.1"`, `"requirement": "jax==0.11.0"`, 1),
-		"wheel digest":       strings.Replace(valid, lockedWheelCandidates[0].SHA256, strings.Repeat("b", 64), 1),
-		"wheel URL":          strings.Replace(valid, `https://files.pythonhosted.org/`, `https://example.invalid/`, 1),
-		"supplement missing": strings.Replace(valid, `tqdm==4.70.0`, `tqdm>=4`, 1),
+		"duplicate":           strings.Replace(valid, `"authority": "NO_RESULT"`, `"authority": "NO_RESULT", "authority": "NO_RESULT"`, 1),
+		"unknown":             strings.Replace(valid, `"schema_version": 1`, `"schema_version": 1, "extra": true`, 1),
+		"trailing":            valid + `{}`,
+		"noncanonical":        strings.Replace(valid, "  \"authority\"", "    \"authority\"", 1),
+		"wrong authority":     strings.Replace(valid, `"NO_RESULT"`, `"RESULT"`, 1),
+		"ready state":         strings.Replace(valid, `"candidate_only"`, `"locked"`, 1),
+		"wrong platform":      strings.Replace(valid, `"linux/amd64"`, `"linux/arm64"`, 1),
+		"mutable index":       strings.Replace(valid, `https://pypi.org/simple`, `https://example.invalid/simple`, 1),
+		"source archive":      strings.Replace(valid, lockedSourceArchiveSHA256, strings.Repeat("a", 64), 1),
+		"archive size":        strings.Replace(valid, `"archive_size_bytes": 5347008`, `"archive_size_bytes": 1`, 1),
+		"newer Python":        strings.Replace(valid, `"version": "3.13.15"`, `"version": "3.14.7"`, 1),
+		"mutable base":        strings.Replace(valid, `@sha256:c45a22ea000adfd9cda29364bbe7edd23001ce5cc2ad15857cfbf7766943b9ca`, ``, 1),
+		"resolver drift":      strings.Replace(valid, `"version": "0.12.9"`, `"version": "0.12.8"`, 1),
+		"global cutoff drift": strings.Replace(valid, `"exclude_newer": "2026-08-31T13:22:50Z"`, `"exclude_newer": "2026-09-01T00:00:00Z"`, 1),
+		"constraint drift":    strings.Replace(valid, `jax>=0.4.31`, `jax>=0.4.30`, 1),
+		"candidate drift":     strings.Replace(valid, `"requirement": "jax==0.11.1"`, `"requirement": "jax==0.11.0"`, 1),
+		"wheel digest":        strings.Replace(valid, lockedWheelCandidates[0].SHA256, strings.Repeat("b", 64), 1),
+		"wheel URL":           strings.Replace(valid, `https://files.pythonhosted.org/`, `https://example.invalid/`, 1),
+		"supplement missing":  strings.Replace(valid, `tqdm==4.70.0`, `tqdm>=4`, 1),
 	}
 	for name, body := range tests {
 		name, body := name, body

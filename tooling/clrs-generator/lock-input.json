@@ -28,7 +28,10 @@
     "revision": "9f928602938ac5cf1cd6b294a725833c16f5720e",
     "resolution": "highest-compatible",
     "prerelease": "if-necessary",
-    "exclude_newer": "2026-08-31T13:22:50Z"
+    "exclude_newer": "2026-08-31T13:22:50Z",
+    "exclude_newer_package": {
+      "urllib3": "2026-09-16T00:00:00Z"
+    }
   },
   "upstream_requirements": {
     "path": "requirements/requirements.txt",

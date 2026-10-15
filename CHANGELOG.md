@@ -5,6 +5,17 @@ the exact diff; this file records why the project changed.
 
 ## [Unreleased]
 
+### Security
+
+- Re-resolve the CLRS generator's urllib3 dependency from 2.7.0 to 2.8.0 for
+  GHSA-8988-9cw3-xx77, GHSA-vxq7-64xx-v4gw and GHSA-gh4c-6fx4-qh6g.
+  Only urllib3 receives a later cutoff; the global cutoff and every other
+  package block remain unchanged
+  ([Decision 0100](decisions/0100-lift-the-urllib3-cutoff-in-the-clrs-generator.md)).
+  The retained SBOM bundle that CI checks moves to the
+  `clrs-sbom-bundle-2026-10-16` prerelease, scanned from the image rebuilt
+  with the new lock.
+
 ### Added
 
 - Read-only research-watch ingestion v1 (#267) merges fleet issue leads by
