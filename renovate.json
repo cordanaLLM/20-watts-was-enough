@@ -1,9 +1,8 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended",
+    "github>plurano/horistes",
     "helpers:pinGitHubActionDigests",
-    ":dependencyDashboard",
     ":semanticCommits"
   ],
   "ignorePaths": [
@@ -30,7 +29,6 @@
   "prConcurrentLimit": 3,
   "prHourlyLimit": 2,
   "rebaseWhen": "conflicted",
-  "automerge": false,
   "lockFileMaintenance": {
     "enabled": true,
     "schedule": [
@@ -46,8 +44,7 @@
       "matchDepTypes": [
         "!uses-with"
       ],
-      "groupName": "github actions",
-      "automerge": false
+      "groupName": "github actions"
     },
     {
       "description": "A tool version passed as a workflow input is bound to a lock outside the workflow: Python to the fixture-019 environment, Buildx to the PDF renderer lock.",
@@ -59,16 +56,14 @@
       ],
       "prBodyNotes": [
         "This repository binds workflow tool versions to locks: Python to the fixture-019 environment, Buildx to the PDF renderer lock. `npm run validate:policy` fails until a bound value moves together with its lock in this pull request."
-      ],
-      "automerge": false
+      ]
     },
     {
       "description": "Keep npm dependency declarations and the lockfile exact.",
       "matchManagers": [
         "npm"
       ],
-      "rangeStrategy": "pin",
-      "automerge": false
+      "rangeStrategy": "pin"
     },
     {
       "description": "Major upgrades require an explicit compatibility review.",
@@ -78,8 +73,28 @@
       "labels": [
         "dependencies",
         "breaking-change"
+      ]
+    },
+    {
+      "description": "Hold TypeScript below 7 until a typescript-eslint release admits TypeScript 7 in its peer range.",
+      "matchManagers": [
+        "npm"
       ],
-      "automerge": false
+      "matchPackageNames": [
+        "typescript"
+      ],
+      "allowedVersions": "<7"
+    },
+    {
+      "description": "Hold ESLint below 10 until eslint-plugin-react and eslint-plugin-jsx-a11y releases admit ESLint 10 in their peer ranges; @eslint/js versions with ESLint.",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "eslint",
+        "@eslint/js"
+      ],
+      "allowedVersions": "<10"
     },
     {
       "description": "praetor-managed files: praetorctl adopt ships their updates and praetorctl audit locks them byte for byte",
