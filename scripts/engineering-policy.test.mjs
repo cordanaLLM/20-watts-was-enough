@@ -10,6 +10,7 @@ import ts from "typescript";
 import { parse } from "yaml";
 
 import { createEslintConfig } from "../eslint.config.mjs";
+import { declaredVerifyAction, DECLARED_VERIFY_EXCEPTION } from "./declared-verify-npm.mjs";
 import {
   activeExceptions,
   currentCalendarDay,
@@ -3968,4 +3969,50 @@ test("lint refuses the three rules ESLint 10 adds to its recommended set", async
     .replace("let line = \"\";\n  line =", "const line =")
     .replace("  let never;\n  return never;", "  return undefined;");
   assert.deepEqual(await ruleIds(fixed), []);
+});
+
+test("verify-all skips npm steps only inside the declared-verify stage without node_modules", () => {
+  const stage = { PRAETOR_GATE_DECLARED_VERIFY: "1" };
+  const lastDay = DECLARED_VERIFY_EXCEPTION.expires;
+  assert.equal(declaredVerifyAction({ env: stage, hasNodeModules: false, today: lastDay }), "skip");
+  // Outside the stage an absent node_modules still runs the step, so it fails there.
+  assert.equal(declaredVerifyAction({ env: {}, hasNodeModules: false, today: lastDay }), "run");
+  assert.equal(declaredVerifyAction({ env: stage, hasNodeModules: true, today: lastDay }), "run");
+  // From the day after the exception expires the skip fails.
+  assert.equal(declaredVerifyAction({ env: stage, hasNodeModules: false, today: "2026-10-19" }), "expired");
+  assert.equal(DECLARED_VERIFY_EXCEPTION.category, "B");
+  const makefile = readFileSync("Makefile", "utf8");
+  assert.doesNotMatch(makefile, /'npm' 'run'/u, "every npm step in the Makefile goes through the exception script");
+  assert.match(makefile, /declared-verify-npm\.mjs' 'build'/u);
+});
+
+test("declared-verify-npm runs the npm step when the stage variable is absent", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "declared-verify-"));
+  try {
+    mkdirSync(path.join(root, "scripts"));
+    writeFileSync(path.join(root, "scripts", "declared-verify-npm.mjs"), readFileSync("scripts/declared-verify-npm.mjs"));
+    const script = path.join(root, "scripts", "declared-verify-npm.mjs");
+    const env = { ...process.env };
+    delete env.PRAETOR_GATE_DECLARED_VERIFY;
+    // No package.json and no node_modules: npm runs and fails.
+    const outside = spawnSync(process.execPath, [script, "build"], { cwd: root, encoding: "utf8", env, timeout: 60_000 });
+    assert.notEqual(outside.status, 0);
+    assert.doesNotMatch(outside.stdout, /SKIPPED/u);
+    const inside = spawnSync(process.execPath, [script, "build"], {
+      cwd: root,
+      encoding: "utf8",
+      env: { ...env, PRAETOR_GATE_DECLARED_VERIFY: "1" },
+      timeout: 60_000,
+    });
+    const today = new Date().toISOString().slice(0, 10);
+    if (today <= DECLARED_VERIFY_EXCEPTION.expires) {
+      assert.equal(inside.status, 0);
+      assert.match(inside.stdout, /SKIPPED npm run build: .*praetor#1385/u);
+    } else {
+      assert.equal(inside.status, 1);
+      assert.match(inside.stderr, /expired/u);
+    }
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
 });
