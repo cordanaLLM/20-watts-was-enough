@@ -172,6 +172,16 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Renovate extends the family preset `github>plurano/horistes` instead of
+  `config:recommended` and `:dependencyDashboard`, and drops the automerge
+  keys the preset now sets. The preset also brings sign-off on Renovate
+  commits, its GitHub runner rule and its ignored-author list. The
+  repository keeps its own rules: the Node and npm constraints, the
+  workflow-input lock note, exact npm pins, the major-upgrade labels, the
+  Praetor-managed file list and the stricter seven-day minimum release age.
+  TypeScript is held below 7 until a typescript-eslint release admits it,
+  and ESLint and `@eslint/js` below 10 until eslint-plugin-react and
+  eslint-plugin-jsx-a11y releases admit ESLint 10.
 - Mermaid moves to version 12. Its diagram layout pulls in `elkjs@0.9.3`
   under the Eclipse Public License 2.0, so the web edition now bundles one
   weak-copyleft module. `THIRD_PARTY_NOTICES.txt` carries the full EPL-2.0
