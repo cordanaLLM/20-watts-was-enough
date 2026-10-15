@@ -155,7 +155,7 @@
     "typescript": "6.0.3",
     "typescript-eslint": "8.71.0",
     "unified": "11.0.5",
-    "vite": "8.3.2",
+    "vite": "8.3.4",
     "yaml": "2.9.1"
   },
   "type": "module"
