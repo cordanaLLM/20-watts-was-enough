@@ -208,7 +208,7 @@ export async function openCheckpointLedger({
     try {
       record = JSON.parse(line);
     } catch (error) {
-      throw new Error(`Raw ledger line ${sequence + 1} is invalid JSON: ${error.message}`);
+      throw new Error(`Raw ledger line ${sequence + 1} is invalid JSON: ${error.message}`, { cause: error });
     }
     if (typeof assertRecord === "function") assertRecord(record, { sequence, previousHash: state.previousHash });
     const key = workKey(record);

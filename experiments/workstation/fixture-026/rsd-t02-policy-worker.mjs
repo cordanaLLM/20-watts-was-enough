@@ -231,7 +231,7 @@ function abstention(reasonCode, binding = null) {
 
 async function main() {
   let rawRequest = null;
-  let opened = null;
+  let opened;
   let binding = null;
   try {
     if (![3, 4].includes(process.argv.length)) throw new Error("invalid worker arguments");

@@ -72,12 +72,12 @@ async function json(file, label) {
   try {
     body = await readFile(file);
   } catch (error) {
-    throw new Error(`Cannot read ${label}: ${error.message}`);
+    throw new Error(`Cannot read ${label}: ${error.message}`, { cause: error });
   }
   try {
     return { body, value: JSON.parse(body) };
   } catch (error) {
-    throw new Error(`${label} is not valid JSON: ${error.message}`);
+    throw new Error(`${label} is not valid JSON: ${error.message}`, { cause: error });
   }
 }
 
@@ -105,7 +105,7 @@ async function strictDirectory(value, label) {
   try {
     information = await lstat(absolute);
   } catch (error) {
-    throw new Error(`${label} is unavailable: ${error.message}`);
+    throw new Error(`${label} is unavailable: ${error.message}`, { cause: error });
   }
   if (information.isSymbolicLink() || !information.isDirectory()) {
     throw new Error(`${label} must be a real directory, not a symbolic link or reparse point.`);
@@ -131,7 +131,7 @@ async function containedRegularFile(rootValue, fileValue, label, seenRealPaths =
     try {
       information = await lstat(cursor);
     } catch (error) {
-      throw new Error(`${label} is unavailable: ${error.message}`);
+      throw new Error(`${label} is unavailable: ${error.message}`, { cause: error });
     }
     if (information.isSymbolicLink()) {
       throw new Error(`${label} traverses a symbolic link or reparse point.`);

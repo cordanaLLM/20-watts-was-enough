@@ -134,6 +134,7 @@ export async function replaceFilePair(
       throw new AggregateError(
         [error, ...rollbackFailures.map((result) => result.reason)],
         `Generated artifact replacement and rollback both failed; recovery backups remain at ${pairs.map(({ backup }) => backup).join(", ")}.`,
+        { cause: error },
       );
     }
     throw error;

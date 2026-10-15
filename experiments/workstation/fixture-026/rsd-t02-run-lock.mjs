@@ -244,6 +244,7 @@ async function acquireRunLock({ outputDirectory, runnerId }, testHooks = null) {
         throw new Error(
           `Fixture 026 RSD-T02 run lease ${changed}; refusing foreign-lock removal. `
           + error.message,
+          { cause: error },
         );
       }
     },

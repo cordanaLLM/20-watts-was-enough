@@ -214,7 +214,7 @@ async function atomicCreateJson(filePath, document) {
     if (error.code === "EEXIST") {
       const existing = JSON.parse(await readFile(filePath, "utf8"));
       if (canonical(existing) === canonical(document)) return false;
-      throw new Error(`Concurrent durable provenance differs: ${path.basename(filePath)}`);
+      throw new Error(`Concurrent durable provenance differs: ${path.basename(filePath)}`, { cause: error });
     }
     throw error;
   } finally {
@@ -1238,7 +1238,7 @@ export async function validateRun(outputDirectory, { writeArtifact = true } = {}
     || run.seed_count !== seeds.length
     || expectedSchedule.size !== expectedRecords
   ) errors.push("run provenance differs from the frozen config, seed pack, or schedule");
-  let checkpointState = null;
+  let checkpointState;
   try {
     const ledger = await openCheckpointLedger({
       rawPath,

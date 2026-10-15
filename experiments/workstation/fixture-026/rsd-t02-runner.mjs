@@ -389,7 +389,7 @@ async function writeJsonStable(file, value, { durable = false } = {}) {
     if (error.code !== "EEXIST") throw error;
     const current = JSON.parse(await readFile(file, "utf8"));
     if (canonicalize(current) !== canonicalize(value)) {
-      throw new Error(`Refusing to replace non-identical ${path.basename(file)}.`);
+      throw new Error(`Refusing to replace non-identical ${path.basename(file)}.`, { cause: error });
     }
   }
 }
@@ -450,7 +450,7 @@ async function publishCanonicalJsonAtomic(file, value, label) {
       containedBy: repositoryRoot,
     });
     if (existing.toString("utf8") !== body) {
-      throw new Error(`Refusing to replace non-identical ${path.basename(pendingPath)}.`);
+      throw new Error(`Refusing to replace non-identical ${path.basename(pendingPath)}.`, { cause: error });
     }
   } finally {
     await handle?.close();
@@ -465,7 +465,7 @@ async function publishCanonicalJsonAtomic(file, value, label) {
       containedBy: repositoryRoot,
     });
     if (existing.toString("utf8") !== body) {
-      throw new Error(`Refusing to replace non-identical ${path.basename(file)}.`);
+      throw new Error(`Refusing to replace non-identical ${path.basename(file)}.`, { cause: error });
     }
   }
   await syncParentDirectory(file);

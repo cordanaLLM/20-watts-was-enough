@@ -30,6 +30,7 @@ export const LINT_EXCEPTIONS = Object.freeze([
     "no-prototype-builtins",
     "no-undef",
     "no-unreachable",
+    "no-useless-assignment",
     "no-useless-escape",
     "valid-typeof",
   ]),

@@ -388,7 +388,7 @@ export async function openFixture026RsdT02BoundedCheckpointLedger({
     try {
       record = JSON.parse(line);
     } catch (error) {
-      throw new Error(`Raw disk ledger line ${sequence + 1} is invalid JSON: ${error.message}`);
+      throw new Error(`Raw disk ledger line ${sequence + 1} is invalid JSON: ${error.message}`, { cause: error });
     }
     if (typeof assertRecord === "function") {
       assertRecord(record, { sequence, previousHash: state.previousHash });
@@ -422,7 +422,7 @@ export async function openFixture026RsdT02BoundedCheckpointLedger({
     try {
       checkpoint = JSON.parse(checkpointRaw);
     } catch (error) {
-      throw new Error(`Checkpoint is invalid JSON: ${error.message}`);
+      throw new Error(`Checkpoint is invalid JSON: ${error.message}`, { cause: error });
     }
     verifyCheckpoint(checkpoint, { artifact, ledgerFormat, runIdentity, maximumRecords });
     if (checkpoint.records > state.records) throw new Error("Checkpoint is ahead of raw ledger.");

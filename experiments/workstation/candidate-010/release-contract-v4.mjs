@@ -217,7 +217,7 @@ function parseJson(body, label) {
   try {
     return JSON.parse(body.toString("utf8"));
   } catch (error) {
-    throw new Error(`${label} is not valid JSON: ${error.message}`);
+    throw new Error(`${label} is not valid JSON: ${error.message}`, { cause: error });
   }
 }
 
@@ -297,7 +297,7 @@ function validatePreflight(document) {
   try {
     rebuilt = evaluateConfirmationPreflight(input);
   } catch (error) {
-    throw new Error(`Confirmation preflight cannot be reproduced: ${error.message}`);
+    throw new Error(`Confirmation preflight cannot be reproduced: ${error.message}`, { cause: error });
   }
   if (canonical(rebuilt) !== canonical(document)) {
     throw new Error("Confirmation preflight differs from its exact deterministic reconstruction.");
@@ -396,7 +396,7 @@ function validateSchedule(schedule) {
       meter_capability: schedule.meter_capability,
     });
   } catch (error) {
-    throw new Error(`Energy block schedule cannot be reproduced: ${error.message}`);
+    throw new Error(`Energy block schedule cannot be reproduced: ${error.message}`, { cause: error });
   }
   if (canonical(rebuilt) !== canonical(schedule)) {
     throw new Error("Energy block schedule differs from its exact deterministic reconstruction.");

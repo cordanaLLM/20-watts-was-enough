@@ -77,7 +77,7 @@ function parseJson(bytes, relativePath) {
   try {
     return JSON.parse(bytes.toString("utf8"));
   } catch (error) {
-    throw new Error(`${relativePath} is not valid JSON: ${error.message}`);
+    throw new Error(`${relativePath} is not valid JSON: ${error.message}`, { cause: error });
   }
 }
 

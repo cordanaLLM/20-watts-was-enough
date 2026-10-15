@@ -158,7 +158,7 @@ export async function openCheckpointLedger({
     try {
       event = JSON.parse(line);
     } catch (error) {
-      throw new Error(`Raw ledger line ${index + 1} is invalid JSON: ${error.message}`);
+      throw new Error(`Raw ledger line ${index + 1} is invalid JSON: ${error.message}`, { cause: error });
     }
     const key = workKey(event);
     if (typeof key !== "string" || key.length === 0) throw new Error(`Invalid work key at raw line ${index + 1}.`);

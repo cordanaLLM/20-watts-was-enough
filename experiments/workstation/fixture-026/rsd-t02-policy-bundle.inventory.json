@@ -40,8 +40,8 @@
     },
     {
       "relative_path": "rsd-t02-policy-worker.mjs",
-      "sha256": "2d54e9c36ca95c498995d1c295545f149da43a03f83bdb1f215393ac725bd8fe",
-      "bytes": 10768
+      "sha256": "1e587d40235539e0209f68e691b83677947362aadf119e582f1502e50f202b70",
+      "bytes": 10761
     },
     {
       "relative_path": "rsd-t02-transform-policies.mjs",
@@ -49,7 +49,7 @@
       "bytes": 15696
     }
   ],
-  "source_inventory_sha256": "366640ba74078ad0936b0b9527d09dab097c3ac40e5ed9bca94bafea2a1883d0",
+  "source_inventory_sha256": "d99c199ea94c31682e14e871b6ceb99485b345799e754917e179e4590b86d615",
   "authority": "checked-in-public-development-conformance-policy-base-v2",
-  "inventory_sha256": "d7ad203061183543f11998727b4fec2f057406bcd42e594eae4d08ce93c990f3"
+  "inventory_sha256": "e07a9ede911cc5d7cfb3618c5ac6b608efbbbd1fd92daa34d3a14a9da6cb2d03"
 }

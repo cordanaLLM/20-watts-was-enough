@@ -121,7 +121,7 @@ async function writeJsonStable(file, value) {
     if (error.code !== "EEXIST") throw error;
     const existing = JSON.parse(await readFile(file, "utf8"));
     if (canonical(existing) !== canonical(value)) {
-      throw new Error(`Refusing to replace non-identical ${path.basename(file)}.`);
+      throw new Error(`Refusing to replace non-identical ${path.basename(file)}.`, { cause: error });
     }
   }
 }
@@ -228,7 +228,7 @@ async function readOptionalCheckpoint(file, identity = null) {
   try {
     checkpoint = JSON.parse(raw);
   } catch (error) {
-    throw new Error(`Fixture 022 checkpoint is not valid JSON: ${error.message}`);
+    throw new Error(`Fixture 022 checkpoint is not valid JSON: ${error.message}`, { cause: error });
   }
   return assertFixture022Checkpoint(checkpoint, identity);
 }
@@ -546,7 +546,7 @@ function runPolicy(world, arm, config) {
   let memoryAbstentionCount = 0;
   let fallbackInvoked = false;
   let corruptionDetected = false;
-  let extraMessages = 0;
+  let extraMessages;
   let trustedMemoryIds = new Set();
   if (arm === "open-write-majority") {
     trustedMemoryIds = new Set(survivorIds);

@@ -123,7 +123,7 @@ async function removePartialArchive(archivePath, operationError) {
     await unlink(archivePath);
   } catch (cleanupError) {
     if (cleanupError?.code !== "ENOENT") {
-      throw new AggregateError([operationError, cleanupError], "npm archive download and cleanup both failed");
+      throw new AggregateError([operationError, cleanupError], "npm archive download and cleanup both failed", { cause: cleanupError });
     }
   }
   throw operationError;
