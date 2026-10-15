@@ -7,6 +7,10 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- Read-only research-watch ingestion v1 (#267) merges fleet issue leads by
+  external identifier, retains closed items, and keeps private origins out of
+  the public repository. The CLI has offline tests; no workflow is added yet.
+
 - The adoption matrix checks the *Physarum* solve-cost lead against primary
   sources (issue #231). Tero, Kobayashi and Nakagaki (2007, eq. 6) solve a
   network-wide Poisson equation for node pressures at every update, by
