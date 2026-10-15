@@ -263,6 +263,54 @@ export function extractChangelogSection(changelog, version) {
   return `${section}\n`;
 }
 
+const blockStartPattern = /^(?:#{1,6}\s|\s*(?:[-*+]|\d+[.)])\s|\s*>|\s*\||\s*<!--|\s*(?:-{3,}|\*{3,}|_{3,})\s*$)/u;
+const closedLinePattern = /^(?:#{1,6}\s|\s*\||\s*>)|(?: {2}|\\)$/u;
+const fencePattern = /^\s*(`{3,}|~{3,})/u;
+
+// Forge release bodies render every newline as a line break, so CHANGELOG
+// paragraphs and list items wrapped at 80 columns arrive broken mid-sentence.
+// Joins each paragraph and list item onto one line; headings, fenced code,
+// tables, block quotes and hard line breaks keep their lines. `continuations`
+// holds the 1-based input line numbers that were joined onto the line above.
+function scanMarkdownProse(markdown) {
+  invariant(typeof markdown === "string", "Markdown release notes must be text");
+  const lines = [];
+  const continuations = [];
+  let fence = null;
+  let joinable = false;
+  for (const [index, line] of markdown.replaceAll("\r\n", "\n").split("\n").entries()) {
+    const fenceMatch = fencePattern.exec(line);
+    if (fence !== null || fenceMatch) {
+      if (fence === null) fence = fenceMatch[1];
+      else if (fenceMatch && fenceMatch[1][0] === fence[0] && fenceMatch[1].length >= fence.length) fence = null;
+      lines.push(line);
+      joinable = false;
+      continue;
+    }
+    const blank = line.trim() === "";
+    if (!blank && joinable && !blockStartPattern.test(line)) {
+      lines[lines.length - 1] = `${lines.at(-1).trimEnd()} ${line.trim()}`;
+      continuations.push(index + 1);
+    } else {
+      lines.push(line);
+    }
+    joinable = !blank && !closedLinePattern.test(lines.at(-1));
+  }
+  return { text: lines.join("\n"), continuations };
+}
+
+export function unwrapMarkdownProse(markdown) {
+  return scanMarkdownProse(markdown).text;
+}
+
+export function assertMarkdownProseUnwrapped(markdown, label) {
+  const { continuations } = scanMarkdownProse(markdown);
+  invariant(
+    continuations.length === 0,
+    `${label} is hard-wrapped: ${continuations.length} line(s) continue the paragraph or list item above (first at line ${continuations[0]})`,
+  );
+}
+
 function changelogReleaseDate(changelog, version) {
   const normalized = changelog.replaceAll("\r\n", "\n");
   const releaseHeading = new RegExp(
@@ -305,7 +353,7 @@ export function validateVersionAgreement({ tag, packageManifest, packageLock, ci
   return Object.freeze({
     version,
     releaseDate,
-    releaseNotes: extractChangelogSection(changelog, version),
+    releaseNotes: unwrapMarkdownProse(extractChangelogSection(changelog, version)),
   });
 }
 
@@ -353,6 +401,52 @@ function spdxTimestamp(releaseDate) {
   return timestamp;
 }
 
+function spdxPackageRecords(entries, identifiers, rootName) {
+  return entries.map(([lockPath, metadata]) => {
+    const record = {
+      name: packageNameFromLockPath(lockPath, rootName),
+      SPDXID: identifiers.get(lockPath),
+      versionInfo: metadata.version,
+      downloadLocation: metadata.resolved ?? "NOASSERTION",
+      filesAnalyzed: false,
+      licenseConcluded: "NOASSERTION",
+      licenseDeclared: "NOASSERTION",
+      copyrightText: "NOASSERTION",
+    };
+    const checksums = integrityChecksum(metadata.integrity);
+    if (checksums) record.checksums = checksums;
+    return record;
+  });
+}
+
+function spdxRelationships(entries, identifiers, lockedPackages) {
+  const relationships = [{
+    spdxElementId: "SPDXRef-DOCUMENT",
+    relationshipType: "DESCRIBES",
+    relatedSpdxElement: identifiers.get(""),
+  }];
+  for (const [lockPath, metadata] of entries) {
+    const dependencyNames = new Set([
+      ...Object.keys(metadata.dependencies ?? {}),
+      ...Object.keys(metadata.devDependencies ?? {}),
+      ...Object.keys(metadata.optionalDependencies ?? {}),
+    ]);
+    for (const dependencyName of [...dependencyNames].sort(compareText)) {
+      const dependencyPath = resolveLockedDependency(lockedPackages, lockPath, dependencyName);
+      if (!dependencyPath || !identifiers.has(dependencyPath)) continue;
+      relationships.push({
+        spdxElementId: identifiers.get(lockPath),
+        relationshipType: "DEPENDS_ON",
+        relatedSpdxElement: identifiers.get(dependencyPath),
+      });
+    }
+  }
+  return relationships.sort((left, right) => compareText(
+    `${left.spdxElementId}\0${left.relationshipType}\0${left.relatedSpdxElement}`,
+    `${right.spdxElementId}\0${right.relationshipType}\0${right.relatedSpdxElement}`,
+  ));
+}
+
 export function buildSpdxDocument({ tag, version, packageLock, packageLockSha256, releaseDate }) {
   invariant(packageLock?.lockfileVersion === 3, "package-lock.json must use lockfileVersion 3");
   invariant(packageLock?.packages && typeof packageLock.packages === "object", "package-lock.json has no locked package graph");
@@ -366,47 +460,8 @@ export function buildSpdxDocument({ tag, version, packageLock, packageLockSha256
     lockPath,
     lockPath === "" ? "SPDXRef-Package-root" : `SPDXRef-Package-${String(index).padStart(5, "0")}`,
   ]));
-  const packages = entries.map(([lockPath, metadata]) => {
-    const record = {
-      name: packageNameFromLockPath(lockPath, packageLock.name),
-      SPDXID: identifiers.get(lockPath),
-      versionInfo: metadata.version,
-      downloadLocation: metadata.resolved ?? "NOASSERTION",
-      filesAnalyzed: false,
-      licenseConcluded: "NOASSERTION",
-      licenseDeclared: "NOASSERTION",
-      copyrightText: "NOASSERTION",
-    };
-    const checksums = integrityChecksum(metadata.integrity);
-    if (checksums) record.checksums = checksums;
-    return record;
-  });
-
-  const relationships = [{
-    spdxElementId: "SPDXRef-DOCUMENT",
-    relationshipType: "DESCRIBES",
-    relatedSpdxElement: identifiers.get(""),
-  }];
-  for (const [lockPath, metadata] of entries) {
-    const dependencyNames = new Set([
-      ...Object.keys(metadata.dependencies ?? {}),
-      ...Object.keys(metadata.devDependencies ?? {}),
-      ...Object.keys(metadata.optionalDependencies ?? {}),
-    ]);
-    for (const dependencyName of [...dependencyNames].sort(compareText)) {
-      const dependencyPath = resolveLockedDependency(packageLock.packages, lockPath, dependencyName);
-      if (!dependencyPath || !identifiers.has(dependencyPath)) continue;
-      relationships.push({
-        spdxElementId: identifiers.get(lockPath),
-        relationshipType: "DEPENDS_ON",
-        relatedSpdxElement: identifiers.get(dependencyPath),
-      });
-    }
-  }
-  relationships.sort((left, right) => compareText(
-    `${left.spdxElementId}\0${left.relationshipType}\0${left.relatedSpdxElement}`,
-    `${right.spdxElementId}\0${right.relationshipType}\0${right.relatedSpdxElement}`,
-  ));
+  const packages = spdxPackageRecords(entries, identifiers, packageLock.name);
+  const relationships = spdxRelationships(entries, identifiers, packageLock.packages);
 
   return {
     spdxVersion: "SPDX-2.3",
@@ -522,6 +577,72 @@ async function loadReleaseInputs(root, version) {
   return bytesByPath;
 }
 
+// Release notes are forge text: one line per paragraph and list item.
+function releaseNotesWithDisclosureLink(releaseNotes, tag, disclosureAssetName) {
+  const notes = [
+    releaseNotes.trimEnd(),
+    "",
+    "## Research-output disclosure",
+    "",
+    `[Research-output disclosure for ${tag}](https://github.com/cordanaLLM/20-watts-was-enough/releases/download/${tag}/${disclosureAssetName})`,
+    "",
+  ].join("\n");
+  assertMarkdownProseUnwrapped(notes, "Release notes");
+  return notes;
+}
+
+function assertUniqueAssetNames(names) {
+  invariant(new Set(names).size === names.length, "Release asset basenames must be unique");
+  invariant(
+    new Set(names.map((name) => name.toLowerCase())).size === names.length,
+    "Release asset basenames must be unique without case distinctions",
+  );
+  invariant(!names.includes("SHA256SUMS") && !names.includes("sbom.spdx.json"), "Canonical files collide with generated release assets");
+}
+
+// Writes into a sibling staging folder and renames it over outputRoot only
+// after the checksums verify, so a failed run leaves no partial release.
+async function writeReleaseOutput({ outputRoot, assetRecords, checksums, releaseNotes }) {
+  const outputParent = path.dirname(outputRoot);
+  await mkdir(outputParent, { recursive: true });
+  const stagingRoot = await mkdtemp(path.join(outputParent, ".release-stage-"));
+  try {
+    const assetsRoot = path.join(stagingRoot, "assets");
+    await mkdir(assetsRoot);
+    for (const { name, bytes } of assetRecords) {
+      await writeFile(path.join(assetsRoot, name), bytes, { flag: "wx" });
+    }
+    await writeFile(path.join(assetsRoot, "SHA256SUMS"), checksums, { flag: "wx" });
+    await writeFile(path.join(stagingRoot, "release-notes.md"), releaseNotes, { flag: "wx" });
+    await verifyReleaseChecksums(assetsRoot);
+    await rm(outputRoot, { recursive: true, force: true });
+    await rename(stagingRoot, outputRoot);
+  } catch (error) {
+    await rm(stagingRoot, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+async function collectAssetRecords({ bytesByPath, disclosureAssetName, disclosureBytes, root, additionalAssetsRoot, outputRoot }) {
+  return [
+    { name: path.basename(bookPdfRelativePath), bytes: bytesByPath.get(bookPdfRelativePath) },
+    { name: "book-manifest.json", bytes: bytesByPath.get(bookManifestRelativePath) },
+    { name: "CITATION.cff", bytes: bytesByPath.get("CITATION.cff") },
+    { name: "LICENSE", bytes: bytesByPath.get("LICENSE") },
+    { name: "LICENSING.md", bytes: bytesByPath.get("LICENSING.md") },
+    { name: "THIRD_PARTY_NOTICES.txt", bytes: bytesByPath.get("THIRD_PARTY_NOTICES.txt") },
+    { name: disclosureAssetName, bytes: disclosureBytes },
+    ...[...bytesByPath.entries()]
+      .filter(([relativePath]) => relativePath.startsWith("LICENSES/"))
+      .map(([relativePath, bytes]) => ({ name: path.basename(relativePath), bytes })),
+    ...await loadAdditionalAssetRecords({
+      repositoryRoot: root,
+      additionalAssetsRoot,
+      outputRoot,
+    }),
+  ];
+}
+
 export async function prepareReleaseAssets({
   root = defaultRoot,
   outputRoot = path.join(root, "build", "release"),
@@ -545,14 +666,7 @@ export async function prepareReleaseAssets({
   });
   const disclosureBytes = bytesByPath.get(disclosureRelativePath);
   validateResearchDisclosure(disclosureBytes.toString("utf8"), version, disclosureRelativePath);
-  const releaseNotesWithDisclosure = [
-    releaseNotes.trimEnd(),
-    "",
-    "## Research-output disclosure",
-    "",
-    `[Research-output disclosure for ${tag}](https://github.com/cordanaLLM/20-watts-was-enough/releases/download/${tag}/${disclosureAssetName})`,
-    "",
-  ].join("\n");
+  const releaseNotesWithDisclosure = releaseNotesWithDisclosureLink(releaseNotes, tag, disclosureAssetName);
   const bookManifest = parseJson(bytesByPath.get(bookManifestRelativePath), bookManifestRelativePath);
   assertBookManifestContract({
     manifest: bookManifest,
@@ -563,30 +677,15 @@ export async function prepareReleaseAssets({
   });
   assertBookPdfBytesIntegrity(bytesByPath.get(bookPdfRelativePath), bookManifest);
 
-  const assetRecords = [
-    { name: path.basename(bookPdfRelativePath), bytes: bytesByPath.get(bookPdfRelativePath) },
-    { name: "book-manifest.json", bytes: bytesByPath.get(bookManifestRelativePath) },
-    { name: "CITATION.cff", bytes: bytesByPath.get("CITATION.cff") },
-    { name: "LICENSE", bytes: bytesByPath.get("LICENSE") },
-    { name: "LICENSING.md", bytes: bytesByPath.get("LICENSING.md") },
-    { name: "THIRD_PARTY_NOTICES.txt", bytes: bytesByPath.get("THIRD_PARTY_NOTICES.txt") },
-    { name: disclosureAssetName, bytes: disclosureBytes },
-    ...[...bytesByPath.entries()]
-      .filter(([relativePath]) => relativePath.startsWith("LICENSES/"))
-      .map(([relativePath, bytes]) => ({ name: path.basename(relativePath), bytes })),
-    ...await loadAdditionalAssetRecords({
-      repositoryRoot: root,
-      additionalAssetsRoot,
-      outputRoot,
-    }),
-  ];
-  const names = assetRecords.map(({ name }) => name);
-  invariant(new Set(names).size === names.length, "Release asset basenames must be unique");
-  invariant(
-    new Set(names.map((name) => name.toLowerCase())).size === names.length,
-    "Release asset basenames must be unique without case distinctions",
-  );
-  invariant(!names.includes("SHA256SUMS") && !names.includes("sbom.spdx.json"), "Canonical files collide with generated release assets");
+  const assetRecords = await collectAssetRecords({
+    bytesByPath,
+    disclosureAssetName,
+    disclosureBytes,
+    root,
+    additionalAssetsRoot,
+    outputRoot,
+  });
+  assertUniqueAssetNames(assetRecords.map(({ name }) => name));
 
   const sbom = buildSpdxDocument({
     tag,
@@ -599,24 +698,7 @@ export async function prepareReleaseAssets({
   assetRecords.sort((left, right) => compareText(left.name, right.name));
   const checksums = Buffer.from(checksumManifest(assetRecords));
 
-  const outputParent = path.dirname(outputRoot);
-  await mkdir(outputParent, { recursive: true });
-  const stagingRoot = await mkdtemp(path.join(outputParent, ".release-stage-"));
-  try {
-    const assetsRoot = path.join(stagingRoot, "assets");
-    await mkdir(assetsRoot);
-    for (const { name, bytes } of assetRecords) {
-      await writeFile(path.join(assetsRoot, name), bytes, { flag: "wx" });
-    }
-    await writeFile(path.join(assetsRoot, "SHA256SUMS"), checksums, { flag: "wx" });
-    await writeFile(path.join(stagingRoot, "release-notes.md"), releaseNotesWithDisclosure, { flag: "wx" });
-    await verifyReleaseChecksums(assetsRoot);
-    await rm(outputRoot, { recursive: true, force: true });
-    await rename(stagingRoot, outputRoot);
-  } catch (error) {
-    await rm(stagingRoot, { recursive: true, force: true });
-    throw error;
-  }
+  await writeReleaseOutput({ outputRoot, assetRecords, checksums, releaseNotes: releaseNotesWithDisclosure });
 
   return Object.freeze({
     tag,

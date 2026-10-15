@@ -449,6 +449,15 @@ the exact diff; this file records why the project changed.
   byte-identical, and the manifest and semantic baseline record the new
   source digest.
 
+- Release notes on the forge no longer break mid-sentence. The release
+  body is the CHANGELOG section, which wraps at 80 columns, and the forge
+  renders every newline as a line break. `scripts/prepare-release-assets.mjs`
+  now joins each paragraph and list item onto one line, leaving headings,
+  fenced code, tables, block quotes and hard line breaks as they are, and
+  refuses to write notes that still continue a paragraph on the next line.
+  A planted wrapped section is refused, and its unwrapped form passes. The
+  `v0.4.1` release body was edited to the unwrapped text; the tag and its
+  assets are unchanged.
 - Two CI gates no longer skip. A manually dispatched full run used to
   skip the code-shape baseline-reset check; it now compares the branch
   against its merge base with `main`, so a dispatched branch that grows a
