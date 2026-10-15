@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -271,7 +272,7 @@ func readDependencies(stagingRoot string, artifacts []Artifact) ([]dependency, e
 			expected = dependencies
 			continue
 		}
-		if !dependenciesEqual(expected, dependencies) {
+		if !slices.Equal(expected, dependencies) {
 			return nil, fmt.Errorf("%s has a different Go dependency graph", artifact.Name)
 		}
 	}
@@ -325,18 +326,6 @@ func formatBuildSettings(settings map[string]string) string {
 	}
 	sort.Strings(entries)
 	return strings.Join(entries, ",")
-}
-
-func dependenciesEqual(left, right []dependency) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	for index := range left {
-		if left[index] != right[index] {
-			return false
-		}
-	}
-	return true
 }
 
 func writeDependencyMetadata(stagingRoot, moduleRoot string, artifacts []Artifact, options Options) error {

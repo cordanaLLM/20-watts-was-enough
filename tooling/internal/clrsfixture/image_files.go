@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/pdfrenderlock"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
 const (
@@ -184,14 +185,11 @@ func decodeCanonicalGeneratorJSON[T any](body []byte, depth int, destination *T)
 	if err := decodeStrict(body, depth, destination); err != nil {
 		return err
 	}
-	var canonical bytes.Buffer
-	encoder := json.NewEncoder(&canonical)
-	encoder.SetEscapeHTML(false)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(destination); err != nil {
+	canonical, err := strictjson.Canonical(destination)
+	if err != nil {
 		return fmt.Errorf("encode canonical CLRS generator JSON: %w", err)
 	}
-	if !bytes.Equal(body, canonical.Bytes()) {
+	if !bytes.Equal(body, canonical) {
 		return errors.New("CLRS generator JSON is not canonical")
 	}
 	return nil

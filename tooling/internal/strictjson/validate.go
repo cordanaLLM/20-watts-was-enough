@@ -11,6 +11,18 @@ import (
 
 const maximumContainerEntries = 65_536
 
+// Canonical encodes value with two-space indentation, unescaped HTML, and a final newline.
+func Canonical(value any) ([]byte, error) {
+	var buffer bytes.Buffer
+	encoder := json.NewEncoder(&buffer)
+	encoder.SetEscapeHTML(false)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(value); err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+
 // Validate requires one JSON value with unique object names and bounded depth.
 func Validate(body []byte, maximumDepth int) error {
 	if maximumDepth <= 0 || maximumDepth > 256 {

@@ -65,14 +65,11 @@ func decodeRegistry(body []byte) (Registry, error) {
 
 // Canonical returns the byte-stable encoding a tracked registry must match.
 func Canonical(registry Registry) ([]byte, error) {
-	var buffer bytes.Buffer
-	encoder := json.NewEncoder(&buffer)
-	encoder.SetEscapeHTML(false)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(registry); err != nil {
+	body, err := strictjson.Canonical(registry)
+	if err != nil {
 		return nil, fmt.Errorf("encode canonical registry: %w", err)
 	}
-	return buffer.Bytes(), nil
+	return body, nil
 }
 
 // rejectNumbers fails on the first JSON number anywhere in the document.
