@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -61,10 +63,43 @@ func validateGeneratorDependencyFiles(
 }
 
 func renderGeneratorProject(input GeneratorLockInput) ([]byte, error) {
+	if _, err := generatorPackageCutoffs(input.Resolver); err != nil {
+		return nil, err
+	}
 	pythonRequirement, err := generatorPythonRequirement(input.Python.Version)
 	if err != nil {
 		return nil, err
 	}
+	requirements, err := generatorProjectRequirements(input)
+	if err != nil {
+		return nil, err
+	}
+
+	var body strings.Builder
+	body.WriteString("[project]\n")
+	body.WriteString("name = \"twenty-watts-clrs-generator\"\n")
+	body.WriteString("version = \"0.0.0\"\n")
+	fmt.Fprintf(&body, "requires-python = %s\n", strconv.Quote(pythonRequirement))
+	body.WriteString("dependencies = [\n")
+	for _, requirement := range requirements {
+		fmt.Fprintf(&body, "  %s,\n", strconv.Quote(requirement))
+	}
+	body.WriteString("]\n\n[tool.uv]\n")
+	body.WriteString("package = false\n")
+	body.WriteString("resolution = \"highest\"\n")
+	fmt.Fprintf(&body, "prerelease = %s\n", strconv.Quote(input.Resolver.Prerelease))
+	fmt.Fprintf(&body, "exclude-newer = %s\n", strconv.Quote(input.Resolver.ExcludeNewer))
+	body.WriteString("environments = [\n")
+	body.WriteString("  \"implementation_name == 'cpython' and sys_platform == 'linux' and platform_machine == 'x86_64'\",\n")
+	body.WriteString("]\n")
+	body.WriteString("required-environments = [\n")
+	body.WriteString("  \"implementation_name == 'cpython' and sys_platform == 'linux' and platform_machine == 'x86_64'\",\n")
+	body.WriteString("]\n")
+	body.WriteString(renderGeneratorPackageCutoffs("tool.uv", input.Resolver))
+	return []byte(body.String()), nil
+}
+
+func generatorProjectRequirements(input GeneratorLockInput) ([]string, error) {
 	pinned := make(map[string]string, len(input.SelectedCandidates))
 	for _, candidate := range input.SelectedCandidates {
 		name := canonicalGeneratorPackageName(candidate.Name)
@@ -111,27 +146,19 @@ func renderGeneratorProject(input GeneratorLockInput) ([]byte, error) {
 		}
 	}
 
-	var body strings.Builder
-	body.WriteString("[project]\n")
-	body.WriteString("name = \"twenty-watts-clrs-generator\"\n")
-	body.WriteString("version = \"0.0.0\"\n")
-	fmt.Fprintf(&body, "requires-python = %s\n", strconv.Quote(pythonRequirement))
-	body.WriteString("dependencies = [\n")
-	for _, requirement := range requirements {
-		fmt.Fprintf(&body, "  %s,\n", strconv.Quote(requirement))
+	return requirements, nil
+}
+
+func renderGeneratorPackageCutoffs(table string, resolver GeneratorResolver) string {
+	if len(resolver.ExcludeNewerPackage) == 0 {
+		return ""
 	}
-	body.WriteString("]\n\n[tool.uv]\n")
-	body.WriteString("package = false\n")
-	body.WriteString("resolution = \"highest\"\n")
-	fmt.Fprintf(&body, "prerelease = %s\n", strconv.Quote(input.Resolver.Prerelease))
-	fmt.Fprintf(&body, "exclude-newer = %s\n", strconv.Quote(input.Resolver.ExcludeNewer))
-	body.WriteString("environments = [\n")
-	body.WriteString("  \"implementation_name == 'cpython' and sys_platform == 'linux' and platform_machine == 'x86_64'\",\n")
-	body.WriteString("]\n")
-	body.WriteString("required-environments = [\n")
-	body.WriteString("  \"implementation_name == 'cpython' and sys_platform == 'linux' and platform_machine == 'x86_64'\",\n")
-	body.WriteString("]\n")
-	return []byte(body.String()), nil
+	var body strings.Builder
+	fmt.Fprintf(&body, "\n[%s.exclude-newer-package]\n", table)
+	for _, name := range slices.Sorted(maps.Keys(resolver.ExcludeNewerPackage)) {
+		fmt.Fprintf(&body, "%s = %s\n", name, strconv.Quote(resolver.ExcludeNewerPackage[name]))
+	}
+	return body.String()
 }
 
 func inspectGeneratorDependencyLock(body []byte, input GeneratorLockInput) (int, int, int64, error) {
@@ -150,35 +177,17 @@ func inspectGeneratorDependencyLock(body []byte, input GeneratorLockInput) (int,
 		strconv.Quote(generatorResolutionMarker),
 		strconv.Quote(input.Resolver.ExcludeNewer),
 	)
+	prefix = strings.TrimSuffix(prefix, "\n") + renderGeneratorPackageCutoffs("options", input.Resolver) + "\n"
 	if !bytes.HasPrefix(body, []byte(prefix)) {
 		return 0, 0, 0, errors.New("generator uv lock header differs from the reviewed resolver boundary")
 	}
-	cutoff, err := time.Parse(time.RFC3339, input.Resolver.ExcludeNewer)
+	packages, err := parseLockedGeneratorPackages(body)
 	if err != nil {
-		return 0, 0, 0, errors.New("generator dependency cutoff is invalid")
+		return 0, 0, 0, err
 	}
-
-	packages := 0
-	artifacts := 0
-	var artifactBytes int64
-	for _, line := range strings.Split(string(body), "\n") {
-		switch {
-		case line == "[[package]]":
-			packages++
-		case strings.HasPrefix(line, "sdist = { url = \"") || strings.HasPrefix(line, "    { url = \""):
-			size, uploadTime, artifactErr := inspectGeneratorArtifact(line)
-			if artifactErr != nil {
-				return 0, 0, 0, artifactErr
-			}
-			if uploadTime.After(cutoff) {
-				return 0, 0, 0, errors.New("generator dependency artifact was uploaded after the resolution cutoff")
-			}
-			artifacts++
-			if size > limitsSafeAddend(artifactBytes) {
-				return 0, 0, 0, errors.New("generator dependency artifact byte sum overflows")
-			}
-			artifactBytes += size
-		}
+	artifacts, artifactBytes, err := inspectGeneratorPackageArtifacts(packages, input.Resolver)
+	if err != nil {
+		return 0, 0, 0, err
 	}
 	for _, candidate := range input.SelectedCandidates {
 		identity := "name = " + strconv.Quote(canonicalGeneratorPackageName(candidate.Name)) + "\nversion = " + strconv.Quote(candidate.Version) + "\n"
@@ -187,7 +196,45 @@ func inspectGeneratorDependencyLock(body []byte, input GeneratorLockInput) (int,
 			return 0, 0, 0, fmt.Errorf("generator dependency lock is missing selected candidate %q", candidate.Name)
 		}
 	}
-	return packages, artifacts, artifactBytes, nil
+	return len(packages), artifacts, artifactBytes, nil
+}
+
+func inspectGeneratorPackageArtifacts(packages []lockedGeneratorPackage, resolver GeneratorResolver) (int, int64, error) {
+	cutoffs, err := generatorPackageCutoffs(resolver)
+	if err != nil {
+		return 0, 0, err
+	}
+	global, err := time.Parse(time.RFC3339, resolver.ExcludeNewer)
+	if err != nil {
+		return 0, 0, fmt.Errorf("parse generator global cutoff: %w", err)
+	}
+	artifacts := 0
+	var artifactBytes int64
+	for _, pkg := range packages {
+		cutoff := global
+		if specific, exists := cutoffs[pkg.Name]; exists {
+			cutoff = specific
+			delete(cutoffs, pkg.Name)
+		}
+		for _, artifact := range pkg.Artifacts {
+			uploadTime, err := time.Parse(time.RFC3339Nano, artifact.UploadTime)
+			if err != nil {
+				return 0, 0, fmt.Errorf("parse generator artifact upload time for %q: %w", pkg.Name, err)
+			}
+			if uploadTime.After(cutoff) {
+				return 0, 0, fmt.Errorf("generator dependency artifact for %q was uploaded after the resolution cutoff %s", pkg.Name, cutoff.Format(time.RFC3339))
+			}
+			if artifact.SizeBytes > limitsSafeAddend(artifactBytes) {
+				return 0, 0, errors.New("generator dependency artifact byte sum overflows")
+			}
+			artifactBytes += artifact.SizeBytes
+			artifacts++
+		}
+	}
+	if len(cutoffs) != 0 {
+		return 0, 0, errors.New("generator package cutoff names a package absent from the lock")
+	}
+	return artifacts, artifactBytes, nil
 }
 
 func inspectGeneratorArtifact(line string) (int64, time.Time, error) {
