@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -107,7 +109,7 @@ func parseRawDiff(body []byte) ([]string, bool, error) {
 		}
 		index += pathCount
 	}
-	result := sortedKeys(paths)
+	result := slices.Sorted(maps.Keys(paths))
 	return result, requiresFull, nil
 }
 
