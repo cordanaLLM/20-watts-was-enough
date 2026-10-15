@@ -138,6 +138,39 @@ modes](../concept/07-cross-domain-convergence.md#failure-modes). The
 flow-reinforced topology row keeps its **Experiment** disposition for expert
 and interconnect topology.
 
+### Physarum solve-cost lead checked against primary sources (2026-10-15)
+
+The solve-cost lead in the previous entry holds for digital simulation of the
+flow-adaptation model. In the model of Tero, Kobayashi and Nakagaki
+(`tero2007adaptive`), the edge fluxes $Q_{ij}$ at each moment follow from node
+pressures $p_i$ that satisfy their network Poisson equation (their eq. 6): a
+conductance-weighted discrete Laplacian over every node, with unit flow
+injected at the source node and withdrawn at the sink node. The conductivities
+$D_{ij}$ then take one semi-implicit step of the adaptation equation (their
+eq. 5). The authors solve the sparse symmetric system by incomplete-Cholesky
+conjugate gradients. The shortest-path analysis of Bonifaci, Mehlhorn and
+Varma (`bonifaci2012physarum`, their eq. 2) and the linear-programming
+generalisation of Straszak and Vishnoi (`straszak2016natural`, their eq. 3,
+where the flux is $W A^\top L^{-1} b$ and $L$ is the weighted graph
+Laplacian) have the same structure: every update needs one solution of a
+linear system that couples all nodes.
+
+None of the three sources states the cost of that solution as a function of
+node or edge count. It depends on the solver, so this entry records no
+exponent. What the sources bound is the number of updates. For the discretised
+dynamics $x(k+1) = (1-h)\,x(k) + h\,q(k)$ started from a feasible point $s$
+with $M^{-1} \le s_i \le M$ and $c^\top s \le M \cdot \mathrm{opt}$,
+Straszak and Vishnoi (their Theorem 1.3, proved as Theorem 7.1) reach a
+$(1+\varepsilon)$-optimal solution after $O(\ln M / (\varepsilon^2 h^2))$
+steps with $h = \varepsilon / (6 C_s^2 D^2)$. Here $C_s$ is the sum of the edge
+costs and $D$ the largest absolute determinant of a square submatrix of the
+constraint matrix $A$. Simulation cost is that step count times one Laplacian
+solution.
+
+The result concerns simulation only: the organism's pressure-driven flow is
+not shown to perform a linear solve, and [C-027](claims.md#c-027) is
+unchanged. The disposition above stands.
+
 ## Near-term priority
 
 The first comparative experiments are specified as versioned contracts:
