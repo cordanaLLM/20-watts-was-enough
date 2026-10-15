@@ -565,7 +565,6 @@ test("boundary: dry-run makes zero mutations and outputs plan", async (t) => {
 test("token under CREDENTIALS_DIRECTORY admits systemd managed mode", async (t) => {
   const fix = await createFixture(t, { tokenMode: 0o644 });
   const credDir = path.dirname(fix.tokenPath);
-  const tokenFile = path.basename(fix.tokenPath);
 
   const { handler } = mockGraphQLHandler({
     remoteLeadsText: fix.leads,
@@ -586,7 +585,7 @@ test("token under CREDENTIALS_DIRECTORY admits systemd managed mode", async (t) 
 test("retry recovers from transient 500 error", async (t) => {
   const fix = await createFixture(t);
   let attempt = 0;
-  const retryHandler = async (input, init) => {
+  const retryHandler = async () => {
     attempt += 1;
     if (attempt === 1) {
       return new Response("Internal Server Error", { status: 500 });
