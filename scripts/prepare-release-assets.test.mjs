@@ -15,11 +15,13 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  assertMarkdownProseUnwrapped,
   buildSpdxDocument,
   extractChangelogSection,
   parseReleaseArguments,
   parseReleaseTag,
   prepareReleaseAssets,
+  unwrapMarkdownProse,
   validateVersionAgreement,
   verifyReleaseChecksums,
 } from "./prepare-release-assets.mjs";
@@ -67,29 +69,50 @@ function fixtureDisclosure(outputVersion = version) {
   ].join("\n");
 }
 
-async function directorySnapshot(root, relative = "") {
-  const directory = path.join(root, relative);
-  const entries = await readdir(directory, { withFileTypes: true });
+// Release output holds two directory levels; the bound fails a runaway tree.
+const snapshotDirectoryLimit = 64;
+
+async function directorySnapshot(root) {
+  const pending = [""];
   const snapshot = [];
-  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
-    const entryRelative = path.posix.join(relative.replaceAll("\\", "/"), entry.name);
-    if (entry.isDirectory()) {
-      snapshot.push(...await directorySnapshot(root, entryRelative));
-    } else {
-      snapshot.push([entryRelative, (await readFile(path.join(root, entryRelative))).toString("base64")]);
+  for (let visited = 0; pending.length > 0; visited += 1) {
+    assert.ok(visited < snapshotDirectoryLimit, `directory snapshot exceeds ${snapshotDirectoryLimit} directories`);
+    const relative = pending.pop();
+    for (const entry of await readdir(path.join(root, relative), { withFileTypes: true })) {
+      const entryRelative = path.posix.join(relative, entry.name);
+      if (entry.isDirectory()) pending.push(entryRelative);
+      else snapshot.push([entryRelative, (await readFile(path.join(root, entryRelative))).toString("base64")]);
     }
   }
-  return snapshot;
+  return snapshot.sort(([left], [right]) => (left < right ? -1 : Number(left > right)));
 }
 
-async function createFixture(t) {
-  const root = await mkdtemp(path.join(os.tmpdir(), "release-assets-test-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
-  await mkdir(path.join(root, "public", "downloads"), { recursive: true });
-  await mkdir(path.join(root, "LICENSES"));
-  await mkdir(path.join(root, "research", "disclosures"), { recursive: true });
-  await mkdir(path.join(root, "tooling", "pdf-renderer"), { recursive: true });
+// The 0.1.0 entry wraps the way the real CHANGELOG does.
+const fixtureChangelog = [
+  "# Changelog",
+  "",
+  "## [Unreleased]",
+  "",
+  "### Changed",
+  "",
+  "- Later work.",
+  "",
+  "## [0.1.0] - 2026-08-05",
+  "",
+  "### Added",
+  "",
+  "- Initial research",
+  "  concept, wrapped as the CHANGELOG wraps it.",
+  "",
+  "## [0.0.9] - 2026-08-01",
+  "",
+  "### Added",
+  "",
+  "- Earlier work.",
+  "",
+].join("\n");
 
+function fixturePackageAndBook() {
   const packageManifest = {
     name: "20-watts-was-enough",
     version,
@@ -130,28 +153,19 @@ async function createFixture(t) {
       platform: "linux/amd64",
     },
   };
-  const changelog = [
-    "# Changelog",
-    "",
-    "## [Unreleased]",
-    "",
-    "### Changed",
-    "",
-    "- Later work.",
-    "",
-    "## [0.1.0] - 2026-08-05",
-    "",
-    "### Added",
-    "",
-    "- Initial research concept.",
-    "",
-    "## [0.0.9] - 2026-08-01",
-    "",
-    "### Added",
-    "",
-    "- Earlier work.",
-    "",
-  ].join("\n");
+  return { packageManifest, packageLock, packageLockBytes, pdf, manifest };
+}
+
+async function createFixture(t) {
+  const root = await mkdtemp(path.join(os.tmpdir(), "release-assets-test-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(path.join(root, "public", "downloads"), { recursive: true });
+  await mkdir(path.join(root, "LICENSES"));
+  await mkdir(path.join(root, "research", "disclosures"), { recursive: true });
+  await mkdir(path.join(root, "tooling", "pdf-renderer"), { recursive: true });
+
+  const { packageManifest, packageLock, packageLockBytes, pdf, manifest } = fixturePackageAndBook();
+  const changelog = fixtureChangelog;
 
   await Promise.all([
     writeFile(path.join(root, "package.json"), `${JSON.stringify(packageManifest, null, 2)}\n`),
@@ -191,6 +205,10 @@ test("release preparation binds versions, the locked graph, licence material, no
   assert.deepEqual(result.assetNames, [...result.assetNames].sort());
   assert.match(await readFile(path.join(outputRoot, "release-notes.md"), "utf8"), /^## \[0\.1\.0\] - 2026-08-05/mu);
   assert.doesNotMatch(await readFile(path.join(outputRoot, "release-notes.md"), "utf8"), /0\.0\.9/u);
+  assert.match(
+    await readFile(path.join(outputRoot, "release-notes.md"), "utf8"),
+    /^- Initial research concept, wrapped as the CHANGELOG wraps it\.$/mu,
+  );
   assert.match(
     await readFile(path.join(outputRoot, "release-notes.md"), "utf8"),
     new RegExp(`https://github\\.com/cordanaLLM/20-watts-was-enough/releases/download/${tag}/${disclosureAssetName}`, "u"),
@@ -346,7 +364,7 @@ test("version validation rejects disagreement and extracts only the exact releas
     citation: { version, "date-released": "2026-08-05" },
     changelog: fixture.changelog,
   });
-  assert.equal(agreement.releaseNotes, extractChangelogSection(fixture.changelog, version));
+  assert.equal(agreement.releaseNotes, unwrapMarkdownProse(extractChangelogSection(fixture.changelog, version)));
   assert.throws(() => validateVersionAgreement({
     tag,
     packageManifest: fixture.packageManifest,
@@ -506,4 +524,63 @@ test("SPDX generation rejects an unlocked graph or invalid timestamp", () => {
     packageLockSha256: "0".repeat(64),
     releaseDate: "not-a-date",
   }), /releaseDate/u);
+});
+
+test("release notes join wrapped paragraphs and list items and keep every other line", () => {
+  const wrapped = [
+    "## [0.1.0] - 2026-08-05",
+    "",
+    "### Added",
+    "",
+    "- A list item wrapped",
+    "  over two lines.",
+    "  1. A nested item",
+    "     that wraps.",
+    "",
+    "A paragraph",
+    "that wraps.",
+    "",
+    "```text",
+    "code line one",
+    "code line two",
+    "```",
+    "",
+    "| a | b |",
+    "| - | - |",
+    "> quoted",
+    "Hard break  ",
+    "after it",
+    "",
+  ].join("\n");
+  assert.throws(
+    () => assertMarkdownProseUnwrapped(wrapped, "Planted notes"),
+    /Planted notes is hard-wrapped: 3 line\(s\) continue the paragraph or list item above \(first at line 6\)/u,
+  );
+  const unwrapped = unwrapMarkdownProse(wrapped);
+  assert.equal(unwrapped, [
+    "## [0.1.0] - 2026-08-05",
+    "",
+    "### Added",
+    "",
+    "- A list item wrapped over two lines.",
+    "  1. A nested item that wraps.",
+    "",
+    "A paragraph that wraps.",
+    "",
+    "```text",
+    "code line one",
+    "code line two",
+    "```",
+    "",
+    "| a | b |",
+    "| - | - |",
+    "> quoted",
+    "Hard break  ",
+    "after it",
+    "",
+  ].join("\n"));
+  assert.doesNotThrow(() => assertMarkdownProseUnwrapped(unwrapped, "Unwrapped notes"));
+  assert.equal(unwrapMarkdownProse(unwrapped), unwrapped);
+  assert.equal(unwrapMarkdownProse(""), "");
+  assert.throws(() => unwrapMarkdownProse(undefined), /must be text/u);
 });
