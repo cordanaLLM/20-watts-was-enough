@@ -7,6 +7,15 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- The adoption matrix checks the *Physarum* solve-cost lead against primary
+  sources (issue #231). Tero, Kobayashi and Nakagaki (2007, eq. 6) solve a
+  network-wide Poisson equation for node pressures at every update, by
+  incomplete-Cholesky conjugate gradients, and Bonifaci et al. (2012) and
+  Straszak and Vishnoi (2016) have the same structure. No source states the
+  per-step cost as a function of network size, so the entry records the
+  bounded step count of Straszak and Vishnoi's Theorem 1.3 instead. C-027 is
+  unchanged. `research/references.bib` gains the three sources.
+
 - A browser test now opens the built site, not only the development server.
   `scripts/github-pages-dist-browser.test.mjs` serves `dist-github-pages/`
   with `vite preview` and opens the portal root and one document route in
