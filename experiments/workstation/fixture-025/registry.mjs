@@ -18,7 +18,7 @@ export function extractFixture025Registry(markdown) {
   try {
     return JSON.parse(match[1]);
   } catch (error) {
-    throw new Error(`Fixture 025 normative registry is invalid JSON: ${error.message}`);
+    throw new Error(`Fixture 025 normative registry is invalid JSON: ${error.message}`, { cause: error });
   }
 }
 

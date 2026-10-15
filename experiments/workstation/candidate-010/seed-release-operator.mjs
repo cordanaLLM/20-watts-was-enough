@@ -152,7 +152,7 @@ async function git(repositoryRoot, args) {
     });
     return result.stdout;
   } catch (error) {
-    throw new Error(`Seed-release Git ${args[0]} failed: ${error.stderr?.trim() || error.message}`);
+    throw new Error(`Seed-release Git ${args[0]} failed: ${error.stderr?.trim() || error.message}`, { cause: error });
   }
 }
 
@@ -175,7 +175,7 @@ function parseJson(buffer, label) {
   try {
     return JSON.parse(buffer.toString("utf8"));
   } catch (error) {
-    throw new Error(`${label} is not valid JSON: ${error.message}`);
+    throw new Error(`${label} is not valid JSON: ${error.message}`, { cause: error });
   }
 }
 
@@ -515,7 +515,7 @@ function decryptEscrow({ escrow, ciphertext, key }) {
     if (plaintext.byteLength !== escrow.plaintext_bytes) throw new Error("plaintext length mismatch");
     return JSON.parse(plaintext.toString("utf8"));
   } catch (error) {
-    throw new Error(`Seed escrow authentication or decryption failed: ${error.message}`);
+    throw new Error(`Seed escrow authentication or decryption failed: ${error.message}`, { cause: error });
   }
 }
 

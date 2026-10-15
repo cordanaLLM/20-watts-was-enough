@@ -574,7 +574,7 @@ const outputs = [
 let stale = false;
 for (const [outputPath, expected] of outputs) {
   if (checkOnly) {
-    let current = "";
+    let current;
     try {
       current = await readFile(outputPath, "utf8");
     } catch {

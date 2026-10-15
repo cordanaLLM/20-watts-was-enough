@@ -83,7 +83,7 @@ export async function acquireRunLock({ outputDirectory, runnerId }) {
       } catch (error) {
         await handle.close().catch(() => {});
         closed = true;
-        throw new Error(`Run lock disappeared or became unreadable before release: ${error.message}`);
+        throw new Error(`Run lock disappeared or became unreadable before release: ${error.message}`, { cause: error });
       }
       if (!ownershipMatches(document, ownership, token)) {
         await handle.close().catch(() => {});

@@ -322,7 +322,7 @@ async function writeStableJson(file, value) {
     await assertRegularOutputFile(file);
     const existing = JSON.parse(await readFile(file, "utf8"));
     if (canonicalize(existing) !== canonicalize(value)) {
-      throw new Error(`Refusing to replace non-identical ${path.basename(file)}.`);
+      throw new Error(`Refusing to replace non-identical ${path.basename(file)}.`, { cause: error });
     }
   }
 }

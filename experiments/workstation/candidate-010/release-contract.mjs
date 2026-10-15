@@ -191,7 +191,7 @@ async function validateFullSourceBundle({ bindingRoot, sourceRoot, sourceBinding
   try {
     document = JSON.parse(body);
   } catch (error) {
-    throw new Error(`Bound source bundle is invalid JSON: ${error.message}`);
+    throw new Error(`Bound source bundle is invalid JSON: ${error.message}`, { cause: error });
   }
   if (
     document?.schema !== 1
@@ -222,7 +222,7 @@ function parseBoundJson(body, label) {
   try {
     return JSON.parse(body);
   } catch (error) {
-    throw new Error(`Bound ${label} is invalid JSON: ${error.message}`);
+    throw new Error(`Bound ${label} is invalid JSON: ${error.message}`, { cause: error });
   }
 }
 

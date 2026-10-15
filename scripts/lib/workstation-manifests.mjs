@@ -886,7 +886,7 @@ export async function workstationPromotionChecks(root, manifest) {
     ? manifest.implementation.full_tests
     : [];
   const fullTestPaths = fullTests.map((value) => localPath(root, value));
-  let workstationTestPipeline = false;
+  let workstationTestPipeline;
   try {
     workstationTestPipeline = await workstationTestPipelineCovers(root);
   } catch {
@@ -1375,7 +1375,7 @@ export async function validateExecutionManifest(root, manifestPath, expectedArti
 
 export async function validateAllExecutionManifests(root) {
   const directory = path.join(root, "experiments", "workstation", "manifests");
-  let entries = [];
+  let entries;
   try {
     entries = (await readdir(directory)).filter((entry) => entry.endsWith(".json")).sort();
   } catch {

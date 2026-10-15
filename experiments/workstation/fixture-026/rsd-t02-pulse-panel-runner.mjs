@@ -451,7 +451,7 @@ async function writeRunOnce(file, value) {
     if (error.code !== "EEXIST") throw error;
     const stored = JSON.parse(await readFile(file, "utf8"));
     if (canonicalize(stored) !== canonicalize(value)) {
-      throw new Error("Fixture 026 pulse-panel refuses to replace a different run manifest.");
+      throw new Error("Fixture 026 pulse-panel refuses to replace a different run manifest.", { cause: error });
     }
   }
 }

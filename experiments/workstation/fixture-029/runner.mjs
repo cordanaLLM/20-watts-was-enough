@@ -54,7 +54,7 @@ async function writeJsonStable(file, value) {
   } catch (error) {
     if (error.code !== "EEXIST") throw error;
     if (canonical(JSON.parse(await readFile(file, "utf8"))) !== canonical(value)) {
-      throw new Error(`Refusing to replace non-identical ${path.basename(file)}.`);
+      throw new Error(`Refusing to replace non-identical ${path.basename(file)}.`, { cause: error });
     }
   }
 }

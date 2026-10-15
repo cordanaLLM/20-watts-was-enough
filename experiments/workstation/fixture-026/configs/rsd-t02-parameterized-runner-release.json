@@ -55,12 +55,12 @@
     {
       "role": "bounded-durable-store",
       "path": "rsd-t02-fixed-instance-durable-store.mjs",
-      "sha256_exact_bytes": "1324d42d9fec867d51ae8794fdf69930cacfdd5d4335e2b40a0b6d3e318c324b"
+      "sha256_exact_bytes": "e19b8e89a48adcd183b1725b0f4f61022e35ad9c39b4e2af3df64a804e67033f"
     },
     {
       "role": "exclusive-run-lock",
       "path": "rsd-t02-run-lock.mjs",
-      "sha256_exact_bytes": "c5e5d0f15bdb46732246da51a40c4bc599d78ef305a265a09107aadae910a536"
+      "sha256_exact_bytes": "8ccbce355381aa0eee4b93f31e7168f53496d9285b6d8e6a3979a97d1c5b4656"
     },
     {
       "role": "restricted-policy-worker",
@@ -75,7 +75,7 @@
     {
       "role": "checkpoint-ledger-library",
       "path": "../lib/checkpoint-ledger.mjs",
-      "sha256_exact_bytes": "3d94ba7135a692136cf279936b87834a598695b7bf6a9004920b6a3d1c8d2eb5"
+      "sha256_exact_bytes": "cc3153302c10bef5eaf688cb2f9248524e04a60b7b31732a44107957b9f90dbe"
     },
     {
       "role": "node-runtime-policy",

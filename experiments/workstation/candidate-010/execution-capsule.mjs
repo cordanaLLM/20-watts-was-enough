@@ -378,7 +378,7 @@ export async function buildExecutionCapsule({
   const sourceParent = path.join(outerRoot, "source");
   const dependencyRoot = path.join(outerRoot, "node_modules");
   let sourceCapsule = null;
-  let capsule = null;
+  let capsule;
   try {
     await writeOwnerMarker(outerRoot, token, null, "wx");
     await mkdir(sourceParent, { mode: 0o700 });

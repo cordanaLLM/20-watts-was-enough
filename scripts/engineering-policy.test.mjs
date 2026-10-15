@@ -3736,7 +3736,7 @@ test("engine-file exception lists are well formed and fail closed when they are 
   assert.deepEqual(engineFileExceptionFindings(TYPE_CHECK_EXCEPTIONS, "diagnostics"), []);
   assert.deepEqual(LINT_EXCEPTIONS.map((entry) => [entry.path, entry.expires, entry.rules.length]), [
     ["tools/figures/dist/loader.js", engineFileLastDay, 1],
-    ["tools/figures/dist/player.js", engineFileLastDay, 14],
+    ["tools/figures/dist/player.js", engineFileLastDay, 15],
   ]);
   const base = plainEntry(LINT_EXCEPTIONS[1], "rules");
   const label = "engine-file exception 0";
@@ -3935,4 +3935,37 @@ test("the type-check exception names exactly what the compiler reports for its f
   // A file the compiler accepts reports nothing, so an entry for it would not
   // pass the comparison above.
   assert.deepEqual(typeCheckCodes("tools/figures/third_party/interfig/upstream/src/model.ts"), []);
+});
+
+test("lint refuses the three rules ESLint 10 adds to its recommended set", async () => {
+  const eslint = new ESLint({ cwd: engineFileRoot });
+  const ruleIds = async (code) => {
+    const [result] = await eslint.lintText(code, { filePath: path.join(engineFileRoot, "scripts", "planted-lint-case.mjs") });
+    return [...new Set(result.messages.map((message) => String(message.ruleId)))].sort();
+  };
+  const planted = [
+    "export function readJson(text) {",
+    "  try {",
+    "    return JSON.parse(text);",
+    "  } catch (error) {",
+    "    throw new Error(`invalid JSON: ${error.message}`);",
+    "  }",
+    "}",
+    "export function firstLine(text) {",
+    "  let line = \"\";",
+    "  line = text.split(\"\\n\")[0];",
+    "  return line;",
+    "}",
+    "export function unassigned() {",
+    "  let never;",
+    "  return never;",
+    "}",
+    "",
+  ].join("\n");
+  assert.deepEqual(await ruleIds(planted), ["no-unassigned-vars", "no-useless-assignment", "preserve-caught-error"]);
+  const fixed = planted
+    .replace("${error.message}`);", "${error.message}`, { cause: error });")
+    .replace("let line = \"\";\n  line =", "const line =")
+    .replace("  let never;\n  return never;", "  return undefined;");
+  assert.deepEqual(await ruleIds(fixed), []);
 });

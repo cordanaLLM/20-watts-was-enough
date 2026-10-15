@@ -432,6 +432,23 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- The code now passes the three rules ESLint 10 adds to its recommended set,
+  enabled in `eslint.config.mjs` while ESLint stays at 9.
+  `preserve-caught-error` found 41 errors that were rethrown without the
+  original error; each now carries it as `cause`. `no-useless-assignment`
+  found 8 values that were assigned and never read; they are removed. Four
+  more are in the engine bundle `tools/figures/dist/player.js`, whose file
+  exception now lists the rule.
+  `no-unassigned-vars` found nothing. `scripts/engineering-policy.test.mjs`
+  plants one case of each rule and requires ESLint to refuse it. The Fixture
+  026 RSD-T02 runner release and policy-bundle inventory bind four of the
+  edited files by exact bytes, so those entries, the release digests, the
+  inventory digests and the null-maturation design that names them are
+  re-bound. The release stays `NO_RESULT` development infrastructure. Three
+  edited files are book sources, so the book was re-rendered: the PDF is
+  byte-identical, and the manifest and semantic baseline record the new
+  source digest.
+
 - Two CI gates no longer skip. A manually dispatched full run used to
   skip the code-shape baseline-reset check; it now compares the branch
   against its merge base with `main`, so a dispatched branch that grows a

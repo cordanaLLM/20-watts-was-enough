@@ -9,7 +9,7 @@
     "export": "assertFixture026RsdT02NullMaturationDesign",
     "version_export": "FIXTURE_026_RSD_T02_NULL_MATURATION_DESIGN_VERSION",
     "contract_version": "fixture-026.rsd-t02-null-maturation-design.v1",
-    "canonical_design_sha256": "4e0e6baeb1f26aabb262c809ce8672cc5c92d02e2f2a5533af3b36b38dbb19c8",
+    "canonical_design_sha256": "eed40e8100324af6ec236c48ac06c2a7fa4ea71f34a1a217626fcf52efaf0e55",
     "test": "rsd-t02-null-maturation-contract.test.mjs"
   },
   "required": [

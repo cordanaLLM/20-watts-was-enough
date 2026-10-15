@@ -27,6 +27,15 @@ const baseConfig = [
   react.configs.flat["jsx-runtime"],
   reactHooks.configs.flat["recommended-latest"],
   jsxA11y.flatConfigs.recommended,
+  // ESLint 10 adds these three to its recommended set. Enabling them on 9
+  // keeps the code clean for that upgrade (Renovate holds eslint below 10).
+  {
+    rules: {
+      "no-unassigned-vars": "error",
+      "no-useless-assignment": "error",
+      "preserve-caught-error": "error",
+    },
+  },
   {
     languageOptions: {
       globals: {

@@ -92,7 +92,7 @@ async function writeJsonStable(file, value) {
     if (error.code !== "EEXIST") throw error;
     const prior = JSON.parse(await readFile(file, "utf8"));
     if (canonicalize(prior) !== canonicalize(value)) {
-      throw new Error(`Refusing to replace non-identical ${path.basename(file)}.`);
+      throw new Error(`Refusing to replace non-identical ${path.basename(file)}.`, { cause: error });
     }
   }
 }

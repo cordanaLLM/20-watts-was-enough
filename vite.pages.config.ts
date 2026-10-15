@@ -157,7 +157,7 @@ function portalDocumentAssets(): Plugin {
           next();
           return;
         }
-        let requestPath = "";
+        let requestPath: string;
         try {
           requestPath = decodeURIComponent(
             new URL(request.url ?? "/", "http://localhost").pathname,
