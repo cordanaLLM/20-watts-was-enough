@@ -12,6 +12,9 @@ the exact diff; this file records why the project changed.
   Only urllib3 receives a later cutoff; the global cutoff and every other
   package block remain unchanged
   ([Decision 0100](decisions/0100-lift-the-urllib3-cutoff-in-the-clrs-generator.md)).
+  The retained SBOM bundle that CI checks moves to the
+  `clrs-sbom-bundle-2026-10-16` prerelease, scanned from the image rebuilt
+  with the new lock.
 
 ### Added
 

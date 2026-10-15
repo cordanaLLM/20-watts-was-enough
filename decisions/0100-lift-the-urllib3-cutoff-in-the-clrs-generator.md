@@ -61,6 +61,12 @@ re-resolution with a decision record for a dependency change in this folder.
   no claim that their remote state has changed.
 - Dependency validation remains offline. Resolution and the single wheel
   download do not establish generator execution or image admission.
+- The retained SBOM bundle that CI checks against the lock moves to the
+  `clrs-sbom-bundle-2026-10-16` prerelease. The candidate image was rebuilt
+  from the new lock, and its pinned scan reports the installed urllib3 2.8.0.
+  pip 26.2.1 still vendors urllib3 2.7.0 under `pip/_vendor`; the scanner
+  lists that copy from pip's bundled CycloneDX file, not as an installed
+  package. The `clrs-sbom-bundle-2026-10-12` prerelease stays published.
 
 ## Alternatives considered
 
@@ -88,6 +94,12 @@ gofmt -l ./internal/clrsfixture
 go vet ./...
 go test -p 4 ./internal/clrsfixture/...
 ```
+
+Two image builds from the rebuilt context produce identical OCI archives
+(869,245,440 bytes, SHA-256
+`ebde3fe94916f0c0a131570e9144d86c61f82f9d886fdcab583fd00d5a3f7a19`).
+`TestGeneratorSBOMBundleActualRetainedInput` passes with the new bundle and
+fails with the 2026-10-12 bundle on the urllib3 mismatch.
 
 Private command output, resolver identities, package-block comparisons and
 wheel verification are retained in `.workingdir/evidence/urllib3/resolve.md`.
