@@ -9,6 +9,13 @@ the exact diff; this file records why the project changed.
 
 - Run the Go tests on Windows and macOS runners in CI for every full plan and every Go impact plan; the runner policy admits exactly these two jobs ([Decision 0103](decisions/0103-run-the-go-tests-on-windows-and-macos-runners.md)).
 
+### Changed
+
+- Citations of the `lusoris/k8s` cluster audit no longer link to that
+  repository, which is now private; the audit and the v0.3.0 disclosure keep the
+  full commit hashes as plain text and say the source cannot be inspected
+  publicly (#288).
+
 ### Fixed
 
 - Segment-intersection orientation no longer fuses multiply-add on arm64, where an exactly collinear case came out as a rounding residue and changed the answer.
