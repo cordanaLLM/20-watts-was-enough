@@ -5,6 +5,10 @@ the exact diff; this file records why the project changed.
 
 ## [Unreleased]
 
+### Added
+
+- Run the Go tests on Windows and macOS runners in CI for every full plan and every Go impact plan; the runner policy admits exactly these two jobs ([Decision 0103](decisions/0103-run-the-go-tests-on-windows-and-macos-runners.md)).
+
 ### Changed
 
 - Citations of the `lusoris/k8s` cluster audit no longer link to that
@@ -17,6 +21,11 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- Segment-intersection orientation no longer fuses multiply-add on arm64, where an exactly collinear case came out as a rounding residue and changed the answer.
+- The CLRS shakedown resolves the running executable's path before its real-directory check, so a test binary below a symlinked temporary directory (macOS) is identified instead of refused.
+- Reject a rooted path without a drive letter and a drive-relative path in the shared relative-path validator, which accepted `/a` on Windows.
+- Check text files out with LF bytes on every platform (`* text=auto eol=lf`), so the byte-compared and hashed Go inputs match on Windows runners.
+- Go tests run with a canonical temporary directory (`internal/testtmp`), so the symlink-refusing path checks pass on macOS (`/var` link) and Windows (8.3 short names).
 - Accept canonical `-rc.N` versions in experiment image builds and execution receipts so release-candidate builds pass the image guards.
 - The CLRS shakedown takes its per-request budget from bound inputs. Production keeps 1 s; the failure and cancellation test uses one minute, so a loaded runner no longer turns an injected failure into a deadline outcome (#148).
 
