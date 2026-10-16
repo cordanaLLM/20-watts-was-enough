@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/githubapi"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/githubissuemilestones"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/githublabels"
 )
@@ -173,9 +174,7 @@ type Plan struct {
 	eventSkipped bool
 }
 
-type remoteLabel struct {
-	Name string `json:"name"`
-}
+type remoteLabel = githubapi.Label
 
 type remoteMilestone struct {
 	Number int `json:"number"`
@@ -339,7 +338,7 @@ func applyIssue(
 	entry plannedIssue,
 ) (bool, error) {
 	current := append([]remoteLabel(nil), entry.labels...)
-	desired := stringSet(entry.desiredStatuses)
+	desired := githubapi.FoldedSet(entry.desiredStatuses)
 	statuses, _, err := classifyLabels(current, policy)
 	if err != nil {
 		return false, err
@@ -435,7 +434,7 @@ func desiredStatuses(issue remoteIssue, policy Policy, transition Action) ([]str
 }
 
 func classifyLabels(labels []remoteLabel, policy Policy) ([]string, []string, error) {
-	normalized, err := normalizedLabels(labels)
+	normalized, err := githubapi.NormalizedLabels(labels)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -468,11 +467,11 @@ func verifyLabels(labels []remoteLabel, policy Policy, desiredStatuses, retained
 }
 
 func retainNonStatus(labels []remoteLabel, required []string) error {
-	current, err := normalizedLabels(labels)
+	current, err := githubapi.NormalizedLabels(labels)
 	if err != nil {
 		return err
 	}
-	available := stringSet(current)
+	available := githubapi.FoldedSet(current)
 	for _, name := range required {
 		if _, retained := available[name]; !retained {
 			return fmt.Errorf("non-status label %q was not preserved", name)
@@ -495,7 +494,7 @@ func inspectIssue(ctx context.Context, client HTTPClient, base *url.URL, options
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		if err := drainBounded(response.Body); err != nil {
+		if err := githubapi.DrainBounded(response.Body, maximumResponseBytes, "GitHub lifecycle response exceeds its byte limit"); err != nil {
 			return remoteIssue{}, err
 		}
 		return remoteIssue{}, fmt.Errorf("inspect GitHub issue %d lifecycle: unexpected HTTP status %d", number, response.StatusCode)
@@ -513,7 +512,7 @@ func inspectIssue(ctx context.Context, client HTTPClient, base *url.URL, options
 		(issue.Milestone != nil && issue.Milestone.Number < 1) {
 		return remoteIssue{}, fmt.Errorf("inspect GitHub issue %d lifecycle: malformed or pull-request identity", number)
 	}
-	if _, err := normalizedLabels(issue.Labels); err != nil {
+	if _, err := githubapi.NormalizedLabels(issue.Labels); err != nil {
 		return remoteIssue{}, fmt.Errorf("inspect GitHub issue %d lifecycle: %w", number, err)
 	}
 	return issue, nil
@@ -542,7 +541,7 @@ func mutateLabels(
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		if err := drainBounded(response.Body); err != nil {
+		if err := githubapi.DrainBounded(response.Body, maximumResponseBytes, "GitHub lifecycle response exceeds its byte limit"); err != nil {
 			return nil, err
 		}
 		return nil, fmt.Errorf("synchronize GitHub issue %d lifecycle labels: unexpected HTTP status %d", number, response.StatusCode)
@@ -555,7 +554,7 @@ func mutateLabels(
 	if err := json.Unmarshal(responseBody, &labels); err != nil || labels == nil || len(labels) > maximumLabels {
 		return nil, fmt.Errorf("synchronize GitHub issue %d lifecycle labels: malformed response", number)
 	}
-	if _, err := normalizedLabels(labels); err != nil {
+	if _, err := githubapi.NormalizedLabels(labels); err != nil {
 		return nil, fmt.Errorf("synchronize GitHub issue %d lifecycle labels: %w", number, err)
 	}
 	return labels, nil
@@ -576,7 +575,7 @@ func newRequest(
 	target.RawPath = ""
 	if method != http.MethodGet {
 		target.Path += "/labels"
-		target.RawPath = escapedPath(prefix) + "/labels"
+		target.RawPath = githubapi.EscapedPath(prefix) + "/labels"
 		if label != "" {
 			target.Path += "/" + label
 			target.RawPath += "/" + url.PathEscape(label)
@@ -652,29 +651,10 @@ func observe(issue remoteIssue) observation {
 	if issue.Milestone != nil {
 		milestone = issue.Milestone.Number
 	}
-	labels, _ := normalizedLabels(issue.Labels)
+	labels, _ := githubapi.NormalizedLabels(issue.Labels)
 	return observation{
 		nodeID: issue.NodeID, state: issue.State, milestone: milestone, labels: strings.Join(labels, "\x00"),
 	}
-}
-
-func normalizedLabels(labels []remoteLabel) ([]string, error) {
-	names := make([]string, 0, len(labels))
-	seen := make(map[string]struct{}, len(labels))
-	for _, label := range labels {
-		name := strings.ToLower(label.Name)
-		if name == "" || len(label.Name) > 256 || strings.TrimSpace(label.Name) != label.Name ||
-			strings.ContainsRune(label.Name, '\x00') {
-			return nil, fmt.Errorf("label %q is invalid", label.Name)
-		}
-		if _, duplicate := seen[name]; duplicate {
-			return nil, fmt.Errorf("label %q is repeated", label.Name)
-		}
-		seen[name] = struct{}{}
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names, nil
 }
 
 func lowerSorted(values []string) []string {
@@ -683,14 +663,6 @@ func lowerSorted(values []string) []string {
 		result[index] = strings.ToLower(value)
 	}
 	sort.Strings(result)
-	return result
-}
-
-func stringSet(values []string) map[string]struct{} {
-	result := make(map[string]struct{}, len(values))
-	for _, value := range values {
-		result[strings.ToLower(value)] = struct{}{}
-	}
 	return result
 }
 
@@ -710,23 +682,4 @@ func containsFold(values []string, wanted string) bool {
 		}
 	}
 	return false
-}
-
-func escapedPath(path string) string {
-	segments := strings.Split(path, "/")
-	for index, segment := range segments {
-		segments[index] = url.PathEscape(segment)
-	}
-	return strings.Join(segments, "/")
-}
-
-func drainBounded(reader io.Reader) error {
-	written, err := io.Copy(io.Discard, io.LimitReader(reader, maximumResponseBytes+1))
-	if err != nil {
-		return err
-	}
-	if written > maximumResponseBytes {
-		return errors.New("GitHub lifecycle response exceeds its byte limit")
-	}
-	return nil
 }
