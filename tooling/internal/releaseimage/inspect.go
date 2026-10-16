@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/releasetag"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
@@ -37,7 +38,7 @@ var (
 	labelKeyPattern     = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,127}$`)
 	platformPattern     = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,31}/[a-z0-9][a-z0-9._-]{0,31}$`)
 	revisionPattern     = regexp.MustCompile(`^[0-9a-f]{40}$`)
-	tagPattern          = regexp.MustCompile(`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
+	tagPattern          = regexp.MustCompile(releasetag.Pattern)
 	challengeKeyPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
 	errRedirectBoundary = errors.New("registry redirect left the trusted URL boundary")
 	errRedirectCount    = errors.New("registry redirect exceeded its request bound")
@@ -149,14 +150,19 @@ func (transport boundedRoundTripper) RoundTrip(request *http.Request) (*http.Res
 		return nil, errors.New("registry transport returned an incomplete response")
 	}
 	if headerSize(response.Header) > maximumHeaderBytes {
-		_ = response.Body.Close()
-		return nil, errors.New("registry response headers exceeded their byte limit")
+		return nil, closeRejectedResponse(response.Body, errors.New("registry response headers exceeded their byte limit"))
 	}
 	if response.Uncompressed || !hasIdentityEncoding(response.Header.Values("Content-Encoding")) {
-		_ = response.Body.Close()
-		return nil, errors.New("registry returned a content-encoded response despite requesting identity bytes")
+		return nil, closeRejectedResponse(response.Body, errors.New("registry returned a content-encoded response despite requesting identity bytes"))
 	}
 	return response, nil
+}
+
+func closeRejectedResponse(body io.Closer, primary error) error {
+	if err := body.Close(); err != nil {
+		return errors.Join(primary, fmt.Errorf("close rejected registry response body: %w", err))
+	}
+	return primary
 }
 
 // Inspect reports an authenticated absence or validates the digest, platform
@@ -217,7 +223,9 @@ func InspectExisting(ctx context.Context, options Options) (Result, error) {
 }
 
 func inspectExisting(ctx context.Context, options Options, retryDelays []time.Duration) (Result, error) {
-	for observation := 1; ; observation++ {
+	maximumObservations := len(retryDelays) + 1
+	var reference string
+	for observation := 0; observation < maximumObservations; observation++ {
 		result, err := Inspect(ctx, options)
 		if err != nil {
 			return Result{}, err
@@ -225,17 +233,18 @@ func inspectExisting(ctx context.Context, options Options, retryDelays []time.Du
 		if result.Status == "existing" {
 			return result, nil
 		}
-		if observation > len(retryDelays) {
-			return Result{}, fmt.Errorf(
-				"required release image %s remained absent after %d authenticated observations",
-				result.Reference,
-				observation,
-			)
-		}
-		if err := waitForRetry(ctx, retryDelays[observation-1]); err != nil {
-			return Result{}, fmt.Errorf("wait to reinspect required release image: %w", err)
+		reference = result.Reference
+		if observation < len(retryDelays) {
+			if err := waitForRetry(ctx, retryDelays[observation]); err != nil {
+				return Result{}, fmt.Errorf("wait to reinspect required release image: %w", err)
+			}
 		}
 	}
+	return Result{}, fmt.Errorf(
+		"required release image %s remained absent after %d authenticated observations",
+		reference,
+		maximumObservations,
+	)
 }
 
 func waitForRetry(ctx context.Context, delay time.Duration) error {
@@ -257,7 +266,7 @@ func validateOptions(options Options) error {
 		return errors.New("exactly one tag or digest is required")
 	}
 	if options.Tag != "" && !tagPattern.MatchString(options.Tag) {
-		return errors.New("tag must have the exact form vMAJOR.MINOR.PATCH")
+		return errors.New("tag must have the exact form vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N")
 	}
 	if options.Digest != "" && !digestPattern.MatchString(options.Digest) {
 		return errors.New("digest must be sha256 followed by 64 lowercase hexadecimal digits")

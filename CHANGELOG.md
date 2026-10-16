@@ -5,6 +5,13 @@ the exact diff; this file records why the project changed.
 
 ## [Unreleased]
 
+### Fixed
+
+- Accept canonical `-rc.N` versions in experiment image builds and execution receipts so release-candidate builds pass the image guards.
+- The CLRS shakedown takes its per-request budget from bound inputs. Production keeps 1 s; the failure and cancellation test uses one minute, so a loaded runner no longer turns an injected failure into a deadline outcome (#148).
+
+## [0.5.0] - 2026-10-16
+
 ### Security
 
 - Build and attest releases inside the local reusable builder required by the
@@ -24,6 +31,14 @@ the exact diff; this file records why the project changed.
   with the new lock.
 
 ### Added
+
+- Accept canonical `vMAJOR.MINOR.PATCH-rc.N` release tags alongside final
+  tags. Candidates stay GitHub draft pre-releases so no DOI is minted;
+  consumers verify draft assets with authenticated `gh release download` and
+  `gh attestation verify --signer-workflow` naming `release-build.yml`.
+  Images keep only the exact rc tag. Release manifests use the base version
+  before the suffix
+  ([Decision 0102](decisions/0102-accept-release-candidate-tags.md)).
 
 - Research-watch publication wrapper `scripts/research-watch-publish.mjs` runs
   the daily lead ingester and publishes updated public catalogs to branch

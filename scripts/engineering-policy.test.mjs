@@ -2440,6 +2440,38 @@ test("unpinned image definitions label the canonical repository source", (t) => 
   ]);
 });
 
+test("experiment Dockerfile guards accept only development, final versions, and canonical candidates", () => {
+  const cases = [
+    ["v0.5.0-rc.1", true],
+    ["v1.2.3-rc.0", true],
+    ["1.2.3-rc.10", true],
+    ["development", true],
+    ["v1.2.3", true],
+    ["1.2.3", true],
+    ["v1.2.3-rc.01", false],
+    ["v1.2.3-rc", false],
+    ["v1.2.3-beta.1", false],
+    ["v1.2.3-rc.1+x", false],
+    ["v1.2.3-rc.-1", false],
+    ["v01.2.3-rc.1", false],
+  ];
+  for (const relativePath of [
+    "experiments/workstation/Dockerfile.node-artifact",
+    "experiments/workstation/fixture-019/Dockerfile",
+  ]) {
+    const source = readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
+    const guards = [...source.matchAll(/grep -Eq '([^']+)' \/tmp\/image-version;/gu)];
+    assert.equal(guards.length, 1, relativePath);
+    for (const [version, valid] of cases) {
+      const result = spawnSync("grep", ["-Eq", guards[0][1]], {
+        input: `${version}\n`, encoding: "utf8", timeout: 5_000, maxBuffer: 4_096,
+      });
+      assert.ifError(result.error);
+      assert.equal(result.status, valid ? 0 : 1, `${relativePath}: ${version}: ${result.stderr}`);
+    }
+  }
+});
+
 test("experiment reports separate immutable digests from discovery tags", () => {
   const relativePath = ".github/ISSUE_TEMPLATE/experiment-protocol-problem.yml";
   const form = parse(readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8"));
@@ -2537,13 +2569,13 @@ function replaceLiteral(text, literal, replacement) {
   return text.split(literal).join(replacement);
 }
 
-test("release policy refuses any requested tag form other than vMAJOR.MINOR.PATCH", () => {
+test("release policy refuses any requested tag form other than final or rc tags", () => {
   const valid = workflow("release-build");
   assert.deepEqual(validateReleaseWorkflowObject(valid), []);
-  const message = ".github/workflows/release-build.yml: the first release step must refuse every tag that is not exactly vMAJOR.MINOR.PATCH";
+  const message = ".github/workflows/release-build.yml: the first release step must refuse every tag that is not exactly vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N";
   const loosened = [
-    ["unanchored end", (run) => replaceLiteral(run, "(0|[1-9][0-9]*)$ ]]", "(0|[1-9][0-9]*) ]]")],
-    ["pre-release suffix", (run) => replaceLiteral(run, "(0|[1-9][0-9]*)$ ]]", "(0|[1-9][0-9]*)(-rc\\.[0-9]+)?$ ]]")],
+    ["unanchored end", (run) => replaceLiteral(run, "?$ ]]", "? ]]")],
+    ["arbitrary suffix", (run) => replaceLiteral(run, String.raw`(-rc\.(0|[1-9][0-9]*))?`, "(-[a-z.0-9]+)?")],
     ["leading zeros", (run) => replaceLiteral(run, "^v(0|[1-9][0-9]*)", "^v([0-9]+)")],
     ["check removed", () => "printf 'tag=%s\\n' \"$REF_NAME\" >> \"$GITHUB_OUTPUT\""],
   ];
@@ -4086,5 +4118,216 @@ test("declared-verify-npm runs the npm step when the stage variable is absent", 
     }
   } finally {
     rmSync(root, { force: true, recursive: true });
+  }
+});
+
+const validRCTags = ["v0.0.0", "v0.5.0", "v12.34.56", "v0.0.0-rc.0", "v0.5.0-rc.1", "v0.5.0-rc.10", "v999999999999999999999.0.0-rc.999999999999999999999"];
+const invalidRCTags = ["", "0.5.0", "v0.5.0-rc", "v0.5.0-rc.01", "v0.5.0-rc.1.2", "v0.5.0-beta.1", "v0.5.0-RC.1", "v05.0.0", "v0.05.0", "v0.5.00", "v0.5.0+meta", "v0.5.0-rc.1-x", "v0.5.0-rc.-1", "v0.5.0-rc.", "v0.5.0\n", " v0.5.0", "v0.5.0 "];
+
+test("executed release tag guard accepts only final and canonical rc tags", () => {
+  const guard = workflow("release-build").jobs.release.steps[0];
+  for (const event of ["push", "workflow_dispatch"]) {
+    for (const [tags, expected] of [[validRCTags, 0], [invalidRCTags, 1]]) {
+      for (const tag of tags) {
+        const child = spawnSync(BASH, ["-c", guard.run], {
+          env: { EVENT_NAME: event, REF_NAME: tag, INPUT_TAG: tag, GITHUB_OUTPUT: "/dev/null" },
+          encoding: "utf8", timeout: 1000, maxBuffer: 4096,
+        });
+        assert.equal(child.error, undefined);
+        assert.equal(child.status, expected, JSON.stringify({ event, tag, stdout: child.stdout, stderr: child.stderr }));
+      }
+    }
+  }
+  // GitHub's glob is deliberately broader than the first-step grammar.
+  assert.deepEqual(workflow("release").on.push.tags, ["v*.*.*"]);
+});
+
+test("executed prerelease guards and publication flags follow the exact tag", () => {
+  const steps = workflow("release-build").jobs.release.steps;
+  const publication = releaseImageStepByName(workflow("release-build"), "Publish or validate the immutable GitHub release").run;
+  const guards = steps.filter((step) => step.run?.includes('if [[ "$release_prerelease" != "$expected_prerelease" ]]; then'));
+  assert.equal(guards.length, 2);
+  for (const tag of ["v0.5.0", "v0.5.0-rc.0", "v0.5.0-rc.1"]) {
+    const expected = tag.includes("-rc.");
+    for (const step of guards) {
+      const setup = step.run.slice(step.run.indexOf("expected_prerelease=false"), step.run.indexOf("esac", step.run.indexOf("expected_prerelease=false")) + 4);
+      const start = step.run.indexOf('if [[ "$release_prerelease" != "$expected_prerelease" ]]; then');
+      const guard = step.run.slice(start, step.run.indexOf("fi", start) + 2);
+      for (const prerelease of ["true", "false"]) {
+        const child = spawnSync(BASH, ["-c", `${setup}\n${guard}`], {
+          env: { RELEASE_TAG: tag, release_prerelease: prerelease }, encoding: "utf8", timeout: 1000, maxBuffer: 4096,
+        });
+        assert.equal(child.error, undefined);
+        assert.equal(child.status, (prerelease === "true") === expected ? 0 : 1, `${tag} ${prerelease}`);
+      }
+    }
+    const setup = publication.slice(publication.indexOf("expected_prerelease=false"), publication.indexOf("load_release_state()"));
+    const child = spawnSync(BASH, ["-c", `${setup}\nprintf '%s\\n' "\${release_flags[@]}"`], {
+      env: { RELEASE_TAG: tag }, encoding: "utf8", timeout: 1000, maxBuffer: 4096,
+    });
+    assert.equal(child.error, undefined);
+    assert.equal(child.status, 0);
+    assert.deepEqual(child.stdout.trim().split("\n"), expected ? ["--prerelease=true", "--latest=false"] : ["--prerelease=false"]);
+  }
+});
+
+test("rc draft policy accepts the builder and refuses publication or guard bypasses", () => {
+  assert.deepEqual(validateReleaseWorkflowObject(workflow("release-build")), []);
+  const finding = ".github/workflows/release-build.yml: rc releases must remain drafts; verified rc paths must exit before publication and published rc preflights must fail";
+  const notice = 'echo "::notice::rc release ${release_id} stays a draft; no DOI is minted"';
+  const mutations = [
+    ["Publish or validate the immutable GitHub release", notice, 'gh release edit "$RELEASE_TAG" --draft=false'],
+    ["Publish or validate the immutable GitHub release", `${notice}\n    exit 0`, `${notice}\n    :`],
+    ["Publish or validate the immutable GitHub release", 'require_draft_state "$published_id"', ':' ],
+    ["Preflight the remote release without mutation", '"$expected_prerelease" == "true" && "$release_draft" != "true"', '"$expected_prerelease" == "false" && "$release_draft" != "true"'],
+  ];
+  for (const [name, before, after] of mutations) {
+    assertWorkflowTamper("release-build", validateReleaseWorkflowObject, (subject) => {
+      const step = releaseImageStepByName(subject, name);
+      step.run = replaceLiteral(step.run, before, after);
+    }, finding);
+  }
+  for (const name of ["Preflight the remote release without mutation", "Publish or validate the immutable GitHub release"]) {
+    assertWorkflowTamper("release-build", validateReleaseWorkflowObject, (subject) => {
+      disableExitAfterDiagnostic(releaseImageStepByName(subject, name), "rc releases must remain drafts");
+    }, finding);
+  }
+});
+
+function releaseDraftToolStub() {
+  return String.raw`#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "tool $*" >> "$STUB_LOG"
+case "$1 $2" in
+  'release asset-inventory') printf 'payload\n' ;;
+  'release state')
+    state="$(cat "$STUB_STATE")"
+    if [[ "$state" == absent ]]; then printf 'absent\n'; exit 0; fi
+    draft=true; immutable=false
+    if [[ "$state" == published ]]; then draft=false; immutable=true; fi
+    printf 'present\t123\t%s\t%s\t%s\t%s\n' "$draft" "$STUB_PRERELEASE" "$immutable" "$RELEASE_TAG"
+    ;;
+  'release fetch-assets')
+    output=''; previous=''
+    for argument in "$@"; do
+      if [[ "$previous" == --output ]]; then output="$argument"; fi
+      previous="$argument"
+    done
+    test -n "$output"
+    mkdir -p "$output"
+    if [[ -f "$STUB_UPLOADED" ]]; then
+      cp build/release/assets/payload "$output/payload"
+      printf 'payload\n'
+    fi
+    ;;
+  'release verify-tag') ;;
+  *) exit 91 ;;
+esac
+`;
+}
+
+function releaseDraftGhStub() {
+  return String.raw`#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "gh $*" >> "$STUB_LOG"
+case "$1 $2" in
+  'attestation verify') ;;
+  'release create') printf 'draft\n' > "$STUB_STATE"; touch "$STUB_UPLOADED" ;;
+  'release upload') touch "$STUB_UPLOADED" ;;
+  'release edit')
+    for argument in "$@"; do
+      if [[ "$argument" == --draft=false ]]; then printf 'published\n' > "$STUB_STATE"; fi
+    done
+    ;;
+  *) exit 92 ;;
+esac
+`;
+}
+
+function runReleaseDraftFixture(tag, state) {
+  const root = mkdtempSync(path.join(tmpdir(), "20w-release-draft-"));
+  try {
+    mkdirSync(path.join(root, "build/release-tools"), { recursive: true });
+    mkdirSync(path.join(root, "build/release/assets"), { recursive: true });
+    mkdirSync(path.join(root, "bin"));
+    writeFileSync(path.join(root, "build/release-tools/20w"), releaseDraftToolStub(), { mode: 0o755 });
+    writeFileSync(path.join(root, "bin/gh"), releaseDraftGhStub(), { mode: 0o755 });
+    writeFileSync(path.join(root, "build/release/assets/payload"), "candidate bytes\n");
+    writeFileSync(path.join(root, "state"), state);
+    if (state === "published") writeFileSync(path.join(root, "uploaded"), "");
+    const source = releaseImageStepByName(workflow("release-build"), "Publish or validate the immutable GitHub release").run;
+    const child = spawnSync(BASH, ["-c", source], {
+      cwd: root, encoding: "utf8", timeout: 5000, maxBuffer: 16384,
+      env: {
+        ...process.env, PATH: `${path.join(root, "bin")}${path.delimiter}${process.env.PATH}`,
+        RUNNER_TEMP: root, EVENT_NAME: state === "absent" ? "push" : "workflow_dispatch",
+        RELEASE_TAG: tag, RELEASE_COMMIT: "a".repeat(40), GITHUB_REPOSITORY: "example/research",
+        PREFLIGHT_STATE: state, PREFLIGHT_ID: state === "absent" ? "" : "123",
+        STUB_LOG: path.join(root, "commands"), STUB_STATE: path.join(root, "state"),
+        STUB_UPLOADED: path.join(root, "uploaded"), STUB_PRERELEASE: String(tag.includes("-rc.")),
+      },
+    });
+    assert.equal(child.error, undefined);
+    return { ...child, commands: readFileSync(path.join(root, "commands"), "utf8"), state: readFileSync(path.join(root, "state"), "utf8").trim() };
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+}
+
+test("executed rc creation and manual repair stop at verified drafts; published rc fails", () => {
+  for (const tag of ["v0.5.0-rc.0", "v0.5.0-rc.1"]) {
+    for (const state of ["absent", "draft"]) {
+      const child = runReleaseDraftFixture(tag, state);
+      assert.equal(child.status, 0, child.stderr);
+      assert.equal(child.state, "draft");
+      assert.match(child.stdout, /::notice::rc release 123 stays a draft/);
+      assert.doesNotMatch(child.commands, /--draft=false|gh release edit/);
+      assert.match(child.commands, state === "absent" ? /gh release create .*--prerelease=true --latest=false --draft / : /gh release upload/);
+      assert.match(child.commands, /release fetch-assets.*--phase publication/);
+      assert.match(child.commands, /gh attestation verify .*payload/);
+      assert.match(child.commands, /release verify-tag.*--commit a{40}\n$/);
+    }
+    const child = runReleaseDraftFixture(tag, "published");
+    assert.equal(child.status, 1);
+    assert.match(child.stdout, /::error::rc releases must remain drafts/);
+    assert.doesNotMatch(child.commands, /gh release (edit|create|upload)/);
+  }
+});
+
+test("executed final tags still publish and validate immutable releases", () => {
+  for (const state of ["absent", "draft", "published"]) {
+    const child = runReleaseDraftFixture("v0.5.0", state);
+    assert.equal(child.status, 0, child.stderr);
+    assert.equal(child.state, "published");
+    assert.doesNotMatch(child.stdout, /::notice::rc release/);
+    if (state === "published") assert.doesNotMatch(child.commands, /gh release (edit|create|upload)/);
+    else assert.match(child.commands, /gh release edit .*--prerelease=false .*--draft=false/);
+    assert.match(child.commands, /release fetch-assets.*--phase publication/);
+  }
+});
+
+test("release policy refuses prerelease drift and latest promotion", () => {
+  const valid = workflow("release-build");
+  const mutations = [
+    (subject) => { const step = releaseImageStepByName(subject, "Publish or validate the immutable GitHub release"); step.run = replaceLiteral(step.run, "release_flags+=(--latest=false)", "release_flags+=(--latest=true)"); },
+    (subject) => { const step = releaseImageStepByName(subject, "Publish or validate the immutable GitHub release"); step.run = replaceLiteral(step.run, '"${release_flags[@]}"', ""); },
+  ];
+  for (const name of ["Preflight the remote release without mutation", "Publish or validate the immutable GitHub release"]) {
+    for (const [literal, replacement] of [
+      ['"$release_prerelease" != "$expected_prerelease"', '"$release_prerelease" != "false"'],
+      ["*-rc.*) expected_prerelease=true", "*-*) expected_prerelease=true"],
+      ["expected_prerelease=false", "expected_prerelease=true"],
+      ['echo "::error::release prerelease state does not match the tag"', 'return 0 # guard bypassed'],
+    ]) {
+      mutations.push((subject) => {
+        const step = releaseImageStepByName(subject, name);
+        step.run = replaceLiteral(step.run, literal, replacement);
+      });
+    }
+  }
+  for (const mutate of mutations) {
+    const subject = structuredClone(valid);
+    mutate(subject);
+    assert.notDeepEqual(validateReleaseWorkflowObject(subject), []);
   }
 });

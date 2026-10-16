@@ -584,3 +584,43 @@ test("release notes join wrapped paragraphs and list items and keep every other 
   assert.equal(unwrapMarkdownProse(""), "");
   assert.throws(() => unwrapMarkdownProse(undefined), /must be text/u);
 });
+
+test("rc tags bind to the version before the first hyphen", () => {
+  for (const tag of ["v0.0.0", "v0.5.0", "v12.34.56", "v0.0.0-rc.0", "v0.5.0-rc.1", "v0.5.0-rc.10", "v999999999999999999999.0.0-rc.999999999999999999999"]) {
+    assert.equal(parseReleaseTag(tag), tag.slice(1).split("-", 1)[0]);
+  }
+  for (const tag of ["", "0.5.0", "v0.5.0-rc", "v0.5.0-rc.01", "v0.5.0-rc.1.2", "v0.5.0-beta.1", "v0.5.0-RC.1", "v05.0.0", "v0.05.0", "v0.5.00", "v0.5.0+meta", "v0.5.0-rc.1-x", "v0.5.0-rc.-1", "v0.5.0-rc.", "v0.5.0\n", " v0.5.0", "v0.5.0 "]) {
+    assert.throws(() => parseReleaseTag(tag), /exact form/u);
+  }
+});
+
+test("rc version agreement requires the base manifests and dated changelog", async (t) => {
+  const fixture = await createFixture(t);
+  const inputs = {
+    tag: `v${version}-rc.0`,
+    packageManifest: fixture.packageManifest,
+    packageLock: fixture.packageLock,
+    citation: { version, "date-released": "2026-08-05" },
+    changelog: fixture.changelog,
+  };
+  assert.equal(validateVersionAgreement(inputs).version, version);
+  assert.throws(() => validateVersionAgreement({
+    ...inputs, packageManifest: { ...fixture.packageManifest, version: `${version}-rc.0` },
+  }), /disagrees with package.json/u);
+});
+
+test("rc asset preparation preserves the tag and requires the exact book ref", async (t) => {
+  const fixture = await createFixture(t);
+  const rcTag = `${tag}-rc.1`;
+  const manifestPath = path.join(fixture.root, "public", "downloads", "book-manifest.json");
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  const outputRoot = path.join(fixture.root, "build", "rc-release");
+  await assert.rejects(prepareReleaseAssets({ root: fixture.root, outputRoot, tag: rcTag }), /does not match expected ref/u);
+  manifest.source_ref = rcTag;
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  const result = await prepareReleaseAssets({ root: fixture.root, outputRoot, tag: rcTag });
+  assert.equal(result.version, version);
+  assert.ok(result.assetNames.includes(`research-output-disclosure-${rcTag}.md`));
+  const notes = await readFile(path.join(outputRoot, "release-notes.md"), "utf8");
+  assert.ok(notes.includes(`/releases/download/${rcTag}/`));
+});
