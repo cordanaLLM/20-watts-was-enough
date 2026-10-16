@@ -12,6 +12,7 @@ the exact diff; this file records why the project changed.
 ### Fixed
 
 - Accept canonical `-rc.N` versions in experiment image builds and execution receipts so release-candidate builds pass the image guards.
+- The CLRS shakedown takes its per-request budget from bound inputs. Production keeps 1 s; the failure and cancellation test uses one minute, so a loaded runner no longer turns an injected failure into a deadline outcome (#148).
 
 ## [0.5.0] - 2026-10-16
 
