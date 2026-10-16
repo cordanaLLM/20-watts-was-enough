@@ -151,6 +151,7 @@ const bookSupportSourcePaths = [
   "tooling/cmd/pdf-proof/main.go",
   "tooling/go.mod",
   "tooling/go.sum",
+  "tooling/internal/boundedexec/boundedexec.go",
   "tooling/internal/buildinfo/buildinfo.go",
   "tooling/internal/ciplancli/cli.go",
   "tooling/internal/docscheck/check.go",

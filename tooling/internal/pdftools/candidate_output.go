@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/relpath"
 )
 
 // CandidateOutputOptions selects one authoritative local publication bundle
@@ -128,7 +130,7 @@ func outputPathsConflict(left, right string) bool {
 func prepareCandidateOutputPath(root, relative, suffix, label string) (candidateOutputPath, error) {
 	normalized := filepath.ToSlash(relative)
 	if strings.Contains(relative, "\\") || containsConfusingPathControl(relative) ||
-		!validRelativePath(normalized) || !strings.HasSuffix(normalized, suffix) ||
+		!relpath.Valid(normalized) || !strings.HasSuffix(normalized, suffix) ||
 		!allowedReproductionOutputPath(normalized) {
 		return candidateOutputPath{}, fmt.Errorf("PDF-tools %s must be a safe repository-relative %s path under publication or release evidence", label, suffix)
 	}

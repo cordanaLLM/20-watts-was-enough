@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/boundedexec"
 )
 
 const testImageID = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -149,7 +151,7 @@ func TestRenderPlanUsesTheExactImageAndHardenedContainer(t *testing.T) {
 			t.Fatalf("run arguments omit %q: %v", expected, run)
 		}
 	}
-	if !slices.Contains(run, dockerBind(configuration.RepositoryRoot, "/workspace", true)) ||
+	if !slices.Contains(run, boundedexec.DockerBind(configuration.RepositoryRoot, "/workspace", true)) ||
 		mountSource(run, "/workspace/public/downloads") == "" {
 		t.Fatalf("run bind mounts are incomplete: %v", run)
 	}
@@ -439,7 +441,7 @@ func runRenderTestGit(t *testing.T, root string, arguments ...string) string {
 	commandContext, cancel := context.WithTimeout(context.Background(), sourceRevisionTimeout)
 	defer cancel()
 	command := exec.CommandContext(commandContext, "git", append([]string{"-C", root}, arguments...)...)
-	command.Env = boundedGitEnvironment()
+	command.Env = boundedexec.GitEnvironment()
 	command.WaitDelay = maximumWaitDelay
 	output, err := command.CombinedOutput()
 	if commandContext.Err() != nil {

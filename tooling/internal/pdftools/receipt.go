@@ -16,7 +16,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/boundedexec"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/buildinfo"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/relpath"
 )
 
 const (
@@ -379,8 +381,8 @@ func runBoundedGit(root string, arguments []string, maximum int64) ([]byte, erro
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	stdout := &boundedDockerOutput{limit: maximum}
-	stderr := &boundedDockerOutput{limit: 64 * 1024}
+	stdout := boundedexec.NewOutput(int(maximum))
+	stderr := boundedexec.NewOutput(64 * 1024)
 	commandArguments := append([]string{"-C", root}, arguments...)
 	command := exec.CommandContext(ctx, gitBinary, commandArguments...)
 	command.Env = boundedDockerEnvironment()
@@ -388,8 +390,8 @@ func runBoundedGit(root string, arguments []string, maximum int64) ([]byte, erro
 	command.Stderr = stderr
 	command.WaitDelay = maximumDockerWaitDelay
 	err = command.Run()
-	stdoutBody, stdoutExceeded := stdout.result()
-	stderrBody, stderrExceeded := stderr.result()
+	stdoutBody, stdoutExceeded := stdout.Result()
+	stderrBody, stderrExceeded := stderr.Result()
 	if ctx.Err() != nil {
 		return nil, fmt.Errorf("identify PDF-tools comparator with Git: %w", ctx.Err())
 	}
@@ -530,7 +532,7 @@ func prepareReproductionReceiptPathAtRoot(
 
 func validateReproductionReceiptRelative(relative string) (string, error) {
 	if relative == "" || filepath.IsAbs(relative) || strings.Contains(relative, "\\") ||
-		containsConfusingPathControl(relative) || !validRelativePath(filepath.ToSlash(relative)) {
+		containsConfusingPathControl(relative) || !relpath.Valid(filepath.ToSlash(relative)) {
 		return "", errors.New("PDF-tools reproduction receipt must be a safe repository-relative JSON path")
 	}
 	clean := filepath.Clean(relative)

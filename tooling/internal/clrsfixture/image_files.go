@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/pdfrenderlock"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/relpath"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
@@ -254,7 +255,7 @@ func readGeneratorFile(root, relative string, maximumBytes int64) ([]byte, error
 }
 
 func readGeneratorFileWithInterlock(root, relative string, maximumBytes int64, afterRead func() error) ([]byte, error) {
-	if !validGeneratorRelativePath(relative) {
+	if !relpath.Valid(relative) {
 		return nil, fmt.Errorf("CLRS generator path %q is not repository-relative", relative)
 	}
 	absolute := filepath.Join(root, filepath.FromSlash(relative))
@@ -359,7 +360,7 @@ func inspectGeneratorPath(root, target string, allowMissing bool) error {
 }
 
 func requireMissingGeneratorFile(root, relative string) error {
-	if !validGeneratorRelativePath(relative) {
+	if !relpath.Valid(relative) {
 		return fmt.Errorf("missing CLRS generator path %q is not repository-relative", relative)
 	}
 	absolute := filepath.Join(root, filepath.FromSlash(relative))
@@ -407,14 +408,6 @@ func checkGeneratorBuilderAuthority(root string, builder GeneratorBuilder) error
 		return errors.New("generator BuildKit authority subset digest is stale")
 	}
 	return nil
-}
-
-func validGeneratorRelativePath(value string) bool {
-	if value == "" || filepath.IsAbs(value) || strings.Contains(value, "\\") {
-		return false
-	}
-	cleaned := filepath.ToSlash(filepath.Clean(filepath.FromSlash(value)))
-	return cleaned == value && value != "." && !strings.HasPrefix(value, "../")
 }
 
 func rawSHA256(body []byte) string {

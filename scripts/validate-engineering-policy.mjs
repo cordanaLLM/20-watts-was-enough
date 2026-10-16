@@ -1210,7 +1210,7 @@ const pdfReproducibilityCiCommand = [
 ].join(" ");
 const pdfRendererCacheInputs = Object.freeze({
   path: "build/cache/pdf-renderer",
-  key: "pdf-renderer-buildkit-v1-linux-amd64-${{ hashFiles('tooling/pdf-renderer/lock.json', 'tooling/internal/pdfrender/**', 'tooling/internal/pdfrenderlock/**', 'tooling/internal/pdfrendercli/**', 'tooling/internal/strictjson/**', 'tooling/cmd/pdf-proof/**', 'tooling/go.mod', 'tooling/go.sum') }}",
+  key: "pdf-renderer-buildkit-v1-linux-amd64-${{ hashFiles('tooling/pdf-renderer/lock.json', 'tooling/internal/boundedexec/**', 'tooling/internal/pdfrender/**', 'tooling/internal/pdfrenderlock/**', 'tooling/internal/pdfrendercli/**', 'tooling/internal/strictjson/**', 'tooling/cmd/pdf-proof/**', 'tooling/go.mod', 'tooling/go.sum') }}",
 });
 const pdfRendererCacheRestore = Object.freeze({
   name: "Restore the PDF renderer build cache",

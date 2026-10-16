@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"runtime"
 	"time"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/boundedexec"
 )
 
 const reproducibilityDockerEndpoint = "unix:///var/run/docker.sock"
@@ -77,7 +79,7 @@ func inspectImageProofCommand(
 	if err := configureImageProofProcess(command); err != nil {
 		return ImageConfigProof{}, err
 	}
-	diagnostic := &boundedOutput{limit: maximumDiagnosticBytes}
+	diagnostic := boundedexec.NewOutput(maximumDiagnosticBytes)
 	command.Stderr = diagnostic
 	command.WaitDelay = maximumWaitDelay
 	output, err := command.StdoutPipe()
@@ -105,7 +107,7 @@ func inspectImageProofCommand(
 		_ = killImageProofProcess(command)
 	}
 	waitError := command.Wait()
-	body, exceeded := diagnostic.result()
+	body, exceeded := diagnostic.Result()
 	if exceeded {
 		waitError = errors.Join(waitError, errors.New("renderer image export stderr exceeded its bound"))
 	}
