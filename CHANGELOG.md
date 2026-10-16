@@ -455,6 +455,11 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- PDF rendering checks the installed dependency tree for Linux x64 glibc
+  bindings before invoking Docker or Buildx. A host tree installed for another
+  platform fails immediately with the missing package paths and a command to
+  reinstall using the pinned Node image and npm runtime.
+
 - Browser tests retain their polling budgets under host stalls, with bounded
   wall time and explicit `UNDECIDED: host starved` failures. Keyboard overflow
   checks retry motionless scroll completions at most three times. Fixture-026
