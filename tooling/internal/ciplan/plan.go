@@ -237,6 +237,7 @@ func isRendererAuthority(changedPath string) bool {
 	for _, prefix := range []string{
 		"tooling/cmd/ci-plan/",
 		"tooling/cmd/pdf-proof/",
+		"tooling/internal/boundedexec/",
 		"tooling/internal/ciplan/",
 		"tooling/internal/ciplancli/",
 		"tooling/internal/pdfrender/",

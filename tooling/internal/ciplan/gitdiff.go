@@ -7,13 +7,14 @@ import (
 	"fmt"
 	"io"
 	"maps"
-	"os"
 	"os/exec"
 	"regexp"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/boundedexec"
 )
 
 const (
@@ -48,7 +49,7 @@ func readGitChangedPaths(
 		"diff", "--no-ext-diff", "--no-textconv", "--find-renames", "--find-copies-harder",
 		"--raw", "--no-abbrev", "-z", baseRevision+"..."+headRevision, "--",
 	)
-	command.Env = boundedGitEnvironment()
+	command.Env = boundedexec.GitEnvironment()
 	command.Stdout = standardOutput
 	command.Stderr = standardError
 	command.WaitDelay = time.Second
@@ -56,22 +57,6 @@ func readGitChangedPaths(
 		return nil, false, fmt.Errorf("run bounded Git diff: %w", err)
 	}
 	return parseRawDiff(standardOutput.Bytes())
-}
-
-func boundedGitEnvironment() []string {
-	environment := []string{
-		"GIT_CONFIG_GLOBAL=" + os.DevNull,
-		"GIT_CONFIG_NOSYSTEM=1",
-		"GIT_OPTIONAL_LOCKS=0",
-		"LANG=C",
-		"LC_ALL=C",
-	}
-	for _, name := range []string{"PATH", "PATHEXT", "SYSTEMROOT", "TEMP", "TMP", "TMPDIR", "WINDIR"} {
-		if value, present := os.LookupEnv(name); present {
-			environment = append(environment, name+"="+value)
-		}
-	}
-	return environment
 }
 
 func parseRawDiff(body []byte) ([]string, bool, error) {

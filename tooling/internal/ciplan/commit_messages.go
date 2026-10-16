@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/boundedexec"
 )
 
 const (
@@ -182,7 +184,7 @@ func readCommitMessages(
 	standardOutput := newBoundedBuffer(maximumGitLogBytes)
 	standardError := newBoundedBuffer(maximumGitErrorBytes)
 	command := exec.CommandContext(logContext, gitExecutable, append(arguments, "--")...)
-	command.Env = boundedGitEnvironment()
+	command.Env = boundedexec.GitEnvironment()
 	command.Stdout = standardOutput
 	command.Stderr = standardError
 	command.WaitDelay = time.Second

@@ -13,6 +13,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/boundedexec"
 )
 
 var (
@@ -350,9 +352,9 @@ func runArguments(
 		"--env", "BOOK_RENDERER_LOCK_SHA256=" + configuration.LockSHA256,
 		"--env", "BOOK_RENDERER_PLATFORM=" + configuration.Lock.Platform,
 		"--env", "VITE_CACHE_DIR=/tmp/vite-cache",
-		"--mount", dockerBind(root, "/workspace", true),
-		"--mount", dockerBind(outputDirectory, "/workspace/public/downloads", false),
-		"--mount", dockerBind(temporaryDirectory, "/workspace/tmp", false),
+		"--mount", boundedexec.DockerBind(root, "/workspace", true),
+		"--mount", boundedexec.DockerBind(outputDirectory, "/workspace/public/downloads", false),
+		"--mount", boundedexec.DockerBind(temporaryDirectory, "/workspace/tmp", false),
 		"--tmpfs", dockerTmpfs("/tmp", limits.TemporaryBytes),
 	}
 	if containerUser := currentContainerUser(); containerUser != "" {
@@ -366,14 +368,6 @@ func runArguments(
 		arguments = append(arguments, "--revision", sourceRevision)
 	}
 	return arguments
-}
-
-func dockerBind(source, destination string, readOnly bool) string {
-	mount := "type=bind,src=" + source + ",dst=" + destination
-	if readOnly {
-		mount += ",readonly"
-	}
-	return mount
 }
 
 func dockerTmpfs(destination string, size int64) string {

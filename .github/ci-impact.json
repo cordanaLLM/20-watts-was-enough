@@ -140,6 +140,15 @@
       ]
     },
     {
+      "id": "global-subprocess",
+      "paths": [
+        "tooling/internal/boundedexec/**"
+      ],
+      "lanes": [
+        "full"
+      ]
+    },
+    {
       "id": "go-build",
       "paths": [
         "tooling/cmd/build-release/**"
@@ -230,6 +239,17 @@
       ],
       "lanes": [
         "go"
+      ]
+    },
+    {
+      "id": "go-path-validation",
+      "paths": [
+        "tooling/internal/relpath/**"
+      ],
+      "lanes": [
+        "container",
+        "go",
+        "release"
       ]
     },
     {

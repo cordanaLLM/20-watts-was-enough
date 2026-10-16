@@ -28,6 +28,7 @@ COPY tooling/internal/clrsprompt ./internal/clrsprompt
 COPY tooling/internal/clrsrunner ./internal/clrsrunner
 COPY tooling/internal/clrssegments ./internal/clrssegments
 COPY tooling/internal/pdfrenderlock ./internal/pdfrenderlock
+COPY tooling/internal/relpath ./internal/relpath
 COPY tooling/internal/specialistcontrol ./internal/specialistcontrol
 COPY tooling/internal/strictjson ./internal/strictjson
 RUN test "${TARGETOS}/${TARGETARCH}" = "linux/amd64" \
