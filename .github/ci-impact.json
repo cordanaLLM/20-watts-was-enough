@@ -85,10 +85,8 @@
         "tooling/cmd/ci-plan/**",
         "tooling/go.mod",
         "tooling/go.sum",
-        "tooling/internal/boundedexec/**",
         "tooling/internal/ciplan/**",
         "tooling/internal/ciplancli/**",
-        "tooling/internal/relpath/**",
         "tooling/internal/strictjson/**",
         "tooling/internal/workstationrunner/**",
         "topics.json"
@@ -136,6 +134,15 @@
         ".github/AGENTS.md",
         ".github/CODEOWNERS",
         ".github/workflows/**"
+      ],
+      "lanes": [
+        "full"
+      ]
+    },
+    {
+      "id": "global-subprocess",
+      "paths": [
+        "tooling/internal/boundedexec/**"
       ],
       "lanes": [
         "full"
@@ -232,6 +239,17 @@
       ],
       "lanes": [
         "go"
+      ]
+    },
+    {
+      "id": "go-path-validation",
+      "paths": [
+        "tooling/internal/relpath/**"
+      ],
+      "lanes": [
+        "container",
+        "go",
+        "release"
       ]
     },
     {
