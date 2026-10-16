@@ -26,9 +26,9 @@ const runtimePolicy = Object.freeze({
   npmArchiveSha256: "6666b48816b39b86c3febac7b51a4ee4de6c5ca589c382ad8004b6b113f86677",
   npmArchiveUrl: "https://registry.npmjs.org/npm/-/npm-12.2.0.tgz",
   npmVersion: "12.2.0",
-  numpyDigest: "b0521d0f4aebb6e06189451025fa17a913287b13c03d5fe05c017333b654ea5b",
-  numpyFilename: "numpy-2.5.3-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
-  numpyVersion: "2.5.3",
+  numpyDigest: "d549420b8858885cea8838a727842249218b9c1da24dd517e25c9c7a948310a3",
+  numpyFilename: "numpy-2.5.4-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+  numpyVersion: "2.5.4",
   pythonImplementation: "CPython",
   pythonVersion: "3.14.8",
 });
