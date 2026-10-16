@@ -197,6 +197,18 @@ func executableIdentity(ctx context.Context) (FileIdentity, error) {
 	if err != nil {
 		return FileIdentity{}, err
 	}
+	return identifyExecutable(ctx, path)
+}
+
+// identifyExecutable hashes the executable at path. os.Executable may return a
+// path through a symlinked directory (macOS reports /var for /private/var), so
+// the path is resolved first; the resolved directory then passes the same
+// real-directory walk as every other shakedown path.
+func identifyExecutable(ctx context.Context, path string) (FileIdentity, error) {
+	path, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return FileIdentity{}, fmt.Errorf("resolve executable path: %w", err)
+	}
 	root, err := openDirectory(filepath.Dir(path))
 	if err != nil {
 		return FileIdentity{}, err

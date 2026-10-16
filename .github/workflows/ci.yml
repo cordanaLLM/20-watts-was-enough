@@ -299,6 +299,51 @@ jobs:
       - name: Scan Go packages for known vulnerabilities
         run: go -C tooling run ./cmd/20w security govulncheck --root ..
 
+  lane-go-windows:
+    name: Go lane (Windows)
+    needs: impact-plan
+    if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.go == 'true')
+    runs-on: windows-2025
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out canonical source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use Go 1.27
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: tooling/go.mod
+          cache-dependency-path: tooling/go.sum
+      - name: Test Go packages
+        run: go -C tooling test ./...
+
+  lane-go-macos:
+    name: Go lane (macOS)
+    needs: impact-plan
+    if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.go == 'true')
+    runs-on: macos-26
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Check out canonical source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use Go 1.27
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: tooling/go.mod
+          cache-dependency-path: tooling/go.sum
+      - name: Test Go packages
+        run: go -C tooling test ./...
+
   lane-release:
     name: Release lane
     needs: impact-plan
@@ -364,7 +409,7 @@ jobs:
       - name: Set up the locked PDF Docker Buildx client
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
-          version: v0.37.2
+          version: v0.38.0
           driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
       - name: Restore the PDF renderer build cache
         id: pdf-renderer-cache
@@ -590,7 +635,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
-          version: v0.37.2
+          version: v0.38.0
           driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
       - name: Build the static 20w image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -794,6 +839,8 @@ jobs:
       - quality-full
       - impact-common
       - lane-go
+      - lane-go-windows
+      - lane-go-macos
       - lane-release
       - pdf-renderer-reproducibility
       - lane-research
@@ -822,6 +869,8 @@ jobs:
           RESULT_QUALITY_FULL: ${{ needs.quality-full.result }}
           RESULT_IMPACT_COMMON: ${{ needs.impact-common.result }}
           RESULT_GO: ${{ needs.lane-go.result }}
+          RESULT_GO_WINDOWS: ${{ needs.lane-go-windows.result }}
+          RESULT_GO_MACOS: ${{ needs.lane-go-macos.result }}
           RESULT_RELEASE: ${{ needs.lane-release.result }}
           RESULT_RENDERER: ${{ needs.pdf-renderer-reproducibility.result }}
           RESULT_RESEARCH: ${{ needs.lane-research.result }}
@@ -874,6 +923,8 @@ jobs:
               require_state quality-full "$RESULT_QUALITY_FULL" success
               require_state impact-common "$RESULT_IMPACT_COMMON" skipped
               require_state lane-go "$RESULT_GO" skipped
+              require_state lane-go-windows "$RESULT_GO_WINDOWS" success
+              require_state lane-go-macos "$RESULT_GO_MACOS" success
               require_state lane-release "$RESULT_RELEASE" skipped
               require_selection pdf-renderer-reproducibility "$RESULT_RENDERER" "$SELECT_RENDERER"
               require_state lane-research "$RESULT_RESEARCH" skipped
@@ -895,6 +946,8 @@ jobs:
               require_state quality-full "$RESULT_QUALITY_FULL" skipped
               require_state impact-common "$RESULT_IMPACT_COMMON" success
               require_selection lane-go "$RESULT_GO" "$SELECT_GO"
+              require_selection lane-go-windows "$RESULT_GO_WINDOWS" "$SELECT_GO"
+              require_selection lane-go-macos "$RESULT_GO_MACOS" "$SELECT_GO"
               require_selection lane-release "$RESULT_RELEASE" "$SELECT_RELEASE"
               require_selection pdf-renderer-reproducibility "$RESULT_RENDERER" "$SELECT_RENDERER"
               require_selection lane-research "$RESULT_RESEARCH" "$SELECT_RESEARCH"

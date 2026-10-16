@@ -14,6 +14,7 @@ the exact diff; this file records why the project changed.
   inner experiment and its `NO_RESULT` authority remain unchanged. This
   replaces the manual runtime walkthrough without acquiring or admitting an
   image, measuring energy or providing a hard quota on writable output storage.
+- Run the Go tests on Windows and macOS runners in CI for every full plan and every Go impact plan; the runner policy admits exactly these two jobs ([Decision 0103](decisions/0103-run-the-go-tests-on-windows-and-macos-runners.md)).
 
 ### Changed
 
@@ -21,9 +22,17 @@ the exact diff; this file records why the project changed.
   repository, which is now private; the audit and the v0.3.0 disclosure keep the
   full commit hashes as plain text and say the source cannot be inspected
   publicly (#288).
+- Lock the PDF renderer to Buildx 0.38.0; the renderer cache inventory admits
+  the empty `cache.lock` file that its BuildKit client keeps in a local cache
+  store ([Decision 0105](decisions/0105-move-the-renderer-lock-to-buildx-0-38-0.md)).
 
 ### Fixed
 
+- Segment-intersection orientation no longer fuses multiply-add on arm64, where an exactly collinear case came out as a rounding residue and changed the answer.
+- The CLRS shakedown resolves the running executable's path before its real-directory check, so a test binary below a symlinked temporary directory (macOS) is identified instead of refused.
+- Reject a rooted path without a drive letter and a drive-relative path in the shared relative-path validator, which accepted `/a` on Windows.
+- Check text files out with LF bytes on every platform (`* text=auto eol=lf`), so the byte-compared and hashed Go inputs match on Windows runners.
+- Go tests run with a canonical temporary directory (`internal/testtmp`), so the symlink-refusing path checks pass on macOS (`/var` link) and Windows (8.3 short names).
 - Accept canonical `-rc.N` versions in experiment image builds and execution receipts so release-candidate builds pass the image guards.
 - The CLRS shakedown takes its per-request budget from bound inputs. Production keeps 1 s; the failure and cancellation test uses one minute, so a loaded runner no longer turns an injected failure into a deadline outcome (#148).
 
@@ -1556,7 +1565,11 @@ the exact diff; this file records why the project changed.
   VMAFx's tiny typed estimators and Pelorus's proposed non-language content
   router. Exact source snapshots, implementation status, related-party limits,
   and a non-circular applied video shakedown are recorded without promoting a
-  controller result.
+  controller result. A later source-drift recheck corrects the stale VMAFx
+  runner boundary and refreshes the unchanged proposed Pelorus router without
+  reassigning historical test evidence.
+  Same-pool static dispatch and an offline oracle are retained only as future
+  protocol comparators, not implemented arms, results, or claims.
 - The `lusoris/k8s` engineering-transfer audit now binds its 503-test campaign
   and chart-harness disagreement to the exact historical source commit, then
   records a separate dated live/source observation and bounded drift at the
