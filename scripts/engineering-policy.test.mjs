@@ -2532,14 +2532,19 @@ test("release policy rejects a tag that is not bound to origin/main", () => {
   assert.match(diagnostic, /must follow the native binary build/u);
 });
 
+function replaceLiteral(text, literal, replacement) {
+  assert.ok(text.includes(literal), `mutation target missing: ${literal}`);
+  return text.split(literal).join(replacement);
+}
+
 test("release policy refuses any requested tag form other than vMAJOR.MINOR.PATCH", () => {
   const valid = workflow("release-build");
   assert.deepEqual(validateReleaseWorkflowObject(valid), []);
   const message = ".github/workflows/release-build.yml: the first release step must refuse every tag that is not exactly vMAJOR.MINOR.PATCH";
   const loosened = [
-    ["unanchored end", (run) => run.replace("(0|[1-9][0-9]*)$ ]]", "(0|[1-9][0-9]*) ]]")],
-    ["pre-release suffix", (run) => run.replace("(0|[1-9][0-9]*)$ ]]", "(0|[1-9][0-9]*)(-rc\\.[0-9]+)?$ ]]")],
-    ["leading zeros", (run) => run.replace("^v(0|[1-9][0-9]*)", "^v([0-9]+)")],
+    ["unanchored end", (run) => replaceLiteral(run, "(0|[1-9][0-9]*)$ ]]", "(0|[1-9][0-9]*) ]]")],
+    ["pre-release suffix", (run) => replaceLiteral(run, "(0|[1-9][0-9]*)$ ]]", "(0|[1-9][0-9]*)(-rc\\.[0-9]+)?$ ]]")],
+    ["leading zeros", (run) => replaceLiteral(run, "^v(0|[1-9][0-9]*)", "^v([0-9]+)")],
     ["check removed", () => "printf 'tag=%s\\n' \"$REF_NAME\" >> \"$GITHUB_OUTPUT\""],
   ];
   for (const [name, mutate] of loosened) {
