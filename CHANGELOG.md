@@ -5,6 +5,8 @@ the exact diff; this file records why the project changed.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-16
+
 ### Security
 
 - Build and attest releases inside the local reusable builder required by the
