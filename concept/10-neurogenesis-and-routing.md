@@ -512,7 +512,7 @@ flowchart LR
 ```
 
 Editable source:
-[conflict-bounded-unit-transition.mmd](../assets/diagrams/conflict-bounded-unit-transition.mmd).
+[Conflict-bounded unit transition lifecycle](../experiments/candidates/016-conflict-bounded-unit-transition.md#lifecycle).
 
 For collective lineage $k$, let $Z_k$ be task-native collective performance and
 $W_k$ its dimensionless admitted-descendant weight. The selection accounting is

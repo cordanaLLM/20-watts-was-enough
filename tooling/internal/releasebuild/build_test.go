@@ -5,6 +5,7 @@ import (
 	"context"
 	"debug/buildinfo"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -258,5 +259,74 @@ func TestGoReleaseMetadataIsDeterministicAndVersionBound(t *testing.T) {
 	notice := renderGoNotices(dependencies[0], []byte("MIT fixture\n"), "abc123")
 	if !bytes.Contains(notice, []byte(goldmarkModule+"@"+goldmarkVersion)) || !bytes.HasSuffix(notice, []byte("MIT fixture\n")) {
 		t.Fatalf("renderGoNotices() omitted identity or licence: %q", notice)
+	}
+}
+
+func TestReleaseTagGrammar(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		tag   string
+		valid bool
+	}{
+		{"v0.0.0", true},
+		{"v0.5.0", true},
+		{"v12.34.56", true},
+		{"v0.0.0-rc.0", true},
+		{"v0.5.0-rc.1", true},
+		{"v0.5.0-rc.10", true},
+		{"v999999999999999999999.0.0-rc.999999999999999999999", true},
+		{"", false},
+		{"0.5.0", false},
+		{"v0.5.0-rc", false},
+		{"v0.5.0-rc.01", false},
+		{"v0.5.0-rc.1.2", false},
+		{"v0.5.0-beta.1", false},
+		{"v0.5.0-RC.1", false},
+		{"v05.0.0", false},
+		{"v0.05.0", false},
+		{"v0.5.00", false},
+		{"v0.5.0+meta", false},
+		{"v0.5.0-rc.1-x", false},
+		{"v0.5.0-rc.-1", false},
+		{"v0.5.0-rc.", false},
+		{"v0.5.0\n", false},
+		{" v0.5.0", false},
+		{"v0.5.0 ", false},
+	} {
+		t.Run(test.tag, func(t *testing.T) {
+			t.Parallel()
+			options := Options{ModuleRoot: ".", OutputRoot: "release-inputs", Version: test.tag, Revision: "0123456789abcdef0123456789abcdef01234567", BuiltAt: "2026-10-16T00:00:00Z"}
+			err := Validate(options)
+			if (err == nil) != test.valid {
+				t.Fatalf("tag %q: error = %v, want valid = %t", test.tag, err, test.valid)
+			}
+		})
+	}
+}
+
+func TestRemoveFailedStagingRootRetainsCleanupFailure(t *testing.T) {
+	t.Parallel()
+	parent := filepath.Join(t.TempDir(), "not-a-directory")
+	if err := os.WriteFile(parent, []byte("file"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(parent, "staging")
+	primary := errors.New("build failed")
+	err := removeFailedStagingRoot(path, primary)
+	var pathError *os.PathError
+	if !errors.Is(err, primary) || !errors.As(err, &pathError) || !strings.Contains(err.Error(), "remove native release staging root "+path) {
+		t.Fatalf("cleanup lost failure context or causes: %v", err)
+	}
+}
+
+func TestRemoveFailedStagingRootPreservesBuildErrorAfterRemoval(t *testing.T) {
+	t.Parallel()
+	path := t.TempDir()
+	primary := errors.New("build failed")
+	if err := removeFailedStagingRoot(path, primary); err != primary {
+		t.Fatalf("cleanup replaced build failure: %v", err)
+	}
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("staging root remains: %v", err)
 	}
 }

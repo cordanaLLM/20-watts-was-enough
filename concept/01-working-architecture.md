@@ -193,7 +193,7 @@ flowchart LR
 ```
 
 Editable source:
-[versioned-reconstructive-design.mmd](../assets/diagrams/versioned-reconstructive-design.mmd).
+[Versioned reconstructive design diagram](../experiments/fixtures/002-versioned-reconstructive-design.md#construct-and-information-boundary).
 
 Several separations are non-negotiable. More proposals are not necessarily
 better proposals; proposal diversity, constraint validity, selection regret,

@@ -54,6 +54,7 @@ chapters.
 | [Normative baseline](../research/normative-baseline.md) | EU/German applicability and source-role rules |
 | [Research integrity baseline](../research/research-integrity-baseline.md) | Deduplicated ALLEA, EU, DFG, and institutional rules for conduct, disclosure, stewardship, ethics, correction, and review |
 | [Research-output disclosures](../research/disclosures/README.md) | Contributor roles, support, competing interests, material tools, accountable approval, and verification for tagged snapshots |
+| [Research watch](../research/ingest/README.md) | Fleet-wide literature and release lead tracking |
 | [Open questions](../research/open-questions.md) | Unresolved research and architecture decisions |
 
 ## Mathematics, figures, and experiments

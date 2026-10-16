@@ -5,7 +5,52 @@ the exact diff; this file records why the project changed.
 
 ## [Unreleased]
 
+### Fixed
+
+- Accept canonical `-rc.N` versions in experiment image builds and execution receipts so release-candidate builds pass the image guards.
+- The CLRS shakedown takes its per-request budget from bound inputs. Production keeps 1 s; the failure and cancellation test uses one minute, so a loaded runner no longer turns an injected failure into a deadline outcome (#148).
+
+## [0.5.0] - 2026-10-16
+
+### Security
+
+- Build and attest releases inside the local reusable builder required by the
+  declared SLSA Build L3 policy. Sign fresh image digests and final checksums
+  with keyless Cosign, publish a reusable checksum signature bundle, and
+  attest a tagged-source SPDX SBOM to the release assets
+  ([Decision 0101](decisions/0101-build-releases-in-a-reusable-workflow.md)).
+  Consumer verification now names `release-build.yml` as the trusted signer.
+
+- Re-resolve the CLRS generator's urllib3 dependency from 2.7.0 to 2.8.0 for
+  GHSA-8988-9cw3-xx77, GHSA-vxq7-64xx-v4gw and GHSA-gh4c-6fx4-qh6g.
+  Only urllib3 receives a later cutoff; the global cutoff and every other
+  package block remain unchanged
+  ([Decision 0100](decisions/0100-lift-the-urllib3-cutoff-in-the-clrs-generator.md)).
+  The retained SBOM bundle that CI checks moves to the
+  `clrs-sbom-bundle-2026-10-16` prerelease, scanned from the image rebuilt
+  with the new lock.
+
 ### Added
+
+- Accept canonical `vMAJOR.MINOR.PATCH-rc.N` release tags alongside final
+  tags. Candidates stay GitHub draft pre-releases so no DOI is minted;
+  consumers verify draft assets with authenticated `gh release download` and
+  `gh attestation verify --signer-workflow` naming `release-build.yml`.
+  Images keep only the exact rc tag. Release manifests use the base version
+  before the suffix
+  ([Decision 0102](decisions/0102-accept-release-candidate-tags.md)).
+
+- Research-watch publication wrapper `scripts/research-watch-publish.mjs` runs
+  the daily lead ingester and publishes updated public catalogs to branch
+  `research-watch/ingest` as a pull request against `main` using GitHub GraphQL
+  `createCommitOnBranch`, providing web-flow signed commits without local Git
+  pushes. Credentials are read strictly from systemd credential storage, with
+  hard allow-listing of the three ingest output files, bounded timeouts and
+  retries, and `--dry-run` inspection.
+
+- Read-only research-watch ingestion v1 (#267) merges fleet issue leads by
+  external identifier, retains closed items, and keeps private origins out of
+  the public repository. The CLI has offline tests; no workflow is added yet.
 
 - The adoption matrix checks the *Physarum* solve-cost lead against primary
   sources (issue #231). Tero, Kobayashi and Nakagaki (2007, eq. 6) solve a
@@ -171,6 +216,9 @@ the exact diff; this file records why the project changed.
   repository map link to them.
 
 ### Changed
+
+- Remove eight exact-duplicate standalone Mermaid groups, retaining their
+  Markdown owners and reducing the duplicate baseline from 48 groups to 40.
 
 - Renovate extends the family preset `github>plurano/horistes` instead of
   `config:recommended` and `:dependencyDashboard`, and drops the automerge
@@ -432,6 +480,22 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- PDF rendering checks the installed dependency tree for Linux x64 glibc
+  bindings before invoking Docker or Buildx. A host tree installed for another
+  platform fails immediately with the missing package paths and a command to
+  reinstall using the pinned Node image and npm runtime.
+
+- The portal browser tests in `scripts/github-pages.test.mjs` and
+  `scripts/github-pages-dist-browser.test.mjs` poll through the shared
+  bounded wait helper as well. A test now fails when any tracked test file
+  polls against a wall-clock deadline.
+
+- Browser tests retain their polling budgets under host stalls, with bounded
+  wall time and explicit `UNDECIDED: host starved` failures. Keyboard overflow
+  checks retry motionless scroll completions at most three times. Fixture-026
+  setup measures CPU time; isolated population tests label overloaded-host
+  deadline failures without dropping child-process work from the time bound.
+
 - The code now passes the three rules ESLint 10 adds to its recommended set,
   enabled in `eslint.config.mjs` while ESLint stays at 9.
   `preserve-caught-error` found 41 errors that were rethrown without the
@@ -448,6 +512,23 @@ the exact diff; this file records why the project changed.
   edited files are book sources, so the book was re-rendered: the PDF is
   byte-identical, and the manifest and semantic baseline record the new
   source digest.
+- Engine `2d23b29` adds a pre-push gate stage that runs `make verify-all` in
+  a fresh worktree without the git-ignored `node_modules`, so every npm step
+  failed there (cordanaLLM/praetor#1385). Until the engine fix lands, the
+  Makefile runs its npm steps through `scripts/declared-verify-npm.mjs`, which
+  skips them, with a printed notice, only inside that stage and only while
+  `node_modules` is absent. Its dated exception expires on 2026-10-18 and is
+  removed with the engine pin bump that carries the fix.
+- Both agent personas name the model tier that Praetor engine `2d23b29`
+  (cordanaLLM/praetor#1341) requires: `repo-auditor` takes `pro` and
+  `repo-gatekeeper` takes `flash`. Without the key,
+  `praetorctl compile-context --verify` failed on `main`. The local engine
+  pin `PRAETOR_REF` in `.github/workflows/ci.yml` moves from `3bbde07` to
+  `2d23b29`, because the older engine copies the tier into the Claude Code
+  projection unmapped (`model: pro`) while the new one maps it to a Claude
+  model. The new engine locks a newer `tools/apicompat/gate/main.go`, which
+  is taken unchanged from `praetorctl adopt`; the other files that adopt
+  would rewrite stay as they are.
 
 - Release notes on the forge no longer break mid-sentence. The release
   body is the CHANGELOG section, which wraps at 80 columns, and the forge

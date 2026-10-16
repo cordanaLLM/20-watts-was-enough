@@ -446,3 +446,64 @@ func TestLookupReleaseStateAcceptsAbsentAndExactPresentStates(t *testing.T) {
 		}
 	}
 }
+
+func TestReleaseTagGrammar(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		tag   string
+		valid bool
+	}{
+		{"v0.0.0", true},
+		{"v0.5.0", true},
+		{"v12.34.56", true},
+		{"v0.0.0-rc.0", true},
+		{"v0.5.0-rc.1", true},
+		{"v0.5.0-rc.10", true},
+		{"v999999999999999999999.0.0-rc.999999999999999999999", true},
+		{"", false},
+		{"0.5.0", false},
+		{"v0.5.0-rc", false},
+		{"v0.5.0-rc.01", false},
+		{"v0.5.0-rc.1.2", false},
+		{"v0.5.0-beta.1", false},
+		{"v0.5.0-RC.1", false},
+		{"v05.0.0", false},
+		{"v0.05.0", false},
+		{"v0.5.00", false},
+		{"v0.5.0+meta", false},
+		{"v0.5.0-rc.1-x", false},
+		{"v0.5.0-rc.-1", false},
+		{"v0.5.0-rc.", false},
+		{"v0.5.0\n", false},
+		{" v0.5.0", false},
+		{"v0.5.0 ", false},
+	} {
+		t.Run(test.tag, func(t *testing.T) {
+			t.Parallel()
+			resolver := &fakeReleaseStateResolver{state: ReleaseState{Present: true, ID: 7, Tag: test.tag, Prerelease: strings.Contains(test.tag, "-rc.")}}
+			_, err := LookupReleaseState(context.Background(), "owner/project", test.tag, resolver)
+			if (err == nil) != test.valid {
+				t.Fatalf("tag %q: error = %v, want valid = %t", test.tag, err, test.valid)
+			}
+		})
+	}
+}
+
+func TestReleaseStatePrereleaseMustMatchTag(t *testing.T) {
+	t.Parallel()
+	for _, tag := range []string{"v0.5.0", "v0.5.0-rc.0", "v0.5.0-rc.1"} {
+		for _, prerelease := range []bool{false, true} {
+			for _, draft := range []bool{false, true} {
+				resolver := &fakeReleaseStateResolver{state: ReleaseState{Present: true, ID: 7, Tag: tag, Prerelease: prerelease, Draft: draft, Immutable: !draft}}
+				state, err := LookupReleaseState(context.Background(), "owner/project", tag, resolver)
+				want := prerelease == strings.Contains(tag, "-rc.")
+				if (err == nil) != want || (want && state != resolver.state) {
+					t.Fatalf("tag=%s prerelease=%t draft=%t: state=%+v error=%v", tag, prerelease, draft, state, err)
+				}
+				if !want && !strings.Contains(err.Error(), "prerelease state does not match") {
+					t.Fatalf("wrong mismatch diagnostic: %v", err)
+				}
+			}
+		}
+	}
+}
