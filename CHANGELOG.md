@@ -11,6 +11,8 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- Segment-intersection orientation no longer fuses multiply-add on arm64, where an exactly collinear case came out as a rounding residue and changed the answer.
+- The CLRS shakedown resolves the running executable's path before its real-directory check, so a test binary below a symlinked temporary directory (macOS) is identified instead of refused.
 - Reject a rooted path without a drive letter and a drive-relative path in the shared relative-path validator, which accepted `/a` on Windows.
 - Check text files out with LF bytes on every platform (`* text=auto eol=lf`), so the byte-compared and hashed Go inputs match on Windows runners.
 - Go tests run with a canonical temporary directory (`internal/testtmp`), so the symlink-refusing path checks pass on macOS (`/var` link) and Windows (8.3 short names).
