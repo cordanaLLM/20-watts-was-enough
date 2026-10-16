@@ -16,6 +16,10 @@ the exact diff; this file records why the project changed.
   the Dockerfile and workflow container checks, the manifest and the policy
   move together. No seed, configuration, protocol or result authority changes;
   the fixture stays `NO_RESULT`.
+- Citations of the `lusoris/k8s` cluster audit no longer link to that
+  repository, which is now private; the audit and the v0.3.0 disclosure keep the
+  full commit hashes as plain text and say the source cannot be inspected
+  publicly (#288).
 
 ### Fixed
 
