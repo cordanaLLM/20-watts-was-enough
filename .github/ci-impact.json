@@ -73,6 +73,8 @@
         "scripts/npm-runtime-lock.json",
         "scripts/research-watch-ingest.mjs",
         "scripts/research-watch-ingest.test.mjs",
+        "scripts/research-watch-publish.mjs",
+        "scripts/research-watch-publish.test.mjs",
         "scripts/validate-engineering-policy.mjs",
         "scripts/validate-node-runtime.mjs",
         "scripts/validate-topics.mjs",
