@@ -44,9 +44,6 @@ flowchart LR
     A --> P
 ```
 
-Editable source:
-[conflict-bounded-unit-transition.mmd](../../assets/diagrams/conflict-bounded-unit-transition.mmd).
-
 The founder is not a generic destructive bottleneck. A demographic contraction
 normally loses variation. The tested operation is a versioned reproduction
 boundary that may prevent parasitic local state from being inherited while

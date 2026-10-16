@@ -92,9 +92,6 @@ flowchart TB
     health --> archive
 ```
 
-Editable source:
-[`../assets/diagrams/maturity-fragility-cycle.mmd`](../assets/diagrams/maturity-fragility-cycle.mmd).
-
 The lifecycle separates three decisions often collapsed into “pruning”:
 
 - **protect:** this path is useful and should stop drifting;

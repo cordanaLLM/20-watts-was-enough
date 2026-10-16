@@ -38,9 +38,6 @@ flowchart TB
     retire --> record["Provenance / tombstone"]
 ```
 
-Editable source:
-[`../assets/diagrams/memory-lifecycle.mmd`](../assets/diagrams/memory-lifecycle.mmd).
-
 The lifecycle separates two decisions often collapsed into “learning”:
 
 1. **What should be remembered now?** Capture is fast, attributable, and
