@@ -460,6 +460,11 @@ the exact diff; this file records why the project changed.
   platform fails immediately with the missing package paths and a command to
   reinstall using the pinned Node image and npm runtime.
 
+- The portal browser tests in `scripts/github-pages.test.mjs` and
+  `scripts/github-pages-dist-browser.test.mjs` poll through the shared
+  bounded wait helper as well. A test now fails when any tracked test file
+  polls against a wall-clock deadline.
+
 - Browser tests retain their polling budgets under host stalls, with bounded
   wall time and explicit `UNDECIDED: host starved` failures. Keyboard overflow
   checks retry motionless scroll completions at most three times. Fixture-026
