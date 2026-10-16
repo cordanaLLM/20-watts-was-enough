@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"testing/synctest"
@@ -23,8 +24,13 @@ type containerDockerFixture struct {
 	starts, removed                       int
 }
 
+// newContainerFixture skips off Linux: runContainer refuses every other host
+// before it reads options, which TestContainerRefusesNonLinuxOperator proves.
 func newContainerFixture(t *testing.T) *containerDockerFixture {
 	t.Helper()
+	if runtime.GOOS != "linux" {
+		t.Skip("container execution supports only Linux operators")
+	}
 	options := ContainerOptions{Options: fixtureOptions(t), ImageID: "sha256:" + strings.Repeat("a", 64)}
 	return &containerDockerFixture{t: t, options: options, containers: map[string]*containerInspection{}}
 }

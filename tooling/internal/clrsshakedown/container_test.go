@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -183,5 +184,24 @@ func TestContainerRefusesUnreviewedDockerVersionBeforeCreate(t *testing.T) {
 				t.Fatalf("unreviewed Docker %q: report=%+v error=%v starts=%d", version, report, err, f.starts)
 			}
 		})
+	}
+}
+
+func TestContainerRefusesNonLinuxOperator(t *testing.T) {
+	if runtime.GOOS == "linux" {
+		t.Skip("the refusal applies only off Linux")
+	}
+	calls := 0
+	execute := func(context.Context, []string, int) (containerCommandResult, error) {
+		calls++
+		return containerCommandResult{}, nil
+	}
+	options := ContainerOptions{Options: fixtureOptions(t), ImageID: "sha256:" + strings.Repeat("a", 64)}
+	report, err := runContainer(context.Background(), options, execute)
+	if err == nil || !strings.Contains(err.Error(), "non-root Linux operator") || calls != 0 || report.State != "incomplete" {
+		t.Fatalf("non-Linux host accepted: err=%v calls=%d state=%q", err, calls, report.State)
+	}
+	if _, err := os.Lstat(options.OutputDirectory); !os.IsNotExist(err) {
+		t.Fatalf("refused host wrote output: %v", err)
 	}
 }
