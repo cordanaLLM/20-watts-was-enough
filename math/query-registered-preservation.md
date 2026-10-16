@@ -210,4 +210,4 @@ Reject the refinement when:
 7. records survive turnover but operators cannot safely interpret or use them.
 
 Editable diagram:
-[query-registered-preservation.mmd](../assets/diagrams/query-registered-preservation.mmd).
+[Query-registered preservation diagram](../concept/07-cross-domain-convergence.md#preserved-bits-are-not-preserved-meaning).

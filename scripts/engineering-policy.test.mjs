@@ -10,6 +10,7 @@ import ts from "typescript";
 import { parse } from "yaml";
 
 import { createEslintConfig } from "../eslint.config.mjs";
+import { declaredVerifyAction, DECLARED_VERIFY_EXCEPTION } from "./declared-verify-npm.mjs";
 import {
   activeExceptions,
   currentCalendarDay,
@@ -59,6 +60,8 @@ import {
   validatePullRequestTitleTypeAuthority,
   validatePullRequestMetadataWorkflowObject,
   validateReleaseExperimentImageWorkflowObject,
+  validateReleaseBuilderWorkflowObject,
+  validateReleaseCallerWorkflowObject,
   validateReleaseWorkflowObject,
   validateRenovateConfigObject,
   validateRetiredHostingPaths,
@@ -77,6 +80,51 @@ import {
 } from "./validate-engineering-policy.mjs";
 
 const workflow = (name) => parse(readFileSync(new URL(`../.github/workflows/${name}.yml`, import.meta.url), "utf8"));
+
+test("release caller retains only the serialized tag publication boundary", () => {
+  const valid = workflow("release");
+  assert.deepEqual(validateReleaseCallerWorkflowObject(valid), []);
+  for (const mutate of [
+    (subject) => { subject.jobs.release.uses = "./.github/workflows/untrusted.yml"; },
+    (subject) => { subject.jobs.release.with.tag = "main"; },
+    (subject) => { subject.jobs.release.permissions["id-token"] = "read"; },
+    (subject) => { subject.jobs.release.steps = []; },
+    (subject) => { subject.on.pull_request = {}; },
+    (subject) => { subject.concurrency["cancel-in-progress"] = true; },
+  ]) {
+    const subject = structuredClone(valid);
+    mutate(subject);
+    assert.notDeepEqual(validateReleaseCallerWorkflowObject(subject), []);
+  }
+});
+
+test("trusted builder rejects imported assets, bypassed signing, and independent SBOM uploads", () => {
+  const valid = workflow("release-build");
+  assert.deepEqual(validateReleaseBuilderWorkflowObject(valid), []);
+  for (const mutate of [
+    (subject) => { subject.on.push = {}; },
+    (subject) => { subject.jobs.release["timeout-minutes"] = 224; },
+    (subject) => { subject.jobs.release.steps.push({ uses: "actions/download-artifact@0123456789012345678901234567890123456789" }); },
+    (subject) => { subject.jobs.release.steps.push({ run: "gh run download 123" }); },
+    (subject) => { subject.jobs.release.steps.filter((step) => step.uses?.startsWith("actions/checkout@"))[1].with.clean = true; },
+    (subject) => { releaseImageStepByName(subject, "Sign the freshly built static 20w digest").env.IMAGE_DIGEST = "mutable-tag"; },
+    (subject) => { delete releaseImageStepByName(subject, "Sign the freshly built Fixture 007 digest").if; },
+    (subject) => { releaseImageStepByName(subject, "Install the pinned cosign client").with["cosign-release"] = "latest"; },
+    (subject) => { releaseImageStepByName(subject, "Verify the checksum signature and complete asset inventory").run = "true"; },
+    (subject) => { releaseImageStepByName(subject, "Verify the checksum signature and complete asset inventory").if = "false"; },
+    (subject) => { releaseImageStepByName(subject, "Verify the checksum signature and complete asset inventory")["continue-on-error"] = true; },
+    (subject) => {
+      const verify = releaseImageStepByName(subject, "Verify admitted image provenance against the tag source");
+      verify.run = verify.run.replace("/.github/workflows/release-build.yml", "/.github/workflows/release.yml");
+    },
+    (subject) => { releaseImageStepByName(subject, "Generate the tagged-source SPDX SBOM").with["upload-release-assets"] = true; },
+    (subject) => { releaseImageStepByName(subject, "Attest the source SBOM to the release assets").with["subject-path"] = "build/source.spdx.json"; },
+  ]) {
+    const subject = structuredClone(valid);
+    mutate(subject);
+    assert.notDeepEqual(validateReleaseBuilderWorkflowObject(subject), []);
+  }
+});
 
 function policyDisclosure(version) {
   return [
@@ -684,7 +732,7 @@ test("every job reads the Node version from the one version file", () => {
   ]) {
     assert.deepEqual(validateNodeSetupWorkflowObject(jobsWith(inputs)), finding);
   }
-  for (const name of ["ci", "github-pages", "release"]) {
+  for (const name of ["ci", "github-pages", "release", "release-build"]) {
     const file = `.github/workflows/${name}.yml`;
     assert.deepEqual(validateNodeSetupWorkflowObject(workflow(name), file), []);
     assert.doesNotMatch(readFileSync(new URL(`../${file}`, import.meta.url), "utf8"), /node-version:/u);
@@ -1320,31 +1368,31 @@ test("real PDF reproducibility acceptance stays in the renderer-selected and tag
     }
   }
 
-  const releaseFinding = ".github/workflows/release.yml: tagged releases must run the exact two-builder PDF reproducibility acceptance and checksum its receipt as a release input";
-  const validRelease = workflow("release");
+  const releaseFinding = ".github/workflows/release-build.yml: tagged releases must run the exact two-builder PDF reproducibility acceptance and checksum its receipt as a release input";
+  const validRelease = workflow("release-build");
   assert.deepEqual(validatePDFRendererReproducibilityWorkflowObject(
     validRelease,
-    ".github/workflows/release.yml",
+    ".github/workflows/release-build.yml",
   ), []);
 
   const unbound = structuredClone(validRelease);
-  unbound.jobs.verify.steps.find((step) => (
+  unbound.jobs.release.steps.find((step) => (
     step.name === "Rebuild the final PDF renderer twice without cache"
-  )).run = unbound.jobs.verify.steps.find((step) => (
+  )).run = unbound.jobs.release.steps.find((step) => (
     step.name === "Rebuild the final PDF renderer twice without cache"
   )).run.replace("build/release-inputs/", "build/evidence/");
   assert.deepEqual(validatePDFRendererReproducibilityWorkflowObject(
     unbound,
-    ".github/workflows/release.yml",
+    ".github/workflows/release-build.yml",
   ), [releaseFinding]);
 
   const unreleasedProofCommand = structuredClone(validRelease);
-  unreleasedProofCommand.jobs.verify.steps.find((step) => (
+  unreleasedProofCommand.jobs.release.steps.find((step) => (
     step.name === "Rebuild the final PDF renderer twice without cache"
   )).run = "go -C tooling run ./cmd/pdf-proof --root . --receipt proof.json";
   assert.deepEqual(validatePDFRendererReproducibilityWorkflowObject(
     unreleasedProofCommand,
-    ".github/workflows/release.yml",
+    ".github/workflows/release-build.yml",
   ), [releaseFinding]);
 });
 
@@ -1455,11 +1503,11 @@ test("the executed PDF cache guard allows exact hits and cold misses but rejects
 });
 
 test("tagged PDF proof never opts into the CI build cache", () => {
-  const subject = structuredClone(workflow("release"));
-  subject.jobs.verify.steps.find((step) => step.name === "Rebuild the final PDF renderer twice without cache")
+  const subject = structuredClone(workflow("release-build"));
+  subject.jobs.release.steps.find((step) => step.name === "Rebuild the final PDF renderer twice without cache")
     .run += " --cache-dir build/cache/pdf-renderer";
-  assert.deepEqual(validatePDFRendererReproducibilityWorkflowObject(subject, ".github/workflows/release.yml"), [
-    ".github/workflows/release.yml: tagged releases must run the exact two-builder PDF reproducibility acceptance and checksum its receipt as a release input",
+  assert.deepEqual(validatePDFRendererReproducibilityWorkflowObject(subject, ".github/workflows/release-build.yml"), [
+    ".github/workflows/release-build.yml: tagged releases must run the exact two-builder PDF reproducibility acceptance and checksum its receipt as a release input",
   ]);
 });
 
@@ -2392,6 +2440,38 @@ test("unpinned image definitions label the canonical repository source", (t) => 
   ]);
 });
 
+test("experiment Dockerfile guards accept only development, final versions, and canonical candidates", () => {
+  const cases = [
+    ["v0.5.0-rc.1", true],
+    ["v1.2.3-rc.0", true],
+    ["1.2.3-rc.10", true],
+    ["development", true],
+    ["v1.2.3", true],
+    ["1.2.3", true],
+    ["v1.2.3-rc.01", false],
+    ["v1.2.3-rc", false],
+    ["v1.2.3-beta.1", false],
+    ["v1.2.3-rc.1+x", false],
+    ["v1.2.3-rc.-1", false],
+    ["v01.2.3-rc.1", false],
+  ];
+  for (const relativePath of [
+    "experiments/workstation/Dockerfile.node-artifact",
+    "experiments/workstation/fixture-019/Dockerfile",
+  ]) {
+    const source = readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
+    const guards = [...source.matchAll(/grep -Eq '([^']+)' \/tmp\/image-version;/gu)];
+    assert.equal(guards.length, 1, relativePath);
+    for (const [version, valid] of cases) {
+      const result = spawnSync("grep", ["-Eq", guards[0][1]], {
+        input: `${version}\n`, encoding: "utf8", timeout: 5_000, maxBuffer: 4_096,
+      });
+      assert.ifError(result.error);
+      assert.equal(result.status, valid ? 0 : 1, `${relativePath}: ${version}: ${result.stderr}`);
+    }
+  }
+});
+
 test("experiment reports separate immutable digests from discovery tags", () => {
   const relativePath = ".github/ISSUE_TEMPLATE/experiment-protocol-problem.yml";
   const form = parse(readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8"));
@@ -2468,7 +2548,7 @@ test("issue configuration requires private-security and support routes", () => {
 test("release policy rejects a tag that is not bound to origin/main", () => {
   const findings = validateReleaseWorkflowObject({
     jobs: {
-      verify: {
+      release: {
         steps: [{ id: "release-ref", run: "git rev-parse HEAD" }],
       },
     },
@@ -2484,21 +2564,46 @@ test("release policy rejects a tag that is not bound to origin/main", () => {
   assert.match(diagnostic, /must follow the native binary build/u);
 });
 
+function replaceLiteral(text, literal, replacement) {
+  assert.ok(text.includes(literal), `mutation target missing: ${literal}`);
+  return text.split(literal).join(replacement);
+}
+
+test("release policy refuses any requested tag form other than final or rc tags", () => {
+  const valid = workflow("release-build");
+  assert.deepEqual(validateReleaseWorkflowObject(valid), []);
+  const message = ".github/workflows/release-build.yml: the first release step must refuse every tag that is not exactly vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N";
+  const loosened = [
+    ["unanchored end", (run) => replaceLiteral(run, "?$ ]]", "? ]]")],
+    ["arbitrary suffix", (run) => replaceLiteral(run, String.raw`(-rc\.(0|[1-9][0-9]*))?`, "(-[a-z.0-9]+)?")],
+    ["leading zeros", (run) => replaceLiteral(run, "^v(0|[1-9][0-9]*)", "^v([0-9]+)")],
+    ["check removed", () => "printf 'tag=%s\\n' \"$REF_NAME\" >> \"$GITHUB_OUTPUT\""],
+  ];
+  for (const [name, mutate] of loosened) {
+    const tampered = structuredClone(valid);
+    tampered.jobs.release.steps[0].run = mutate(tampered.jobs.release.steps[0].run);
+    assert.ok(validateReleaseWorkflowObject(tampered).includes(message), name);
+  }
+  const moved = structuredClone(valid);
+  moved.jobs.release.steps.push(moved.jobs.release.steps.shift());
+  assert.ok(validateReleaseWorkflowObject(moved).includes(message), "check moved after the build");
+});
+
 test("release policy binds native binaries and ingests them after the PDF render", () => {
-  const valid = workflow("release");
+  const valid = workflow("release-build");
   assert.deepEqual(validateReleaseWorkflowObject(valid), []);
 
   const tampered = structuredClone(valid);
-  const preparation = tampered.jobs.verify.steps.find((step) => (
+  const preparation = tampered.jobs.release.steps.find((step) => (
     typeof step.run === "string" && step.run.includes("npm run prepare:release")
   ));
   preparation.run = preparation.run.replace(" --additional-assets-root build/release-inputs", "");
   assert.ok(validateReleaseWorkflowObject(tampered).includes(
-    ".github/workflows/release.yml: release preparation must ingest the native binaries as additional assets",
+    ".github/workflows/release-build.yml: release preparation must ingest the native binaries as additional assets",
   ));
 
   const escapedReleasePlan = structuredClone(valid);
-  const execution = escapedReleasePlan.jobs.verify.steps.find((step) => (
+  const execution = escapedReleasePlan.jobs.release.steps.find((step) => (
     typeof step.run === "string" && step.run.includes("experiment release-plan")
   ));
   execution.run = execution.run.replace(
@@ -2506,19 +2611,19 @@ test("release policy binds native binaries and ingests them after the PDF render
     "> ../build/release-inputs/experiment-release-plan.json",
   );
   assert.ok(validateReleaseWorkflowObject(escapedReleasePlan).includes(
-    ".github/workflows/release.yml: the release plan redirect must stay inside the repository release-input directory",
+    ".github/workflows/release-build.yml: the release plan redirect must stay inside the repository release-input directory",
   ));
 
   const ambientPDFBuilder = structuredClone(valid);
-  ambientPDFBuilder.jobs.verify.steps.find(
+  ambientPDFBuilder.jobs.release.steps.find(
     (step) => step.name === "Set up the locked PDF Docker Buildx client",
   ).with.version = "latest";
   assert.ok(validateReleaseWorkflowObject(ambientPDFBuilder).includes(
-    ".github/workflows/release.yml: tag-bound PDF rendering must provision the locked Buildx client and BuildKit image after the source gate",
+    ".github/workflows/release-build.yml: tag-bound PDF rendering must provision the locked Buildx client and BuildKit image after the source gate",
   ));
 
   const latePDFBuilder = structuredClone(valid);
-  const verifySteps = latePDFBuilder.jobs.verify.steps;
+  const verifySteps = latePDFBuilder.jobs.release.steps;
   const builderIndex = verifySteps.findIndex(
     (step) => step.name === "Set up the locked PDF Docker Buildx client",
   );
@@ -2526,14 +2631,14 @@ test("release policy binds native binaries and ingests them after the PDF render
   const renderIndex = verifySteps.findIndex((step) => step.name === "Render the immutable tag-bound book");
   verifySteps.splice(renderIndex + 1, 0, builder);
   assert.ok(validateReleaseWorkflowObject(latePDFBuilder).includes(
-    ".github/workflows/release.yml: tag-bound PDF rendering must provision the locked Buildx client and BuildKit image after the source gate",
+    ".github/workflows/release-build.yml: tag-bound PDF rendering must provision the locked Buildx client and BuildKit image after the source gate",
   ));
 
   const incompleteAttestation = structuredClone(valid);
   const attestation = releaseImageStepByName(incompleteAttestation, "Attest the complete release asset inventory");
   attestation.with["subject-path"] = "build/release/assets/SHA256SUMS";
   assert.ok(validateReleaseWorkflowObject(incompleteAttestation).includes(
-    ".github/workflows/release.yml: checksums and provenance must cover the exact generated release asset directory",
+    ".github/workflows/release-build.yml: checksums and provenance must cover the exact generated release asset directory",
   ));
 
   const publishedMutation = structuredClone(valid);
@@ -2542,13 +2647,13 @@ test("release policy binds native binaries and ingests them after the PDF render
     "Attest the complete release asset inventory",
   ).if;
   assert.ok(validateReleaseWorkflowObject(publishedMutation).includes(
-    ".github/workflows/release.yml: checksums and provenance must cover the exact generated release asset directory",
+    ".github/workflows/release-build.yml: checksums and provenance must cover the exact generated release asset directory",
   ));
 });
 
 test("release PDF rendering binds only the exact verified tag and commit", async (t) => {
-  const diagnostic = ".github/workflows/release.yml: release PDF render must use its exact reviewed step, verified tag and commit outputs, and bounded command without a failure bypass";
-  const renderStep = (subject) => subject.jobs.verify.steps.find((step) => (
+  const diagnostic = ".github/workflows/release-build.yml: release PDF render must use its exact reviewed step, verified tag and commit outputs, and bounded command without a failure bypass";
+  const renderStep = (subject) => subject.jobs.release.steps.find((step) => (
     step.name === "Render the immutable tag-bound book"
   ));
   const cases = {
@@ -2574,7 +2679,7 @@ test("release PDF rendering binds only the exact verified tag and commit", async
       renderStep(subject).if = "${{ always() }}";
     },
     "render before Buildx": (subject) => {
-      const steps = subject.jobs.verify.steps;
+      const steps = subject.jobs.release.steps;
       const renderIndex = steps.findIndex((step) => step.name === "Render the immutable tag-bound book");
       const [render] = steps.splice(renderIndex, 1);
       const setupIndex = steps.findIndex((step) => step.name === "Set up the locked PDF Docker Buildx client");
@@ -2584,12 +2689,12 @@ test("release PDF rendering binds only the exact verified tag and commit", async
 
   for (const [name, mutate] of Object.entries(cases)) {
     await t.test(name, () => {
-      const subject = structuredClone(workflow("release"));
+      const subject = structuredClone(workflow("release-build"));
       mutate(subject);
       const findings = validateReleaseWorkflowObject(subject);
       if (name === "render before Buildx") {
         assert.ok(findings.includes(
-          ".github/workflows/release.yml: tag-bound PDF rendering must provision the locked Buildx client and BuildKit image after the source gate",
+          ".github/workflows/release-build.yml: tag-bound PDF rendering must provision the locked Buildx client and BuildKit image after the source gate",
         ));
       } else {
         assert.ok(findings.includes(diagnostic), JSON.stringify(findings));
@@ -2600,18 +2705,18 @@ test("release PDF rendering binds only the exact verified tag and commit", async
 
 test("release publication preserves generated notes before appending image identities", () => {
   assertWorkflowTamper(
-    "release",
+    "release-build",
     validateReleaseExperimentImageWorkflowObject,
     (subject) => {
       const notes = releaseImageStepByName(subject, "Add immutable container identities to the release notes");
       notes.run = notes.run.replace('cp build/release/release-notes.md "$notes"', ': > "$notes"');
     },
-    ".github/workflows/release.yml: published release notes must preserve the generated changelog and disclosure link",
+    ".github/workflows/release-build.yml: published release notes must preserve the generated changelog and disclosure link",
   );
 });
 
 test("release publication requires anonymous pulls of all final image digests", () => {
-  const anonymousFinding = ".github/workflows/release.yml: final release image digests must pass anonymous pulls with an empty Docker configuration";
+  const anonymousFinding = ".github/workflows/release-build.yml: final release image digests must pass anonymous pulls with an empty Docker configuration";
   for (const mutate of [
     (subject) => {
       const pull = releaseImageStepByName(subject, "Prove final image digests are anonymously pullable");
@@ -2630,11 +2735,11 @@ test("release publication requires anonymous pulls of all final image digests", 
       pull.run = pull.run.replace('registry_manifest_is_anonymous "$image" || ', "");
     },
   ]) {
-    assertWorkflowTamper("release", validateReleaseExperimentImageWorkflowObject, mutate, anonymousFinding);
+    assertWorkflowTamper("release-build", validateReleaseExperimentImageWorkflowObject, mutate, anonymousFinding);
   }
 
   assertWorkflowTamper(
-    "release",
+    "release-build",
     validateReleaseExperimentImageWorkflowObject,
     (subject) => {
       const steps = subject.jobs.release.steps;
@@ -2643,12 +2748,12 @@ test("release publication requires anonymous pulls of all final image digests", 
       const publicationIndex = steps.findIndex((step) => step.name === "Publish or validate the immutable GitHub release");
       steps.splice(publicationIndex + 1, 0, pull);
     },
-    ".github/workflows/release.yml: anonymous digest pulls must follow final binding and precede GitHub Release publication",
+    ".github/workflows/release-build.yml: anonymous digest pulls must follow final binding and precede GitHub Release publication",
   );
 });
 
 test("release derives one safe sorted asset inventory from SHA256SUMS", () => {
-  const finding = ".github/workflows/release.yml: release asset inventory must derive safe sorted unique basenames from validated SHA256SUMS before remote access";
+  const finding = ".github/workflows/release-build.yml: release asset inventory must derive safe sorted unique basenames from validated SHA256SUMS before remote access";
   const cases = [
     (subject) => {
       const publication = releaseImageStepByName(subject, "Publish or validate the immutable GitHub release");
@@ -2691,12 +2796,12 @@ test("release derives one safe sorted asset inventory from SHA256SUMS", () => {
     },
   ];
   for (const mutate of cases) {
-    assertWorkflowTamper("release", validateReleaseWorkflowObject, mutate, finding);
+    assertWorkflowTamper("release-build", validateReleaseWorkflowObject, mutate, finding);
   }
 });
 
 test("same-tag releases compare assets and upload only missing allowed files", () => {
-  const finding = ".github/workflows/release.yml: same-tag release assets must use the closed inventory, compare existing bytes, upload only missing files, and never replace or delete";
+  const finding = ".github/workflows/release-build.yml: same-tag release assets must use the closed inventory, compare existing bytes, upload only missing files, and never replace or delete";
   const cases = [
     (subject) => {
       const publication = releaseImageStepByName(subject, "Publish or validate the immutable GitHub release");
@@ -2743,14 +2848,14 @@ test("same-tag releases compare assets and upload only missing allowed files", (
     },
   ];
   for (const mutate of cases) {
-    assertWorkflowTamper("release", validateReleaseWorkflowObject, mutate, finding);
+    assertWorkflowTamper("release-build", validateReleaseWorkflowObject, mutate, finding);
   }
 });
 
 test("release preflight completes before publication mutation", () => {
-  const finding = ".github/workflows/release.yml: existing releases must pass the read-only asset and peeled-tag preflight before publication mutations";
+  const finding = ".github/workflows/release-build.yml: existing releases must pass the read-only asset and peeled-tag preflight before publication mutations";
   assertWorkflowTamper(
-    "release",
+    "release-build",
     validateReleaseWorkflowObject,
     (subject) => {
       const steps = subject.jobs.release.steps;
@@ -2762,7 +2867,7 @@ test("release preflight completes before publication mutation", () => {
     finding,
   );
   assertWorkflowTamper(
-    "release",
+    "release-build",
     validateReleaseWorkflowObject,
     (subject) => {
       releaseImageStep(subject, "release-preflight").run += '\ngh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/1"';
@@ -2777,7 +2882,7 @@ test("release preflight completes before publication mutation", () => {
     ['--output "$existing_root"', "--output build/release/assets"],
   ]) {
     assertWorkflowTamper(
-      "release",
+      "release-build",
       validateReleaseWorkflowObject,
       (subject) => {
         const preflight = releaseImageStep(subject, "release-preflight");
@@ -2787,7 +2892,7 @@ test("release preflight completes before publication mutation", () => {
     );
   }
   assertWorkflowTamper(
-    "release",
+    "release-build",
     validateReleaseWorkflowObject,
     (subject) => {
       releaseImageStep(subject, "release-preflight").run += '\ngh api --paginate "repos/${GITHUB_REPOSITORY}/releases/1/assets"';
@@ -2797,20 +2902,20 @@ test("release preflight completes before publication mutation", () => {
 });
 
 test("release refusal branches cannot be neutralized", () => {
-  const preflightFinding = ".github/workflows/release.yml: existing releases must pass the read-only asset and peeled-tag preflight before publication mutations";
+  const preflightFinding = ".github/workflows/release-build.yml: existing releases must pass the read-only asset and peeled-tag preflight before publication mutations";
   for (const diagnostic of [
     "existing release asset differs from the local asset",
     "published immutable release assets are incomplete",
   ]) {
     assertWorkflowTamper(
-      "release",
+      "release-build",
       validateReleaseWorkflowObject,
       (subject) => disableExitAfterDiagnostic(releaseImageStep(subject, "release-preflight"), diagnostic),
       preflightFinding,
     );
   }
 
-  const finalFinding = ".github/workflows/release.yml: same-tag release assets must use the closed inventory, compare existing bytes, upload only missing files, and never replace or delete";
+  const finalFinding = ".github/workflows/release-build.yml: same-tag release assets must use the closed inventory, compare existing bytes, upload only missing files, and never replace or delete";
   for (const diagnostic of [
     "remote release asset differs from the local asset",
     "remote release assets do not match the checksum-derived inventory",
@@ -2819,7 +2924,7 @@ test("release refusal branches cannot be neutralized", () => {
     "published release did not become immutable after five checks",
   ]) {
     assertWorkflowTamper(
-      "release",
+      "release-build",
       validateReleaseWorkflowObject,
       (subject) => disableExitAfterDiagnostic(
         releaseImageStepByName(subject, "Publish or validate the immutable GitHub release"),
@@ -2830,18 +2935,18 @@ test("release refusal branches cannot be neutralized", () => {
   }
 
   assertWorkflowTamper(
-    "release",
+    "release-build",
     validateReleaseExperimentImageWorkflowObject,
     (subject) => disableExitAfterDiagnostic(
       releaseImageStepByName(subject, "Prove final image digests are anonymously pullable"),
       "is not anonymously pullable.",
     ),
-    ".github/workflows/release.yml: final release image digests must pass anonymous pulls with an empty Docker configuration",
+    ".github/workflows/release-build.yml: final release image digests must pass anonymous pulls with an empty Docker configuration",
   );
 });
 
 test("oci-images.json is the immutable release-image authority", () => {
-  const authorityFinding = ".github/workflows/release.yml: oci-images.json must become the checksum-bound authority only after final anonymous digest admission";
+  const authorityFinding = ".github/workflows/release-build.yml: oci-images.json must become the checksum-bound authority only after final anonymous digest admission";
   for (const mutate of [
     (subject) => {
       const materialize = releaseImageStepByName(subject, "Materialize the immutable OCI image authority");
@@ -2859,10 +2964,10 @@ test("oci-images.json is the immutable release-image authority", () => {
       steps.splice(bindingIndex + 1, 0, materialize);
     },
   ]) {
-    assertWorkflowTamper("release", validateReleaseWorkflowObject, mutate, authorityFinding);
+    assertWorkflowTamper("release-build", validateReleaseWorkflowObject, mutate, authorityFinding);
   }
 
-  const rerunFinding = ".github/workflows/release.yml: immutable published reruns must revalidate persisted assets, images, provenance, and anonymous pulls without mutation";
+  const rerunFinding = ".github/workflows/release-build.yml: immutable published reruns must revalidate persisted assets, images, provenance, and anonymous pulls without mutation";
   for (const stepName of [
     "Validate persisted release image identities and tag bindings",
     "Verify persisted image provenance against the tag source",
@@ -2870,7 +2975,7 @@ test("oci-images.json is the immutable release-image authority", () => {
     "Verify the complete release-asset attestations against the tag source",
   ]) {
     assertWorkflowTamper(
-      "release",
+      "release-build",
       validateReleaseWorkflowObject,
       (subject) => {
         releaseImageStepByName(subject, stepName).if = "steps.release-preflight.outputs.release_state != 'published'";
@@ -2896,7 +3001,7 @@ test("oci-images.json is the immutable release-image authority", () => {
       pull.run = pull.run.replace('registry_manifest_is_anonymous "$image" || ', "");
     },
   ]) {
-    assertWorkflowTamper("release", validateReleaseWorkflowObject, mutate, rerunFinding);
+    assertWorkflowTamper("release-build", validateReleaseWorkflowObject, mutate, rerunFinding);
   }
 });
 
@@ -2911,7 +3016,7 @@ test("registry image names derive from one validated lowercase repository", () =
       ["Build the CLRS shakedown specialist image", "Build the Fixture 007 image"],
     ],
     [
-      "release",
+      "release-build",
       validateReleaseExperimentImageWorkflowObject,
       "release",
       "Preflight the remote release without mutation",
@@ -2962,7 +3067,7 @@ test("registry image names derive from one validated lowercase repository", () =
     }
   }
 
-  const consumerFinding = ".github/workflows/release.yml: OCI image manifests must bind the lowercase IMAGE_REPOSITORY while GitHub release lookups keep the case-preserving repository";
+  const consumerFinding = ".github/workflows/release-build.yml: OCI image manifests must bind the lowercase IMAGE_REPOSITORY while GitHub release lookups keep the case-preserving repository";
   for (const [stepName, from, to] of [
     ["Preflight the remote release without mutation", '--repository "$IMAGE_REPOSITORY"', '--repository "$GITHUB_REPOSITORY"'],
     ["Preflight the remote release without mutation", '--repository "$GITHUB_REPOSITORY"', '--repository "$IMAGE_REPOSITORY"'],
@@ -2971,7 +3076,7 @@ test("registry image names derive from one validated lowercase repository", () =
     ["Publish or validate the immutable GitHub release", '--repository "$GITHUB_REPOSITORY"', '--repository "$IMAGE_REPOSITORY"'],
   ]) {
     assertWorkflowTamper(
-      "release",
+      "release-build",
       validateReleaseExperimentImageWorkflowObject,
       (subject) => {
         const step = releaseImageStepByName(subject, stepName);
@@ -2985,7 +3090,7 @@ test("registry image names derive from one validated lowercase repository", () =
 
 test("CI and release image policy preserve separate tooling and experiment identities", () => {
   const ciWorkflow = workflow("ci");
-  const releaseWorkflow = workflow("release");
+  const releaseWorkflow = workflow("release-build");
   assert.deepEqual(validateCiExperimentImageWorkflowObject(ciWorkflow), []);
   assert.deepEqual(validateReleaseExperimentImageWorkflowObject(releaseWorkflow), []);
 
@@ -3016,7 +3121,7 @@ test("CI and release image policy preserve separate tooling and experiment ident
   ));
   releaseBuild.with.file = "experiments/workstation/Dockerfile";
   assert.ok(validateReleaseExperimentImageWorkflowObject(sharedReleaseImage).includes(
-    ".github/workflows/release.yml: release must build the untagged linux/amd64 Fixture 019 candidate",
+    ".github/workflows/release-build.yml: release must build the untagged linux/amd64 Fixture 019 candidate",
   ));
 
   const unnamedReleaseImage = structuredClone(releaseWorkflow);
@@ -3028,7 +3133,7 @@ test("CI and release image policy preserve separate tooling and experiment ident
     "",
   );
   assert.ok(validateReleaseExperimentImageWorkflowObject(unnamedReleaseImage).includes(
-    ".github/workflows/release.yml: release must build the untagged linux/amd64 Fixture 019 candidate",
+    ".github/workflows/release-build.yml: release must build the untagged linux/amd64 Fixture 019 candidate",
   ));
 
   const mergedToolingImage = structuredClone(releaseWorkflow);
@@ -3037,7 +3142,7 @@ test("CI and release image policy preserve separate tooling and experiment ident
   ));
   toolingBuild.with.file = "experiments/workstation/fixture-019/Dockerfile";
   assert.ok(validateReleaseExperimentImageWorkflowObject(mergedToolingImage).includes(
-    ".github/workflows/release.yml: static 20w tooling image must use a separate untagged, admitted digest",
+    ".github/workflows/release-build.yml: static 20w tooling image must use a separate untagged, admitted digest",
   ));
 });
 
@@ -3060,23 +3165,23 @@ test("Fixture 019 uses the closed Go-packaged context in CI and release", () => 
     ".github/workflows/ci.yml: container-smoke must build only the scoped Fixture 019 test image",
   );
   assertWorkflowTamper(
-    "release",
+    "release-build",
     validateReleaseExperimentImageWorkflowObject,
     (subject) => {
       releaseImageStepByName(subject, "Package the closed Fixture 019 runtime context").if = "success()";
     },
-    ".github/workflows/release.yml: Fixture 019 release must package its exact closed runtime context after the existing-tag check",
+    ".github/workflows/release-build.yml: Fixture 019 release must package its exact closed runtime context after the existing-tag check",
   );
   assertWorkflowTamper(
-    "release",
+    "release-build",
     validateReleaseExperimentImageWorkflowObject,
     (subject) => {
       releaseImageStep(subject, "build-fixture-019-image").with.context = ".";
     },
-    ".github/workflows/release.yml: release must build the untagged linux/amd64 Fixture 019 candidate",
+    ".github/workflows/release-build.yml: release must build the untagged linux/amd64 Fixture 019 candidate",
   );
   assertWorkflowTamper(
-    "release",
+    "release-build",
     validateReleaseExperimentImageWorkflowObject,
     (subject) => {
       const attestation = subject.jobs.release.steps.find(
@@ -3084,14 +3189,14 @@ test("Fixture 019 uses the closed Go-packaged context in CI and release", () => 
       );
       attestation.with["subject-digest"] = "${{ steps.admission-images.outputs.fixture019_digest }}";
     },
-    ".github/workflows/release.yml: Fixture 019 provenance must attest only its current-run build output",
+    ".github/workflows/release-build.yml: Fixture 019 provenance must attest only its current-run build output",
   );
 });
 
 test("container policy withholds arm64 and enforces exact-digest runtime identity", () => {
-  const toolingFinding = ".github/workflows/release.yml: static 20w tooling image must use a separate untagged, admitted digest";
+  const toolingFinding = ".github/workflows/release-build.yml: static 20w tooling image must use a separate untagged, admitted digest";
   assertWorkflowTamper(
-    "release",
+    "release-build",
     validateReleaseExperimentImageWorkflowObject,
     (subject) => {
       releaseImageStep(subject, "build-tooling-image").with.platforms = "linux/amd64,linux/arm64";
@@ -3099,7 +3204,7 @@ test("container policy withholds arm64 and enforces exact-digest runtime identit
     toolingFinding,
   );
   assertWorkflowTamper(
-    "release",
+    "release-build",
     validateReleaseExperimentImageWorkflowObject,
     (subject) => {
       const attestation = subject.jobs.release.steps.find(
@@ -3110,7 +3215,7 @@ test("container policy withholds arm64 and enforces exact-digest runtime identit
     toolingFinding,
   );
 
-  const executionFinding = ".github/workflows/release.yml: candidate images must run tooling plus smoke, analyze, and validate by digest before tagging";
+  const executionFinding = ".github/workflows/release-build.yml: candidate images must run tooling plus smoke, analyze, and validate by digest before tagging";
   for (const [from, to] of [
     ['if [[ "$tooling_identity" != "$expected_tooling_identity" ]]; then', "if false; then"],
     ['"go_version":"go1.27.2"', '"go_version":"go1.28.0"'],
@@ -3119,7 +3224,7 @@ test("container policy withholds arm64 and enforces exact-digest runtime identit
     ['numpy.__version__ == \\"2.5.3\\"', 'numpy.__version__ == \\"2.5.4\\"'],
   ]) {
     assertWorkflowTamper(
-      "release",
+      "release-build",
       validateReleaseExperimentImageWorkflowObject,
       (subject) => {
         const step = releaseImageStepByName(subject, "Run the admitted candidates by immutable digest");
@@ -3131,16 +3236,16 @@ test("container policy withholds arm64 and enforces exact-digest runtime identit
 });
 
 test("release tags remain absent until exact-digest admission and provenance verifies", () => {
-  const buildFinding = ".github/workflows/release.yml: static 20w tooling image must use a separate untagged, admitted digest";
-  const inspectionFinding = ".github/workflows/release.yml: exact candidate digests must pass authenticated platform and label inspection before admission";
-  const provenanceFinding = ".github/workflows/release.yml: existing image digests must fail closed unless source-bound provenance already verifies";
-  const publicationFinding = ".github/workflows/release.yml: release tags must use the single absence-checked publication path after admission";
-  const orderingFinding = ".github/workflows/release.yml: release image tagging must follow digest inspection, execution, attestation, and provenance verification";
+  const buildFinding = ".github/workflows/release-build.yml: static 20w tooling image must use a separate untagged, admitted digest";
+  const inspectionFinding = ".github/workflows/release-build.yml: exact candidate digests must pass authenticated platform and label inspection before admission";
+  const provenanceFinding = ".github/workflows/release-build.yml: existing image digests must fail closed unless source-bound provenance already verifies";
+  const publicationFinding = ".github/workflows/release-build.yml: release tags must use the single absence-checked publication path after admission";
+  const orderingFinding = ".github/workflows/release-build.yml: release image tagging must follow digest inspection, execution, attestation, and provenance verification";
   const cases = [
     {
       expected: buildFinding,
       mutate: (subject) => {
-        releaseImageStep(subject, "build-tooling-image").with.tags = "${{ needs.verify.outputs.release-tag }}";
+        releaseImageStep(subject, "build-tooling-image").with.tags = "${{ steps.release-ref.outputs.tag }}";
       },
     },
     {
@@ -3204,7 +3309,7 @@ test("release tags remain absent until exact-digest admission and provenance ver
     },
   ];
   for (const entry of cases) {
-    assertWorkflowTamper("release", validateReleaseExperimentImageWorkflowObject, entry.mutate, entry.expected);
+    assertWorkflowTamper("release-build", validateReleaseExperimentImageWorkflowObject, entry.mutate, entry.expected);
   }
 });
 
@@ -3273,9 +3378,9 @@ test("CI locks Fixture 007 packaging, scoped build inputs, and offline smoke", (
 });
 
 test("release locks Fixture 007 existing-tag, packaging, and metadata boundaries", () => {
-  const statusFinding = ".github/workflows/release.yml: Fixture 007 release tags must be checked and preserved before publication";
-  const contextFinding = ".github/workflows/release.yml: Fixture 007 release must package its exact closed runtime context after the existing-tag check";
-  const metadataFinding = ".github/workflows/release.yml: Fixture 007 metadata must use its per-artifact image identity and verified tag";
+  const statusFinding = ".github/workflows/release-build.yml: Fixture 007 release tags must be checked and preserved before publication";
+  const contextFinding = ".github/workflows/release-build.yml: Fixture 007 release must package its exact closed runtime context after the existing-tag check";
+  const metadataFinding = ".github/workflows/release-build.yml: Fixture 007 metadata must use its per-artifact image identity and verified tag";
   const cases = [
     {
       expected: statusFinding,
@@ -3316,13 +3421,13 @@ test("release locks Fixture 007 existing-tag, packaging, and metadata boundaries
     },
   ];
   for (const entry of cases) {
-    assertWorkflowTamper("release", validateReleaseExperimentImageWorkflowObject, entry.mutate, entry.expected);
+    assertWorkflowTamper("release-build", validateReleaseExperimentImageWorkflowObject, entry.mutate, entry.expected);
   }
 });
 
 test("release locks the Fixture 007 linux image build and attestation", () => {
-  const buildFinding = ".github/workflows/release.yml: release must build the untagged linux/amd64 Fixture 007 candidate from its closed context";
-  const attestationFinding = ".github/workflows/release.yml: Fixture 007 provenance must attest only its current-run build output";
+  const buildFinding = ".github/workflows/release-build.yml: release must build the untagged linux/amd64 Fixture 007 candidate from its closed context";
+  const attestationFinding = ".github/workflows/release-build.yml: Fixture 007 provenance must attest only its current-run build output";
   const cases = [
     {
       expected: buildFinding,
@@ -3349,13 +3454,13 @@ test("release locks the Fixture 007 linux image build and attestation", () => {
       },
     },
     {
-      expected: ".github/workflows/release.yml: Fixture 007 release image must keep its exact artifact, registry, tag, and revision arguments",
+      expected: ".github/workflows/release-build.yml: Fixture 007 release image must keep its exact artifact, registry, tag, and revision arguments",
       mutate: (subject) => {
         releaseImageStep(subject, "build-fixture-007-image").with["build-args"] += "UNREVIEWED=true\n";
       },
     },
     {
-      expected: ".github/workflows/release.yml: Fixture 007 release image must use its per-artifact cache scope",
+      expected: ".github/workflows/release-build.yml: Fixture 007 release image must use its per-artifact cache scope",
       mutate: (subject) => {
         releaseImageStep(subject, "build-fixture-007-image").with["cache-to"] = "type=gha,mode=max,scope=experiments";
       },
@@ -3383,28 +3488,28 @@ test("release locks the Fixture 007 linux image build and attestation", () => {
     },
   ];
   for (const entry of cases) {
-    assertWorkflowTamper("release", validateReleaseExperimentImageWorkflowObject, entry.mutate, entry.expected);
+    assertWorkflowTamper("release-build", validateReleaseExperimentImageWorkflowObject, entry.mutate, entry.expected);
   }
 });
 
 test("release pins the SBOM generator for every published container", () => {
   const cases = [
     {
-      expected: ".github/workflows/release.yml: static 20w tooling image must use a separate untagged, admitted digest",
+      expected: ".github/workflows/release-build.yml: static 20w tooling image must use a separate untagged, admitted digest",
       id: "build-tooling-image",
     },
     {
-      expected: ".github/workflows/release.yml: release must build the untagged linux/amd64 Fixture 007 candidate from its closed context",
+      expected: ".github/workflows/release-build.yml: release must build the untagged linux/amd64 Fixture 007 candidate from its closed context",
       id: "build-fixture-007-image",
     },
     {
-      expected: ".github/workflows/release.yml: release must build the untagged linux/amd64 Fixture 019 candidate",
+      expected: ".github/workflows/release-build.yml: release must build the untagged linux/amd64 Fixture 019 candidate",
       id: "build-fixture-019-image",
     },
   ];
   for (const entry of cases) {
     assertWorkflowTamper(
-      "release",
+      "release-build",
       validateReleaseExperimentImageWorkflowObject,
       (subject) => {
         releaseImageStep(subject, entry.id).with.sbom = true;
@@ -3968,4 +4073,261 @@ test("lint refuses the three rules ESLint 10 adds to its recommended set", async
     .replace("let line = \"\";\n  line =", "const line =")
     .replace("  let never;\n  return never;", "  return undefined;");
   assert.deepEqual(await ruleIds(fixed), []);
+});
+
+test("verify-all skips npm steps only inside the declared-verify stage without node_modules", () => {
+  const stage = { PRAETOR_GATE_DECLARED_VERIFY: "1" };
+  const lastDay = DECLARED_VERIFY_EXCEPTION.expires;
+  assert.equal(declaredVerifyAction({ env: stage, hasNodeModules: false, today: lastDay }), "skip");
+  // Outside the stage an absent node_modules still runs the step, so it fails there.
+  assert.equal(declaredVerifyAction({ env: {}, hasNodeModules: false, today: lastDay }), "run");
+  assert.equal(declaredVerifyAction({ env: stage, hasNodeModules: true, today: lastDay }), "run");
+  // From the day after the exception expires the skip fails.
+  assert.equal(declaredVerifyAction({ env: stage, hasNodeModules: false, today: "2026-10-19" }), "expired");
+  assert.equal(DECLARED_VERIFY_EXCEPTION.category, "B");
+  const makefile = readFileSync("Makefile", "utf8");
+  assert.doesNotMatch(makefile, /'npm' 'run'/u, "every npm step in the Makefile goes through the exception script");
+  assert.match(makefile, /declared-verify-npm\.mjs' 'build'/u);
+});
+
+test("declared-verify-npm runs the npm step when the stage variable is absent", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "declared-verify-"));
+  try {
+    mkdirSync(path.join(root, "scripts"));
+    writeFileSync(path.join(root, "scripts", "declared-verify-npm.mjs"), readFileSync("scripts/declared-verify-npm.mjs"));
+    const script = path.join(root, "scripts", "declared-verify-npm.mjs");
+    const env = { ...process.env };
+    delete env.PRAETOR_GATE_DECLARED_VERIFY;
+    // No package.json and no node_modules: npm runs and fails.
+    const outside = spawnSync(process.execPath, [script, "build"], { cwd: root, encoding: "utf8", env, timeout: 60_000 });
+    assert.notEqual(outside.status, 0);
+    assert.doesNotMatch(outside.stdout, /SKIPPED/u);
+    const inside = spawnSync(process.execPath, [script, "build"], {
+      cwd: root,
+      encoding: "utf8",
+      env: { ...env, PRAETOR_GATE_DECLARED_VERIFY: "1" },
+      timeout: 60_000,
+    });
+    const today = new Date().toISOString().slice(0, 10);
+    if (today <= DECLARED_VERIFY_EXCEPTION.expires) {
+      assert.equal(inside.status, 0);
+      assert.match(inside.stdout, /SKIPPED npm run build: .*praetor#1385/u);
+    } else {
+      assert.equal(inside.status, 1);
+      assert.match(inside.stderr, /expired/u);
+    }
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+const validRCTags = ["v0.0.0", "v0.5.0", "v12.34.56", "v0.0.0-rc.0", "v0.5.0-rc.1", "v0.5.0-rc.10", "v999999999999999999999.0.0-rc.999999999999999999999"];
+const invalidRCTags = ["", "0.5.0", "v0.5.0-rc", "v0.5.0-rc.01", "v0.5.0-rc.1.2", "v0.5.0-beta.1", "v0.5.0-RC.1", "v05.0.0", "v0.05.0", "v0.5.00", "v0.5.0+meta", "v0.5.0-rc.1-x", "v0.5.0-rc.-1", "v0.5.0-rc.", "v0.5.0\n", " v0.5.0", "v0.5.0 "];
+
+test("executed release tag guard accepts only final and canonical rc tags", () => {
+  const guard = workflow("release-build").jobs.release.steps[0];
+  for (const event of ["push", "workflow_dispatch"]) {
+    for (const [tags, expected] of [[validRCTags, 0], [invalidRCTags, 1]]) {
+      for (const tag of tags) {
+        const child = spawnSync(BASH, ["-c", guard.run], {
+          env: { EVENT_NAME: event, REF_NAME: tag, INPUT_TAG: tag, GITHUB_OUTPUT: "/dev/null" },
+          encoding: "utf8", timeout: 1000, maxBuffer: 4096,
+        });
+        assert.equal(child.error, undefined);
+        assert.equal(child.status, expected, JSON.stringify({ event, tag, stdout: child.stdout, stderr: child.stderr }));
+      }
+    }
+  }
+  // GitHub's glob is deliberately broader than the first-step grammar.
+  assert.deepEqual(workflow("release").on.push.tags, ["v*.*.*"]);
+});
+
+test("executed prerelease guards and publication flags follow the exact tag", () => {
+  const steps = workflow("release-build").jobs.release.steps;
+  const publication = releaseImageStepByName(workflow("release-build"), "Publish or validate the immutable GitHub release").run;
+  const guards = steps.filter((step) => step.run?.includes('if [[ "$release_prerelease" != "$expected_prerelease" ]]; then'));
+  assert.equal(guards.length, 2);
+  for (const tag of ["v0.5.0", "v0.5.0-rc.0", "v0.5.0-rc.1"]) {
+    const expected = tag.includes("-rc.");
+    for (const step of guards) {
+      const setup = step.run.slice(step.run.indexOf("expected_prerelease=false"), step.run.indexOf("esac", step.run.indexOf("expected_prerelease=false")) + 4);
+      const start = step.run.indexOf('if [[ "$release_prerelease" != "$expected_prerelease" ]]; then');
+      const guard = step.run.slice(start, step.run.indexOf("fi", start) + 2);
+      for (const prerelease of ["true", "false"]) {
+        const child = spawnSync(BASH, ["-c", `${setup}\n${guard}`], {
+          env: { RELEASE_TAG: tag, release_prerelease: prerelease }, encoding: "utf8", timeout: 1000, maxBuffer: 4096,
+        });
+        assert.equal(child.error, undefined);
+        assert.equal(child.status, (prerelease === "true") === expected ? 0 : 1, `${tag} ${prerelease}`);
+      }
+    }
+    const setup = publication.slice(publication.indexOf("expected_prerelease=false"), publication.indexOf("load_release_state()"));
+    const child = spawnSync(BASH, ["-c", `${setup}\nprintf '%s\\n' "\${release_flags[@]}"`], {
+      env: { RELEASE_TAG: tag }, encoding: "utf8", timeout: 1000, maxBuffer: 4096,
+    });
+    assert.equal(child.error, undefined);
+    assert.equal(child.status, 0);
+    assert.deepEqual(child.stdout.trim().split("\n"), expected ? ["--prerelease=true", "--latest=false"] : ["--prerelease=false"]);
+  }
+});
+
+test("rc draft policy accepts the builder and refuses publication or guard bypasses", () => {
+  assert.deepEqual(validateReleaseWorkflowObject(workflow("release-build")), []);
+  const finding = ".github/workflows/release-build.yml: rc releases must remain drafts; verified rc paths must exit before publication and published rc preflights must fail";
+  const notice = 'echo "::notice::rc release ${release_id} stays a draft; no DOI is minted"';
+  const mutations = [
+    ["Publish or validate the immutable GitHub release", notice, 'gh release edit "$RELEASE_TAG" --draft=false'],
+    ["Publish or validate the immutable GitHub release", `${notice}\n    exit 0`, `${notice}\n    :`],
+    ["Publish or validate the immutable GitHub release", 'require_draft_state "$published_id"', ':' ],
+    ["Preflight the remote release without mutation", '"$expected_prerelease" == "true" && "$release_draft" != "true"', '"$expected_prerelease" == "false" && "$release_draft" != "true"'],
+  ];
+  for (const [name, before, after] of mutations) {
+    assertWorkflowTamper("release-build", validateReleaseWorkflowObject, (subject) => {
+      const step = releaseImageStepByName(subject, name);
+      step.run = replaceLiteral(step.run, before, after);
+    }, finding);
+  }
+  for (const name of ["Preflight the remote release without mutation", "Publish or validate the immutable GitHub release"]) {
+    assertWorkflowTamper("release-build", validateReleaseWorkflowObject, (subject) => {
+      disableExitAfterDiagnostic(releaseImageStepByName(subject, name), "rc releases must remain drafts");
+    }, finding);
+  }
+});
+
+function releaseDraftToolStub() {
+  return String.raw`#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "tool $*" >> "$STUB_LOG"
+case "$1 $2" in
+  'release asset-inventory') printf 'payload\n' ;;
+  'release state')
+    state="$(cat "$STUB_STATE")"
+    if [[ "$state" == absent ]]; then printf 'absent\n'; exit 0; fi
+    draft=true; immutable=false
+    if [[ "$state" == published ]]; then draft=false; immutable=true; fi
+    printf 'present\t123\t%s\t%s\t%s\t%s\n' "$draft" "$STUB_PRERELEASE" "$immutable" "$RELEASE_TAG"
+    ;;
+  'release fetch-assets')
+    output=''; previous=''
+    for argument in "$@"; do
+      if [[ "$previous" == --output ]]; then output="$argument"; fi
+      previous="$argument"
+    done
+    test -n "$output"
+    mkdir -p "$output"
+    if [[ -f "$STUB_UPLOADED" ]]; then
+      cp build/release/assets/payload "$output/payload"
+      printf 'payload\n'
+    fi
+    ;;
+  'release verify-tag') ;;
+  *) exit 91 ;;
+esac
+`;
+}
+
+function releaseDraftGhStub() {
+  return String.raw`#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "gh $*" >> "$STUB_LOG"
+case "$1 $2" in
+  'attestation verify') ;;
+  'release create') printf 'draft\n' > "$STUB_STATE"; touch "$STUB_UPLOADED" ;;
+  'release upload') touch "$STUB_UPLOADED" ;;
+  'release edit')
+    for argument in "$@"; do
+      if [[ "$argument" == --draft=false ]]; then printf 'published\n' > "$STUB_STATE"; fi
+    done
+    ;;
+  *) exit 92 ;;
+esac
+`;
+}
+
+function runReleaseDraftFixture(tag, state) {
+  const root = mkdtempSync(path.join(tmpdir(), "20w-release-draft-"));
+  try {
+    mkdirSync(path.join(root, "build/release-tools"), { recursive: true });
+    mkdirSync(path.join(root, "build/release/assets"), { recursive: true });
+    mkdirSync(path.join(root, "bin"));
+    writeFileSync(path.join(root, "build/release-tools/20w"), releaseDraftToolStub(), { mode: 0o755 });
+    writeFileSync(path.join(root, "bin/gh"), releaseDraftGhStub(), { mode: 0o755 });
+    writeFileSync(path.join(root, "build/release/assets/payload"), "candidate bytes\n");
+    writeFileSync(path.join(root, "state"), state);
+    if (state === "published") writeFileSync(path.join(root, "uploaded"), "");
+    const source = releaseImageStepByName(workflow("release-build"), "Publish or validate the immutable GitHub release").run;
+    const child = spawnSync(BASH, ["-c", source], {
+      cwd: root, encoding: "utf8", timeout: 5000, maxBuffer: 16384,
+      env: {
+        ...process.env, PATH: `${path.join(root, "bin")}${path.delimiter}${process.env.PATH}`,
+        RUNNER_TEMP: root, EVENT_NAME: state === "absent" ? "push" : "workflow_dispatch",
+        RELEASE_TAG: tag, RELEASE_COMMIT: "a".repeat(40), GITHUB_REPOSITORY: "example/research",
+        PREFLIGHT_STATE: state, PREFLIGHT_ID: state === "absent" ? "" : "123",
+        STUB_LOG: path.join(root, "commands"), STUB_STATE: path.join(root, "state"),
+        STUB_UPLOADED: path.join(root, "uploaded"), STUB_PRERELEASE: String(tag.includes("-rc.")),
+      },
+    });
+    assert.equal(child.error, undefined);
+    return { ...child, commands: readFileSync(path.join(root, "commands"), "utf8"), state: readFileSync(path.join(root, "state"), "utf8").trim() };
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+}
+
+test("executed rc creation and manual repair stop at verified drafts; published rc fails", () => {
+  for (const tag of ["v0.5.0-rc.0", "v0.5.0-rc.1"]) {
+    for (const state of ["absent", "draft"]) {
+      const child = runReleaseDraftFixture(tag, state);
+      assert.equal(child.status, 0, child.stderr);
+      assert.equal(child.state, "draft");
+      assert.match(child.stdout, /::notice::rc release 123 stays a draft/);
+      assert.doesNotMatch(child.commands, /--draft=false|gh release edit/);
+      assert.match(child.commands, state === "absent" ? /gh release create .*--prerelease=true --latest=false --draft / : /gh release upload/);
+      assert.match(child.commands, /release fetch-assets.*--phase publication/);
+      assert.match(child.commands, /gh attestation verify .*payload/);
+      assert.match(child.commands, /release verify-tag.*--commit a{40}\n$/);
+    }
+    const child = runReleaseDraftFixture(tag, "published");
+    assert.equal(child.status, 1);
+    assert.match(child.stdout, /::error::rc releases must remain drafts/);
+    assert.doesNotMatch(child.commands, /gh release (edit|create|upload)/);
+  }
+});
+
+test("executed final tags still publish and validate immutable releases", () => {
+  for (const state of ["absent", "draft", "published"]) {
+    const child = runReleaseDraftFixture("v0.5.0", state);
+    assert.equal(child.status, 0, child.stderr);
+    assert.equal(child.state, "published");
+    assert.doesNotMatch(child.stdout, /::notice::rc release/);
+    if (state === "published") assert.doesNotMatch(child.commands, /gh release (edit|create|upload)/);
+    else assert.match(child.commands, /gh release edit .*--prerelease=false .*--draft=false/);
+    assert.match(child.commands, /release fetch-assets.*--phase publication/);
+  }
+});
+
+test("release policy refuses prerelease drift and latest promotion", () => {
+  const valid = workflow("release-build");
+  const mutations = [
+    (subject) => { const step = releaseImageStepByName(subject, "Publish or validate the immutable GitHub release"); step.run = replaceLiteral(step.run, "release_flags+=(--latest=false)", "release_flags+=(--latest=true)"); },
+    (subject) => { const step = releaseImageStepByName(subject, "Publish or validate the immutable GitHub release"); step.run = replaceLiteral(step.run, '"${release_flags[@]}"', ""); },
+  ];
+  for (const name of ["Preflight the remote release without mutation", "Publish or validate the immutable GitHub release"]) {
+    for (const [literal, replacement] of [
+      ['"$release_prerelease" != "$expected_prerelease"', '"$release_prerelease" != "false"'],
+      ["*-rc.*) expected_prerelease=true", "*-*) expected_prerelease=true"],
+      ["expected_prerelease=false", "expected_prerelease=true"],
+      ['echo "::error::release prerelease state does not match the tag"', 'return 0 # guard bypassed'],
+    ]) {
+      mutations.push((subject) => {
+        const step = releaseImageStepByName(subject, name);
+        step.run = replaceLiteral(step.run, literal, replacement);
+      });
+    }
+  }
+  for (const mutate of mutations) {
+    const subject = structuredClone(valid);
+    mutate(subject);
+    assert.notDeepEqual(validateReleaseWorkflowObject(subject), []);
+  }
 });

@@ -6,17 +6,21 @@
 - **Status:** bounded engineering-transfer audit; no scientific result,
   architecture decision, claim, principle, candidate, fixture, or performance
   comparison
-- **Historical tested source snapshot:** [`lusoris/k8s` commit
-  `91ef1abda09df5361859bd1010703113b3d439da`](https://github.com/lusoris/k8s/tree/91ef1abda09df5361859bd1010703113b3d439da),
+- **Historical tested source snapshot:** `lusoris/k8s` commit
+  `91ef1abda09df5361859bd1010703113b3d439da`,
   which the local checkout and GitHub `main` both resolved to at the original
   audit close. Earlier checkout movement during that pass changed none of the
-  scoped files. The source links and test counts in the original audit bind to
+  scoped files. The source citations and test counts in the original audit bind to
   this commit.
-- **Later observed source snapshot:** [`lusoris/k8s` commit
-  `6ff7852a84600ae83ff97e15c0b3524260832a34`](https://github.com/lusoris/k8s/tree/6ff7852a84600ae83ff97e15c0b3524260832a34),
+- **Later observed source snapshot:** `lusoris/k8s` commit
+  `6ff7852a84600ae83ff97e15c0b3524260832a34`,
   which the local checkout and GitHub `main` both resolved to at
   `2026-08-30T19:47:55+02:00`. The later source comparison and live observation
   below bind only to that commit and time; the focused tests were not rerun.
+- **Source access:** `lusoris/k8s` is a private repository (checked
+  2026-10-16). The commits cited below are recorded by full hash but cannot be
+  inspected publicly; the audit's observations rest on those recorded hashes and
+  on the read-only inspection described here, not on public links.
 - **Scope:** the Queue-Drain Optimizer (QDO), the llama-swap model-process
   manager, the LiteLLM gateway's QDO admission path, and the Paperclip work
   dispatcher; the wider cluster was not reviewed
@@ -53,12 +57,12 @@ the focused source tests or test the proposed research arm.
 
 | Cluster mechanism | Direct record at the snapshot | Transfer retained here | Boundary |
 | --- | --- | --- | --- |
-| Separate controller, gateway, and executor authority | [QDO's contract](https://github.com/lusoris/k8s/blob/91ef1abda09df5361859bd1010703113b3d439da/apps/ai/qdo/AGENTS.md) gives QDO one lane's residency decisions, llama-swap local process lifecycle, and LiteLLM request admission. | Keep routing, execution, admission, verification, and final action as typed authorities instead of allowing one model to acquire them implicitly. | The deployed components and protocols are implementation choices, not a universal topology. |
-| Measurement-derived fit with explicit unknowns | [QDO policy and pool tests](https://github.com/lusoris/k8s/tree/91ef1abda09df5361859bd1010703113b3d439da/apps/ai/qdo/tests) cover measured free memory, lane-scoped footprints, unreadable devices, unmeasured models, preference by measurement, and sole-resident learning. [ADR-0062](https://github.com/lusoris/k8s/blob/91ef1abda09df5361859bd1010703113b3d439da/docs/adr/0062-one-dynamic-accelerator-pool-and-loaded-model-admission.md) records the incident that motivated it. | Represent `measured fit`, `measured no-fit`, and `unknown` separately. Emit the measurements and decision inputs with every admission receipt. | Some unknowns deliberately fail open in lane steering while bounded-lane catalogue admission fails closed. That choice must be frozen per experiment boundary, not copied as one global rule. |
-| Expiring, executor-scoped steering | [QDO values](https://github.com/lusoris/k8s/blob/91ef1abda09df5361859bd1010703113b3d439da/apps/ai/qdo/values.yaml) publish a short-lived admission envelope for each device-backed execution lane; [the paired LiteLLM tests](https://github.com/lusoris/k8s/blob/91ef1abda09df5361859bd1010703113b3d439da/apps/ai/litellm/tests/test_qdo_fence_admission_hook.py) cover malformed, missing, expired, refusing, and unavailable lane state. | Treat a specialist's present eligibility as expiring observed state, not a permanent capability or model-to-device map. | The Redis key and LiteLLM hook are cluster plumbing and are not transferred. |
-| Loaded capability is different from reachable gateway | [ADR-0062](https://github.com/lusoris/k8s/blob/91ef1abda09df5361859bd1010703113b3d439da/docs/adr/0062-one-dynamic-accelerator-pool-and-loaded-model-admission.md) records requests admitted through a healthy proxy while no suitable physical model was ready. The [llama-swap exporter contract](https://github.com/lusoris/k8s/blob/91ef1abda09df5361859bd1010703113b3d439da/apps/ai/llama-swap/README.md#observability) keeps model state, in-flight work, completions, errors, and latency distinct. | Add a stress case in which the controller is healthy but the requested specialist is absent, loading, saturated, or unable to satisfy the typed request. | The incident is an engineering observation with changing operational confounders. It supplies a scenario, not an effect size. |
-| Queue state changes the safe action | [ADR-0088](https://github.com/lusoris/k8s/blob/91ef1abda09df5361859bd1010703113b3d439da/docs/adr/0088-batch-calls-that-expire-into-a-deep-queue-are-rejected.md) separates an expired bounded wait with a shallow queue from one whose depth exceeds measured engine slots. Current tests cover the rejection, retry header, ledger release, disconnect, burst, and aged-call paths. | Make queue depth, service slots, deadline, caller class, cancellation, and retry semantics explicit inputs. Charge abandoned work rather than counting only completed calls. | A retrying batch consumer and an interactive request need not share the same failure policy. |
-| Bounded fairness and recovery authority | [Paperclip dispatcher tests](https://github.com/lusoris/k8s/tree/91ef1abda09df5361859bd1010703113b3d439da/apps/ai/paperclip-dispatcher/files) cover rotated cross-organization scheduling, per-class caps, circuit opening and half-open probes, and bounded state repair. Its [contract](https://github.com/lusoris/k8s/blob/91ef1abda09df5361859bd1010703113b3d439da/apps/ai/paperclip-dispatcher/AGENTS.md) separates recurring selection from finite migration authority. | Give the controller explicit queue, retry, cancellation, recovery, and migration budgets. Test that an unhealthy specialist cannot consume every attempt. | Organization, database, and Kubernetes lifecycle rules are application-specific and stay out of the research controller. |
+| Separate controller, gateway, and executor authority | QDO's contract (`apps/ai/qdo/AGENTS.md` at `91ef1ab`) gives QDO one lane's residency decisions, llama-swap local process lifecycle, and LiteLLM request admission. | Keep routing, execution, admission, verification, and final action as typed authorities instead of allowing one model to acquire them implicitly. | The deployed components and protocols are implementation choices, not a universal topology. |
+| Measurement-derived fit with explicit unknowns | QDO policy and pool tests (`apps/ai/qdo/tests` at `91ef1ab`) cover measured free memory, lane-scoped footprints, unreadable devices, unmeasured models, preference by measurement, and sole-resident learning. ADR-0062 (`docs/adr/0062-one-dynamic-accelerator-pool-and-loaded-model-admission.md` at `91ef1ab`) records the incident that motivated it. | Represent `measured fit`, `measured no-fit`, and `unknown` separately. Emit the measurements and decision inputs with every admission receipt. | Some unknowns deliberately fail open in lane steering while bounded-lane catalogue admission fails closed. That choice must be frozen per experiment boundary, not copied as one global rule. |
+| Expiring, executor-scoped steering | QDO values (`apps/ai/qdo/values.yaml` at `91ef1ab`) publish a short-lived admission envelope for each device-backed execution lane; the paired LiteLLM tests (`apps/ai/litellm/tests/test_qdo_fence_admission_hook.py` at `91ef1ab`) cover malformed, missing, expired, refusing, and unavailable lane state. | Treat a specialist's present eligibility as expiring observed state, not a permanent capability or model-to-device map. | The Redis key and LiteLLM hook are cluster plumbing and are not transferred. |
+| Loaded capability is different from reachable gateway | ADR-0062 (`docs/adr/0062-one-dynamic-accelerator-pool-and-loaded-model-admission.md` at `91ef1ab`) records requests admitted through a healthy proxy while no suitable physical model was ready. The llama-swap exporter contract (`apps/ai/llama-swap/README.md` at `91ef1ab`, section observability) keeps model state, in-flight work, completions, errors, and latency distinct. | Add a stress case in which the controller is healthy but the requested specialist is absent, loading, saturated, or unable to satisfy the typed request. | The incident is an engineering observation with changing operational confounders. It supplies a scenario, not an effect size. |
+| Queue state changes the safe action | ADR-0088 (`docs/adr/0088-batch-calls-that-expire-into-a-deep-queue-are-rejected.md` at `91ef1ab`) separates an expired bounded wait with a shallow queue from one whose depth exceeds measured engine slots. Current tests cover the rejection, retry header, ledger release, disconnect, burst, and aged-call paths. | Make queue depth, service slots, deadline, caller class, cancellation, and retry semantics explicit inputs. Charge abandoned work rather than counting only completed calls. | A retrying batch consumer and an interactive request need not share the same failure policy. |
+| Bounded fairness and recovery authority | Paperclip dispatcher tests (`apps/ai/paperclip-dispatcher/files` at `91ef1ab`) cover rotated cross-organization scheduling, per-class caps, circuit opening and half-open probes, and bounded state repair. Its contract (`apps/ai/paperclip-dispatcher/AGENTS.md` at `91ef1ab`) separates recurring selection from finite migration authority. | Give the controller explicit queue, retry, cancellation, recovery, and migration budgets. Test that an unhealthy specialist cannot consume every attempt. | Organization, database, and Kubernetes lifecycle rules are application-specific and stay out of the research controller. |
 
 The most useful negative lesson is also transferable: a logical-model fence
 was deployed and then disabled after it could block healthy physical workers
@@ -128,18 +132,18 @@ small-specialist hypothesis saves energy.
 
 ## Bounded drift after the historical test campaign
 
-The [exact comparison from the tested snapshot to the later observed
-snapshot](https://github.com/lusoris/k8s/compare/91ef1abda09df5361859bd1010703113b3d439da...6ff7852a84600ae83ff97e15c0b3524260832a34)
-contains two scoped changes:
+The exact comparison from the tested snapshot to the later observed snapshot
+(`91ef1abda09df5361859bd1010703113b3d439da` to
+`6ff7852a84600ae83ff97e15c0b3524260832a34`) contains two scoped changes:
 
-1. [`3f8b141db9cb9a0590700eb4c13feb40cfe702f0`](https://github.com/lusoris/k8s/commit/3f8b141db9cb9a0590700eb4c13feb40cfe702f0)
+1. `3f8b141db9cb9a0590700eb4c13feb40cfe702f0`
    changes QDO's engine-queue tolerance from one flat allowance to a
    slot-scaled allowance with a configured ceiling and floor. It changes the
    controller, values, schema, Deployment projection, and focused tests. It
    also updates the Helm assertion that previously disagreed with schema-first
    rejection. The live environment showed the new ratio, but this audit did
    not rerun the changed tests or exercise the policy under a controlled load.
-2. [`25002e6632b95e5191a16c425ff2867c3e01d4af`](https://github.com/lusoris/k8s/commit/25002e6632b95e5191a16c425ff2867c3e01d4af)
+2. `25002e6632b95e5191a16c425ff2867c3e01d4af`
    adds the Cauda Cluster Ops boss-lead bootstrap record and its LiteLLM access
    projection. It changes the seeded organization and access population, not
    the dispatcher's work-selection algorithm.

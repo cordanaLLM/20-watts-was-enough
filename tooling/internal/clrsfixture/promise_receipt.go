@@ -1,8 +1,6 @@
 package clrsfixture
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -222,17 +220,6 @@ func currentPromiseProducer() (promiseProducer, error) {
 
 func promiseIdentity(path string, body []byte) promiseFileIdentity {
 	return promiseFileIdentity{path, rawSHA256(body), int64(len(body))}
-}
-
-func marshalPromiseJSON(value any) ([]byte, error) {
-	var output bytes.Buffer
-	encoder := json.NewEncoder(&output)
-	encoder.SetEscapeHTML(false)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(value); err != nil {
-		return nil, err
-	}
-	return output.Bytes(), nil
 }
 
 // CheckPromiseWheelReproduction consumes the actual two-wheel evidence bundle

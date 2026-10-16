@@ -591,9 +591,6 @@ flowchart LR
     publish --> outcomes
 ```
 
-Editable source:
-[query-registered-preservation.mmd](../assets/diagrams/query-registered-preservation.mmd).
-
 This separates several failure modes that are otherwise mistaken for one
 success:
 

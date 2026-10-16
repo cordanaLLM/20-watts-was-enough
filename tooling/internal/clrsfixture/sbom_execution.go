@@ -77,8 +77,8 @@ func checkSBOMRecordedInspection(body []byte, execution sbomExecution, status st
 	if err != nil {
 		return err
 	}
-	if sbomString(object, "ID") != execution.ContainerID || sbomString(object, "Name") != "/"+execution.Name ||
-		sbomString(object, "Image") != execution.LoadedScannerID {
+	if jsonString(object, "ID") != execution.ContainerID || jsonString(object, "Name") != "/"+execution.Name ||
+		jsonString(object, "Image") != execution.LoadedScannerID {
 		return errors.New("SBOM recorded inspection container identity differs")
 	}
 	config, err := sbomObject(object["Config"], "Image User WorkingDir Entrypoint Cmd Env OnBuild Labels Volumes ExposedPorts Healthcheck StopTimeout StopSignal Tty OpenStdin", "")
@@ -87,7 +87,7 @@ func checkSBOMRecordedInspection(body []byte, execution sbomExecution, status st
 	}
 	var labels map[string]string
 	if err := json.Unmarshal(config["Labels"], &labels); err != nil || len(labels) != 1 ||
-		labels["dev.cordana.clrs-sbom-owner"] != execution.Name || sbomString(config, "Image") != execution.LoadedScannerID {
+		labels["dev.cordana.clrs-sbom-owner"] != execution.Name || jsonString(config, "Image") != execution.LoadedScannerID {
 		return errors.New("SBOM recorded inspection owner label or configured image differs")
 	}
 	stateObject, err := sbomObject(object["State"], "Running Paused Restarting OOMKilled Dead Status Error ExitCode Pid", "")

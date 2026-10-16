@@ -1,9 +1,0 @@
-flowchart LR
-    seed["Capacity-rich modular seed"] --> ground["Sensorimotor grounding"]
-    ground --> plastic["Sparse active learning"]
-    plastic --> consolidate["Replay and consolidation"]
-    consolidate --> validate["Generalization and stability gates"]
-    validate --> prune["Structured pruning"]
-    prune --> harden["Quantize, compile, or externalize"]
-    harden --> operate["Continual operation"]
-    operate --> plastic

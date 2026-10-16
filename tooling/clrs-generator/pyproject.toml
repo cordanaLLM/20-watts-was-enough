@@ -31,3 +31,6 @@ environments = [
 required-environments = [
   "implementation_name == 'cpython' and sys_platform == 'linux' and platform_machine == 'x86_64'",
 ]
+
+[tool.uv.exclude-newer-package]
+urllib3 = "2026-09-16T00:00:00Z"

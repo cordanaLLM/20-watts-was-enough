@@ -14,6 +14,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/relpath"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
@@ -33,7 +34,7 @@ func cleanRoot(value string) (string, os.FileInfo, error) {
 }
 
 func readRelative(root, relative, label string, maximum int64) ([]byte, error) {
-	if !validRelativePath(relative) {
+	if !relpath.Valid(relative) {
 		return nil, fmt.Errorf("%s path is not a clean repository-relative path", label)
 	}
 	path := filepath.Join(root, filepath.FromSlash(relative))
@@ -84,14 +85,6 @@ func rejectLinkedPath(root, target, label string) error {
 		}
 	}
 	return nil
-}
-
-func validRelativePath(value string) bool {
-	if value == "" || filepath.IsAbs(value) || strings.Contains(value, "\\") {
-		return false
-	}
-	cleaned := filepath.ToSlash(filepath.Clean(filepath.FromSlash(value)))
-	return cleaned == value && value != "." && !strings.HasPrefix(value, "../")
 }
 
 func containsConfusingPathControl(value string) bool {
