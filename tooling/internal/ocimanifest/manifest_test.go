@@ -2,6 +2,7 @@ package ocimanifest
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -189,5 +190,94 @@ func TestLoadRejectsSymlinkAndOversize(t *testing.T) {
 	}
 	if _, err := Load(oversize, validRelease()); err == nil {
 		t.Fatal("Load accepted an oversized manifest")
+	}
+}
+
+func TestReleaseTagGrammar(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		tag   string
+		valid bool
+	}{
+		{"v0.0.0", true},
+		{"v0.5.0", true},
+		{"v12.34.56", true},
+		{"v0.0.0-rc.0", true},
+		{"v0.5.0-rc.1", true},
+		{"v0.5.0-rc.10", true},
+		{"v999999999999999999999.0.0-rc.999999999999999999999", true},
+		{"", false},
+		{"0.5.0", false},
+		{"v0.5.0-rc", false},
+		{"v0.5.0-rc.01", false},
+		{"v0.5.0-rc.1.2", false},
+		{"v0.5.0-beta.1", false},
+		{"v0.5.0-RC.1", false},
+		{"v05.0.0", false},
+		{"v0.05.0", false},
+		{"v0.5.00", false},
+		{"v0.5.0+meta", false},
+		{"v0.5.0-rc.1-x", false},
+		{"v0.5.0-rc.-1", false},
+		{"v0.5.0-rc.", false},
+		{"v0.5.0\n", false},
+		{" v0.5.0", false},
+		{"v0.5.0 ", false},
+	} {
+		t.Run(test.tag, func(t *testing.T) {
+			t.Parallel()
+			options := validOptions()
+			options.Tag = test.tag
+			_, err := New(options)
+			if (err == nil) != test.valid {
+				t.Fatalf("tag %q: error = %v, want valid = %t", test.tag, err, test.valid)
+			}
+		})
+	}
+}
+
+type manifestTestCloser struct {
+	err    error
+	closed bool
+}
+
+func (closer *manifestTestCloser) Close() error {
+	closer.closed = true
+	return closer.err
+}
+
+func TestCloseManifestFileRemovesOutputOnCloseFailure(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "manifest.json")
+	if err := os.WriteFile(path, []byte("incomplete"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	primary := errors.New("write failed")
+	closeError := errors.New("close failed")
+	closer := &manifestTestCloser{err: closeError}
+	err := closeManifestFile(closer, path, primary)
+	if !errors.Is(err, primary) || !errors.Is(err, closeError) || !strings.Contains(err.Error(), "close OCI image manifest "+path) {
+		t.Fatalf("cleanup lost error context or causes: %v", err)
+	}
+	if _, statError := os.Stat(path); !errors.Is(statError, os.ErrNotExist) || !closer.closed {
+		t.Fatalf("cleanup closed=%v, output stat=%v", closer.closed, statError)
+	}
+}
+
+func TestCloseManifestFileReportsRemovalFailure(t *testing.T) {
+	t.Parallel()
+	path := t.TempDir()
+	if err := os.WriteFile(filepath.Join(path, "retained"), []byte("data"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	primary := errors.New("write failed")
+	closer := &manifestTestCloser{}
+	err := closeManifestFile(closer, path, primary)
+	var pathError *os.PathError
+	if !errors.Is(err, primary) || !errors.As(err, &pathError) || !strings.Contains(err.Error(), "remove incomplete OCI image manifest "+path) {
+		t.Fatalf("cleanup lost removal failure: %v", err)
+	}
+	if !closer.closed || pathError.Path != path {
+		t.Fatalf("cleanup closed=%v, failure path=%q", closer.closed, pathError.Path)
 	}
 }

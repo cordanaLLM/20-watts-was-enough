@@ -261,7 +261,7 @@ unregistered-query regret, privacy/authorization failures, and the complete
 lifecycle vector.
 
 The [mathematical contract](../../math/query-registered-preservation.md) and
-[editable diagram](../../assets/diagrams/query-registered-preservation.mmd)
+[query-registered preservation diagram](../../concept/07-cross-domain-convergence.md#preserved-bits-are-not-preserved-meaning)
 define the state. Retire this track if ordinary packaging, versioned schemas and
 vocabularies, retained source, and query-regression tests match the frontier.
 It refines Candidate 017; it is not an archival-intelligence candidate.

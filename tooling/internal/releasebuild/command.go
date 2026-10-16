@@ -10,45 +10,22 @@ import (
 	"os/exec"
 	"sort"
 	"strings"
-	"sync"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/boundedexec"
 	projectbuildinfo "github.com/cordanaLLM/20-watts-was-enough/tooling/internal/buildinfo"
 )
 
 type boundedOutput struct {
-	mutex    sync.Mutex
-	buffer   bytes.Buffer
-	limit    int
-	exceeded bool
+	*boundedexec.Output
 }
 
 func newBoundedOutput(limit int) *boundedOutput {
-	return &boundedOutput{limit: limit}
-}
-
-func (output *boundedOutput) Write(bytesToWrite []byte) (int, error) {
-	output.mutex.Lock()
-	defer output.mutex.Unlock()
-	available := output.limit - output.buffer.Len()
-	if available > len(bytesToWrite) {
-		available = len(bytesToWrite)
-	}
-	if available > 0 {
-		_, _ = output.buffer.Write(bytesToWrite[:available])
-	}
-	if available < len(bytesToWrite) {
-		output.exceeded = true
-	}
-	return len(bytesToWrite), nil
+	return &boundedOutput{Output: boundedexec.NewOutput(limit)}
 }
 
 func (output *boundedOutput) result() commandResult {
-	output.mutex.Lock()
-	defer output.mutex.Unlock()
-	return commandResult{
-		output:   bytes.Clone(output.buffer.Bytes()),
-		exceeded: output.exceeded,
-	}
+	body, exceeded := output.Result()
+	return commandResult{output: body, exceeded: exceeded}
 }
 
 type commandResult struct {

@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "owners": [
+    { "kind": "org", "login": "cordanaLLM" },
+    { "kind": "org", "login": "goph-arr" },
+    { "kind": "org", "login": "golusoris" },
+    { "kind": "org", "login": "VMAFx" },
+    { "kind": "org", "login": "jellysin" },
+    { "kind": "org", "login": "plurano" },
+    { "kind": "org", "login": "vidiko" },
+    { "kind": "org", "login": "tekmora" },
+    { "kind": "user", "login": "lusoris" }
+  ]
+}

@@ -13,6 +13,8 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
 const promiseOwnershipLabel = "org.20watts.promise-reproduction"
@@ -91,7 +93,7 @@ func runPromiseReproductions(ctx context.Context, root string, inputs promiseInp
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	body, err := marshalPromiseJSON(receipt)
+	body, err := strictjson.Canonical(receipt)
 	if err != nil {
 		return err
 	}
@@ -135,7 +137,7 @@ func runPromiseContainer(ctx context.Context, inputs promiseInputs, bundle *os.R
 	defer func() {
 		cleanupErr := removePromiseStaging(bundle, name, staging)
 		receipt.StagingRemoved = cleanupErr == nil
-		body, encodeErr := marshalPromiseJSON(log.entries)
+		body, encodeErr := strictjson.Canonical(log.entries)
 		if encodeErr == nil && len(body) > 2<<20 {
 			encodeErr = errors.New("Promise command evidence exceeds its byte limit")
 		}

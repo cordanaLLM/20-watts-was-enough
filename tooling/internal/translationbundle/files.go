@@ -2,13 +2,14 @@ package translationbundle
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
 const (
@@ -92,7 +93,7 @@ func ExportCandidate(options ExportOptions) (Bundle, error) {
 	if err := validateBundle(bundle, false); err != nil {
 		return Bundle{}, fmt.Errorf("validate exported candidate bundle: %w", err)
 	}
-	body, err := encodeJSON(bundle)
+	body, err := strictjson.Canonical(bundle)
 	if err != nil {
 		return Bundle{}, fmt.Errorf("encode candidate bundle: %w", err)
 	}
@@ -139,7 +140,7 @@ func ImportCandidate(options ImportOptions) (ImportResult, error) {
 		return ImportResult{}, err
 	}
 	receipt, unresolved := candidateReceipt(candidate.bundle, candidate.body)
-	receiptBody, err := encodeJSON(receipt)
+	receiptBody, err := strictjson.Canonical(receipt)
 	if err != nil {
 		return ImportResult{}, fmt.Errorf("encode candidate receipt: %w", err)
 	}
@@ -238,17 +239,6 @@ func countUnresolvedGlossary(entries []GlossaryEntry) int {
 		}
 	}
 	return unresolved
-}
-
-func encodeJSON(value any) ([]byte, error) {
-	var output bytes.Buffer
-	encoder := json.NewEncoder(&output)
-	encoder.SetEscapeHTML(false)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(value); err != nil {
-		return nil, err
-	}
-	return output.Bytes(), nil
 }
 
 func resolveRepositoryRoot(root string) (string, error) {
