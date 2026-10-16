@@ -15,6 +15,13 @@ the exact diff; this file records why the project changed.
   replaces the manual runtime walkthrough without acquiring or admitting an
   image, measuring energy or providing a hard quota on writable output storage.
 
+### Changed
+
+- Citations of the `lusoris/k8s` cluster audit no longer link to that
+  repository, which is now private; the audit and the v0.3.0 disclosure keep the
+  full commit hashes as plain text and say the source cannot be inspected
+  publicly (#288).
+
 ### Fixed
 
 - Accept canonical `-rc.N` versions in experiment image builds and execution receipts so release-candidate builds pass the image guards.
