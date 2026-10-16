@@ -7,6 +7,10 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- Third-party notices take the expected Vite and Rolldown identity from
+  `package-lock.json`, and the candidate-010 runtime-identity test takes the
+  expected `es-module-lexer` version from the same lock. A dependency update
+  no longer fails on a hand-kept copy of the version it moves.
 - Accept canonical `-rc.N` versions in experiment image builds and execution receipts so release-candidate builds pass the image guards.
 - The CLRS shakedown takes its per-request budget from bound inputs. Production keeps 1 s; the failure and cancellation test uses one minute, so a loaded runner no longer turns an injected failure into a deadline outcome (#148).
 
