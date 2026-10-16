@@ -6,8 +6,8 @@
   "artifact": {
     "pdf": "public/downloads/20-watts-was-enough-full-concept-book.pdf",
     "manifest": "public/downloads/book-manifest.json",
-    "pdf_sha256": "1b5f672ea298f000eebf8060bdce418198f64aff07debec27f4be255eb8b2284",
-    "manifest_sha256": "b4e0f3144187d0a91c806bdee32eb996c9962c48aae9dbd208c8be4bf85b81fc",
+    "pdf_sha256": "80418fe4b5f91b48f26e420ba736bf9336aee8c828ddc78937f9c6e1e1287bdf",
+    "manifest_sha256": "196df7be884f3e13d88f7cf6073fe906f44588e80cce1f51c051187f528fd694",
     "size_bytes": 14375346,
     "pages": 421,
     "page_size_name": "A4",
@@ -18,8 +18,8 @@
     "pdf_version": "1.4",
     "tagged": true,
     "source_ref": "main",
-    "source_digest": "db5cc8dbeb79711b4b6f16179ccd410776a5d4071047e970e6c5ca755710f7a3",
-    "version": "0.4.1"
+    "source_digest": "abc148f19eb4ffaa031c17ed39213226cceed86d3f361ddbba39da65306500ae",
+    "version": "0.5.0"
   },
   "tools": {
     "pdfinfo": {
@@ -40,7 +40,7 @@
       },
       "stdout": {
         "bytes": 627,
-        "sha256": "e69c428106f6b97898f99d47b3b7b6b494aae05acc49024e5590f90d76250a8b"
+        "sha256": "0ce0c19cca1f9ba681555e15a52c811bac749e1f1c7d15a1a8ca56b0c31e5395"
       }
     },
     "structure": {
@@ -62,7 +62,7 @@
       },
       "stdout": {
         "bytes": 2462214,
-        "sha256": "f05589f212c49ed87b9c71f27d91ef1f38fa8743e4f7a5a673685b35d8a47503"
+        "sha256": "3e3e43223beee6426346abf7dc4f75ce0aa3665c8f4a85a099d1cf92c3aa66f8"
       }
     },
     "default_text": {
@@ -73,7 +73,7 @@
       },
       "stdout": {
         "bytes": 1120642,
-        "sha256": "31866f236c6ebf6f56857210d9b029c0b74cd192360b78805143a8bf99d7d081"
+        "sha256": "e04eb7a6a74de0ce4f3ff8eeb3056a56a2d3c9eebc1a86a22b5f6635a19c1acf"
       }
     },
     "raw_text": {
@@ -84,7 +84,7 @@
       },
       "stdout": {
         "bytes": 1111147,
-        "sha256": "1fdee9af18c80307cb7a17bce0cacb53aecad190f285e1b2f2531a38a78a164c"
+        "sha256": "2b5f2b05b41be5fa5af1270100de0f978d39d986262e311fc1de8a19dc681da0"
       }
     }
   },

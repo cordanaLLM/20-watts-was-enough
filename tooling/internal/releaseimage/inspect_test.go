@@ -824,3 +824,140 @@ func TestDecodeExactJSONRejectsTrailingValues(t *testing.T) {
 		t.Fatalf("decodeExactJSON() duplicate-name error = %v", err)
 	}
 }
+
+func TestReleaseTagGrammar(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		tag   string
+		valid bool
+	}{
+		{"v0.0.0", true},
+		{"v0.5.0", true},
+		{"v12.34.56", true},
+		{"v0.0.0-rc.0", true},
+		{"v0.5.0-rc.1", true},
+		{"v0.5.0-rc.10", true},
+		{"v999999999999999999999.0.0-rc.999999999999999999999", true},
+		{"", false},
+		{"0.5.0", false},
+		{"v0.5.0-rc", false},
+		{"v0.5.0-rc.01", false},
+		{"v0.5.0-rc.1.2", false},
+		{"v0.5.0-beta.1", false},
+		{"v0.5.0-RC.1", false},
+		{"v05.0.0", false},
+		{"v0.05.0", false},
+		{"v0.5.00", false},
+		{"v0.5.0+meta", false},
+		{"v0.5.0-rc.1-x", false},
+		{"v0.5.0-rc.-1", false},
+		{"v0.5.0-rc.", false},
+		{"v0.5.0\n", false},
+		{" v0.5.0", false},
+		{"v0.5.0 ", false},
+	} {
+		t.Run(test.tag, func(t *testing.T) {
+			t.Parallel()
+			options := testOptions()
+			options.Tag = test.tag
+			options.ExpectedLabels["org.opencontainers.image.version"] = test.tag
+			err := validateOptions(options)
+			if (err == nil) != test.valid {
+				t.Fatalf("tag %q: error = %v, want valid = %t", test.tag, err, test.valid)
+			}
+		})
+	}
+}
+
+type failingResponseCloser struct {
+	io.Reader
+	err    error
+	closed bool
+}
+
+func (body *failingResponseCloser) Close() error {
+	body.closed = true
+	return body.err
+}
+
+func TestRejectedRegistryResponseRetainsCloseFailure(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name   string
+		header http.Header
+		want   string
+	}{
+		{name: "headers", header: http.Header{"X-Large": []string{strings.Repeat("x", maximumHeaderBytes)}}, want: "headers exceeded"},
+		{name: "encoding", header: http.Header{"Content-Encoding": []string{"gzip"}}, want: "content-encoded"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			closeError := errors.New("injected response close failure")
+			body := &failingResponseCloser{Reader: strings.NewReader("body"), err: closeError}
+			transport := boundedRoundTripper{base: roundTripFunc(func(*http.Request) (*http.Response, error) {
+				return &http.Response{Header: test.header, Body: body}, nil
+			})}
+			request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://ghcr.io/v2/", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			response, err := transport.RoundTrip(request)
+			if response != nil || !body.closed || !errors.Is(err, closeError) {
+				t.Fatalf("response=%v closed=%v error=%v", response, body.closed, err)
+			}
+			if !strings.Contains(err.Error(), test.want) || !strings.Contains(err.Error(), "close rejected registry response body") {
+				t.Fatalf("lost rejection or cleanup context: %v", err)
+			}
+		})
+	}
+}
+
+func TestInspectExistingExhaustsExactObservationBudget(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name   string
+		delays []time.Duration
+	}{
+		{name: "no retries"},
+		{name: "two retries", delays: []time.Duration{0, 0}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			options := testOptions()
+			var observations atomic.Int32
+			server := registryServerWithStatus(t, newRegistryFixture(options.ExpectedLabels), func() int {
+				observations.Add(1)
+				return http.StatusNotFound
+			})
+			defer server.Close()
+			options.RegistryURL = server.URL
+			options.HTTPClient = server.Client()
+			result, err := inspectExisting(t.Context(), options, test.delays)
+			budget := len(test.delays) + 1
+			if observations.Load() != int32(budget) || result.Status != "" {
+				t.Fatalf("observations=%d budget=%d result=%+v", observations.Load(), budget, result)
+			}
+			want := fmt.Sprintf("required release image %s:%s remained absent after %d authenticated observations", options.Image, options.Tag, budget)
+			if err == nil || err.Error() != want {
+				t.Fatalf("exhaustion error=%v, want %q", err, want)
+			}
+		})
+	}
+}
+
+func TestInspectExistingAcceptsFinalAllowedObservation(t *testing.T) {
+	t.Parallel()
+	options := testOptions()
+	var observations atomic.Int32
+	server := registryServerWithStatus(t, newRegistryFixture(options.ExpectedLabels), func() int {
+		if observations.Add(1) == 2 {
+			return http.StatusOK
+		}
+		return http.StatusNotFound
+	})
+	defer server.Close()
+	options.RegistryURL = server.URL
+	options.HTTPClient = server.Client()
+	result, err := inspectExisting(t.Context(), options, []time.Duration{0})
+	if err != nil || result.Status != "existing" || observations.Load() != 2 {
+		t.Fatalf("final observation result=%+v error=%v observations=%d", result, err, observations.Load())
+	}
+}

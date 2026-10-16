@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing vMAJOR.MINOR.PATCH tag to rebuild
+        description: Existing vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N tag to rebuild
         required: true
         type: string
 

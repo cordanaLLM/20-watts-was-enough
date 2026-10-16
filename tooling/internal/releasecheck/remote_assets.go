@@ -201,7 +201,7 @@ func buildRemoteAssetExpectations(options FetchAssetsOptions) (string, map[strin
 
 func extendSourceExpectations(root string, options FetchAssetsOptions, expectations map[string]expectedRemoteAsset) error {
 	if !releaseTagPattern.MatchString(options.ReleaseTag) {
-		return errors.New("source asset fetch requires a vMAJOR.MINOR.PATCH release tag")
+		return errors.New("source asset fetch requires a vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N release tag")
 	}
 	if !commitPattern.MatchString(options.ReleaseCommit) {
 		return errors.New("source asset fetch requires a lowercase 40-character release commit")
