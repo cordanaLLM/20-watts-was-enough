@@ -24,6 +24,7 @@ func Usage(writer io.Writer) {
 	fmt.Fprintln(writer, "  20w experiment inspect-clrs-image-archive --archive <oci.tar> --sha256 <hex> --bytes <count> [--root <repository>] [--json]")
 	fmt.Fprintln(writer, "  20w experiment prepare-clrs-loaded-image --archive <oci.tar> --sha256 <hex> --bytes <count> --output <new-directory> [--root <repository>] [--json]")
 	fmt.Fprintln(writer, "  20w experiment run-clrs-shakedown --dataset <directory> --expected-tree <sha256-hex> --output <directory> --run-id <id> (--execute | --check) [--root <repository>] [--json]")
+	fmt.Fprintln(writer, "  20w experiment run-clrs-shakedown-container --execute --image-id <sha256:id> --dataset <directory> --expected-tree <sha256-hex> --output <new-parent> --run-id <id> [--root <repository>] [--json]")
 }
 
 // Run dispatches one experiment subcommand. An unhandled command writes nothing,
@@ -65,6 +66,8 @@ func Run(arguments []string, stdout, stderr io.Writer) (exitCode int, handled bo
 		return runExperimentPrepareCLRSLoadedImage(arguments[1:], stdout, stderr), true
 	case "run-clrs-shakedown":
 		return runExperimentCLRSShakedown(arguments[1:], stdout, stderr), true
+	case "run-clrs-shakedown-container":
+		return runExperimentCLRSContainer(arguments[1:], stdout, stderr), true
 	}
 	return 2, false
 }

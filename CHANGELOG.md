@@ -5,6 +5,16 @@ the exact diff; this file records why the project changed.
 
 ## [Unreleased]
 
+### Added
+
+- `run-clrs-shakedown-container` runs and checks the frozen development tree
+  through two bounded local containers selected by exact loaded image ID.
+  Go owns pre-start configuration checks, host-written failure evidence and
+  ownership-checked cleanup. The second container has read-only mounts; the
+  inner experiment and its `NO_RESULT` authority remain unchanged. This
+  replaces the manual runtime walkthrough without acquiring or admitting an
+  image, measuring energy or providing a hard quota on writable output storage.
+
 ### Fixed
 
 - Accept canonical `-rc.N` versions in experiment image builds and execution receipts so release-candidate builds pass the image guards.

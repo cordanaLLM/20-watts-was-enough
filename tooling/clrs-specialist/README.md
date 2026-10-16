@@ -76,57 +76,50 @@ and locked modules; it is not an offline-build proof. The runtime uses that
 already-built image with `--pull never` and acquires neither images nor inputs.
 The `development`/`unknown` identity is deliberate for an uncommitted checkout.
 
-The following Bash example shares the limits between execution and checking.
-It creates a dedicated writable parent under the ignored `.workingdir2/`;
-`run-1` must not exist before execution. Set the dataset path and independently
-retained hash described above before running it.
+Go owns the runtime lifecycle: one invocation executes the tree, checks the
+retained bundle in a second read-only container, and cleans up its containers.
+This initial profile requires a non-root Linux operator and the local Linux
+`amd64`, cgroup-v2 Docker 29.7.2 engine and client. It uses the fixed Unix socket,
+not a remote Docker context. Set the verified dataset and tree hash above,
+then choose an output parent that does not yet exist:
 
 ```bash
 mkdir -p .workingdir2
-CLRS_OUTPUT_PARENT="$(mktemp -d "$PWD/.workingdir2/clrs-container.XXXXXX")"
-CLRS_RUN_ID="${CLRS_OUTPUT_PARENT##*/}"
-CLRS_CONTAINER_NAME="20w-$CLRS_RUN_ID"
-clrs_container=(
-  --rm --name "$CLRS_CONTAINER_NAME" --pull never --platform linux/amd64
-  --network none --read-only --user "$(id -u):$(id -g)"
-  --cap-drop ALL --security-opt no-new-privileges
-  --cpus 1 --memory 128m --memory-swap 128m --pids-limit 64 --stop-timeout 5
-  --log-driver local --log-opt max-size=4m --log-opt max-file=1 --log-opt compress=false
-  --mount "type=bind,src=$PWD,dst=/repository,readonly"
-  --mount "type=bind,src=$CLRS_DATASET_DIRECTORY,dst=/dataset,readonly"
-)
-clrs_run=(
-  experiment run-clrs-shakedown --root /repository --dataset /dataset
-  --expected-tree "$CLRS_TREE_SHA256" --output /output/run-1
-  --run-id "$CLRS_RUN_ID" --json
-)
-timeout --signal=TERM --kill-after=2s 90s \
-  docker run "${clrs_container[@]}" \
-  --mount "type=bind,src=$CLRS_OUTPUT_PARENT,dst=/output" \
-  "$CLRS_IMAGE_ID" "${clrs_run[@]}" --execute
+CLRS_OUTPUT_PARENT="$PWD/.workingdir2/clrs-container-development-001"
+go -C tooling run ./cmd/20w experiment run-clrs-shakedown-container \
+  --root "$PWD" --dataset "$CLRS_DATASET_DIRECTORY" \
+  --expected-tree "$CLRS_TREE_SHA256" --image-id "$CLRS_IMAGE_ID" \
+  --output "$CLRS_OUTPUT_PARENT" --run-id local-container-development-001 \
+  --execute --json
 ```
 
-After execution exits zero, check the same bundle in a separate container with
-the output mount read-only too:
+The command accepts an operator-trusted, already-loaded exact image ID; it
+never builds, pulls, tags or publishes an image. The new parent's `outputs/run/`
+holds the unchanged inner bundle. `witness/` holds command records, outputs and
+the separate outer schema-1 receipt. Only `outputs/` is writable inside the
+execution container; all three checker mounts are read-only. Witness files
+are host-written, but not confidential: an output inside the repository may
+also be visible through its read-only mount.
 
-```bash
-timeout --signal=TERM --kill-after=2s 45s \
-  docker run "${clrs_container[@]}" \
-  --mount "type=bind,src=$CLRS_OUTPUT_PARENT,dst=/output,readonly" \
-  "$CLRS_IMAGE_ID" "${clrs_run[@]}" --check
-```
+Both containers use 1 CPU, 128 MiB without swap and at most 64 PIDs, with no
+network, a read-only root and bounded logs. The command inspects the accepted
+configuration before start and retains external exits, observed container
+exits and OOM state afterward. It permits no retries and reserves a separate
+cleanup budget. [Decision 0104](../../decisions/0104-own-clrs-container-execution-in-go.md)
+records the exact time, command and capture bounds.
 
-Both containers use 1 CPU, 128 MiB without swap and at most 64 PIDs; only the
-execution's dedicated output parent is writable. Keep the output bundle and
-each external exit status. `--rm` removes exited containers. If a timed-out
-Docker client leaves its named container running, remove only that container,
-retaining the bundle:
+Keep the external exit status and the entire output parent. A successful
+`container-bundle-consistent-unadmitted` report requires both container phases
+and host bundle/input checks to pass. On failure, partial files remain and the
+command returns non-zero. Cleanup removes only verified-owned containers;
+if cleanup itself fails, its diagnostic remains alongside the original error
+for operator action. Existing outputs are never overwritten.
 
-```bash
-docker container rm --force "$CLRS_CONTAINER_NAME"
-```
-
-These containment limits do not measure energy or admit an experiment image.
+This is development containment, not a hostile-image sandbox. The writable
+bind has no hard disk quota; artifact checks cannot prevent an untrusted image
+from filling host storage. Neither unsigned receipt authenticates compilation
+or execution. Energy remains unavailable and outputs remain `NO_RESULT`;
+these controls do not admit the general tooling or specialist image.
 
 ### Native Go alternative
 
