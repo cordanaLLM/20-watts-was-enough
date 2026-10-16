@@ -6,6 +6,7 @@ import (
 	"io"
 	"math"
 	"path"
+	"slices"
 )
 
 const (
@@ -291,7 +292,7 @@ func validateTasks(tasks []GenerationTask) error {
 		if actual.Task != expected.task || actual.Family != expected.family || actual.LengthSemantics != expected.semantics {
 			return fmt.Errorf("CLRS generation task %d = %q/%q/%q, want accepted family binding", index, actual.Task, actual.Family, actual.LengthSemantics)
 		}
-		if !equalSizes(actual.Sizes, expected.sizes) {
+		if !slices.Equal(actual.Sizes, expected.sizes) {
 			return fmt.Errorf("CLRS generation sizes for %s = %v, want %v", actual.Task, actual.Sizes, expected.sizes)
 		}
 	}
@@ -328,18 +329,6 @@ func scalableSizes(extrapolation int64) []SizeSelection {
 		{Role: SizePublishedInterpolation, RequestedLength: 8},
 		{Role: SizePublishedExtrapolation, RequestedLength: extrapolation},
 	}
-}
-
-func equalSizes(left, right []SizeSelection) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	for index := range left {
-		if left[index] != right[index] {
-			return false
-		}
-	}
-	return true
 }
 
 func addContractHeader(builder *identityBuilder, contract GenerationContract) {

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -17,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
 const (
@@ -437,14 +438,10 @@ func RenderGeneratorWheelhouseManifest(repositoryRoot, wheelhouseDirectory strin
 		DownloadedWheelCount: len(artifacts) - 1, SourceBuiltWheelCount: 1, TotalSizeBytes: total,
 		Artifacts: artifacts, SourceBuild: sourceBuild,
 	}
-	var output bytes.Buffer
-	encoder := json.NewEncoder(&output)
-	encoder.SetEscapeHTML(false)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(manifest); err != nil {
+	body, err := strictjson.Canonical(manifest)
+	if err != nil {
 		return nil, fmt.Errorf("encode CLRS generator wheelhouse manifest: %w", err)
 	}
-	body := output.Bytes()
 	if _, err := ParseGeneratorWheelhouseManifest(body, dependencyLockBody, input, imageContract); err != nil {
 		return nil, err
 	}

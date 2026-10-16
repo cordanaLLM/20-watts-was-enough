@@ -4,6 +4,7 @@ description: "Autonomous subagent for dependency verification, SCA security scan
 mainAgent: true
 subagent: true
 commandExecutionPolicy: auto
+model: flash
 ---
 
 # Repository Gatekeeper Persona

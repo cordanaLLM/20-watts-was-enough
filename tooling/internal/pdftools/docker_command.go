@@ -1,7 +1,6 @@
 package pdftools
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -11,8 +10,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/boundedexec"
 )
 
 const maximumDockerWaitDelay = 5 * time.Second
@@ -52,14 +52,6 @@ type dockerExecutor interface {
 
 type localDockerExecutor struct{}
 
-type boundedDockerOutput struct {
-	mutex    sync.Mutex
-	buffer   bytes.Buffer
-	limit    int64
-	written  int64
-	exceeded bool
-}
-
 func verifyLocalDockerEndpoint(
 	ctx context.Context,
 	executor dockerExecutor,
@@ -88,30 +80,6 @@ func verifyLocalDockerEndpoint(
 	return nil
 }
 
-func (output *boundedDockerOutput) Write(body []byte) (int, error) {
-	output.mutex.Lock()
-	defer output.mutex.Unlock()
-	remaining := output.limit - output.written
-	accepted := int64(len(body))
-	if accepted > remaining {
-		accepted = remaining
-	}
-	if accepted > 0 {
-		_, _ = output.buffer.Write(body[:accepted])
-	}
-	output.written += int64(len(body))
-	if output.written > output.limit {
-		output.exceeded = true
-	}
-	return len(body), nil
-}
-
-func (output *boundedDockerOutput) result() ([]byte, bool) {
-	output.mutex.Lock()
-	defer output.mutex.Unlock()
-	return bytes.Clone(output.buffer.Bytes()), output.exceeded
-}
-
 func (localDockerExecutor) run(ctx context.Context, request dockerRequest) (dockerResult, error) {
 	if request.operation == "" || request.timeout <= 0 || request.output <= 0 || len(request.arguments) == 0 {
 		return dockerResult{}, errors.New("invalid bounded Docker request")
@@ -120,8 +88,8 @@ func (localDockerExecutor) run(ctx context.Context, request dockerRequest) (dock
 	defer timeoutCancel()
 	commandContext, commandCancel := context.WithCancelCause(timeoutContext)
 	defer commandCancel(nil)
-	stdout := &boundedDockerOutput{limit: request.output}
-	stderr := &boundedDockerOutput{limit: request.output}
+	stdout := boundedexec.NewOutput(int(request.output))
+	stderr := boundedexec.NewOutput(int(request.output))
 	dockerBinary, err := exec.LookPath("docker")
 	if err != nil {
 		return dockerResult{}, errors.New("Docker CLI is required for local PDF-tools reproduction")
@@ -139,8 +107,8 @@ func (localDockerExecutor) run(ctx context.Context, request dockerRequest) (dock
 	commandCause := context.Cause(commandContext)
 	commandCancel(nil)
 	monitorError := <-monitorDone
-	stdoutBody, stdoutExceeded := stdout.result()
-	stderrBody, stderrExceeded := stderr.result()
+	stdoutBody, stdoutExceeded := stdout.Result()
+	stderrBody, stderrExceeded := stderr.Result()
 	result := dockerResult{stdout: stdoutBody, stderr: stderrBody}
 	if monitorError != nil {
 		return result, fmt.Errorf("%s: %w", request.operation, monitorError)

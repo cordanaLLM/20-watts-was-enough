@@ -59,7 +59,7 @@ func LookupReleaseState(
 		return ReleaseState{}, errors.New("GitHub repository must be an owner/name pair")
 	}
 	if !releaseTagPattern.MatchString(tag) {
-		return ReleaseState{}, errors.New("release tag must be vMAJOR.MINOR.PATCH")
+		return ReleaseState{}, errors.New("release tag must be vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N")
 	}
 	if resolver == nil {
 		return ReleaseState{}, errors.New("GitHub Release state resolver is required")
@@ -80,6 +80,9 @@ func LookupReleaseState(
 	if state.Tag != tag {
 		return ReleaseState{}, fmt.Errorf("GitHub Release resolves tag %s, expected %s", valueOrMissing(state.Tag), tag)
 	}
+	if state.Prerelease != strings.Contains(tag, "-rc.") {
+		return ReleaseState{}, errors.New("GitHub Release prerelease state does not match the release tag")
+	}
 	return state, nil
 }
 
@@ -97,8 +100,16 @@ func (resolver GHReleaseStateResolver) ResolveReleaseState(
 	if !found {
 		return ReleaseState{}, errors.New("split validated GitHub repository identity")
 	}
+	releaseID, present, err := locateRelease(requestContext, run, owner, name, tag)
+	if err != nil || !present {
+		return ReleaseState{}, err
+	}
+	return lookupNumericRelease(requestContext, run, repository, tag, releaseID)
+}
+
+func locateRelease(ctx context.Context, run ghReleaseCommandRunner, owner, name, tag string) (int64, bool, error) {
 	locatorResult, err := run(
-		requestContext,
+		ctx,
 		"api", "graphql",
 		"-f", "query="+releaseByTagQuery,
 		"-F", "owner="+owner,
@@ -106,22 +117,19 @@ func (resolver GHReleaseStateResolver) ResolveReleaseState(
 		"-F", "tagName="+tag,
 	)
 	if err != nil {
-		return ReleaseState{}, fmt.Errorf("GitHub draft-release locator: %w", err)
+		return 0, false, fmt.Errorf("GitHub draft-release locator: %w", err)
 	}
 	if locatorResult.commandError != nil {
-		return ReleaseState{}, fmt.Errorf(
+		return 0, false, fmt.Errorf(
 			"GitHub draft-release locator failed: %w: %s",
 			locatorResult.commandError,
 			boundedDiagnostic(locatorResult.stderr),
 		)
 	}
-	releaseID, present, err := decodeReleaseLocator(locatorResult.stdout, tag)
-	if err != nil {
-		return ReleaseState{}, err
-	}
-	if !present {
-		return ReleaseState{}, nil
-	}
+	return decodeReleaseLocator(locatorResult.stdout, tag)
+}
+
+func lookupNumericRelease(requestContext context.Context, run ghReleaseCommandRunner, repository, tag string, releaseID int64) (ReleaseState, error) {
 	releaseResult, err := run(
 		requestContext,
 		"api", fmt.Sprintf("repos/%s/releases/%d", repository, releaseID),

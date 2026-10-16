@@ -29,16 +29,17 @@ type boundTask struct {
 }
 
 type boundInputs struct {
-	tree         clrsfixture.FixtureTree
-	tasks        []boundTask
-	registry     clrsrunner.Registry
-	routes       []specialistcontrol.Route
-	observations []specialistcontrol.ReadinessObservation
-	policy       specialistcontrol.Policy
+	tree          clrsfixture.FixtureTree
+	tasks         []boundTask
+	registry      clrsrunner.Registry
+	routes        []specialistcontrol.Route
+	observations  []specialistcontrol.ReadinessObservation
+	policy        specialistcontrol.Policy
+	requestBudget time.Duration
 }
 
 func bindInputs(options Options, tree clrsfixture.FixtureTree) (boundInputs, error) {
-	bound := boundInputs{tree: tree}
+	bound := boundInputs{tree: tree, requestBudget: requestTimeout}
 	if tree.Plan.SourceID.String() != clrsrunner.FrozenSourceID || tree.Plan.ContractID.String() != clrsrunner.FrozenGenerationContractID {
 		return bound, errors.New("fixture identities differ from the frozen specialist runtime")
 	}
@@ -51,7 +52,7 @@ func bindInputs(options Options, tree clrsfixture.FixtureTree) (boundInputs, err
 	if err != nil {
 		return bound, err
 	}
-	bound.policy, err = specialistcontrol.NewPolicy(policyLimits(), bound.routes)
+	bound.policy, err = specialistcontrol.NewPolicy(policyLimits(bound.requestBudget), bound.routes)
 	if err != nil {
 		return bound, err
 	}
@@ -109,9 +110,9 @@ func bindTask(runID, id string, tree clrsfixture.FixtureTree, dataset clrsfixtur
 	return b, err
 }
 
-func policyLimits() specialistcontrol.Limits {
+func policyLimits(budget time.Duration) specialistcontrol.Limits {
 	return specialistcontrol.Limits{MaxRequestBytes: maximumExampleBytes, MaxResultBytes: maximumExampleBytes,
-		MaxRequestAge: requestTimeout, MaxExecution: requestTimeout, MaxDecisionRecord: recordTimeout}
+		MaxRequestAge: budget, MaxExecution: budget, MaxDecisionRecord: recordTimeout}
 }
 
 func admissionLimits() specialistcontrol.AdmissionLimits {
@@ -132,6 +133,6 @@ func (s registrySpecialist) Invoke(ctx context.Context, in specialistcontrol.Inv
 	response, err := s.registry.Invoke(ctx, clrsrunner.Request{SchemaVersion: clrsrunner.SchemaVersion,
 		Authority: clrsfixture.ResultAuthority, SourceID: clrsrunner.FrozenSourceID, GenerationContractID: clrsrunner.FrozenGenerationContractID,
 		RunID: in.RunID, RequestID: in.RequestID, Task: in.Task, SpecialistID: s.id, Binding: fmt.Sprintf("sha256:%x", in.Binding),
-		TimeoutMillis: int((remaining + time.Millisecond - 1) / time.Millisecond), MaxResultBytes: in.MaxResultBytes, Payload: string(in.Payload)})
+		TimeoutMillis: min(clrsrunner.MaximumTimeoutMillis, int((remaining+time.Millisecond-1)/time.Millisecond)), MaxResultBytes: in.MaxResultBytes, Payload: string(in.Payload)})
 	return specialistcontrol.SpecialistResult{Binding: in.Binding, SpecialistID: response.SpecialistID, State: response.State, Payload: []byte(response.Payload)}, err
 }

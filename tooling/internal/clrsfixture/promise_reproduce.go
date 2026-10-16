@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
 const (
@@ -66,7 +68,7 @@ func reproducePromiseWheel(ctx context.Context, root, inputDirectory, output str
 			State         string `json:"state"`
 			Error         string `json:"error"`
 		}{1, ResultAuthority, "incomplete", boundedPromiseError(err)}
-		body, encodeErr := marshalPromiseJSON(failure)
+		body, encodeErr := strictjson.Canonical(failure)
 		if encodeErr == nil {
 			encodeErr = writePromiseFile(bundle, "failure.json", body)
 		}

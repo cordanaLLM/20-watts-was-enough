@@ -15,9 +15,12 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/releasetag"
 )
 
 const (
@@ -38,7 +41,7 @@ const (
 )
 
 var (
-	releaseVersionPattern = regexp.MustCompile(`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
+	releaseVersionPattern = regexp.MustCompile(releasetag.Pattern)
 	revisionPattern       = regexp.MustCompile(`^[0-9a-f]{40}$`)
 )
 
@@ -69,7 +72,7 @@ func Artifacts() []Artifact {
 // Validate checks the immutable build identity and paths before any output is created.
 func Validate(options Options) error {
 	if !releaseVersionPattern.MatchString(options.Version) {
-		return errors.New("version must have the exact form vMAJOR.MINOR.PATCH")
+		return errors.New("version must have the exact form vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N")
 	}
 	if !revisionPattern.MatchString(options.Revision) {
 		return errors.New("revision must be a lowercase 40-character Git commit")
@@ -111,15 +114,36 @@ func Build(ctx context.Context, options Options) (artifacts []Artifact, returnEr
 	}
 	defer func() {
 		if returnError != nil {
-			_ = os.RemoveAll(stagingRoot)
+			returnError = removeFailedStagingRoot(stagingRoot, returnError)
 		}
 	}()
 
+	artifacts, err = buildStagedArtifacts(buildContext, options, paths.moduleRoot, stagingRoot)
+	if err != nil {
+		return nil, err
+	}
+	if err := recheckPublishPaths(paths, stagingRoot); err != nil {
+		return nil, err
+	}
+	if err := os.Rename(stagingRoot, paths.outputRoot); err != nil {
+		return nil, fmt.Errorf("publish release binaries: %w", err)
+	}
+	return artifacts, nil
+}
+
+func removeFailedStagingRoot(stagingRoot string, primary error) error {
+	if err := os.RemoveAll(stagingRoot); err != nil {
+		return errors.Join(primary, fmt.Errorf("remove native release staging root %s: %w", stagingRoot, err))
+	}
+	return primary
+}
+
+func buildStagedArtifacts(ctx context.Context, options Options, moduleRoot, stagingRoot string) ([]Artifact, error) {
 	goBinary := options.GoBinary
 	if goBinary == "" {
 		goBinary = "go"
 	}
-	goBinary, err = exec.LookPath(goBinary)
+	goBinary, err := exec.LookPath(goBinary)
 	if err != nil {
 		return nil, fmt.Errorf("resolve Go binary: %w", err)
 	}
@@ -129,9 +153,9 @@ func Build(ctx context.Context, options Options) (artifacts []Artifact, returnEr
 		options.Revision,
 		options.BuiltAt,
 	)
-	artifacts = Artifacts()
+	artifacts := Artifacts()
 	for _, artifact := range artifacts {
-		if err := buildArtifact(buildContext, goBinary, paths.moduleRoot, stagingRoot, linkerFlags, artifact, options); err != nil {
+		if err := buildArtifact(ctx, goBinary, moduleRoot, stagingRoot, linkerFlags, artifact, options); err != nil {
 			return nil, err
 		}
 	}
@@ -140,14 +164,8 @@ func Build(ctx context.Context, options Options) (artifacts []Artifact, returnEr
 	}) {
 		return nil, errors.New("release artifact plan is not sorted")
 	}
-	if err := writeDependencyMetadata(stagingRoot, paths.moduleRoot, artifacts, options); err != nil {
+	if err := writeDependencyMetadata(stagingRoot, moduleRoot, artifacts, options); err != nil {
 		return nil, err
-	}
-	if err := recheckPublishPaths(paths, stagingRoot); err != nil {
-		return nil, err
-	}
-	if err := os.Rename(stagingRoot, paths.outputRoot); err != nil {
-		return nil, fmt.Errorf("publish release binaries: %w", err)
 	}
 	return artifacts, nil
 }
@@ -271,7 +289,7 @@ func readDependencies(stagingRoot string, artifacts []Artifact) ([]dependency, e
 			expected = dependencies
 			continue
 		}
-		if !dependenciesEqual(expected, dependencies) {
+		if !slices.Equal(expected, dependencies) {
 			return nil, fmt.Errorf("%s has a different Go dependency graph", artifact.Name)
 		}
 	}
@@ -327,18 +345,6 @@ func formatBuildSettings(settings map[string]string) string {
 	return strings.Join(entries, ",")
 }
 
-func dependenciesEqual(left, right []dependency) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	for index := range left {
-		if left[index] != right[index] {
-			return false
-		}
-	}
-	return true
-}
-
 func writeDependencyMetadata(stagingRoot, moduleRoot string, artifacts []Artifact, options Options) error {
 	dependencies, err := readDependencies(stagingRoot, artifacts)
 	if err != nil {
@@ -385,36 +391,7 @@ func renderGoSBOM(options Options, dependencies []dependency) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse SBOM creation time: %w", err)
 	}
-	packages := []map[string]any{
-		{
-			"name":             "20w",
-			"SPDXID":           "SPDXRef-Package-20w",
-			"versionInfo":      strings.TrimPrefix(options.Version, "v"),
-			"downloadLocation": "NOASSERTION",
-			"filesAnalyzed":    false,
-			"licenseConcluded": "EUPL-1.2",
-			"licenseDeclared":  "EUPL-1.2",
-			"copyrightText":    "Copyright (c) 2026 lusoris contributors",
-		},
-	}
-	for index, module := range dependencies {
-		packages = append(packages, map[string]any{
-			"name":             module.Path,
-			"SPDXID":           fmt.Sprintf("SPDXRef-Package-Go-%03d", index+1),
-			"versionInfo":      module.Version,
-			"downloadLocation": "https://proxy.golang.org/" + goldmarkModule + "/@v/" + goldmarkVersion + ".zip",
-			"filesAnalyzed":    false,
-			"licenseConcluded": "MIT",
-			"licenseDeclared":  "MIT",
-			"copyrightText":    "Copyright (c) 2019 Yusuke Inuzuka",
-			"externalRefs": []map[string]string{{
-				"referenceCategory": "PACKAGE-MANAGER",
-				"referenceType":     "purl",
-				"referenceLocator":  "pkg:golang/" + goldmarkModule + "@" + goldmarkVersion,
-			}},
-			"comment": "Go module checksum " + module.Sum,
-		})
-	}
+	packages := goSBOMPackages(options, dependencies)
 	relationships := []map[string]string{{
 		"spdxElementId":      "SPDXRef-DOCUMENT",
 		"relationshipType":   "DESCRIBES",
@@ -448,6 +425,40 @@ func renderGoSBOM(options Options, dependencies []dependency) ([]byte, error) {
 		return nil, fmt.Errorf("encode Go SPDX document: %w", err)
 	}
 	return append(bytes, '\n'), nil
+}
+
+func goSBOMPackages(options Options, dependencies []dependency) []map[string]any {
+	packages := []map[string]any{
+		{
+			"name":             "20w",
+			"SPDXID":           "SPDXRef-Package-20w",
+			"versionInfo":      strings.TrimPrefix(options.Version, "v"),
+			"downloadLocation": "NOASSERTION",
+			"filesAnalyzed":    false,
+			"licenseConcluded": "EUPL-1.2",
+			"licenseDeclared":  "EUPL-1.2",
+			"copyrightText":    "Copyright (c) 2026 lusoris contributors",
+		},
+	}
+	for index, module := range dependencies {
+		packages = append(packages, map[string]any{
+			"name":             module.Path,
+			"SPDXID":           fmt.Sprintf("SPDXRef-Package-Go-%03d", index+1),
+			"versionInfo":      module.Version,
+			"downloadLocation": "https://proxy.golang.org/" + goldmarkModule + "/@v/" + goldmarkVersion + ".zip",
+			"filesAnalyzed":    false,
+			"licenseConcluded": "MIT",
+			"licenseDeclared":  "MIT",
+			"copyrightText":    "Copyright (c) 2019 Yusuke Inuzuka",
+			"externalRefs": []map[string]string{{
+				"referenceCategory": "PACKAGE-MANAGER",
+				"referenceType":     "purl",
+				"referenceLocator":  "pkg:golang/" + goldmarkModule + "@" + goldmarkVersion,
+			}},
+			"comment": "Go module checksum " + module.Sum,
+		})
+	}
+	return packages
 }
 
 func renderGoNotices(module dependency, licenseBytes []byte, digest string) []byte {

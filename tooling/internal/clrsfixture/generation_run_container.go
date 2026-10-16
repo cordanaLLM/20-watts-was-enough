@@ -211,7 +211,7 @@ func validateGenerationDockerInfo(body []byte) error {
 	if err != nil {
 		return err
 	}
-	if generationImageString(object, "OSType") != "linux" || generationImageString(object, "CgroupVersion") != "2" {
+	if jsonString(object, "OSType") != "linux" || jsonString(object, "CgroupVersion") != "2" {
 		return errors.New("Docker requires Linux cgroup v2")
 	}
 	for _, field := range strings.Fields("MemoryLimit SwapLimit CpuCfsPeriod CpuCfsQuota PidsLimit") {
