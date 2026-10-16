@@ -11,6 +11,9 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- Reject a rooted path without a drive letter and a drive-relative path in the shared relative-path validator, which accepted `/a` on Windows.
+- Check text files out with LF bytes on every platform (`* text=auto eol=lf`), so the byte-compared and hashed Go inputs match on Windows runners.
+- Go tests run with a canonical temporary directory (`internal/testtmp`), so the symlink-refusing path checks pass on macOS (`/var` link) and Windows (8.3 short names).
 - Accept canonical `-rc.N` versions in experiment image builds and execution receipts so release-candidate builds pass the image guards.
 - The CLRS shakedown takes its per-request budget from bound inputs. Production keeps 1 s; the failure and cancellation test uses one minute, so a loaded runner no longer turns an injected failure into a deadline outcome (#148).
 
