@@ -41,7 +41,7 @@ const sbomGenerator = "generator=docker.io/docker/buildkit-syft-scanner@sha256:a
 
 const buildxPolicy = Object.freeze({
   buildkit: "image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8",
-  version: "v0.37.2",
+  version: "v0.38.0",
 });
 
 const releaseMutationGuard = "steps.release-preflight.outputs.release_state != 'published'";
@@ -1287,7 +1287,7 @@ function pdfReproducibilitySetupIsExact(step) {
     && step?.if === undefined
     && continueOnErrorIsDisabled(step)
     && Object.keys(step?.with ?? {}).length === 2
-    && step.with.version === "v0.37.2"
+    && step.with.version === "v0.38.0"
     && step.with["driver-opts"] === pdfReproducibilityBuildKit;
 }
 
