@@ -5,6 +5,10 @@ the exact diff; this file records why the project changed.
 
 ## [Unreleased]
 
+### Added
+
+- Run the Go tests on Windows and macOS runners in CI for every full plan and every Go impact plan; the runner policy admits exactly these two jobs ([Decision 0103](decisions/0103-run-the-go-tests-on-windows-and-macos-runners.md)).
+
 ### Fixed
 
 - Accept canonical `-rc.N` versions in experiment image builds and execution receipts so release-candidate builds pass the image guards.
