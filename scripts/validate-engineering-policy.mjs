@@ -2589,6 +2589,32 @@ function releaseFinalComparisonIsFailClosed(publication) {
   ].every((diagnostic) => diagnosticImmediatelyExits(publication, diagnostic));
 }
 
+function releaseCandidatesRemainDrafts(preflight, publication) {
+  const normalise = (source) => source?.split("\n").map((line) => line.trim()).join("\n");
+  const refusal = 'echo "::error::rc releases must remain drafts"\nexit 1\nfi';
+  const notice = 'echo "::notice::rc release ${release_id} stays a draft; no DOI is minted"\nexit 0\nfi';
+  const guard = 'if [[ "$expected_prerelease" == "true" ]]; then';
+  const existingStop = [
+    'verify_complete_remote_assets "$comparison_root/draft-complete"',
+    'require_draft_state', '"${verify_tag[@]}"', guard, notice,
+    'revalidate_local_assets',
+    'gh release edit "$RELEASE_TAG" "${release_flags[@]}" \\',
+  ].join("\n");
+  const newStop = [
+    '"${verify_tag[@]}"', guard, 'require_draft_state "$published_id"',
+    '"${verify_tag[@]}"', notice, 'revalidate_local_assets',
+    'gh release edit "$RELEASE_TAG" "${release_flags[@]}" --verify-tag --draft=false',
+  ].join("\n");
+  return stringIncludesAll(normalise(preflight), [
+    'if [[ "$expected_prerelease" == "true" && "$release_draft" != "true" ]]; then\n' + refusal,
+  ]) && stringIncludesAll(normalise(publication), [
+    'published)\n' + guard + '\n' + refusal, existingStop, newStop,
+  ]) && countOccurrences(publication, "--draft=false") === 2
+    && countOccurrences(publication, "wait_for_immutable_publication") === 2
+    && publication.indexOf('verify_complete_remote_assets "$comparison_root/new-draft-complete"')
+      < publication.indexOf('require_draft_state "$published_id"');
+}
+
 function validateImmutableReleaseBoundary(releaseSteps, relativePath, findings) {
   const preparePosition = stepPosition(releaseSteps, "Prepare version-bound release assets");
   const cosignPosition = stepPosition(releaseSteps, "Install the pinned cosign client");
@@ -2599,6 +2625,11 @@ function validateImmutableReleaseBoundary(releaseSteps, relativePath, findings) 
     releaseSteps,
     "Publish or validate the immutable GitHub release",
   )?.run;
+  recordExpectation(
+    findings,
+    releaseCandidatesRemainDrafts(preflight, publication),
+    `${relativePath}: rc releases must remain drafts; verified rc paths must exit before publication and published rc preflights must fail`,
+  );
   recordExpectation(
     findings,
     preparePosition >= 0 && cosignPosition > preparePosition && preflightPosition === cosignPosition + 1

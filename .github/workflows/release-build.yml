@@ -271,6 +271,10 @@ jobs:
             echo "::error::release prerelease state does not match the tag"
             exit 1
           fi
+          if [[ "$expected_prerelease" == "true" && "$release_draft" != "true" ]]; then
+            echo "::error::rc releases must remain drafts"
+            exit 1
+          fi
 
           existing_root="$comparison_root/existing"
           go -C tooling run ./cmd/20w release fetch-assets \
@@ -1382,8 +1386,9 @@ jobs:
           }
 
           require_draft_state() {
+            local expected_id="${1:-$PREFLIGHT_ID}"
             load_release_state
-            if [[ "$release_found" != "true" || "$release_id" != "$PREFLIGHT_ID" \
+            if [[ "$release_found" != "true" || "$release_id" != "$expected_id" \
               || "$release_draft" != "true" || "$release_immutable" != "false" ]]; then
               echo "::error::draft release state changed after the read-only preflight"
               exit 1
@@ -1424,6 +1429,10 @@ jobs:
               fi
               ;;
             published)
+              if [[ "$expected_prerelease" == "true" ]]; then
+                echo "::error::rc releases must remain drafts"
+                exit 1
+              fi
               if [[ "$EVENT_NAME" != "workflow_dispatch" || "$release_found" != "true" \
                 || "$release_id" != "$PREFLIGHT_ID" || "$release_draft" != "false" \
                 || "$release_immutable" != "true" ]]; then
@@ -1461,6 +1470,10 @@ jobs:
             verify_complete_remote_assets "$comparison_root/draft-complete"
             require_draft_state
             "${verify_tag[@]}"
+            if [[ "$expected_prerelease" == "true" ]]; then
+              echo "::notice::rc release ${release_id} stays a draft; no DOI is minted"
+              exit 0
+            fi
             revalidate_local_assets
             gh release edit "$RELEASE_TAG" "${release_flags[@]}" \
               --verify-tag \
@@ -1496,6 +1509,12 @@ jobs:
               exit 1
             fi
             "${verify_tag[@]}"
+            if [[ "$expected_prerelease" == "true" ]]; then
+              require_draft_state "$published_id"
+              "${verify_tag[@]}"
+              echo "::notice::rc release ${release_id} stays a draft; no DOI is minted"
+              exit 0
+            fi
             revalidate_local_assets
             gh release edit "$RELEASE_TAG" "${release_flags[@]}" --verify-tag --draft=false
           fi
