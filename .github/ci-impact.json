@@ -170,6 +170,7 @@
         "tooling/internal/clrsinsertion/**",
         "tooling/internal/clrskmp/**",
         "tooling/internal/clrsmatrixchain/**",
+        "tooling/internal/clrsprompt/**",
         "tooling/internal/clrssegments/**",
         "tooling/internal/specialistcontrol/**"
       ],
