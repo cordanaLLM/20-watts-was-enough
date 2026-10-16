@@ -2440,6 +2440,38 @@ test("unpinned image definitions label the canonical repository source", (t) => 
   ]);
 });
 
+test("experiment Dockerfile guards accept only development, final versions, and canonical candidates", () => {
+  const cases = [
+    ["v0.5.0-rc.1", true],
+    ["v1.2.3-rc.0", true],
+    ["1.2.3-rc.10", true],
+    ["development", true],
+    ["v1.2.3", true],
+    ["1.2.3", true],
+    ["v1.2.3-rc.01", false],
+    ["v1.2.3-rc", false],
+    ["v1.2.3-beta.1", false],
+    ["v1.2.3-rc.1+x", false],
+    ["v1.2.3-rc.-1", false],
+    ["v01.2.3-rc.1", false],
+  ];
+  for (const relativePath of [
+    "experiments/workstation/Dockerfile.node-artifact",
+    "experiments/workstation/fixture-019/Dockerfile",
+  ]) {
+    const source = readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
+    const guards = [...source.matchAll(/grep -Eq '([^']+)' \/tmp\/image-version;/gu)];
+    assert.equal(guards.length, 1, relativePath);
+    for (const [version, valid] of cases) {
+      const result = spawnSync("grep", ["-Eq", guards[0][1]], {
+        input: `${version}\n`, encoding: "utf8", timeout: 5_000, maxBuffer: 4_096,
+      });
+      assert.ifError(result.error);
+      assert.equal(result.status, valid ? 0 : 1, `${relativePath}: ${version}: ${result.stderr}`);
+    }
+  }
+});
+
 test("experiment reports separate immutable digests from discovery tags", () => {
   const relativePath = ".github/ISSUE_TEMPLATE/experiment-protocol-problem.yml";
   const form = parse(readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8"));
