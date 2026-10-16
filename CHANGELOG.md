@@ -195,6 +195,9 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Remove eight exact-duplicate standalone Mermaid groups, retaining their
+  Markdown owners and reducing the duplicate baseline from 48 groups to 40.
+
 - Renovate extends the family preset `github>plurano/horistes` instead of
   `config:recommended` and `:dependencyDashboard`, and drops the automerge
   keys the preset now sets. The preset also brings sign-off on Renovate

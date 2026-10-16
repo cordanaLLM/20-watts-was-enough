@@ -50,15 +50,9 @@ scientific evidence.
 - `diagrams/graded-assurance-envelope.mmd` keeps static guarantees, capability
   authority, canary evidence, runtime verdicts, rollback or compensation, and
   dependency invalidation distinct for Candidate 009.
-- `diagrams/dual-loop-operational-assurance.mmd` connects a scoped live
-  containment loop to a separate versioned learning and retirement loop for
-  Candidate 011.
 - `diagrams/latency-qualified-authority.mmd` derives bounded local action,
   fallback, and validated handoff from evidence age, trust, headroom, and
   coordination for Candidate 012.
-- `diagrams/compromise-bounded-authority.mmd` adds scoped identity, epochs,
-  revocation, containment, clean recovery, and recurrence checks to Candidate
-  012 without conflating them with physical headroom.
 - `diagrams/compensation-aware-recovery.mmd` separates apparent task recovery,
   native-path distance, compensating resources, support removal, transfer,
   recurrence, reserve, and adverse adaptation.
@@ -68,9 +62,6 @@ scientific evidence.
 - `diagrams/versioned-repairable-conventions.mmd` separates typed literal
   content, pragmatic hypotheses, recipient uptake, bounded repair, task outcome,
   convention tests, publication, expiry, and rollback for Candidate 015.
-- `diagrams/conflict-bounded-unit-transition.mmd` distinguishes a reproducible
-  collective lineage, within-lifetime specialization, member shortcuts,
-  conflict cost, and cost-adjusted higher-level selection for Candidate 016.
 - `diagrams/semantic-compaction-contract.mmd` makes registered query,
   evidence, invalidation, rollback, hidden-future, and corruption gates explicit
   for Candidate 017.
@@ -135,15 +126,6 @@ scientific evidence.
   delayed partner events to phase/tempo estimation, phrase and role state,
   action, literal and timing evaluation, repair, memory, ordinary control
   nulls, and partner or regime perturbations.
-- `diagrams/query-registered-preservation.mmd` carries payload, provenance,
-  designated-community assumptions, representation dependencies, vocabulary,
-  authority, registered queries, migration, evidence/authenticity/access gates,
-  drift, invalidation, source recovery, and abstention through a preserved
-  version lifecycle.
-- `diagrams/versioned-reconstructive-design.mmd` separates logged source
-  exposure, metered retrieval, reconstructive branches, editable external
-  state, epistemic and material feedback, fixation checks, constraint-qualified
-  selection, and retained attributable lineage for Fixture F-002.
 - `diagrams/opportunity-history-qualified-action.mmd` carries actual sensory
   opportunity, feasible action, training and social history, intervention,
   realized plant action, first-trial transfer, ordinary nulls, and diagnostic
@@ -187,10 +169,6 @@ scientific evidence.
   protection, merging, and retirement.
 - `diagrams/grounded-learning-loop.mmd` connects aligned multimodal events,
   predictive state, language, uncertainty, action, and the observed world.
-- `diagrams/memory-lifecycle.mmd` follows an attributable episode through
-  replay, branching, promotion, externalization, weakening, or deletion.
-- `diagrams/maturity-fragility-cycle.mmd` tracks reversible protection,
-  reopening, recovery testing, and structural retirement.
 - `diagrams/efficiency-evaluation-loop.mmd` turns an efficiency claim into an
   equal-budget measurement, uncertainty, rejection, and replication cycle.
 - `diagrams/hardening-memory-paths.mmd` separates compiled reflexes, reusable
