@@ -12,6 +12,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/githubapi"
 )
 
 const (
@@ -290,7 +292,7 @@ func decodeMilestonePage(response *http.Response) ([]remoteMilestone, error) {
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		if err := drainBounded(response.Body); err != nil {
+		if err := githubapi.DrainBounded(response.Body, maximumResponseBytes, "GitHub response exceeds its byte limit"); err != nil {
 			return nil, err
 		}
 		return nil, fmt.Errorf("unexpected HTTP status %d", response.StatusCode)
@@ -377,7 +379,7 @@ func mutateMilestone(
 	}
 	defer response.Body.Close()
 	if response.StatusCode != expectedStatus {
-		if err := drainBounded(response.Body); err != nil {
+		if err := githubapi.DrainBounded(response.Body, maximumResponseBytes, "GitHub response exceeds its byte limit"); err != nil {
 			return remoteMilestone{}, err
 		}
 		return remoteMilestone{}, fmt.Errorf("synchronize GitHub milestone %s: unexpected HTTP status %d", milestone.ID, response.StatusCode)
@@ -433,15 +435,4 @@ func newRequest(
 		request.Header.Set("Content-Type", "application/json")
 	}
 	return request, nil
-}
-
-func drainBounded(reader io.Reader) error {
-	written, err := io.Copy(io.Discard, io.LimitReader(reader, maximumResponseBytes+1))
-	if err != nil {
-		return err
-	}
-	if written > maximumResponseBytes {
-		return errors.New("GitHub response exceeds its byte limit")
-	}
-	return nil
 }

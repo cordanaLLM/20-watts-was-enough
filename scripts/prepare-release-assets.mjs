@@ -23,7 +23,7 @@ import { readStableOpenedFile } from "./lib/opened-file.mjs";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const defaultRoot = path.resolve(scriptDirectory, "..");
-const tagPattern = /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u;
+const tagPattern = /^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-rc\.(0|[1-9][0-9]*))?$/u;
 const releaseDatePattern = /^\d{4}-\d{2}-\d{2}$/u;
 const sha256Pattern = /^[0-9a-f]{64}$/u;
 const checksumLinePattern = /^([0-9a-f]{64}) {2}([^/\\]+)$/u;
@@ -167,8 +167,8 @@ async function loadAdditionalAssetRecords({ repositoryRoot, additionalAssetsRoot
 }
 
 export function parseReleaseTag(tag) {
-  invariant(typeof tag === "string" && tagPattern.test(tag), "Release tag must have the exact form vMAJOR.MINOR.PATCH");
-  return tag.slice(1);
+  invariant(typeof tag === "string" && tagPattern.exec(tag)?.[0] === tag, "Release tag must have the exact form vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N");
+  return tag.slice(1).split("-", 1)[0];
 }
 
 function escapedRegex(value) {
@@ -189,7 +189,7 @@ function assertCalendarDate(value, label) {
 
 export function validateResearchDisclosure(disclosure, version, relativePath = `research/disclosures/v${version}.md`) {
   invariant(typeof disclosure === "string", `${relativePath} must be text`);
-  invariant(tagPattern.test(`v${version}`), `${relativePath} version must use MAJOR.MINOR.PATCH`);
+  invariant(parseReleaseTag(`v${version}`) === version, `${relativePath} version must use MAJOR.MINOR.PATCH`);
   invariant(!disclosure.includes("\0"), `${relativePath} must not contain NUL bytes`);
   invariant(disclosure.endsWith("\n"), `${relativePath} must end with a newline`);
 

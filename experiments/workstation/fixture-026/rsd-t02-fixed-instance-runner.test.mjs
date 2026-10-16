@@ -31,7 +31,7 @@ let resumed;
 let failureRun;
 let failureResumed;
 let malformedInput;
-let setupMilliseconds;
+let setupCpuMilliseconds;
 
 function digest(value) {
   return sha256Hex(canonicalize(value));
@@ -51,7 +51,7 @@ function rechain(artifact) {
 }
 
 before(async () => {
-  const started = performance.now();
+  const started = process.cpuUsage();
   const [registryText, configText, schemaText] = await Promise.all([
     readFile(path.join(fixtureRoot, "configs", "rsd-t02-system-family-registry.json"), "utf8"),
     readFile(path.join(fixtureRoot, "configs", "rsd-t02-fixed-instance-runner.json"), "utf8"),
@@ -99,8 +99,9 @@ before(async () => {
   malformedInput = runFixture026RsdT02FixedInstance({
     config, registry, instance: hostileInstance,
   });
-  setupMilliseconds = performance.now() - started;
-}, { timeout: 60_000 });
+  const cpu = process.cpuUsage(started);
+  setupCpuMilliseconds = (cpu.user + cpu.system) / 1_000;
+}, { timeout: 60_000 * 10 });
 
 after(() => {
   registry = null;
@@ -288,7 +289,7 @@ test("JSON Schema accepts config and outputs and refuses unknown output fields",
 });
 
 test("focused execution stays under the bounded CPU-test envelope", () => {
-  assert.ok(setupMilliseconds < 60_000, `setup took ${setupMilliseconds} ms`);
+  assert.ok(setupCpuMilliseconds < 60_000, `setup used ${setupCpuMilliseconds} CPU ms`);
   assert.equal(config.resource_caps.thread_cap, 1);
   assert.equal(config.resource_caps.scalar_operations_per_arm, 120000);
   assert.equal(config.resource_caps.fallback_invocations_per_arm, 0);

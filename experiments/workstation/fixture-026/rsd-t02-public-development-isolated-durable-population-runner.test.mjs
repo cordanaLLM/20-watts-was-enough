@@ -12,6 +12,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import os from "node:os";
+import { testWithHostDeadline } from "../../../scripts/lib/host-test-deadline.mjs";
 import path from "node:path";
 import { before, test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -135,7 +136,7 @@ test("integrated config is canonical, schema-valid, public-development-only, and
   assert.equal(config.result_label, "NO_RESULT");
 });
 
-test("completed per-instance work without an outer record resumes exactly once", {
+testWithHostDeadline("completed per-instance work without an outer record resumes exactly once", {
   timeout: 300_000,
 }, async () => {
   const outputDirectory = await mkdtemp(path.join(os.tmpdir(), "20w-f026-pop-orphan-"));
@@ -166,7 +167,7 @@ test("completed per-instance work without an outer record resumes exactly once",
   }
 });
 
-test("outer writer refuses raw-ledger leaf replacement between instance appends", {
+testWithHostDeadline("outer writer refuses raw-ledger leaf replacement between instance appends", {
   timeout: 300_000,
 }, async () => {
   const outputDirectory = await mkdtemp(path.join(os.tmpdir(), "20w-f026-pop-replace-"));
@@ -194,7 +195,7 @@ test("outer writer refuses raw-ledger leaf replacement between instance appends"
   }
 });
 
-test("open population session refuses and poisons on live instances-directory replacement", {
+testWithHostDeadline("open population session refuses and poisons on live instances-directory replacement", {
   timeout: 300_000,
 }, async () => {
   const outputDirectory = await mkdtemp(path.join(os.tmpdir(), "20w-f026-pop-instances-replace-"));
@@ -237,7 +238,7 @@ test("open population session refuses and poisons on live instances-directory re
   }
 });
 
-test("partial restart completes all 20, zero-remaining restart revalidates, and hostiles fail closed", {
+testWithHostDeadline("partial restart completes all 20, zero-remaining restart revalidates, and hostiles fail closed", {
   timeout: 900_000,
 }, async () => {
   const outputDirectory = await mkdtemp(path.join(os.tmpdir(), "20w-f026-pop-full-"));

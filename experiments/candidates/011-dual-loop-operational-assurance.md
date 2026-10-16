@@ -41,9 +41,6 @@ flowchart TD
     M --> O
 ```
 
-Editable source:
-[dual-loop-operational-assurance.mmd](../../assets/diagrams/dual-loop-operational-assurance.mmd).
-
 ## Observation model
 
 Raw report count is not a safety metric. Over one declared exposure interval,

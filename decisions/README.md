@@ -104,3 +104,6 @@ than silently changing its outcome.
 | [0097](0097-keep-workflow-tool-versions-out-of-the-action-update-group.md) | Keep workflow tool versions out of the action update group | accepted |
 | [0098](0098-move-the-renderer-lock-to-buildx-0-37-2.md) | Move the renderer lock to Buildx 0.37.2 | accepted |
 | [0099](0099-scan-the-history-for-secrets-with-a-proven-gitleaks.md) | Scan the history for secrets with a proven gitleaks | accepted |
+| [0100](0100-lift-the-urllib3-cutoff-in-the-clrs-generator.md) | Lift the urllib3 cutoff in the CLRS generator | accepted |
+| [0101](0101-build-releases-in-a-reusable-workflow.md) | Build releases in a reusable workflow | accepted |
+| [0102](0102-accept-release-candidate-tags.md) | Accept release-candidate tags | accepted |

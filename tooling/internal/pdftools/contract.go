@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/relpath"
 )
 
 var (
@@ -179,7 +181,7 @@ func validateNoticeLayer(value NoticeLayer, archiveRoot string) error {
 	}
 	previous := ""
 	for index, entry := range value.Entries {
-		if !validRelativePath(entry.Source) || !strings.HasPrefix(entry.Source, "notices/") || entry.Source <= previous {
+		if !relpath.Valid(entry.Source) || !strings.HasPrefix(entry.Source, "notices/") || entry.Source <= previous {
 			return errors.New("notice sources must be sorted, unique, and beneath notices")
 		}
 		if entry.Source != wantSources[index] {

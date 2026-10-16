@@ -15,9 +15,9 @@ func checkSBOMInventoryPackages(ctx context.Context, body []byte, wheels Generat
 	if err != nil {
 		return 0, nil, nil, err
 	}
-	if sbomString(object, "SPDXID") != "SPDXRef-DOCUMENT" || sbomString(object, "spdxVersion") != "SPDX-2.3" ||
-		sbomString(object, "dataLicense") != "CC0-1.0" || !sbomText(sbomString(object, "documentNamespace"), 4096) ||
-		!sbomText(sbomString(object, "name"), 4096) {
+	if jsonString(object, "SPDXID") != "SPDXRef-DOCUMENT" || jsonString(object, "spdxVersion") != "SPDX-2.3" ||
+		jsonString(object, "dataLicense") != "CC0-1.0" || !sbomText(jsonString(object, "documentNamespace"), 4096) ||
+		!sbomText(jsonString(object, "name"), 4096) {
 		return 0, nil, nil, errors.New("SBOM predicate requires the retained SPDX-2.3 document identity profile")
 	}
 	var packages []json.RawMessage
@@ -66,7 +66,7 @@ func parseSBOMPackage(body []byte) (GeneratorSBOMPackage, string, error) {
 	if err != nil {
 		return GeneratorSBOMPackage{}, "", err
 	}
-	pkg := GeneratorSBOMPackage{Name: sbomString(object, "name"), Version: sbomString(object, "versionInfo"), SPDXID: sbomString(object, "SPDXID")}
+	pkg := GeneratorSBOMPackage{Name: jsonString(object, "name"), Version: jsonString(object, "versionInfo"), SPDXID: jsonString(object, "SPDXID")}
 	if !sbomText(pkg.Name, 256) || !sbomText(pkg.Version, 256) || !sbomText(pkg.SPDXID, 256) ||
 		!strings.HasPrefix(pkg.SPDXID, "SPDXRef-") || len(pkg.SPDXID) == len("SPDXRef-") {
 		return GeneratorSBOMPackage{}, "", errors.New("SBOM package identity fields are missing, oversized, or invalid")

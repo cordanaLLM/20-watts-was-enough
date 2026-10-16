@@ -2,7 +2,7 @@ import { continuousSiteEdition, publication } from "./publication.mjs";
 import { normalizePublicationSourceRevision } from "./publication-revision.mjs";
 
 const semanticVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u;
-const sourceRefPattern = /^(?:main|v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))$/u;
+const sourceRefPattern = /^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-rc\.(0|[1-9][0-9]*))?$/u;
 const pdfRendererHostnames = new Set(["127.0.0.1", "[::1]", "localhost"]);
 
 /** @typedef {"github-pages" | "public-pdf"} BookSurface */
@@ -11,8 +11,8 @@ const pdfRendererHostnames = new Set(["127.0.0.1", "[::1]", "localhost"]);
  * @param {string} sourceRef
  */
 export function assertBookSourceRef(sourceRef) {
-  if (typeof sourceRef !== "string" || sourceRef.length > 32 || !sourceRefPattern.test(sourceRef)) {
-    throw new Error(`Book source ref must be main or vMAJOR.MINOR.PATCH: ${JSON.stringify(sourceRef)}`);
+  if (typeof sourceRef !== "string" || sourceRef.length > 32 || (sourceRef !== "main" && sourceRefPattern.exec(sourceRef)?.[0] !== sourceRef)) {
+    throw new Error(`Book source ref must be main or vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N: ${JSON.stringify(sourceRef)}`);
   }
   return sourceRef;
 }
@@ -26,7 +26,7 @@ export function assertBookSourceRefForVersion(sourceRef, editionVersion) {
     throw new Error(`Book edition version must be SemVer: ${JSON.stringify(editionVersion)}`);
   }
   const validRef = assertBookSourceRef(sourceRef);
-  if (validRef !== "main" && validRef !== `v${editionVersion}`) {
+  if (validRef !== "main" && validRef.split("-", 1)[0] !== `v${editionVersion}`) {
     throw new Error(`Book source ref ${JSON.stringify(validRef)} does not match edition version ${JSON.stringify(editionVersion)}.`);
   }
   return validRef;

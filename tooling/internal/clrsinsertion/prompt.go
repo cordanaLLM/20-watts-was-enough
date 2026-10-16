@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsprompt"
 )
 
 const (
@@ -125,7 +127,7 @@ func parsePrompt(ctx context.Context, prompt []byte, limits Limits) ([]scalar, e
 }
 
 func parseUpstreamScalar(token string) (float64, error) {
-	if !decimalGrammar(token) {
+	if !clrsprompt.DecimalGrammar(token) {
 		return 0, errors.New("scalar is outside the finite decimal grammar")
 	}
 	value, err := strconv.ParseFloat(token, 64)
@@ -137,40 +139,6 @@ func parseUpstreamScalar(token string) (float64, error) {
 		return 0, errors.New("scalar is outside the pinned sampler range [0,1)")
 	}
 	return value, nil
-}
-
-func decimalGrammar(token string) bool {
-	index := 0
-	if index >= len(token) || token[index] < '0' || token[index] > '9' {
-		return false
-	}
-	for index < len(token) && token[index] >= '0' && token[index] <= '9' {
-		index++
-	}
-	if index < len(token) && token[index] == '.' {
-		index++
-		start := index
-		for index < len(token) && token[index] >= '0' && token[index] <= '9' {
-			index++
-		}
-		if start == index {
-			return false
-		}
-	}
-	if index < len(token) && token[index] == 'e' {
-		index++
-		if index < len(token) && (token[index] == '+' || token[index] == '-') {
-			index++
-		}
-		start := index
-		for index < len(token) && token[index] >= '0' && token[index] <= '9' {
-			index++
-		}
-		if start == index {
-			return false
-		}
-	}
-	return index == len(token)
 }
 
 func insertionSort(ctx context.Context, values []scalar) error {

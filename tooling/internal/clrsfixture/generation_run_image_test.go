@@ -8,6 +8,34 @@ import (
 	"testing"
 )
 
+func TestJSONString(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		raw  json.RawMessage
+		want string
+	}{
+		{"string", json.RawMessage(`"image-id"`), "image-id"},
+		{"escaped string", json.RawMessage(`"line\nnext"`), "line\nnext"},
+		{"empty string", json.RawMessage(`""`), ""},
+		{"missing key", nil, ""},
+		{"null", json.RawMessage(`null`), ""},
+		{"wrong type", json.RawMessage(`42`), ""},
+		{"malformed", json.RawMessage(`"unfinished`), ""},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			object := map[string]json.RawMessage{}
+			if test.raw != nil {
+				object["key"] = test.raw
+			}
+			if got := jsonString(object, "key"); got != test.want {
+				t.Fatalf("jsonString() = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
 func generationImageFixture(t *testing.T) (map[string]any, map[string]any, GeneratorRuntime) {
 	t.Helper()
 	runtime := GeneratorRuntime{UID: 65532, GID: 65532, WorkingDirectory: "/work",

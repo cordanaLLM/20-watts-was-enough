@@ -76,9 +76,6 @@ flowchart LR
     leakage --> select
 ```
 
-Editable source:
-[versioned-reconstructive-design.mmd](../../assets/diagrams/versioned-reconstructive-design.mmd).
-
 ## Task families and hidden splits
 
 The confirmatory suite contains three task families with distinct truth

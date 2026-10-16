@@ -1,6 +1,7 @@
 const artifactPattern = /^(?:candidate|fixture)-[0-9]{3}$/u;
 const imageNamePattern = /^[a-z0-9][a-z0-9._/-]{0,199}$/u;
-const releaseVersionPattern = /^v?(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/u;
+const releaseVersionPattern = /^v?(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-rc\.(?:0|[1-9][0-9]*))?$/u;
+const imageVersionPattern = new RegExp(`^(?:development|${releaseVersionPattern.source.slice(1, -1)})$`, "u");
 const sourceRevisionPattern = /^[0-9a-f]{40}$/u;
 const digestPattern = /^sha256:[0-9a-f]{64}$/u;
 const tokenPattern = /^[a-z][a-z0-9-]{0,31}$/u;
@@ -166,7 +167,7 @@ function validReceiptHeader(receipt, artifact, profile) {
 function validImageFields(image) {
   return exactKeys(image, ["name", "version", "digest"])
     && assertTypedValue(image.name, new Set(["declared", "unavailable-local"]), imageNamePattern)
-    && assertTypedValue(image.version, new Set(["declared", "unavailable-local"]), /^(?:development|v?[0-9]+\.[0-9]+\.[0-9]+)$/u)
+    && assertTypedValue(image.version, new Set(["declared", "unavailable-local"]), imageVersionPattern)
     && assertTypedValue(image.digest, new Set(["explicit", "unavailable-development", "unavailable-local"]), digestPattern);
 }
 
