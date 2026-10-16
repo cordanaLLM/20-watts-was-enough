@@ -455,6 +455,12 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- Browser tests retain their polling budgets under host stalls, with bounded
+  wall time and explicit `UNDECIDED: host starved` failures. Keyboard overflow
+  checks retry motionless scroll completions at most three times. Fixture-026
+  setup measures CPU time; isolated population tests label overloaded-host
+  deadline failures without dropping child-process work from the time bound.
+
 - The code now passes the three rules ESLint 10 adds to its recommended set,
   enabled in `eslint.config.mjs` while ESLint stays at 9.
   `preserve-caught-error` found 41 errors that were rethrown without the

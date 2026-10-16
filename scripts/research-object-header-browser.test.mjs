@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
+import { testWithHostDeadline } from "./lib/host-test-deadline.mjs";
+import { waitForCondition, WALL_CAP_FACTOR } from "./lib/browser-wait.mjs";
 import { spawn } from "node:child_process";
 import { readFile, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { createServer as createViteServer } from "vite";
 
@@ -58,16 +59,13 @@ async function navigate(cdp, url) {
 }
 
 async function waitForExpression(cdp, expression, timeoutMs = 30_000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const result = await cdp.send("Runtime.evaluate", {
-      expression,
-      returnByValue: true,
-    });
-    if (result.result?.value === true) return;
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  assert.fail(`Browser condition timed out: ${expression}`);
+  return waitForCondition({
+    probe: async () => (await cdp.send("Runtime.evaluate", {
+      expression, returnByValue: true,
+    })).result?.value,
+    accepts: (value) => value === true,
+    budgetMs: timeoutMs, intervalMs: 100, label: `Browser condition timed out: ${expression}`,
+  });
 }
 
 async function hydratedResearchObjectSnapshot(cdp) {
@@ -125,6 +123,34 @@ async function hydratedResearchObjectSnapshot(cdp) {
   })).result?.value;
 }
 
+function assertResearchObjectLinks(snapshot, origin) {
+  assert.equal(
+    snapshot.source,
+    `https://github.com/cordanaLLM/20-watts-was-enough/blob/${sourceRevision}/concept/05-biology-is-a-launchpad.md#scope`,
+  );
+  assert.equal(
+    snapshot.history,
+    `https://github.com/cordanaLLM/20-watts-was-enough/commits/${sourceRevision}/concept/05-biology-is-a-launchpad.md`,
+  );
+  assert.equal(snapshot.book, `${origin}${pagesBasePath}book/`);
+  assert.equal(
+    snapshot.pdf,
+    `${origin}${pagesBasePath}downloads/20-watts-was-enough-full-concept-book.pdf`,
+  );
+  assert.equal(
+    snapshot.citation,
+    `https://github.com/cordanaLLM/20-watts-was-enough/blob/${sourceRevision}/CITATION.cff`,
+  );
+  assert.equal(
+    snapshot.licence,
+    `https://github.com/cordanaLLM/20-watts-was-enough/blob/${sourceRevision}/LICENSING.md`,
+  );
+  assert.equal(
+    snapshot.c018,
+    `https://github.com/cordanaLLM/20-watts-was-enough/blob/${sourceRevision}/research/claims.md#c-018`,
+  );
+}
+
 async function assertHydratedResearchObject(cdp, origin) {
   await navigate(
     cdp,
@@ -156,31 +182,7 @@ async function assertHydratedResearchObject(cdp, origin) {
   assert.equal(snapshot.documentRevision, sourceRevision);
   assert.equal(snapshot.evidenceRevision, sourceRevision);
   assert.equal(snapshot.disclosureLinks, 0);
-  assert.equal(
-    snapshot.source,
-    `https://github.com/cordanaLLM/20-watts-was-enough/blob/${sourceRevision}/concept/05-biology-is-a-launchpad.md#scope`,
-  );
-  assert.equal(
-    snapshot.history,
-    `https://github.com/cordanaLLM/20-watts-was-enough/commits/${sourceRevision}/concept/05-biology-is-a-launchpad.md`,
-  );
-  assert.equal(snapshot.book, `${origin}${pagesBasePath}book/`);
-  assert.equal(
-    snapshot.pdf,
-    `${origin}${pagesBasePath}downloads/20-watts-was-enough-full-concept-book.pdf`,
-  );
-  assert.equal(
-    snapshot.citation,
-    `https://github.com/cordanaLLM/20-watts-was-enough/blob/${sourceRevision}/CITATION.cff`,
-  );
-  assert.equal(
-    snapshot.licence,
-    `https://github.com/cordanaLLM/20-watts-was-enough/blob/${sourceRevision}/LICENSING.md`,
-  );
-  assert.equal(
-    snapshot.c018,
-    `https://github.com/cordanaLLM/20-watts-was-enough/blob/${sourceRevision}/research/claims.md#c-018`,
-  );
+  assertResearchObjectLinks(snapshot, origin);
   const expectedLocator = [
     "Canonical path: concept/05-biology-is-a-launchpad.md",
     "Public route: https://www.cordana.dev/concept/05-biology-is-a-launchpad/",
@@ -197,26 +199,7 @@ async function assertHydratedResearchObject(cdp, origin) {
   assert.ok(snapshot.scrollWidth <= snapshot.clientWidth, JSON.stringify(snapshot));
 }
 
-async function assertFocusedDocumentEntry(cdp, origin) {
-  await cdp.send("Emulation.setDeviceMetricsOverride", {
-    width: 390,
-    height: 844,
-    deviceScaleFactor: 1,
-    mobile: true,
-  });
-  await navigate(
-    cdp,
-    `${origin}${pagesBasePath}math/measurement-contract/`,
-  );
-  await waitForExpression(
-    cdp,
-    `document.readyState === "complete"
-      && document.querySelector('[data-research-object="focused-document"]')
-      && document.querySelector('.portal-prose p')?.getBoundingClientRect().height > 0`,
-  );
-
-  const snapshot = (await cdp.send("Runtime.evaluate", {
-    expression: `(() => {
+const focusedDocumentSnapshotExpression = `(() => {
       const header = document.querySelector('[data-research-object="focused-document"]');
       const firstParagraph = document.querySelector('.portal-prose p');
       const firstParagraphStyle = getComputedStyle(firstParagraph);
@@ -251,7 +234,28 @@ async function assertFocusedDocumentEntry(cdp, origin) {
           .getBoundingClientRect().height,
         viewportHeight: innerHeight,
       };
-    })()`,
+    })()`;
+
+async function assertFocusedDocumentEntry(cdp, origin) {
+  await cdp.send("Emulation.setDeviceMetricsOverride", {
+    width: 390,
+    height: 844,
+    deviceScaleFactor: 1,
+    mobile: true,
+  });
+  await navigate(
+    cdp,
+    `${origin}${pagesBasePath}math/measurement-contract/`,
+  );
+  await waitForExpression(
+    cdp,
+    `document.readyState === "complete"
+      && document.querySelector('[data-research-object="focused-document"]')
+      && document.querySelector('.portal-prose p')?.getBoundingClientRect().height > 0`,
+  );
+
+  const snapshot = (await cdp.send("Runtime.evaluate", {
+    expression: focusedDocumentSnapshotExpression,
     returnByValue: true,
   })).result?.value;
 
@@ -447,8 +451,8 @@ async function assertHydratedBook(cdp, origin) {
   await assertPublicBookIgnoresRendererQuery(cdp, origin, edition);
 }
 
-test("hydrated research objects and the book preserve the static Pages identity", {
-  timeout: 120_000,
+testWithHostDeadline("hydrated research objects and the book preserve the static Pages identity", {
+  timeout: 120_000 * WALL_CAP_FACTOR,
 }, async (t) => {
   const browser = await firstExistingChromium();
   const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "20w-object-parity-"));
