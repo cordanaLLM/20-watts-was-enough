@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 import test from "node:test";
 import { waitForCondition, STALL_FACTOR, WALL_CAP_FACTOR } from "./browser-wait.mjs";
 
@@ -113,4 +115,28 @@ test("UNDECIDED requires a stalled share strictly greater than one half", async 
       return true;
     });
   }
+});
+
+// A test that polls against Date.now() lets a stalled host spend its budget;
+// test waits go through waitForCondition instead (#207).
+const wallClockLoop = /while\s*\(\s*Date\.now\(\)\s*</u;
+
+test("the wall-clock loop detector flags a planted deadline loop", () => {
+  // Joined so that this file does not itself contain a planted loop.
+  assert.equal(wallClockLoop.test(["const deadline = Date.now() + 30_000;\nwhile (", "Date.now() < deadline) {}"].join("")), true);
+  assert.equal(wallClockLoop.test(["while(", "Date.now()<deadline){}"].join("")), true);
+  assert.equal(wallClockLoop.test("await waitForCondition({ probe, budgetMs: 30_000 });"), false);
+});
+
+test("no tracked test file polls against a wall-clock deadline", async () => {
+  const root = new URL("../../", import.meta.url);
+  const files = execFileSync("git", ["ls-files", "-z", "--", "*.test.mjs"], {
+    cwd: root, encoding: "utf8", maxBuffer: 8 * 1024 * 1024, timeout: 30_000,
+  }).split("\0").filter(Boolean);
+  assert.ok(files.length > 50, `expected the tracked test inventory, got ${files.length} files`);
+  const offenders = [];
+  for (const file of files) {
+    if (wallClockLoop.test(await readFile(new URL(file, root), "utf8"))) offenders.push(file);
+  }
+  assert.deepEqual(offenders, []);
 });
