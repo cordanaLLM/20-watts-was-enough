@@ -14,8 +14,14 @@
 ## Context
 
 The reusable builder introduced in decision 0101 admits only final version
-tags. A release-candidate rehearsal needs the same source, asset, signature
-and immutable-publication checks while remaining a GitHub pre-release.
+tags. A release-candidate rehearsal needs the same source, asset and signature
+checks while remaining a GitHub draft pre-release.
+
+Zenodo's GitHub integration archives non-draft releases, including pre-releases,
+and mints a permanent DOI. Invenio-GitHub's
+[`receivers.py`, lines 54–65](https://github.com/inveniosoftware/invenio-github/blob/72b4b5e297f7baf9695c11ef84e72bebbabda803/invenio_github/receivers.py#L54-L65)
+excludes drafts from release creation events; it does not exclude pre-releases
+(source checked 2026-10-16). Candidates must stay drafts to remain reversible.
 
 ## Decision
 
@@ -32,12 +38,18 @@ preparer enforce the same grammar; policy tests reject a broader suffix.
 The existing `v*.*.*` push filter already selects rc tags and leaves exact
 validation to the first builder step.
 
-An rc tag requires `prerelease=true` at creation, draft publication and
-existing-release verification. Its create and edit commands pass
-`--latest=false`. A final tag requires `prerelease=false` and retains the
-existing latest-selection behaviour. A mismatched existing release fails
-before publication. Draft, immutable, peeled-tag, source-commit and
-`origin/main` containment requirements remain binding.
+An rc tag requires `prerelease=true` and remains a draft. Its create command
+passes `--draft` and `--latest=false`; any title or notes edit retains those
+draft pre-release flags. After uploading assets, the workflow verifies the
+complete remote inventory, draft state and peeled tag, reports the release ID,
+and exits successfully before publication. A manual rerun fills only missing
+assets and repeats those checks without publishing. Both the read-only
+preflight and final publication step reject an already published rc release.
+
+A final tag requires `prerelease=false` and retains the existing publication,
+immutability and latest-selection behaviour. A mismatched existing release
+fails before publication. Peeled-tag, source-commit and `origin/main`
+containment requirements remain binding for both tag forms.
 
 All three image roles publish only the exact tag. Metadata uses
 `latest=false` and a raw tag value, and the admitted-digest binding uses the
@@ -59,7 +71,7 @@ asset checks when a release is executed.
 
 Candidate numbers can begin at zero. Arbitrary pre-release identifiers,
 build metadata, uppercase suffixes and leading-zero numbers are refused.
-The rehearsal exercises the existing publication path with a distinct tag;
+The rehearsal exercises the build and asset checks with a distinct draft tag;
 local grammar and policy checks establish no hosted release result.
 
 ## Verification
@@ -67,6 +79,10 @@ local grammar and policy checks establish no hosted release result.
 Run all Go tests, workflow policy tests, release-asset tests, actionlint,
 prose and documentation validation. Grammar fixtures cover final tags,
 `rc.0`, larger candidate numbers and malformed suffixes. State fixtures
-cover matching and mismatched pre-release flags for drafts and immutable
-releases. Evidence lives under `.workingdir/evidence/rc-form/`. No tag,
+cover matching and mismatched pre-release flags, draft creation and repair,
+published-rc rejection and final-tag publication. Consumers download draft
+assets with authenticated `gh release download` and verify their attestations
+with `gh attestation verify --signer-workflow` naming `release-build.yml`,
+the repository, exact source commit and tag ref. Evidence lives under
+`.workingdir/evidence/rc-form/` and `.workingdir/evidence/rc-draft/`. No tag,
 release, workflow dispatch or render is created by this implementation.

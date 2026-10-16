@@ -26,8 +26,10 @@ the exact diff; this file records why the project changed.
 ### Added
 
 - Accept canonical `vMAJOR.MINOR.PATCH-rc.N` release tags alongside final
-  tags. Candidates publish as GitHub pre-releases without becoming latest;
-  images keep only the exact rc tag. Release manifests use the base version
+  tags. Candidates stay GitHub draft pre-releases so no DOI is minted;
+  consumers verify draft assets with authenticated `gh release download` and
+  `gh attestation verify --signer-workflow` naming `release-build.yml`.
+  Images keep only the exact rc tag. Release manifests use the base version
   before the suffix
   ([Decision 0102](decisions/0102-accept-release-candidate-tags.md)).
 
