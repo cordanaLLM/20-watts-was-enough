@@ -2537,13 +2537,13 @@ function replaceLiteral(text, literal, replacement) {
   return text.split(literal).join(replacement);
 }
 
-test("release policy refuses any requested tag form other than vMAJOR.MINOR.PATCH", () => {
+test("release policy refuses any requested tag form other than final or rc tags", () => {
   const valid = workflow("release-build");
   assert.deepEqual(validateReleaseWorkflowObject(valid), []);
-  const message = ".github/workflows/release-build.yml: the first release step must refuse every tag that is not exactly vMAJOR.MINOR.PATCH";
+  const message = ".github/workflows/release-build.yml: the first release step must refuse every tag that is not exactly vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N";
   const loosened = [
-    ["unanchored end", (run) => replaceLiteral(run, "(0|[1-9][0-9]*)$ ]]", "(0|[1-9][0-9]*) ]]")],
-    ["pre-release suffix", (run) => replaceLiteral(run, "(0|[1-9][0-9]*)$ ]]", "(0|[1-9][0-9]*)(-rc\\.[0-9]+)?$ ]]")],
+    ["unanchored end", (run) => replaceLiteral(run, "?$ ]]", "? ]]")],
+    ["arbitrary suffix", (run) => replaceLiteral(run, String.raw`(-rc\.(0|[1-9][0-9]*))?`, "(-[a-z.0-9]+)?")],
     ["leading zeros", (run) => replaceLiteral(run, "^v(0|[1-9][0-9]*)", "^v([0-9]+)")],
     ["check removed", () => "printf 'tag=%s\\n' \"$REF_NAME\" >> \"$GITHUB_OUTPUT\""],
   ];
@@ -4086,5 +4086,81 @@ test("declared-verify-npm runs the npm step when the stage variable is absent", 
     }
   } finally {
     rmSync(root, { force: true, recursive: true });
+  }
+});
+
+const validRCTags = ["v0.0.0", "v0.5.0", "v12.34.56", "v0.0.0-rc.0", "v0.5.0-rc.1", "v0.5.0-rc.10", "v999999999999999999999.0.0-rc.999999999999999999999"];
+const invalidRCTags = ["", "0.5.0", "v0.5.0-rc", "v0.5.0-rc.01", "v0.5.0-rc.1.2", "v0.5.0-beta.1", "v0.5.0-RC.1", "v05.0.0", "v0.05.0", "v0.5.00", "v0.5.0+meta", "v0.5.0-rc.1-x", "v0.5.0-rc.-1", "v0.5.0-rc.", "v0.5.0\n", " v0.5.0", "v0.5.0 "];
+
+test("executed release tag guard accepts only final and canonical rc tags", () => {
+  const guard = workflow("release-build").jobs.release.steps[0];
+  for (const event of ["push", "workflow_dispatch"]) {
+    for (const [tags, expected] of [[validRCTags, 0], [invalidRCTags, 1]]) {
+      for (const tag of tags) {
+        const child = spawnSync(BASH, ["-c", guard.run], {
+          env: { EVENT_NAME: event, REF_NAME: tag, INPUT_TAG: tag, GITHUB_OUTPUT: "/dev/null" },
+          encoding: "utf8", timeout: 1000, maxBuffer: 4096,
+        });
+        assert.equal(child.error, undefined);
+        assert.equal(child.status, expected, JSON.stringify({ event, tag, stdout: child.stdout, stderr: child.stderr }));
+      }
+    }
+  }
+  // GitHub's glob is deliberately broader than the first-step grammar.
+  assert.deepEqual(workflow("release").on.push.tags, ["v*.*.*"]);
+});
+
+test("executed prerelease guards and publication flags follow the exact tag", () => {
+  const steps = workflow("release-build").jobs.release.steps;
+  const publication = releaseImageStepByName(workflow("release-build"), "Publish or validate the immutable GitHub release").run;
+  const guards = steps.filter((step) => step.run?.includes('if [[ "$release_prerelease" != "$expected_prerelease" ]]; then'));
+  assert.equal(guards.length, 2);
+  for (const tag of ["v0.5.0", "v0.5.0-rc.0", "v0.5.0-rc.1"]) {
+    const expected = tag.includes("-rc.");
+    for (const step of guards) {
+      const setup = step.run.slice(step.run.indexOf("expected_prerelease=false"), step.run.indexOf("esac", step.run.indexOf("expected_prerelease=false")) + 4);
+      const start = step.run.indexOf('if [[ "$release_prerelease" != "$expected_prerelease" ]]; then');
+      const guard = step.run.slice(start, step.run.indexOf("fi", start) + 2);
+      for (const prerelease of ["true", "false"]) {
+        const child = spawnSync(BASH, ["-c", `${setup}\n${guard}`], {
+          env: { RELEASE_TAG: tag, release_prerelease: prerelease }, encoding: "utf8", timeout: 1000, maxBuffer: 4096,
+        });
+        assert.equal(child.error, undefined);
+        assert.equal(child.status, (prerelease === "true") === expected ? 0 : 1, `${tag} ${prerelease}`);
+      }
+    }
+    const setup = publication.slice(publication.indexOf("expected_prerelease=false"), publication.indexOf("load_release_state()"));
+    const child = spawnSync(BASH, ["-c", `${setup}\nprintf '%s\\n' "\${release_flags[@]}"`], {
+      env: { RELEASE_TAG: tag }, encoding: "utf8", timeout: 1000, maxBuffer: 4096,
+    });
+    assert.equal(child.error, undefined);
+    assert.equal(child.status, 0);
+    assert.deepEqual(child.stdout.trim().split("\n"), expected ? ["--prerelease=true", "--latest=false"] : ["--prerelease=false"]);
+  }
+});
+
+test("release policy refuses prerelease drift and latest promotion", () => {
+  const valid = workflow("release-build");
+  const mutations = [
+    (subject) => { const step = releaseImageStepByName(subject, "Publish or validate the immutable GitHub release"); step.run = replaceLiteral(step.run, "release_flags+=(--latest=false)", "release_flags+=(--latest=true)"); },
+    (subject) => { const step = releaseImageStepByName(subject, "Publish or validate the immutable GitHub release"); step.run = replaceLiteral(step.run, '"${release_flags[@]}"', ""); },
+  ];
+  for (const name of ["Preflight the remote release without mutation", "Publish or validate the immutable GitHub release"]) {
+    for (const [literal, replacement] of [
+      ['"$release_prerelease" != "$expected_prerelease"', '"$release_prerelease" != "false"'],
+      ["*-rc.*) expected_prerelease=true", "*-*) expected_prerelease=true"],
+      ["expected_prerelease=false", "expected_prerelease=true"],
+      ['echo "::error::release prerelease state does not match the tag"', 'return 0 # guard bypassed'],
+    ]) {
+      mutations.push((subject) => {
+        const step = releaseImageStepByName(subject, name);
+        step.run = replaceLiteral(step.run, literal, replacement);
+      });
+    }
+  }
+  for (const mutate of mutations) {
+    const subject = structuredClone(valid);
+    mutate(subject);
+    assert.notDeepEqual(validateReleaseWorkflowObject(subject), []);
   }
 });

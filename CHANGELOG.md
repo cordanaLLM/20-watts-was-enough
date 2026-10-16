@@ -25,6 +25,12 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- Accept canonical `vMAJOR.MINOR.PATCH-rc.N` release tags alongside final
+  tags. Candidates publish as GitHub pre-releases without becoming latest;
+  images keep only the exact rc tag. Release manifests use the base version
+  before the suffix
+  ([Decision 0102](decisions/0102-accept-release-candidate-tags.md)).
+
 - Research-watch publication wrapper `scripts/research-watch-publish.mjs` runs
   the daily lead ingester and publishes updated public catalogs to branch
   `research-watch/ingest` as a pull request against `main` using GitHub GraphQL
