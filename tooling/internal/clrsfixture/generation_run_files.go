@@ -58,14 +58,15 @@ func newGenerationRunBundle(inputs generationRunInputs) (*os.Root, error) {
 		bundle.Close()
 		return nil, errors.New("generation output parent changed while creating the fresh bundle")
 	}
-	if err := syncGenerationDirectory(root, "."); err != nil {
+	if err := SyncDirectory(root, "."); err != nil {
 		bundle.Close()
 		return nil, err
 	}
 	return bundle, nil
 }
 
-func syncGenerationDirectory(root *os.Root, path string) error {
+// SyncDirectory syncs and closes a directory opened relative to root.
+func SyncDirectory(root *os.Root, path string) error {
 	directory, err := root.Open(path)
 	if err != nil {
 		return err
@@ -112,7 +113,7 @@ func writeGenerationFile(root *os.Root, path string, body []byte) error {
 	if err != nil || !after.Mode().IsRegular() || !os.SameFile(before, after) || after.Size() != int64(len(body)) {
 		return errors.New("generation evidence identity changed while writing")
 	}
-	return syncGenerationDirectory(root, filepath.Dir(path))
+	return SyncDirectory(root, filepath.Dir(path))
 }
 
 func writeGenerationInputs(root *os.Root, inputs generationRunInputs, report GeneratorFixtureRun) error {
@@ -132,7 +133,7 @@ func writeGenerationInputs(root *os.Root, inputs generationRunInputs, report Gen
 			return err
 		}
 	}
-	return syncGenerationDirectory(root, ".")
+	return SyncDirectory(root, ".")
 }
 
 type generationBundleSnapshot struct {

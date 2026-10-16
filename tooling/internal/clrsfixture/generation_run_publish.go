@@ -49,5 +49,5 @@ func publishGenerationReceipt(ctx context.Context, root *os.Root, report Generat
 	if err := root.Remove("receipt.pending.json"); err != nil {
 		return report, err
 	}
-	return report, syncGenerationDirectory(root, ".")
+	return report, SyncDirectory(root, ".")
 }

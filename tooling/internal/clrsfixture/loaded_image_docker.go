@@ -149,7 +149,7 @@ func bindLoadedImageInspection(body []byte, proof GeneratorOCIReport, runtime Ge
 	if err != nil {
 		return "", err
 	}
-	id := generationImageString(object, "Id")
+	id := jsonString(object, "Id")
 	expected, err := parseGenerationRunImage(proof.ManifestBytes, proof.ConfigBytes, GeneratorFixtureImage{
 		LoadedID: id, ManifestDigest: proof.Manifest.Digest, ConfigDigest: proof.Config.Digest}, runtime)
 	if err != nil {

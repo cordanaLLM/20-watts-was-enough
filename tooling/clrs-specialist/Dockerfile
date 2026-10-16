@@ -24,6 +24,7 @@ COPY tooling/internal/clrsfixture ./internal/clrsfixture
 COPY tooling/internal/clrsinsertion ./internal/clrsinsertion
 COPY tooling/internal/clrskmp ./internal/clrskmp
 COPY tooling/internal/clrsmatrixchain ./internal/clrsmatrixchain
+COPY tooling/internal/clrsprompt ./internal/clrsprompt
 COPY tooling/internal/clrsrunner ./internal/clrsrunner
 COPY tooling/internal/clrssegments ./internal/clrssegments
 COPY tooling/internal/pdfrenderlock ./internal/pdfrenderlock

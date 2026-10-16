@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsprompt"
 )
 
 const (
@@ -88,7 +90,9 @@ func Solve(ctx context.Context, prompt []byte, limits Limits) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return formatAnswer(predecessors, limits.MaxAnswerBytes)
+	return clrsprompt.FormatIndexList(
+		predecessors, answerPrefix, answerSuffix, limits.MaxAnswerBytes, ErrAnswerLimit,
+	)
 }
 
 func parsePrompt(ctx context.Context, prompt []byte, limits Limits) (graphInput, error) {
@@ -263,23 +267,6 @@ func bellmanFord(ctx context.Context, input graphInput) ([]int, error) {
 		}
 	}
 	return nil, errors.New("Bellman-Ford relaxation did not converge within the node bound")
-}
-
-func formatAnswer(predecessors []int, maximumBytes int) ([]byte, error) {
-	var answer strings.Builder
-	answer.Grow(len(answerPrefix) + len(answerSuffix) + len(predecessors)*3)
-	answer.WriteString(answerPrefix)
-	for index, predecessor := range predecessors {
-		if index > 0 {
-			answer.WriteByte(' ')
-		}
-		answer.WriteString(strconv.Itoa(predecessor))
-	}
-	answer.WriteString(answerSuffix)
-	if answer.Len() > maximumBytes {
-		return nil, fmt.Errorf("%w: %d bytes exceeds %d", ErrAnswerLimit, answer.Len(), maximumBytes)
-	}
-	return []byte(answer.String()), nil
 }
 
 func parseAnswer(reference []byte, limits Limits, size int) ([]int, error) {
