@@ -79,7 +79,7 @@ The `development`/`unknown` identity is deliberate for an uncommitted checkout.
 Go owns the runtime lifecycle: one invocation executes the tree, checks the
 retained bundle in a second read-only container, and cleans up its containers.
 This initial profile requires a non-root Linux operator and the local Linux
-`amd64`, cgroup-v2 Docker 29.7.2 engine and client. It uses the fixed Unix socket,
+`amd64`, cgroup-v2 Docker 29.9.1 client and 29.9.0 engine. It uses the fixed Unix socket,
 not a remote Docker context. Set the verified dataset and tree hash above,
 then choose an output parent that does not yet exist:
 

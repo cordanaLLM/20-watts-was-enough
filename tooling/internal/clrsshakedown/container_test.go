@@ -172,3 +172,16 @@ func TestContainerInvalidInputsDoNotCallDocker(t *testing.T) {
 		t.Fatalf("invalid input wrote output: %v", err)
 	}
 }
+
+func TestContainerRefusesUnreviewedDockerVersionBeforeCreate(t *testing.T) {
+	for _, version := range []string{"29.7.2 29.7.2", "29.9.1 29.9.1", "29.9.0 29.9.1", "29.9.1"} {
+		t.Run(version, func(t *testing.T) {
+			f := newContainerFixture(t)
+			f.version = version
+			report, err := runContainer(context.Background(), f.options, f.execute)
+			if err == nil || !strings.Contains(err.Error(), "reviewed 29.9.1 client") || f.starts != 0 || len(f.containers) != 0 || report.ImageAdmitted {
+				t.Fatalf("unreviewed Docker %q: report=%+v error=%v starts=%d", version, report, err, f.starts)
+			}
+		})
+	}
+}

@@ -14,8 +14,8 @@ func (r *containerRunner) preflight(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if strings.TrimSpace(string(version.Stdout)) != containerDockerVersion+" "+containerDockerVersion {
-		return errors.New("Docker differs from reviewed 29.7.2 client/server")
+	if strings.TrimSpace(string(version.Stdout)) != containerDockerClient+" "+containerDockerServer {
+		return errors.New("Docker differs from reviewed 29.9.1 client and 29.9.0 server")
 	}
 	info, err := r.control(ctx, false, "info", "--format", "{{json .}}")
 	if err != nil {

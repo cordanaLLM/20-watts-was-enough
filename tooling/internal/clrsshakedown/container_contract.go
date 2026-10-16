@@ -28,7 +28,8 @@ const (
 	containerCPUMillis        = 1000
 	containerMemoryBytes      = 128 << 20
 	containerPIDs             = 64
-	containerDockerVersion    = "29.7.2"
+	containerDockerClient     = "29.9.1"
+	containerDockerServer     = "29.9.0"
 	containerPlatform         = "linux/amd64"
 	containerLogBytes         = "4m"
 	containerLogFiles         = "1"

@@ -62,7 +62,7 @@ type containerHostConfig struct {
 
 // Docker's unrelated version-specific fields are not schema attestation.
 // Always-emitted consumed fields are presence checked. The separately named
-// nullable/optional fields follow the reviewed Moby API v1.55.0 JSON omissions.
+// nullable/optional fields follow the reviewed Moby API v1.56 (Docker 29.9) JSON omissions.
 func containerObject(body []byte, required, nullable string) (map[string]json.RawMessage, error) {
 	if err := strictjson.Validate(body, 20); err != nil {
 		return nil, err

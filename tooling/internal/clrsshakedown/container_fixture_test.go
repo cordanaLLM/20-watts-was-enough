@@ -19,6 +19,7 @@ type containerDockerFixture struct {
 	mutate                                func(*containerInspection)
 	startError, createError, cleanupError error
 	changeOwner                           bool
+	version                               string
 	starts, removed                       int
 }
 
@@ -83,7 +84,11 @@ func (f *containerDockerFixture) execute(ctx context.Context, args []string, max
 	}
 	a := args[4:]
 	if a[0] == "version" {
-		return containerCommandResult{Stdout: []byte("29.7.2 29.7.2\n")}, nil
+		version := f.version
+		if version == "" {
+			version = containerDockerClient + " " + containerDockerServer
+		}
+		return containerCommandResult{Stdout: []byte(version + "\n")}, nil
 	}
 	if a[0] == "info" {
 		return containerJSONResult(f.t, map[string]any{"OSType": "linux", "Architecture": "x86_64", "CgroupVersion": "2", "MemoryLimit": true, "SwapLimit": true, "CpuCfsPeriod": true, "CpuCfsQuota": true, "PidsLimit": true, "Runtimes": map[string]any{"runc": map[string]any{}}}), nil

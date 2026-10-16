@@ -21,7 +21,9 @@ and verifier already have one.
    parent and an exact already-loaded `sha256:` image ID. It never builds,
    pulls, tags or publishes an image. The native command remains separate.
 2. Accept only an operator-trusted tooling image on the reviewed local Linux
-   `amd64`, cgroup-v2 Docker configuration. Use the fixed Unix socket, an empty
+   `amd64`, cgroup-v2 Docker configuration: client 29.9.1 and engine 29.9.0
+   (Moby API 1.56). Any other client or engine version fails closed until
+   its inspection output is reviewed again. Use the fixed Unix socket, an empty
    private Docker configuration and an explicit environment, without inherited
    remote routing or credentials. Inspect image and container configuration
    before starting work; unsupported or changed controls fail closed.
