@@ -95,7 +95,7 @@ func generatorOCIConfigInspection(body []byte, runtime GeneratorRuntime) (genera
 	if err := json.Unmarshal(body, &object); err != nil {
 		return generationImageInspection{}, err
 	}
-	if _, exists := object["variant"]; exists && generationImageString(object, "variant") != "v1" {
+	if _, exists := object["variant"]; exists && jsonString(object, "variant") != "v1" {
 		return generationImageInspection{}, errors.New("OCI config platform variant must be amd64 v1 when specified")
 	}
 	return inspection, nil
@@ -108,7 +108,7 @@ func generatorOCIIndex(ctx context.Context, file *os.File, members map[string]ge
 		return zero, err
 	}
 	layout, err := generationImageObject(body, "imageLayoutVersion", "")
-	if err != nil || generationImageString(layout, "imageLayoutVersion") != "1.0.0" {
+	if err != nil || jsonString(layout, "imageLayoutVersion") != "1.0.0" {
 		return zero, errors.Join(err, errors.New("OCI layout requires the closed version-1.0.0 marker"))
 	}
 	body, err = readGeneratorOCIJSON(ctx, file, members["index.json"], limits.JSONBytes)
@@ -124,7 +124,7 @@ func generatorOCIIndex(ctx context.Context, file *os.File, members map[string]ge
 	if json.Unmarshal(index["schemaVersion"], &schema) != nil || schema != 2 || json.Unmarshal(index["manifests"], &manifests) != nil || len(manifests) != 1 {
 		return zero, errors.New("OCI index requires schema 2 and exactly one manifest")
 	}
-	if _, exists := index["mediaType"]; exists && generationImageString(index, "mediaType") != "application/vnd.oci.image.index.v1+json" {
+	if _, exists := index["mediaType"]; exists && jsonString(index, "mediaType") != "application/vnd.oci.image.index.v1+json" {
 		return zero, errors.New("OCI index has an unsupported media type")
 	}
 	if err := generatorOCIAnnotations(index); err != nil {
@@ -144,7 +144,7 @@ func generatorOCIManifest(body []byte, limits GeneratorOCILimits) (GeneratorOCID
 		return zero, nil, err
 	}
 	var schema int
-	if json.Unmarshal(object["schemaVersion"], &schema) != nil || schema != 2 || generationImageString(object, "mediaType") != generatorOCIManifestType {
+	if json.Unmarshal(object["schemaVersion"], &schema) != nil || schema != 2 || jsonString(object, "mediaType") != generatorOCIManifestType {
 		return zero, nil, errors.New("OCI manifest must use the schema-2 image media type")
 	}
 	if err := generatorOCIAnnotations(object); err != nil {
@@ -179,7 +179,7 @@ func parseGeneratorOCIDescriptor(body []byte, allowPlatform bool, maximum int64)
 	if err != nil {
 		return result, err
 	}
-	result.MediaType, result.Digest = generationImageString(object, "mediaType"), generationImageString(object, "digest")
+	result.MediaType, result.Digest = jsonString(object, "mediaType"), jsonString(object, "digest")
 	if json.Unmarshal(object["size"], &result.Bytes) != nil || result.Bytes < 1 || result.Bytes > maximum || !generationImageDigest(result.Digest) {
 		return result, errors.New("OCI descriptor requires a bounded positive size and lowercase sha256 identity")
 	}
@@ -188,10 +188,10 @@ func parseGeneratorOCIDescriptor(body []byte, allowPlatform bool, maximum int64)
 	}
 	if body, exists := object["platform"]; exists {
 		platform, err := generationImageObject(body, "os architecture", "variant")
-		if err != nil || generationImageString(platform, "os") != "linux" || generationImageString(platform, "architecture") != "amd64" {
+		if err != nil || jsonString(platform, "os") != "linux" || jsonString(platform, "architecture") != "amd64" {
 			return result, errors.Join(err, errors.New("OCI descriptor platform must be linux/amd64"))
 		}
-		if _, exists := platform["variant"]; exists && generationImageString(platform, "variant") != "v1" {
+		if _, exists := platform["variant"]; exists && jsonString(platform, "variant") != "v1" {
 			return result, errors.New("OCI descriptor platform variant must be amd64 v1 when specified")
 		}
 	}

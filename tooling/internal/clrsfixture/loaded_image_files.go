@@ -39,7 +39,7 @@ func newLoadedImageBundle(options GeneratorLoadedImageOptions) (*os.Root, error)
 		err = errors.New("loaded-image output parent changed during exclusive creation")
 	}
 	if err == nil {
-		err = errors.Join(checkGenerationRoot(bundle), syncGenerationDirectory(root, "."))
+		err = errors.Join(checkGenerationRoot(bundle), SyncDirectory(root, "."))
 	}
 	if err != nil {
 		bundle.Close()
@@ -172,5 +172,5 @@ func publishLoadedImageReceipt(ctx context.Context, bundle *os.Root, report Gene
 	if err := bundle.Remove("receipt.pending.json"); err != nil {
 		return report, err
 	}
-	return report, syncGenerationDirectory(bundle, ".")
+	return report, SyncDirectory(bundle, ".")
 }

@@ -284,7 +284,7 @@ func (admission *Admission) Acquire(
 		admission.mu.Unlock()
 		return decision, nil
 	}
-	if !validIdentity(request.RunID) || !validIdentity(request.RequestID) ||
+	if !ValidIdentity(request.RunID) || !ValidIdentity(request.RequestID) ||
 		len(request.Payload) == 0 || len(request.Payload) > admission.maxRequestBytes {
 		admission.mu.Unlock()
 		return admissionTerminal(AdmissionRejected, AdmissionReasonMalformed, at, 1), nil
@@ -654,7 +654,7 @@ func (admission *Admission) parseFit(
 		}
 		return observedFit{state: input.State}, nil
 	}
-	if !validIdentity(input.MeasurementBasis) || input.MeasuredAt.IsZero() || input.MeasuredAt.After(observedAt) ||
+	if !ValidIdentity(input.MeasurementBasis) || input.MeasuredAt.IsZero() || input.MeasuredAt.After(observedAt) ||
 		input.MeasurementValidFor <= 0 || input.MeasurementValidFor > admission.limits.MaxObservationValidity ||
 		input.MeasurementValidFor > observationValidFor {
 		return observedFit{}, errors.New("measured-fit basis or time bound is invalid")

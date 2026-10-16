@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsprompt"
 )
 
 const (
@@ -82,7 +84,9 @@ func Solve(ctx context.Context, prompt []byte, limits Limits) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return formatAnswer(predecessors, limits.MaxAnswerBytes)
+	return clrsprompt.FormatIndexList(
+		predecessors, answerPrefix, answerSuffix, limits.MaxAnswerBytes, ErrAnswerLimit,
+	)
 }
 
 // Verify checks an answer through an independently arranged shortest-hop
@@ -271,23 +275,6 @@ func equalReachability(left, right []bool) bool {
 		}
 	}
 	return true
-}
-
-func formatAnswer(predecessors []int, maximumBytes int) ([]byte, error) {
-	var answer strings.Builder
-	answer.Grow(len(answerPrefix) + len(answerSuffix) + len(predecessors)*3)
-	answer.WriteString(answerPrefix)
-	for index, predecessor := range predecessors {
-		if index > 0 {
-			answer.WriteByte(' ')
-		}
-		answer.WriteString(strconv.Itoa(predecessor))
-	}
-	answer.WriteString(answerSuffix)
-	if answer.Len() > maximumBytes {
-		return nil, fmt.Errorf("%w: %d bytes exceeds %d", ErrAnswerLimit, answer.Len(), maximumBytes)
-	}
-	return []byte(answer.String()), nil
 }
 
 func parseAnswer(answer []byte, limits Limits, size int) ([]int, error) {

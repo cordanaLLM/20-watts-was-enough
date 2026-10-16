@@ -9,6 +9,31 @@ import (
 
 var testNow = time.Date(2099, time.August, 30, 18, 0, 0, 0, time.UTC)
 
+func TestValidIdentity(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name, value string
+		want        bool
+	}{
+		{"all character classes", "aZ09._:-", true},
+		{"one byte", "a", true},
+		{"maximum bytes", strings.Repeat("a", 128), true},
+		{"over maximum bytes", strings.Repeat("a", 129), false},
+		{"empty", "", false},
+		{"slash", "a/b", false},
+		{"whitespace", "a b", false},
+		{"non ASCII", "é", false},
+		{"NUL", "a\x00b", false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := ValidIdentity(test.value); got != test.want {
+				t.Fatalf("ValidIdentity(%q) = %v, want %v", test.value, got, test.want)
+			}
+		})
+	}
+}
+
 func TestPolicyRoutesTheAcceptedSixTaskSubsetDeterministically(t *testing.T) {
 	t.Parallel()
 	policy := testPolicy(t)

@@ -11,9 +11,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsfixture"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
@@ -86,25 +86,11 @@ func newBundle(options Options) (*os.Root, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := syncDirectory(parent, "."); err != nil {
+	if err := clrsfixture.SyncDirectory(parent, "."); err != nil {
 		root.Close()
 		return nil, err
 	}
 	return root, nil
-}
-
-func syncDirectory(root *os.Root, path string) error {
-	file, err := root.Open(path)
-	if err != nil {
-		return err
-	}
-	// Windows has no directory fsync: FlushFileBuffers on a directory handle
-	// returns ERROR_ACCESS_DENIED. The rename carries the ordering guarantee that
-	// fsync(dir) provides on POSIX.
-	if runtime.GOOS == "windows" {
-		return file.Close()
-	}
-	return errors.Join(file.Sync(), file.Close())
 }
 
 func writeNew(root *os.Root, path string, body []byte) error {
@@ -124,7 +110,7 @@ func writeNew(root *os.Root, path string, body []byte) error {
 	if err != nil || !final.Mode().IsRegular() || !os.SameFile(initial, final) || final.Size() != int64(len(body)) {
 		return errors.New("shakedown evidence changed while writing")
 	}
-	return syncDirectory(root, filepath.Dir(path))
+	return clrsfixture.SyncDirectory(root, filepath.Dir(path))
 }
 
 func readFile(ctx context.Context, root *os.Root, path string, maximum int64) (body []byte, err error) {

@@ -69,7 +69,7 @@ func run(ctx context.Context, options Options, beforeCases func(*boundInputs, *j
 	if err := root.Mkdir("events", 0o700); err != nil {
 		return report, err
 	}
-	if err := syncDirectory(root, "."); err != nil {
+	if err := clrsfixture.SyncDirectory(root, "."); err != nil {
 		return report, err
 	}
 	if beforeCases != nil {
