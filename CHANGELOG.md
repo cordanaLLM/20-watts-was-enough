@@ -1555,7 +1555,11 @@ the exact diff; this file records why the project changed.
   VMAFx's tiny typed estimators and Pelorus's proposed non-language content
   router. Exact source snapshots, implementation status, related-party limits,
   and a non-circular applied video shakedown are recorded without promoting a
-  controller result.
+  controller result. A later source-drift recheck corrects the stale VMAFx
+  runner boundary and refreshes the unchanged proposed Pelorus router without
+  reassigning historical test evidence.
+  Same-pool static dispatch and an offline oracle are retained only as future
+  protocol comparators, not implemented arms, results, or claims.
 - The `lusoris/k8s` engineering-transfer audit now binds its 503-test campaign
   and chart-harness disagreement to the exact historical source commit, then
   records a separate dated live/source observation and bounded drift at the
