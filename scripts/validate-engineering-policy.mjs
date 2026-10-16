@@ -2297,14 +2297,14 @@ function validateReleaseRefSource(source, relativePath) {
   return findings;
 }
 
-const exactReleaseTagTest = String.raw`[[ ! "$release_tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]`;
+const exactReleaseTagTest = String.raw`[[ ! "$release_tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-rc\.(0|[1-9][0-9]*))?$ ]]`;
 
 function validateRequestedReleaseTag(steps, relativePath) {
   const requested = steps[0];
   const source = requested?.id === "requested-tag" ? requested.run : undefined;
   return typeof source === "string" && source.includes(exactReleaseTagTest)
     ? []
-    : [`${relativePath}: the first release step must refuse every tag that is not exactly vMAJOR.MINOR.PATCH`];
+    : [`${relativePath}: the first release step must refuse every tag that is not exactly vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N`];
 }
 
 function findRunStepIndex(steps, fragments) {
@@ -2453,6 +2453,15 @@ function releaseInventoryIsChecksumDerived(publication) {
     && publication.indexOf(inventoryCommand) < publication.indexOf(remoteLookup);
 }
 
+function releasePrereleaseStateIsBound(source) {
+  return stringIncludesAll(source?.split("\n").map((line) => line.trim()).join("\n"), [
+    "expected_prerelease=false",
+    'case "$RELEASE_TAG" in\n*-rc.*) expected_prerelease=true ;;\nesac',
+    'if [[ "$release_prerelease" != "$expected_prerelease" ]]; then',
+    "release prerelease state does not match the tag",
+  ]) && diagnosticImmediatelyExits(source, "release prerelease state does not match the tag");
+}
+
 function releaseAssetPublicationIsSafe(publication) {
   const forbiddenMutations = [
     "--clobber", "gh release delete", "gh release delete-asset",
@@ -2462,7 +2471,7 @@ function releaseAssetPublicationIsSafe(publication) {
   const missingUpload = 'gh release upload "$RELEASE_TAG" "${missing_assets[@]}"';
   const existingVerification = 'verify_complete_remote_assets "$comparison_root/draft-complete"';
   const releaseEdit = 'gh release edit "$RELEASE_TAG"';
-  const releaseCreate = 'gh release create "$RELEASE_TAG" "${assets[@]}"';
+  const releaseCreate = 'gh release create "$RELEASE_TAG" "${assets[@]}" "${release_flags[@]}"';
   const newVerification = 'verify_complete_remote_assets "$comparison_root/new-draft-complete"';
   if (!stringIncludesAll(publication, [
     '"$tool" release state \\',
@@ -2488,9 +2497,14 @@ function releaseAssetPublicationIsSafe(publication) {
     'missing_assets+=("build/release/assets/${name}")',
     missingUpload, "verify_complete_remote_assets", releaseEdit, releaseCreate,
     "remote release asset differs from the local asset", "--draft", "--draft=false", "--verify-tag",
-    'release_prerelease" != "false"', 'release_immutable" != "true"',
+    'release_prerelease" != "$expected_prerelease"', 'release_immutable" != "true"',
     'case "$PREFLIGHT_STATE" in', "published)", "exit 0",
   ])) return false;
+  if (!releasePrereleaseStateIsBound(publication)
+    || !stringIncludesAll(publication, [
+      'release_flags=(--prerelease="$expected_prerelease")',
+      'if [[ "$expected_prerelease" == "true" ]]; then\n  release_flags+=(--latest=false)\nfi',
+    ])) return false;
   if (forbiddenMutations.some((fragment) => publication.includes(fragment))) return false;
   return countOccurrences(publication, "gh release upload") === 1
     && countOccurrences(publication, "revalidate_local_assets") >= 5
@@ -2547,7 +2561,7 @@ function releasePreflightIsFailClosed(preflight) {
     "release_state=absent",
     "release_state=draft",
     "release_state=published",
-    "the release is unexpectedly marked as a prerelease",
+    "release prerelease state does not match the tag",
     "published immutable release assets are incomplete",
     "oci-images.json",
     "release validate-oci-images",
@@ -2557,7 +2571,8 @@ function releasePreflightIsFailClosed(preflight) {
     "gh api",
     "gh release ", "git push", "git tag", "docker buildx", "curl ", "wget ",
   ];
-  return forbiddenMutations.every((fragment) => !preflight.includes(fragment))
+  return releasePrereleaseStateIsBound(preflight)
+    && forbiddenMutations.every((fragment) => !preflight.includes(fragment))
     && !preflight.includes("checksum_line_pattern=") && [
     "existing release asset differs from the local asset",
     "published immutable release assets are incomplete",
@@ -2608,14 +2623,14 @@ function validateImmutableReleaseBoundary(releaseSteps, relativePath, findings) 
     countOccurrences(publication, '"${verify_tag[@]}"') >= 5
       && publication?.includes('"$tool" release verify-tag')
       && publication?.includes('--repository "$GITHUB_REPOSITORY"')
-      && publication?.includes('gh release create "$RELEASE_TAG" "${assets[@]}"')
+      && publication?.includes('gh release create "$RELEASE_TAG" "${assets[@]}" "${release_flags[@]}"')
       && publication?.includes("--draft \\")
-      && publication?.includes('gh release edit "$RELEASE_TAG" --verify-tag --draft=false')
-      && publication?.includes('gh release edit "$RELEASE_TAG" \\')
+      && publication?.includes('gh release edit "$RELEASE_TAG" "${release_flags[@]}" --verify-tag --draft=false')
+      && publication?.includes('gh release edit "$RELEASE_TAG" "${release_flags[@]}" \\')
       && publication?.includes("--notes-file build/release/published-release-notes.md")
       && publication?.includes("published release did not become immutable")
-      && publication?.includes('release_prerelease" != "false"'),
-    `${relativePath}: release publication must verify the peeled tag and complete draft before immutable non-prerelease publication`,
+      && publication?.includes('release_prerelease" != "$expected_prerelease"'),
+    `${relativePath}: release publication must verify the peeled tag and complete draft before immutable publication with tag-derived prerelease state`,
   );
 }
 

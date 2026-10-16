@@ -33,8 +33,8 @@ jobs:
           else
             release_tag="$REF_NAME"
           fi
-          if [[ ! "$release_tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "::error::release tag must have the exact form vMAJOR.MINOR.PATCH"
+          if [[ ! "$release_tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-rc\.(0|[1-9][0-9]*))?$ ]]; then
+            echo "::error::release tag must have the exact form vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N"
             exit 1
           fi
           printf 'tag=%s\n' "$release_tag" >> "$GITHUB_OUTPUT"
@@ -252,6 +252,10 @@ jobs:
             exit 1
           fi
 
+          expected_prerelease=false
+          case "$RELEASE_TAG" in
+            *-rc.*) expected_prerelease=true ;;
+          esac
           IFS=$'\t' read -r release_presence release_id release_draft release_prerelease release_immutable release_state_tag trailing \
             <<< "$release_state_row"
           if [[ "$release_presence" != "present" || -n "${trailing:-}" \
@@ -263,8 +267,8 @@ jobs:
             echo "::error::GitHub Release state is malformed"
             exit 1
           fi
-          if [[ "$release_prerelease" != "false" ]]; then
-            echo "::error::the release is unexpectedly marked as a prerelease"
+          if [[ "$release_prerelease" != "$expected_prerelease" ]]; then
+            echo "::error::release prerelease state does not match the tag"
             exit 1
           fi
 
@@ -1259,6 +1263,15 @@ jobs:
             --commit "$RELEASE_COMMIT"
           )
 
+          expected_prerelease=false
+          case "$RELEASE_TAG" in
+            *-rc.*) expected_prerelease=true ;;
+          esac
+          release_flags=(--prerelease="$expected_prerelease")
+          if [[ "$expected_prerelease" == "true" ]]; then
+            release_flags+=(--latest=false)
+          fi
+
           load_release_state() {
             local state_row
             local release_presence
@@ -1288,8 +1301,8 @@ jobs:
               echo "::error::GitHub Release state is malformed"
               exit 1
             fi
-            if [[ "$release_prerelease" != "false" ]]; then
-              echo "::error::the release is unexpectedly marked as a prerelease"
+            if [[ "$release_prerelease" != "$expected_prerelease" ]]; then
+              echo "::error::release prerelease state does not match the tag"
               exit 1
             fi
             release_found=true
@@ -1449,7 +1462,7 @@ jobs:
             require_draft_state
             "${verify_tag[@]}"
             revalidate_local_assets
-            gh release edit "$RELEASE_TAG" \
+            gh release edit "$RELEASE_TAG" "${release_flags[@]}" \
               --verify-tag \
               --title "20 Watts Was Enough ${RELEASE_TAG}" \
               --notes-file build/release/published-release-notes.md \
@@ -1463,7 +1476,7 @@ jobs:
             fi
             "${verify_tag[@]}"
             revalidate_local_assets
-            gh release create "$RELEASE_TAG" "${assets[@]}" \
+            gh release create "$RELEASE_TAG" "${assets[@]}" "${release_flags[@]}" \
               --draft \
               --verify-tag \
               --title "20 Watts Was Enough ${RELEASE_TAG}" \
@@ -1484,7 +1497,7 @@ jobs:
             fi
             "${verify_tag[@]}"
             revalidate_local_assets
-            gh release edit "$RELEASE_TAG" --verify-tag --draft=false
+            gh release edit "$RELEASE_TAG" "${release_flags[@]}" --verify-tag --draft=false
           fi
 
           wait_for_immutable_publication "$published_id"
