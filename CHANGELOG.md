@@ -5,6 +5,10 @@ the exact diff; this file records why the project changed.
 
 ## [Unreleased]
 
+### Fixed
+
+- Accept canonical `-rc.N` versions in experiment image builds and execution receipts so release-candidate builds pass the image guards.
+
 ## [0.5.0] - 2026-10-16
 
 ### Security

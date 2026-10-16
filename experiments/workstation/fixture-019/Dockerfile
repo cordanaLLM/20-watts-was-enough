@@ -35,7 +35,7 @@ RUN set -eu; \
     printf '%s\n' "${IMAGE_NAME}" > /tmp/image-name; \
     grep -Eq '^[a-z0-9][a-z0-9._/-]{0,199}$' /tmp/image-name; \
     printf '%s\n' "${IMAGE_VERSION}" > /tmp/image-version; \
-    grep -Eq '^(development|v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$' /tmp/image-version; \
+    grep -Eq '^(development|v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-rc\.(0|[1-9][0-9]*))?)$' /tmp/image-version; \
     printf '%s\n' "${SOURCE_REVISION}" > /tmp/source-revision; \
     grep -Eq '^(unknown|[0-9a-f]{40})$' /tmp/source-revision; \
     test -z "$(find /workspace -mindepth 1 ! -type d ! -type f -print -quit)"; \
