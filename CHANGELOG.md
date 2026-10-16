@@ -11,6 +11,9 @@ the exact diff; this file records why the project changed.
   repository, which is now private; the audit and the v0.3.0 disclosure keep the
   full commit hashes as plain text and say the source cannot be inspected
   publicly (#288).
+- Lock the PDF renderer to Buildx 0.38.0; the renderer cache inventory admits
+  the empty `cache.lock` file that its BuildKit client keeps in a local cache
+  store ([Decision 0105](decisions/0105-move-the-renderer-lock-to-buildx-0-38-0.md)).
 
 ### Fixed
 
