@@ -208,6 +208,7 @@ func isRendererAuthority(changedPath string) bool {
 		".github/ci-impact.json",
 		".github/workflows/ci.yml",
 		".github/workflows/release.yml",
+		".github/workflows/release-build.yml",
 		"package-lock.json",
 		"package.json",
 		"scripts/book-source.mjs",

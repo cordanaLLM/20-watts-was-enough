@@ -64,10 +64,10 @@ const fixture007ImagePolicy = Object.freeze({
   releaseBuildArgs: [
     "EXPERIMENT_ARTIFACT=fixture-007",
     "IMAGE_NAME=ghcr.io/${{ env.IMAGE_REPOSITORY }}-fixture-007",
-    "IMAGE_VERSION=${{ needs.verify.outputs.release-tag }}",
-    "SOURCE_REVISION=${{ needs.verify.outputs.release-commit }}",
+    "IMAGE_VERSION=${{ steps.release-ref.outputs.tag }}",
+    "SOURCE_REVISION=${{ steps.release-ref.outputs.commit }}",
   ].join("\n") + "\n",
-  releaseTag: "type=raw,value=${{ needs.verify.outputs.release-tag }}",
+  releaseTag: "type=raw,value=${{ steps.release-ref.outputs.tag }}",
 });
 
 const fixture019ImagePolicy = Object.freeze({
@@ -90,6 +90,9 @@ const unpinnedImageDefinitions = [
 
 const approvedActionPins = new Map([
   ["actions/attest-build-provenance", "4d101475d8b20a2381f78447822ac1eab6504dd8"],
+  ["actions/attest-sbom", "c604332985a26aa8cf1bdc465b92731239ec6b9e"],
+  ["anchore/sbom-action", "66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c"],
+  ["sigstore/cosign-installer", "6f9f17788090df1f26f669e9d70d6ae9567deba6"],
   ["actions/cache/restore", "55cc8345863c7cc4c66a329aec7e433d2d1c52a9"],
   ["actions/cache/save", "55cc8345863c7cc4c66a329aec7e433d2d1c52a9"],
   ["actions/checkout", "3d3c42e5aac5ba805825da76410c181273ba90b1"],
@@ -152,6 +155,7 @@ const requiredFiles = [
   ".github/workflows/labeler.yml",
   ".github/workflows/pr-title.yml",
   ".github/workflows/release.yml",
+  ".github/workflows/release-build.yml",
   ".github/workflows/scorecard.yml",
   ".github/workflows/sync-repository-metadata.yml",
   "AGENTS.md",
@@ -295,6 +299,7 @@ function validateWorkflowJob(job, jobName, relativePath) {
   if (!job || typeof job !== "object" || Array.isArray(job)) {
     return [`${relativePath}: job ${jobName} must be a mapping`];
   }
+  if (job.uses === "./.github/workflows/release-build.yml") return findings;
   if (!Number.isFinite(job["timeout-minutes"]) || job["timeout-minutes"] <= 0) {
     findings.push(`${relativePath}: job ${jobName} needs a positive timeout-minutes`);
   }
@@ -351,11 +356,12 @@ export function validateWorkflowObject(workflow, relativePath = "workflow.yml") 
   }
 
   if (
+    relativePath !== ".github/workflows/release-build.yml" && (
     !workflow.concurrency
     || typeof workflow.concurrency !== "object"
     || typeof workflow.concurrency.group !== "string"
     || workflow.concurrency.group.trim().length === 0
-    || typeof workflow.concurrency["cancel-in-progress"] !== "boolean"
+    || typeof workflow.concurrency["cancel-in-progress"] !== "boolean")
   ) {
     findings.push(`${relativePath}: concurrency must define a group and explicit cancel-in-progress boolean`);
   }
@@ -381,6 +387,7 @@ export function validatePublicRepositoryRunnerWorkflowObject(
 ) {
   const findings = [];
   for (const [jobName, job] of Object.entries(workflow?.jobs ?? {})) {
+    if (job?.uses === "./.github/workflows/release-build.yml") continue;
     if (job?.["runs-on"] !== "ubuntu-26.04") {
       findings.push(
         `${relativePath}: public-repository job ${jobName} must run on GitHub-hosted ubuntu-26.04`,
@@ -1362,8 +1369,8 @@ export function validatePDFRendererReproducibilityWorkflowObject(workflow, relat
       ? []
       : [`${relativePath}: CI must run the exact selected PDF reproducibility proof only in its renderer-selected gate and retain its receipt plus mismatch bytes`];
   }
-  if (relativePath === ".github/workflows/release.yml") {
-    const job = workflow?.jobs?.verify;
+  if (relativePath === ".github/workflows/release-build.yml") {
+    const job = workflow?.jobs?.release;
     const steps = job?.steps ?? [];
     const setupIndex = steps.findIndex(pdfReproducibilitySetupIsExact);
     const nativeIndex = steps.findIndex((step) => (
@@ -1383,7 +1390,7 @@ export function validatePDFRendererReproducibilityWorkflowObject(workflow, relat
       && String(step?.run ?? "").includes("--additional-assets-root build/release-inputs")
     ));
     if (
-      job?.["timeout-minutes"] === 180
+      job?.["timeout-minutes"] === 225
       && continueOnErrorIsDisabled(job)
       && setupIndex >= 0
       && nativeIndex > setupIndex
@@ -2290,6 +2297,16 @@ function validateReleaseRefSource(source, relativePath) {
   return findings;
 }
 
+const exactReleaseTagTest = String.raw`[[ ! "$release_tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]`;
+
+function validateRequestedReleaseTag(steps, relativePath) {
+  const requested = steps[0];
+  const source = requested?.id === "requested-tag" ? requested.run : undefined;
+  return typeof source === "string" && source.includes(exactReleaseTagTest)
+    ? []
+    : [`${relativePath}: the first release step must refuse every tag that is not exactly vMAJOR.MINOR.PATCH`];
+}
+
 function findRunStepIndex(steps, fragments) {
   return steps.findIndex((step) => (
     typeof step?.run === "string"
@@ -2558,7 +2575,8 @@ function releaseFinalComparisonIsFailClosed(publication) {
 }
 
 function validateImmutableReleaseBoundary(releaseSteps, relativePath, findings) {
-  const downloadPosition = stepPosition(releaseSteps, "Download the verified release workspace");
+  const preparePosition = stepPosition(releaseSteps, "Prepare version-bound release assets");
+  const cosignPosition = stepPosition(releaseSteps, "Install the pinned cosign client");
   const preflightPosition = stepPosition(releaseSteps, "Preflight the remote release without mutation");
   const buildxPosition = stepPosition(releaseSteps, "Set up Docker Buildx");
   const preflight = findStepById(releaseSteps, "release-preflight")?.run;
@@ -2568,7 +2586,7 @@ function validateImmutableReleaseBoundary(releaseSteps, relativePath, findings) 
   )?.run;
   recordExpectation(
     findings,
-    downloadPosition >= 0 && preflightPosition === downloadPosition + 1
+    preparePosition >= 0 && cosignPosition > preparePosition && preflightPosition === cosignPosition + 1
       && buildxPosition > preflightPosition
       && releasePreflightIsFailClosed(preflight),
     `${relativePath}: existing releases must pass the read-only asset and peeled-tag preflight before publication mutations`,
@@ -2612,6 +2630,8 @@ function validateOCIImageAuthorityStepOrder(releaseSteps, relativePath, findings
     "Bind final release tags to the admitted digests",
     "Prove final image digests are anonymously pullable",
     "Materialize the immutable OCI image authority",
+    "Sign the final release checksums",
+    "Verify the checksum signature and complete asset inventory",
     "Resolve the immutable OCI image authority",
     "Validate persisted release image identities and tag bindings",
     "Verify persisted image provenance against the tag source",
@@ -2626,7 +2646,7 @@ function validateOCIImageAuthorityStepOrder(releaseSteps, relativePath, findings
       && stringIncludesAll(materialize?.run, [
         "release write-oci-images", "--tooling-digest", "--fixture-007-digest",
         "--fixture-019-digest", "oci-images.json", "existing-draft-SHA256SUMS",
-        "release asset-inventory", "--phase publication", "release validate-oci-images",
+        "release validate-oci-images",
       ])
       && resolve?.if === undefined
       && stringIncludesAll(resolve?.run, [
@@ -2733,10 +2753,10 @@ function validateReleaseAssetProvenance(workflow, relativePath) {
 
 export function validateReleaseWorkflowObject(
   workflow,
-  relativePath = ".github/workflows/release.yml",
+  relativePath = ".github/workflows/release-build.yml",
 ) {
   const findings = [];
-  const releaseRefStep = workflow?.jobs?.verify?.steps?.find(
+  const releaseRefStep = workflow?.jobs?.release?.steps?.find(
     (step) => step?.id === "release-ref",
   );
   const source = releaseRefStep?.run;
@@ -2744,7 +2764,8 @@ export function validateReleaseWorkflowObject(
     return [`${relativePath}: verify job needs the release-ref ancestry step`];
   }
   findings.push(...validateReleaseRefSource(source, relativePath));
-  const steps = workflow?.jobs?.verify?.steps ?? [];
+  const steps = workflow?.jobs?.release?.steps ?? [];
+  findings.push(...validateRequestedReleaseTag(steps, relativePath));
   const indices = releaseVerificationStepIndices(steps);
   findings.push(...validateReleasePDFBuilder(steps, indices, relativePath));
   findings.push(...validateNativeReleaseBuild(steps, indices, relativePath));
@@ -3193,10 +3214,6 @@ export function validateCiExperimentImageWorkflowObject(
 function validateReleaseTimestamp(verifyJob, relativePath, findings) {
   const releaseRefSource = findStepById(verifyJob?.steps ?? [], "release-ref")?.run;
   const accepted = [
-    propertiesMatch(verifyJob?.outputs, {
-      "release-timestamp": "${{ steps.release-ref.outputs.timestamp }}",
-      "release-epoch": "${{ steps.release-ref.outputs.epoch }}",
-    }),
     stringIncludesAll(releaseRefSource, [
       "--format=%cI",
       "--format=%ct",
@@ -3226,8 +3243,8 @@ function validateReleaseToolingImage(steps, relativePath, findings) {
       tags: fixture007ImagePolicy.releaseTag,
     }),
     stringIncludesAll(metadata?.with?.labels, [
-      "org.opencontainers.image.created=${{ needs.verify.outputs.release-timestamp }}",
-      "org.opencontainers.image.revision=${{ needs.verify.outputs.release-commit }}",
+      "org.opencontainers.image.created=${{ steps.release-ref.outputs.timestamp }}",
+      "org.opencontainers.image.revision=${{ steps.release-ref.outputs.commit }}",
       `io.github.lusoris.20-watts-was-enough.image-name=${imageName}`,
     ]),
     propertiesMatch(build, { if: condition }),
@@ -3247,11 +3264,11 @@ function validateReleaseToolingImage(steps, relativePath, findings) {
     !Object.hasOwn(build?.with ?? {}, "tags"),
     stringIncludesAll(build?.with?.["build-args"], [
       "IMAGE_NAME=ghcr.io/${{ env.IMAGE_REPOSITORY }}-20w",
-      "IMAGE_VERSION=${{ needs.verify.outputs.release-tag }}",
-      "SOURCE_REVISION=${{ needs.verify.outputs.release-commit }}",
-      "SOURCE_TIMESTAMP=${{ needs.verify.outputs.release-timestamp }}",
+      "IMAGE_VERSION=${{ steps.release-ref.outputs.tag }}",
+      "SOURCE_REVISION=${{ steps.release-ref.outputs.commit }}",
+      "SOURCE_TIMESTAMP=${{ steps.release-ref.outputs.timestamp }}",
     ]),
-    build?.env?.SOURCE_DATE_EPOCH === "${{ needs.verify.outputs.release-epoch }}",
+    build?.env?.SOURCE_DATE_EPOCH === "${{ steps.release-ref.outputs.epoch }}",
     propertiesMatch(attestation, {
       if: condition,
     }),
@@ -3273,9 +3290,9 @@ function validateReleaseFixtureStatus(steps, relativePath, findings) {
     propertiesMatch(status?.env, {
       GHCR_TOKEN: "${{ github.token }}",
       GHCR_USERNAME: "${{ github.actor }}",
-      RELEASE_COMMIT: "${{ needs.verify.outputs.release-commit }}",
-      RELEASE_TAG: "${{ needs.verify.outputs.release-tag }}",
-      RELEASE_TIMESTAMP: "${{ needs.verify.outputs.release-timestamp }}",
+      RELEASE_COMMIT: "${{ steps.release-ref.outputs.commit }}",
+      RELEASE_TAG: "${{ steps.release-ref.outputs.tag }}",
+      RELEASE_TIMESTAMP: "${{ steps.release-ref.outputs.timestamp }}",
     }),
     stringIncludesAll(status?.run, [
       "tool=build/release-tools/20w",
@@ -3308,8 +3325,8 @@ function validateReleaseFixtureMetadata(steps, relativePath, findings, condition
       tags: fixture007ImagePolicy.releaseTag,
     }),
     stringIncludesAll(metadata?.with?.labels, [
-      "org.opencontainers.image.created=${{ needs.verify.outputs.release-timestamp }}",
-      "org.opencontainers.image.revision=${{ needs.verify.outputs.release-commit }}",
+      "org.opencontainers.image.created=${{ steps.release-ref.outputs.timestamp }}",
+      "org.opencontainers.image.revision=${{ steps.release-ref.outputs.commit }}",
       "io.github.lusoris.20-watts-was-enough.result-authority=NO_RESULT",
     ]),
   ].every(Boolean);
@@ -3341,10 +3358,10 @@ function validateReleaseFixtureBuild(steps, relativePath, findings, condition) {
     !Object.hasOwn(build?.with ?? {}, "tags"),
     stringIncludesAll(build?.with?.["build-args"], [
       "IMAGE_NAME=ghcr.io/${{ env.IMAGE_REPOSITORY }}-fixture-019",
-      "IMAGE_VERSION=${{ needs.verify.outputs.release-tag }}",
-      "SOURCE_REVISION=${{ needs.verify.outputs.release-commit }}",
+      "IMAGE_VERSION=${{ steps.release-ref.outputs.tag }}",
+      "SOURCE_REVISION=${{ steps.release-ref.outputs.commit }}",
     ]),
-    build?.env?.SOURCE_DATE_EPOCH === "${{ needs.verify.outputs.release-epoch }}",
+    build?.env?.SOURCE_DATE_EPOCH === "${{ steps.release-ref.outputs.epoch }}",
   ].every(Boolean);
   recordExpectation(
     findings,
@@ -3398,9 +3415,9 @@ function validateReleaseFixture007Status(steps, relativePath, findings) {
     propertiesMatch(status?.env, {
       GHCR_TOKEN: "${{ github.token }}",
       GHCR_USERNAME: "${{ github.actor }}",
-      RELEASE_COMMIT: "${{ needs.verify.outputs.release-commit }}",
-      RELEASE_TAG: "${{ needs.verify.outputs.release-tag }}",
-      RELEASE_TIMESTAMP: "${{ needs.verify.outputs.release-timestamp }}",
+      RELEASE_COMMIT: "${{ steps.release-ref.outputs.commit }}",
+      RELEASE_TAG: "${{ steps.release-ref.outputs.tag }}",
+      RELEASE_TIMESTAMP: "${{ steps.release-ref.outputs.timestamp }}",
     }),
     stringIncludesAll(status?.run, [
       "release inspect-image",
@@ -3439,8 +3456,8 @@ function validateReleaseFixture007Metadata(steps, relativePath, findings) {
       tags: fixture007ImagePolicy.releaseTag,
     }),
     stringIncludesAll(metadata?.with?.labels, [
-      "org.opencontainers.image.created=${{ needs.verify.outputs.release-timestamp }}",
-      "org.opencontainers.image.revision=${{ needs.verify.outputs.release-commit }}",
+      "org.opencontainers.image.created=${{ steps.release-ref.outputs.timestamp }}",
+      "org.opencontainers.image.revision=${{ steps.release-ref.outputs.commit }}",
       "io.github.lusoris.20-watts-was-enough.result-authority=NO_RESULT",
     ]),
   ].every(Boolean);
@@ -3468,7 +3485,7 @@ function validateReleaseFixture007Build(steps, relativePath, findings) {
     }),
     !Object.hasOwn(inputs ?? {}, "push"),
     !Object.hasOwn(inputs ?? {}, "tags"),
-    build?.env?.SOURCE_DATE_EPOCH === "${{ needs.verify.outputs.release-epoch }}",
+    build?.env?.SOURCE_DATE_EPOCH === "${{ steps.release-ref.outputs.epoch }}",
   ].every(Boolean);
   recordExpectation(
     findings,
@@ -3766,7 +3783,7 @@ function validateReleaseImageProvenanceAndExecution(steps, relativePath, finding
 
 export function validateReleaseExperimentImageWorkflowObject(
   workflow,
-  relativePath = ".github/workflows/release.yml",
+  relativePath = ".github/workflows/release-build.yml",
   root = defaultRoot,
 ) {
   const findings = [];
@@ -3784,7 +3801,7 @@ export function validateReleaseExperimentImageWorkflowObject(
   validateRegistryRepositoryDerivation(steps, relativePath, findings, "Preflight the remote release without mutation");
   validateReleaseRepositoryIdentityConsumers(steps, relativePath, findings);
   validateManifestReleaseImageParity(root, workflow, relativePath, findings);
-  validateReleaseTimestamp(workflow?.jobs?.verify, relativePath, findings);
+  validateReleaseTimestamp(workflow?.jobs?.release, relativePath, findings);
   validateReleaseToolingImage(steps, relativePath, findings);
   validateReleaseFixture007Image(steps, relativePath, findings);
   validateReleaseFixtureImage(steps, relativePath, findings);
@@ -4649,17 +4666,121 @@ function loadNpmRuntimeLock(root, findings) {
   }
 }
 
+const releasePermissions = { contents: "write", "id-token": "write", attestations: "write", packages: "write" };
+
+function releaseCallerTriggersAreExact(workflow) {
+  return Object.keys(workflow?.on ?? {}).sort().join() === "push,workflow_dispatch"
+    && workflow.on.push?.tags?.join() === "v*.*.*"
+    && Object.keys(workflow.on.push).join() === "tags"
+    && propertiesMatch(workflow.on.workflow_dispatch?.inputs?.tag, { type: "string", required: true })
+    && Object.keys(workflow?.permissions ?? {}).length === 0
+    && workflow?.concurrency?.group === "research-release-publication"
+    && workflow?.concurrency?.["cancel-in-progress"] === false;
+}
+
+export function validateReleaseCallerWorkflowObject(workflow, relativePath = ".github/workflows/release.yml") {
+  const job = workflow?.jobs?.release;
+  const accepted = Object.keys(workflow?.jobs ?? {}).join() === "release"
+    && releaseCallerTriggersAreExact(workflow)
+    && job?.uses === "./.github/workflows/release-build.yml"
+    && Object.keys(job ?? {}).sort().join() === "permissions,uses,with"
+    && Object.keys(job?.with ?? {}).join() === "tag"
+    && job?.with?.tag === "${{ inputs.tag || github.ref_name }}"
+    && propertiesMatch(job?.permissions, releasePermissions)
+    && Object.keys(job?.permissions ?? {}).length === 4;
+  return accepted ? [] : [`${relativePath}: release caller must pass the requested tag and exact publication permissions to the local trusted builder under the serialized release triggers`];
+}
+
+export function validateReleaseBuilderWorkflowObject(workflow, relativePath = ".github/workflows/release-build.yml") {
+  const job = workflow?.jobs?.release;
+  const steps = job?.steps ?? [];
+  const findings = [];
+  const accepted = Object.keys(workflow?.on ?? {}).join() === "workflow_call"
+    && Object.keys(workflow.on.workflow_call?.inputs ?? {}).join() === "tag"
+    && propertiesMatch(workflow.on.workflow_call?.inputs?.tag, { type: "string", required: true })
+    && Object.keys(workflow?.jobs ?? {}).join() === "release"
+    && releaseBuilderJobIsExact(job)
+    && steps.every(continueOnErrorIsDisabled)
+    && !steps.some((step) => actionUses(step, "actions/download-artifact") || /gh\s+run\s+download/u.test(step?.run ?? ""))
+    && steps.filter((step) => actionUses(step, "actions/checkout")).every((step, index) => index === 0 || step.with?.clean === false);
+  recordExpectation(findings, accepted, `${relativePath}: trusted builder must accept only workflow_call, build in one bounded job with exact permissions, and preserve local assets without importing another job's artifacts`);
+  validateReleaseSigningSteps(steps, relativePath, findings);
+  validateReleaseSBOMSteps(steps, relativePath, findings);
+  const provenanceChecks = steps.filter((step) => String(step.run ?? "").includes("gh attestation verify"));
+  recordExpectation(findings, provenanceChecks.length === 4 && provenanceChecks.every((step) => (
+    step.run.includes('--signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release-build.yml"')
+    && !step.run.includes("/.github/workflows/release.yml")
+  )), `${relativePath}: every release provenance check must trust the reusable builder identity`);
+  return findings;
+}
+
+function releaseBuilderJobIsExact(job) {
+  return propertiesMatch(job?.permissions, releasePermissions)
+    && Object.keys(job?.permissions ?? {}).length === 4
+    && job?.["timeout-minutes"] === 225
+    && job?.needs === undefined
+    && job?.if === undefined
+    && continueOnErrorIsDisabled(job);
+}
+
+function validateReleaseSigningSteps(steps, relativePath, findings) {
+  const installer = findStepByName(steps, "Install the pinned cosign client");
+  recordExpectation(findings, actionUses(installer, "sigstore/cosign-installer")
+    && installer.with?.["cosign-release"] === "v3.1.3",
+  `${relativePath}: release must install the pinned cosign v3.1.3 client`);
+  for (const [label, suffix, output, flag] of [
+    ["static 20w", "20w", "build-tooling-image", "tooling"],
+    ["Fixture 007", "fixture-007", "build-fixture-007-image", "fixture007"],
+    ["Fixture 019", "fixture-019", "build-fixture-019-image", "fixture019"],
+  ]) {
+    const sign = findStepByName(steps, `Sign the freshly built ${label} digest`);
+    const attestIndex = steps.findIndex((step) => step.name === `Attest the freshly built ${label} digest`);
+    recordExpectation(findings, sign?.if === `${releaseMutationGuard} && steps.image-status.outputs.${flag}_publish == 'true'`
+      && sign?.env?.IMAGE_DIGEST === `\${{ steps.${output}.outputs.digest }}`
+      && sign?.run === `cosign sign --yes --timeout 3m "ghcr.io/\${IMAGE_REPOSITORY}-${suffix}@\${IMAGE_DIGEST}"`
+      && steps.indexOf(sign) > attestIndex && attestIndex >= 0,
+    `${relativePath}: cosign must sign only the freshly attested ${label} digest`);
+  }
+  const sign = findStepByName(steps, "Sign the final release checksums");
+  const verify = findStepByName(steps, "Verify the checksum signature and complete asset inventory");
+  recordExpectation(findings, sign?.if === releaseMutationGuard
+    && stringIncludesAll(sign?.run, ['if [[ ! -f "$bundle" ]]', 'cosign sign-blob --yes --timeout 3m --bundle "$bundle" build/release/assets/SHA256SUMS'])
+    && stringIncludesAll(verify?.run, ["cosign verify-blob", "SHA256SUMS.sigstore.json", "/.github/workflows/release-build.yml@refs/tags/${RELEASE_TAG}", "--certificate-oidc-issuer https://token.actions.githubusercontent.com", "--phase publication"])
+    && verify?.if === undefined
+    && steps.indexOf(sign) > steps.findIndex((step) => step.name === "Materialize the immutable OCI image authority")
+    && steps.indexOf(verify) > steps.indexOf(sign)
+    && steps.indexOf(verify) < steps.findIndex((step) => step.name === "Attest the complete release asset inventory"),
+  `${relativePath}: final checksums need a verified reusable-workflow signature bundle before asset attestation and publication`);
+}
+
+function validateReleaseSBOMSteps(steps, relativePath, findings) {
+  const source = findStepByName(steps, "Export the exact tagged source for its SBOM");
+  const generate = findStepByName(steps, "Generate the tagged-source SPDX SBOM");
+  const attest = findStepByName(steps, "Attest the source SBOM to the release assets");
+  recordExpectation(findings, source?.if === releaseMutationGuard
+    && stringIncludesAll(source?.run, ["git archive HEAD | tar -x -C build/sbom-source"])
+    && actionUses(generate, "anchore/sbom-action") && generate?.if === releaseMutationGuard
+    && propertiesMatch(generate?.with, {
+      path: "build/sbom-source", format: "spdx-json", "output-file": "build/source.spdx.json",
+      "upload-artifact": false, "upload-release-assets": false, "dependency-snapshot": false,
+    })
+    && actionUses(attest, "actions/attest-sbom") && attest?.if === releaseMutationGuard
+    && propertiesMatch(attest?.with, { "subject-path": "build/release/assets/*", "sbom-path": "build/source.spdx.json" })
+    && steps.indexOf(source) < steps.indexOf(generate) && steps.indexOf(generate) < steps.indexOf(attest),
+  `${relativePath}: tagged-source SPDX SBOM must bind the final release assets without independent uploads`);
+}
+
 function validateReleaseWorkflowPolicy(workflow, relativePath, lock, findings) {
   findings.push(...validateReleaseWorkflowObject(workflow, relativePath));
   findings.push(...validateReleaseExperimentImageWorkflowObject(workflow, relativePath));
   findings.push(...validateScientificRuntimeWorkflowObject(
     workflow,
     lock,
-    "verify",
+    "release",
     relativePath,
   ));
-  findings.push(...validateJavaScriptRuntimeWorkflowObject(workflow, "verify", relativePath));
-  findings.push(...validateGoRuntimeWorkflowObject(workflow, "verify", relativePath));
+  findings.push(...validateJavaScriptRuntimeWorkflowObject(workflow, "release", relativePath));
+  findings.push(...validateGoRuntimeWorkflowObject(workflow, "release", relativePath));
   findings.push(...validatePDFRendererReproducibilityWorkflowObject(workflow, relativePath));
 }
 
@@ -4757,11 +4878,15 @@ function validateWorkflowPolicy(workflow, relativePath, lock, findings) {
   findings.push(...validateNodeSetupWorkflowObject(workflow, relativePath));
   const auditJobName = relativePath === ".github/workflows/ci.yml"
     ? "quality-full"
-    : relativePath === ".github/workflows/release.yml"
-      ? "verify"
+    : relativePath === ".github/workflows/release-build.yml"
+      ? "release"
       : undefined;
   findings.push(...validateDependencyAuditWorkflowObject(workflow, auditJobName, relativePath));
   if (relativePath === ".github/workflows/release.yml") {
+    findings.push(...validateReleaseCallerWorkflowObject(workflow, relativePath));
+  }
+  if (relativePath === ".github/workflows/release-build.yml") {
+    findings.push(...validateReleaseBuilderWorkflowObject(workflow, relativePath));
     validateReleaseWorkflowPolicy(workflow, relativePath, lock, findings);
   }
   if (relativePath === ".github/workflows/ci.yml") {

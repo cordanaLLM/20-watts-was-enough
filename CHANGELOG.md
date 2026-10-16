@@ -7,6 +7,13 @@ the exact diff; this file records why the project changed.
 
 ### Security
 
+- Build and attest releases inside the local reusable builder required by the
+  declared SLSA Build L3 policy. Sign fresh image digests and final checksums
+  with keyless Cosign, publish a reusable checksum signature bundle, and
+  attest a tagged-source SPDX SBOM to the release assets
+  ([Decision 0101](decisions/0101-build-releases-in-a-reusable-workflow.md)).
+  Consumer verification now names `release-build.yml` as the trusted signer.
+
 - Re-resolve the CLRS generator's urllib3 dependency from 2.7.0 to 2.8.0 for
   GHSA-8988-9cw3-xx77, GHSA-vxq7-64xx-v4gw and GHSA-gh4c-6fx4-qh6g.
   Only urllib3 receives a later cutoff; the global cutoff and every other
