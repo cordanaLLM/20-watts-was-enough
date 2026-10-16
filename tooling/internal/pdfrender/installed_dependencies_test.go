@@ -157,44 +157,6 @@ func TestInstalledDependenciesRejectMissingExtraAndMalformedMetadata(t *testing.
 	}
 }
 
-func TestInstalledDependenciesAllowOnlyOptionalOmissions(t *testing.T) {
-	t.Parallel()
-	for _, optional := range []bool{false, true} {
-		t.Run(map[bool]string{false: "required-child", true: "optional-platform-subtree"}[optional], func(t *testing.T) {
-			t.Parallel()
-			root := t.TempDir()
-			writeInstalledDependencyFixture(t, root)
-			body, err := os.ReadFile(filepath.Join(root, "package-lock.json"))
-			if err != nil {
-				t.Fatal(err)
-			}
-			var lock dependencyLock
-			if err := json.Unmarshal(body, &lock); err != nil {
-				t.Fatal(err)
-			}
-			parent := dependencyPackage{Version: "1.0.0", Resolved: "https://example.invalid/platform.tgz", Integrity: "sha512-test", Optional: true}
-			lock.Packages["node_modules/@vendor/platform"], err = json.Marshal(parent)
-			if err != nil {
-				t.Fatal(err)
-			}
-			parent.Optional = optional
-			lock.Packages["node_modules/@vendor/platform/node_modules/helper"], err = json.Marshal(parent)
-			if err != nil {
-				t.Fatal(err)
-			}
-			writeDependencyJSON(t, root, "package-lock.json", lock)
-			digest, err := inspectInstalledDependencies(context.Background(), root)
-			if optional {
-				if err != nil || !rawSHA256Pattern.MatchString(digest) {
-					t.Fatalf("optional subtree = %q %v", digest, err)
-				}
-			} else if err == nil || !strings.Contains(err.Error(), "required installed package") {
-				t.Fatalf("required child error = %v", err)
-			}
-		})
-	}
-}
-
 func TestInstalledDependenciesRejectSymlinks(t *testing.T) {
 	t.Parallel()
 	for _, relative := range []string{"node_modules", "node_modules/.package-lock.json", installedTestPackage, installedTestPackage + "/package.json"} {

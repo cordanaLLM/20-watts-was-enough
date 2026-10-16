@@ -6,13 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/boundedexec"
 )
 
 const (
@@ -155,21 +155,21 @@ func verifySourceRevision(ctx context.Context, root, sourceRef, expected string)
 	}
 	commandContext, cancel := context.WithTimeout(ctx, sourceRevisionTimeout)
 	defer cancel()
-	standardOutput := &boundedOutput{limit: 128}
-	standardError := &boundedOutput{limit: maximumDiagnosticBytes}
+	standardOutput := boundedexec.NewOutput(128)
+	standardError := boundedexec.NewOutput(maximumDiagnosticBytes)
 	command := exec.CommandContext(
 		commandContext,
 		gitExecutable,
 		"-C", root,
 		"rev-parse", "--verify", "HEAD^{commit}",
 	)
-	command.Env = boundedGitEnvironment()
+	command.Env = boundedexec.GitEnvironment()
 	command.Stdout = standardOutput
 	command.Stderr = standardError
 	command.WaitDelay = maximumWaitDelay
 	runError := command.Run()
-	resolvedBytes, outputExceeded := standardOutput.result()
-	diagnostic, diagnosticExceeded := standardError.result()
+	resolvedBytes, outputExceeded := standardOutput.Result()
+	diagnostic, diagnosticExceeded := standardError.Result()
 	if commandContext.Err() != nil {
 		return fmt.Errorf("resolve PDF source revision: %w", commandContext.Err())
 	}
@@ -189,51 +189,6 @@ func verifySourceRevision(ctx context.Context, root, sourceRef, expected string)
 	return nil
 }
 
-func boundedGitEnvironment() []string {
-	environment := []string{
-		"GIT_CONFIG_GLOBAL=" + os.DevNull,
-		"GIT_CONFIG_NOSYSTEM=1",
-		"GIT_OPTIONAL_LOCKS=0",
-		"LANG=C",
-		"LC_ALL=C",
-	}
-	for _, name := range []string{"PATH", "PATHEXT", "SYSTEMROOT", "TEMP", "TMP", "TMPDIR", "WINDIR"} {
-		if value, present := os.LookupEnv(name); present {
-			environment = append(environment, name+"="+value)
-		}
-	}
-	return environment
-}
-
-type boundedOutput struct {
-	mutex    sync.Mutex
-	buffer   bytes.Buffer
-	limit    int
-	exceeded bool
-}
-
-func (output *boundedOutput) Write(body []byte) (int, error) {
-	output.mutex.Lock()
-	defer output.mutex.Unlock()
-	available := output.limit - output.buffer.Len()
-	if available > len(body) {
-		available = len(body)
-	}
-	if available > 0 {
-		_, _ = output.buffer.Write(body[:available])
-	}
-	if available < len(body) {
-		output.exceeded = true
-	}
-	return len(body), nil
-}
-
-func (output *boundedOutput) result() ([]byte, bool) {
-	output.mutex.Lock()
-	defer output.mutex.Unlock()
-	return bytes.Clone(output.buffer.Bytes()), output.exceeded
-}
-
 func (localCommandExecutor) run(ctx context.Context, request commandRequest) ([]byte, error) {
 	return runDockerCommand(ctx, request, nil)
 }
@@ -244,7 +199,7 @@ func runDockerCommand(ctx context.Context, request commandRequest, environment [
 	}
 	commandContext, cancel := context.WithTimeout(ctx, request.timeout)
 	defer cancel()
-	output := &boundedOutput{limit: request.outputSize}
+	output := boundedexec.NewOutput(request.outputSize)
 	command := exec.CommandContext(commandContext, "docker", request.arguments...)
 	command.Dir = request.directory
 	command.Env = environment
@@ -252,7 +207,7 @@ func runDockerCommand(ctx context.Context, request commandRequest, environment [
 	command.Stderr = output
 	command.WaitDelay = maximumWaitDelay
 	err := command.Run()
-	result, exceeded := output.result()
+	result, exceeded := output.Result()
 	if commandContext.Err() != nil {
 		return result, fmt.Errorf("%s: %w", request.operation, commandContext.Err())
 	}

@@ -126,8 +126,8 @@ func checkSBOMStatement(statement, predicate []byte) error {
 		return fmt.Errorf("SBOM original statement: %w", err)
 	}
 	if !bytes.Equal(bytes.TrimSpace(object["subject"]), []byte("null")) ||
-		sbomString(object, "_type") != "https://in-toto.io/Statement/v1" ||
-		sbomString(object, "predicateType") != "https://spdx.dev/Document" ||
+		jsonString(object, "_type") != "https://in-toto.io/Statement/v1" ||
+		jsonString(object, "predicateType") != "https://spdx.dev/Document" ||
 		!bytes.Equal(object["predicate"], predicate) {
 		return errors.New("SBOM statement requires subject:null, exact type URIs, and unchanged predicate bytes")
 	}
@@ -163,14 +163,6 @@ func sbomObject(body []byte, required, optional string) (map[string]json.RawMess
 		}
 	}
 	return object, nil
-}
-
-func sbomString(object map[string]json.RawMessage, key string) string {
-	var value string
-	if err := json.Unmarshal(object[key], &value); err != nil {
-		return ""
-	}
-	return value
 }
 
 func sbomBytesIdentity(body []byte) sbomIdentity {

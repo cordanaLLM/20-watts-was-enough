@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/githubapi"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/repositorymanifest"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
@@ -301,7 +302,7 @@ func decodeLabelPage(response *http.Response) ([]Label, error) {
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		if err := drainBounded(response.Body); err != nil {
+		if err := githubapi.DrainBounded(response.Body, maximumResponseBytes, "GitHub response exceeds its byte limit"); err != nil {
 			return nil, err
 		}
 		return nil, fmt.Errorf("unexpected HTTP status %d", response.StatusCode)
@@ -362,7 +363,7 @@ func mutateLabel(ctx context.Context, client HTTPClient, base *url.URL, options 
 	}
 	defer response.Body.Close()
 	if response.StatusCode != expectedStatus {
-		if err := drainBounded(response.Body); err != nil {
+		if err := githubapi.DrainBounded(response.Body, maximumResponseBytes, "GitHub response exceeds its byte limit"); err != nil {
 			return Label{}, err
 		}
 		return Label{}, fmt.Errorf("synchronize GitHub label %q: unexpected HTTP status %d", label.Name, response.StatusCode)
@@ -419,15 +420,4 @@ func setRequestHeaders(request *http.Request, options Options, hasBody bool) {
 	if hasBody {
 		request.Header.Set("Content-Type", "application/json")
 	}
-}
-
-func drainBounded(reader io.Reader) error {
-	written, err := io.Copy(io.Discard, io.LimitReader(reader, maximumResponseBytes+1))
-	if err != nil {
-		return err
-	}
-	if written > maximumResponseBytes {
-		return errors.New("GitHub response exceeds its byte limit")
-	}
-	return nil
 }

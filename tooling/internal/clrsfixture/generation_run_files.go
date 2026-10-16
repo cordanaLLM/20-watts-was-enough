@@ -1,31 +1,29 @@
 package clrsfixture
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
-	"sort"
+	"slices"
 	"strings"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
 func marshalGenerationJSON(value any, maximum int) ([]byte, error) {
-	var buffer bytes.Buffer
-	encoder := json.NewEncoder(&buffer)
-	encoder.SetEscapeHTML(false)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(value); err != nil {
+	body, err := strictjson.Canonical(value)
+	if err != nil {
 		return nil, err
 	}
-	if buffer.Len() > maximum {
+	if len(body) > maximum {
 		return nil, errors.New("generation JSON exceeds its byte boundary")
 	}
-	return buffer.Bytes(), nil
+	return body, nil
 }
 
 func newGenerationRunBundle(inputs generationRunInputs) (*os.Root, error) {
@@ -60,14 +58,15 @@ func newGenerationRunBundle(inputs generationRunInputs) (*os.Root, error) {
 		bundle.Close()
 		return nil, errors.New("generation output parent changed while creating the fresh bundle")
 	}
-	if err := syncGenerationDirectory(root, "."); err != nil {
+	if err := SyncDirectory(root, "."); err != nil {
 		bundle.Close()
 		return nil, err
 	}
 	return bundle, nil
 }
 
-func syncGenerationDirectory(root *os.Root, path string) error {
+// SyncDirectory syncs and closes a directory opened relative to root.
+func SyncDirectory(root *os.Root, path string) error {
 	directory, err := root.Open(path)
 	if err != nil {
 		return err
@@ -114,7 +113,7 @@ func writeGenerationFile(root *os.Root, path string, body []byte) error {
 	if err != nil || !after.Mode().IsRegular() || !os.SameFile(before, after) || after.Size() != int64(len(body)) {
 		return errors.New("generation evidence identity changed while writing")
 	}
-	return syncGenerationDirectory(root, filepath.Dir(path))
+	return SyncDirectory(root, filepath.Dir(path))
 }
 
 func writeGenerationInputs(root *os.Root, inputs generationRunInputs, report GeneratorFixtureRun) error {
@@ -134,7 +133,7 @@ func writeGenerationInputs(root *os.Root, inputs generationRunInputs, report Gen
 			return err
 		}
 	}
-	return syncGenerationDirectory(root, ".")
+	return SyncDirectory(root, ".")
 }
 
 type generationBundleSnapshot struct {
@@ -211,7 +210,7 @@ func loadGenerationEvidence(ctx context.Context, inputs generationRunInputs, com
 	for _, path := range inputs.invocation.ExpectedPaths {
 		limits["dataset/"+path] = inputs.authority.plan.Output.MaxDatasetBytes
 	}
-	for _, path := range sortedGenerationKeys(limits) {
+	for _, path := range slices.Sorted(maps.Keys(limits)) {
 		body, file, err := readComparisonFile(ctx, snapshot.root, path, limits[path])
 		if err != nil {
 			return snapshot, err
@@ -224,15 +223,6 @@ func loadGenerationEvidence(ctx context.Context, inputs generationRunInputs, com
 	return snapshot, nil
 }
 
-func sortedGenerationKeys[V any](values map[string]V) []string {
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
 func recheckGenerationBundle(ctx context.Context, before generationBundleSnapshot, inputs generationRunInputs) error {
 	after, err := generationBundleInventory(ctx, before.root, inputs, before.complete)
 	if err != nil {
@@ -243,7 +233,7 @@ func recheckGenerationBundle(ctx context.Context, before generationBundleSnapsho
 			return errors.New("generation bundle directory identity changed while checking")
 		}
 	}
-	for _, path := range sortedGenerationKeys(before.files) {
+	for _, path := range slices.Sorted(maps.Keys(before.files)) {
 		prior := before.files[path]
 		_, current, err := readComparisonFile(ctx, before.root, path, int64(len(before.bodies[path])))
 		if err != nil {

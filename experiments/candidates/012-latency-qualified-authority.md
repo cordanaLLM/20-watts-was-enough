@@ -163,9 +163,6 @@ flowchart LR
     N --> I
 ```
 
-Editable source:
-[compromise-bounded-authority.mmd](../../assets/diagrams/compromise-bounded-authority.mmd).
-
 ## Strongest nulls
 
 - coordinated primary and backup protection;

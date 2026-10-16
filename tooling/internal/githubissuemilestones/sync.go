@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/githubapi"
 )
 
 const (
@@ -285,7 +287,7 @@ func decodeIssueResponse(response *http.Response, number, expectedStatus int, op
 	}
 	defer response.Body.Close()
 	if response.StatusCode != expectedStatus {
-		if err := drainBounded(response.Body); err != nil {
+		if err := githubapi.DrainBounded(response.Body, maximumResponseBytes, "GitHub response exceeds its byte limit"); err != nil {
 			return remoteIssue{}, err
 		}
 		return remoteIssue{}, fmt.Errorf("%s GitHub issue %d: unexpected HTTP status %d", operation, number, response.StatusCode)
@@ -357,15 +359,4 @@ func newRequest(
 		request.Header.Set("Content-Type", "application/json")
 	}
 	return request, nil
-}
-
-func drainBounded(reader io.Reader) error {
-	written, err := io.Copy(io.Discard, io.LimitReader(reader, maximumResponseBytes+1))
-	if err != nil {
-		return err
-	}
-	if written > maximumResponseBytes {
-		return errors.New("GitHub response exceeds its byte limit")
-	}
-	return nil
 }

@@ -32,15 +32,44 @@ func TestValidateAssetInventoryAcceptsClosedPublicationAssets(t *testing.T) {
 	root := t.TempDir()
 	writeAsset(t, root, "book.pdf", "book")
 	writeAsset(t, root, "oci-images.json", `{}`)
+	writeAsset(t, root, checksumBundleName, `{}`)
 	writeChecksums(t, root, []string{"book.pdf", "oci-images.json"})
 
 	got, err := ValidateAssetInventory(root, PublicationAssets)
 	if err != nil {
 		t.Fatalf("ValidateAssetInventory() error = %v", err)
 	}
-	want := []string{"SHA256SUMS", "book.pdf", "oci-images.json"}
+	want := []string{"SHA256SUMS", checksumBundleName, "book.pdf", "oci-images.json"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("ValidateAssetInventory() = %v, want %v", got, want)
+	}
+}
+
+func TestPublicationInventoryRequiresABoundedDetachedChecksumBundle(t *testing.T) {
+	for _, size := range []int{-1, 0, 1, maximumChecksumBundleBytes, maximumChecksumBundleBytes + 1} {
+		t.Run(fmt.Sprint(size), func(t *testing.T) {
+			root := t.TempDir()
+			writeAsset(t, root, ociManifestName, `{}`)
+			writeChecksums(t, root, []string{ociManifestName})
+			if size >= 0 {
+				writeAsset(t, root, checksumBundleName, strings.Repeat("x", size))
+			}
+			_, err := ValidateAssetInventory(root, PublicationAssets)
+			valid := size > 0 && size <= maximumChecksumBundleBytes
+			if (err == nil) != valid {
+				t.Fatalf("size %d: err=%v, valid=%t", size, err, valid)
+			}
+		})
+	}
+}
+
+func TestChecksumManifestRejectsItsDetachedSignature(t *testing.T) {
+	root := t.TempDir()
+	writeAsset(t, root, checksumBundleName, `{}`)
+	writeChecksums(t, root, []string{checksumBundleName})
+	_, err := ValidateAssetInventory(root, SourceAssets)
+	if err == nil || !strings.Contains(err.Error(), "must not list its detached signature") {
+		t.Fatalf("err=%v, want detached signature rejection", err)
 	}
 }
 
@@ -248,12 +277,28 @@ func TestChecksumBoundsIncludeSHA256SUMSAndReserveTheFinalOCIIdentity(t *testing
 		t.Fatalf("source parse error = %v, want reserved OCI slot rejection", err)
 	}
 
-	maximumSourceLines := slices.Clone(tooManySourceLines[:maximumReleaseAttachments-2])
+	maximumSourceLines := slices.Clone(tooManySourceLines[:maximumReleaseAttachments-3])
 	if _, _, err := parseChecksumManifest(
 		[]byte(strings.Join(maximumSourceLines, "\n")+"\n"),
 		SourceAssets,
 	); err != nil {
 		t.Fatalf("maximum source parse error = %v", err)
+	}
+	// SHA256SUMS, its signature bundle and oci-images.json each hold one of
+	// the attachment slots, so one more source line must not fit.
+	oneOverSourceLines := slices.Clone(tooManySourceLines[:maximumReleaseAttachments-2])
+	if _, _, err := parseChecksumManifest(
+		[]byte(strings.Join(oneOverSourceLines, "\n")+"\n"),
+		SourceAssets,
+	); err == nil || !strings.Contains(err.Error(), "bounded release asset count") {
+		t.Fatalf("source parse error = %v, want signature-bundle slot rejection", err)
+	}
+	oneOverPublicationLines := append(slices.Clone(oneOverSourceLines), strings.Repeat("b", 64)+"  oci-images.json")
+	if _, _, err := parseChecksumManifest(
+		[]byte(strings.Join(oneOverPublicationLines, "\n")+"\n"),
+		PublicationAssets,
+	); err == nil || !strings.Contains(err.Error(), "bounded release asset count") {
+		t.Fatalf("publication parse error = %v, want signature-bundle slot rejection", err)
 	}
 
 	publicationLines := slices.Clone(maximumSourceLines)
