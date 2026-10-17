@@ -158,6 +158,16 @@
       ]
     },
     {
+      "id": "global-workstation-script-runner",
+      "paths": [
+        "scripts/run-workstation-scripts.mjs",
+        "scripts/run-workstation-scripts.test.mjs"
+      ],
+      "lanes": [
+        "full"
+      ]
+    },
+    {
       "id": "go-build",
       "paths": [
         "tooling/cmd/build-release/**"

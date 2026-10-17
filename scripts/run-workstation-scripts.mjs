@@ -6,6 +6,27 @@ import { pathToFileURL } from "node:url";
 const SCRIPT_NAME_PATTERN = /^test:workstation:[a-z0-9:-]+$/u;
 const MAX_SCRIPTS_COUNT = 19;
 const DEFAULT_TIMEOUT_MS = 30 * 60 * 1000;
+const MAX_TIMEOUT_MS = 2147483647;
+
+export function parseTimeoutMs(rawValue) {
+  if (rawValue === undefined) {
+    return DEFAULT_TIMEOUT_MS;
+  }
+  if (typeof rawValue === "number") {
+    if (!Number.isSafeInteger(rawValue) || rawValue < 1 || rawValue > MAX_TIMEOUT_MS) {
+      throw new Error(`invalid WORKSTATION_SCRIPT_TIMEOUT_MS: ${rawValue}`);
+    }
+    return rawValue;
+  }
+  if (typeof rawValue !== "string" || !/^[1-9]\d*$/u.test(rawValue)) {
+    throw new Error(`invalid WORKSTATION_SCRIPT_TIMEOUT_MS: ${rawValue}`);
+  }
+  const parsed = Number(rawValue);
+  if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > MAX_TIMEOUT_MS) {
+    throw new Error(`invalid WORKSTATION_SCRIPT_TIMEOUT_MS: ${rawValue}`);
+  }
+  return parsed;
+}
 
 export function parseAndValidateScriptNames(rawScripts, definedScripts) {
   if (typeof rawScripts !== "string" || !rawScripts.trim()) {
@@ -44,6 +65,9 @@ export function loadPackageScripts(workingDirectory = process.cwd()) {
 }
 
 function signalProcessGroup(pid, signal) {
+  if (pid === undefined) {
+    return;
+  }
   try {
     process.kill(-pid, signal);
   } catch (error) {
@@ -54,48 +78,58 @@ function signalProcessGroup(pid, signal) {
   }
 }
 
-function terminateProcessGroup(child) {
-  if (process.platform === "win32") {
-    child.kill("SIGTERM");
-    return;
-  }
-  signalProcessGroup(child.pid, "SIGTERM");
-  setTimeout(() => signalProcessGroup(child.pid, "SIGKILL"), 5000).unref();
-}
-
 export function runSingleScript(scriptName, {
   workingDirectory = process.cwd(),
   timeoutMs = DEFAULT_TIMEOUT_MS,
   stdio = "inherit",
 } = {}) {
   return new Promise((resolve) => {
-    const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
     let timedOut = false;
     let settled = false;
-    const child = spawn(npmExecutable, ["run", scriptName], {
+    let killTimer = null;
+
+    const child = spawn("npm", ["run", scriptName], {
       cwd: workingDirectory,
       shell: false,
       stdio,
-      detached: process.platform !== "win32",
+      detached: true,
     });
 
-    const timer = setTimeout(() => {
+    const timeoutTimer = setTimeout(() => {
+      if (settled) return;
       timedOut = true;
-      terminateProcessGroup(child);
+      signalProcessGroup(child.pid, "SIGTERM");
+      killTimer = setTimeout(() => {
+        if (!settled) {
+          signalProcessGroup(child.pid, "SIGKILL");
+        }
+      }, 5000);
+      killTimer.unref();
     }, timeoutMs);
-    timer.unref();
+    timeoutTimer.unref();
 
     child.once("error", (error) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      clearTimeout(timeoutTimer);
+      if (killTimer !== null) {
+        clearTimeout(killTimer);
+        killTimer = null;
+      }
       resolve({ exitCode: 1, timedOut: false, error: error.message });
     });
 
     child.once("close", (code, signal) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      clearTimeout(timeoutTimer);
+      if (killTimer !== null) {
+        clearTimeout(killTimer);
+        killTimer = null;
+      }
+      if (timedOut) {
+        signalProcessGroup(child.pid, "SIGKILL");
+      }
       const exitCode = timedOut ? 124 : (Number.isInteger(code) ? code : 1);
       resolve({ exitCode, timedOut, signal: signal ?? null });
     });
@@ -116,12 +150,26 @@ export function recordStepSummary(failures, summaryPath = process.env.GITHUB_STE
 export async function runWorkstationScripts({
   rawScripts = process.env.SCRIPTS,
   workingDirectory = process.cwd(),
-  timeoutMs = Number(process.env.WORKSTATION_SCRIPT_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS,
+  timeoutMs = process.env.WORKSTATION_SCRIPT_TIMEOUT_MS,
   summaryPath = process.env.GITHUB_STEP_SUMMARY,
   stdio = "inherit",
+  platform = process.platform,
   log = (msg) => process.stdout.write(`${msg}\n`),
   logError = (msg) => process.stderr.write(`${msg}\n`),
 } = {}) {
+  if (platform === "win32") {
+    logError("workstation script runner supports POSIX process groups only; CI runs it on Linux");
+    return 2;
+  }
+
+  let parsedTimeoutMs;
+  try {
+    parsedTimeoutMs = parseTimeoutMs(timeoutMs);
+  } catch (error) {
+    logError(error.message);
+    return 2;
+  }
+
   let definedScripts;
   try {
     definedScripts = loadPackageScripts(workingDirectory);
@@ -140,7 +188,11 @@ export async function runWorkstationScripts({
 
   const failures = [];
   for (const name of names) {
-    const outcome = await runSingleScript(name, { workingDirectory, timeoutMs, stdio });
+    const outcome = await runSingleScript(name, {
+      workingDirectory,
+      timeoutMs: parsedTimeoutMs,
+      stdio,
+    });
     if (outcome.exitCode === 0) {
       log(`workstation script passed: ${name}`);
     } else {

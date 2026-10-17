@@ -6,6 +6,8 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { runWorkstationScripts } from "./run-workstation-scripts.mjs";
+
 const runnerScript = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "run-workstation-scripts.mjs");
 
 function createStubWorkspace(scripts) {
@@ -155,4 +157,91 @@ test("boundary: single script execution succeeds", () => {
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("negative: invalid timeout values exit 2 and run nothing", () => {
+  const invalidValues = ["-1", "3000000000", "abc", "0"];
+  for (const value of invalidValues) {
+    const dir = createStubWorkspace({
+      "test:workstation:sentinel": "node -e 'require(\"node:fs\").writeFileSync(\"sentinel.txt\", \"ran\")'",
+    });
+    const sentinelPath = path.join(dir, "sentinel.txt");
+    try {
+      const result = spawnSync(process.execPath, [runnerScript], {
+        cwd: dir,
+        env: {
+          ...process.env,
+          SCRIPTS: "test:workstation:sentinel",
+          WORKSTATION_SCRIPT_TIMEOUT_MS: value,
+        },
+        encoding: "utf8",
+      });
+      const output = `${result.stdout}\n${result.stderr}`;
+      assert.strictEqual(result.status, 2, `expected status 2 for timeout ${value}`);
+      assert.ok(!fs.existsSync(sentinelPath), `sentinel script must not have run for timeout ${value}`);
+      assert.match(
+        output,
+        new RegExp(`invalid WORKSTATION_SCRIPT_TIMEOUT_MS: ${value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "u")
+      );
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }
+});
+
+test("negative: a hung script whose descendant ignores SIGTERM is killed and the next script still passes", () => {
+  const dir = createStubWorkspace({
+    "test:workstation:stub-descendant":
+      "node -e \"const { spawn } = require('node:child_process'); const fs = require('node:fs'); const child = spawn(process.execPath, ['-e', 'process.on(\\\"SIGTERM\\\",()=>{}); setTimeout(()=>{},60000)'], { stdio: 'ignore' }); fs.writeFileSync('descendant.pid', String(child.pid)); setTimeout(()=>{}, 60000);\"",
+    "test:workstation:stub-next":
+      "node -e \"const fs = require('node:fs'); const pid = Number(fs.readFileSync('descendant.pid', 'utf8')); try { process.kill(pid, 0); process.exit(42); } catch (err) { process.exit(0); }\"",
+  });
+  const pidPath = path.join(dir, "descendant.pid");
+  try {
+    const started = Date.now();
+    const result = spawnSync(process.execPath, [runnerScript], {
+      cwd: dir,
+      env: {
+        ...process.env,
+        SCRIPTS: "test:workstation:stub-descendant test:workstation:stub-next",
+        WORKSTATION_SCRIPT_TIMEOUT_MS: "1000",
+      },
+      encoding: "utf8",
+      timeout: 30000,
+    });
+    const output = `${result.stdout}\n${result.stderr}`;
+    assert.strictEqual(result.status, 1);
+    assert.ok(Date.now() - started < 30000, "runner must not wait for the hung script");
+    assert.match(output, /workstation script failed: test:workstation:stub-descendant \(exit 124\)/u);
+    assert.match(output, /workstation script passed: test:workstation:stub-next/u);
+    assert.ok(fs.existsSync(pidPath), "descendant pid must have been recorded");
+    const descendantPid = Number(fs.readFileSync(pidPath, "utf8"));
+    assert.throws(() => process.kill(descendantPid, 0), { code: "ESRCH" });
+  } finally {
+    if (fs.existsSync(pidPath)) {
+      try {
+        const descendantPid = Number(fs.readFileSync(pidPath, "utf8"));
+        process.kill(descendantPid, "SIGKILL");
+      } catch (cleanupError) {
+        if (cleanupError?.code !== "ESRCH") {
+          process.stderr.write(`cleanup failed: ${cleanupError?.message}\n`);
+        }
+      }
+    }
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("negative: win32 platform refusal logs reason and returns 2", async () => {
+  const errors = [];
+  const status = await runWorkstationScripts({
+    platform: "win32",
+    rawScripts: "test:workstation:stub",
+    logError: (msg) => errors.push(msg),
+  });
+  assert.strictEqual(status, 2);
+  assert.ok(
+    errors.includes("workstation script runner supports POSIX process groups only; CI runs it on Linux"),
+    "must log POSIX process groups only refusal"
+  );
 });

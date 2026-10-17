@@ -193,6 +193,8 @@ const requiredFiles = [
   "scripts/install-locked-npm.mjs",
   "scripts/install-locked-npm.test.mjs",
   "scripts/npm-runtime-lock.json",
+  "scripts/run-workstation-scripts.mjs",
+  "scripts/run-workstation-scripts.test.mjs",
   "scripts/validate-node-runtime.mjs",
   "tooling/AGENTS.md",
   "tooling/Dockerfile",
