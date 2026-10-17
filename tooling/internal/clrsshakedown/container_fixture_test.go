@@ -29,7 +29,7 @@ type containerDockerFixture struct {
 func newContainerFixture(t *testing.T) *containerDockerFixture {
 	t.Helper()
 	if runtime.GOOS != "linux" {
-		t.Skip("container execution supports only Linux operators")
+		t.Skip("runContainer refuses non-Linux operators; TestContainerRefusesNonLinuxOperator covers that path")
 	}
 	options := ContainerOptions{Options: fixtureOptions(t), ImageID: "sha256:" + strings.Repeat("a", 64)}
 	return &containerDockerFixture{t: t, options: options, containers: map[string]*containerInspection{}}
