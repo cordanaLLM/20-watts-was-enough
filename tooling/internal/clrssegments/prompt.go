@@ -253,7 +253,9 @@ func pinnedDirection(first, second, probe point) float64 {
 	probeY := probe.y - first.y
 	segmentX := second.x - first.x
 	segmentY := second.y - first.y
-	return probeX*segmentY - segmentX*probeY
+	// Explicit conversions forbid fused multiply-add (Go spec, Floating-point
+	// operators); arm64 would otherwise turn an exact zero into a rounding residue.
+	return float64(probeX*segmentY) - float64(segmentX*probeY)
 }
 
 func oppositeSigns(left, right float64) bool {
@@ -339,7 +341,8 @@ func referenceIntersects(ctx context.Context, input geometryInput) (bool, error)
 }
 
 func conventionalOrientation(first, second, probe point) float64 {
-	return (second.x-first.x)*(probe.y-first.y) - (second.y-first.y)*(probe.x-first.x)
+	// Explicit conversions forbid fused multiply-add, as in pinnedDirection.
+	return float64((second.x-first.x)*(probe.y-first.y)) - float64((second.y-first.y)*(probe.x-first.x))
 }
 
 // These verifier-side predicates deliberately do not reuse the candidate's

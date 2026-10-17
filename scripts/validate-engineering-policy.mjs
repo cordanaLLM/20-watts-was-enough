@@ -41,7 +41,7 @@ const sbomGenerator = "generator=docker.io/docker/buildkit-syft-scanner@sha256:a
 
 const buildxPolicy = Object.freeze({
   buildkit: "image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8",
-  version: "v0.37.2",
+  version: "v0.38.0",
 });
 
 const releaseMutationGuard = "steps.release-preflight.outputs.release_state != 'published'";
@@ -381,6 +381,11 @@ export function validateWorkflowObject(workflow, relativePath = "workflow.yml") 
   return findings;
 }
 
+const publicRepositoryExpectedJobRunners = new Map([
+  ["lane-go-windows", "windows-2025"],
+  ["lane-go-macos", "macos-26"],
+]);
+
 export function validatePublicRepositoryRunnerWorkflowObject(
   workflow,
   relativePath = "workflow.yml",
@@ -388,9 +393,10 @@ export function validatePublicRepositoryRunnerWorkflowObject(
   const findings = [];
   for (const [jobName, job] of Object.entries(workflow?.jobs ?? {})) {
     if (job?.uses === "./.github/workflows/release-build.yml") continue;
-    if (job?.["runs-on"] !== "ubuntu-26.04") {
+    const expectedRunner = publicRepositoryExpectedJobRunners.get(jobName) ?? "ubuntu-26.04";
+    if (job?.["runs-on"] !== expectedRunner) {
       findings.push(
-        `${relativePath}: public-repository job ${jobName} must run on GitHub-hosted ubuntu-26.04`,
+        `${relativePath}: public-repository job ${jobName} must run on GitHub-hosted ${expectedRunner}`,
       );
     }
   }
@@ -1170,8 +1176,20 @@ export function validateCiGoRaceAndPlatformWorkflowObject(
       findings.push(`${relativePath}: ${jobName} must type-check the Windows and macOS builds after the Go tests`);
     }
   }
+  // The native lanes run the portable Go tests on the hosts themselves
+  // (Decision 0103); a lane reduced to vet or an allowed failure proves nothing.
+  for (const jobName of ["lane-go-windows", "lane-go-macos"]) {
+    const lane = workflow?.jobs?.[jobName];
+    const steps = Array.isArray(lane?.steps) ? lane.steps : [];
+    const testIndex = unconditionalStepIndex(steps, (step) => step?.run?.trim() === crossPlatformGoTestCommand);
+    if (!continueOnErrorIsDisabled(lane) || testIndex < 0) {
+      findings.push(`${relativePath}: ${jobName} must run the portable Go tests unconditionally`);
+    }
+  }
   return findings;
 }
+
+const crossPlatformGoTestCommand = "go -C tooling test ./...";
 
 const pdfReproducibilitySetupAction ="docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069";
 const pdfReproducibilityBuildKit = "image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8";
@@ -1269,7 +1287,7 @@ function pdfReproducibilitySetupIsExact(step) {
     && step?.if === undefined
     && continueOnErrorIsDisabled(step)
     && Object.keys(step?.with ?? {}).length === 2
-    && step.with.version === "v0.37.2"
+    && step.with.version === "v0.38.0"
     && step.with["driver-opts"] === pdfReproducibilityBuildKit;
 }
 
@@ -1604,11 +1622,27 @@ function validateCiImpactLaneJobs(jobs, relativePath, findings) {
     jobs["impact-common"]?.if === impactMode,
     `${relativePath}: impact-common must run for every impact plan`,
   );
-  for (const lane of ["go", "release", "research", "site"]) {
+  const impactLanes = [
+    ["lane-go", "go"],
+    ["lane-release", "release"],
+    ["lane-research", "research"],
+    ["lane-site", "site"],
+  ];
+  for (const [jobName, selector] of impactLanes) {
     recordExpectation(
       findings,
-      jobs[`lane-${lane}`]?.if === `${impactMode} && needs.impact-plan.outputs.${lane} == 'true'`,
-      `${relativePath}: lane-${lane} must use only its fixed Go selector`,
+      jobs[jobName]?.if === `${impactMode} && needs.impact-plan.outputs.${selector} == 'true'`,
+      `${relativePath}: ${jobName} must use only its fixed Go selector`,
+    );
+  }
+  // Native Go lanes also run in full plans, which shared-authority changes
+  // select even when Go changed (Decision 0103).
+  for (const jobName of ["lane-go-windows", "lane-go-macos"]) {
+    recordExpectation(
+      findings,
+      jobs[jobName]?.if
+        === `needs.impact-plan.outputs.mode == 'full' || (${impactMode} && needs.impact-plan.outputs.go == 'true')`,
+      `${relativePath}: ${jobName} must run for full plans or its fixed Go selector`,
     );
   }
   recordExpectation(
@@ -1709,6 +1743,8 @@ const ciImpactSuccessExpectedNeeds = [
   "quality-full",
   "impact-common",
   "lane-go",
+  "lane-go-windows",
+  "lane-go-macos",
   "lane-release",
   "pdf-renderer-reproducibility",
   "lane-research",
@@ -1735,6 +1771,8 @@ const ciImpactSuccessExpectedEnvironment = {
   RESULT_QUALITY_FULL: "${{ needs.quality-full.result }}",
   RESULT_IMPACT_COMMON: "${{ needs.impact-common.result }}",
   RESULT_GO: "${{ needs.lane-go.result }}",
+  RESULT_GO_WINDOWS: "${{ needs.lane-go-windows.result }}",
+  RESULT_GO_MACOS: "${{ needs.lane-go-macos.result }}",
   RESULT_RELEASE: "${{ needs.lane-release.result }}",
   RESULT_RENDERER: "${{ needs.pdf-renderer-reproducibility.result }}",
   RESULT_RESEARCH: "${{ needs.lane-research.result }}",
@@ -1779,6 +1817,10 @@ function validateCiImpactSuccessScript(successSource, relativePath, findings) {
       'require_state workstation-artifacts "$RESULT_WORKSTATION_ARTIFACTS" success',
       'require_state impact-common "$RESULT_IMPACT_COMMON" success',
       'require_selection lane-go "$RESULT_GO" "$SELECT_GO"',
+      'require_selection lane-go-windows "$RESULT_GO_WINDOWS" "$SELECT_GO"',
+      'require_selection lane-go-macos "$RESULT_GO_MACOS" "$SELECT_GO"',
+      'require_state lane-go-windows "$RESULT_GO_WINDOWS" success',
+      'require_state lane-go-macos "$RESULT_GO_MACOS" success',
       'require_selection lane-release "$RESULT_RELEASE" "$SELECT_RELEASE"',
       'require_selection pdf-renderer-reproducibility "$RESULT_RENDERER" "$SELECT_RENDERER"',
       'require_selection lane-research "$RESULT_RESEARCH" "$SELECT_RESEARCH"',
