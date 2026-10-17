@@ -49,6 +49,9 @@ jobs:
         with:
           path: dist-github-pages
           include-hidden-files: true
+          # restore-verified-site redeploys this artifact when a later
+          # deployment fails public verification.
+          retention-days: 90
 
   deploy:
     permissions:
@@ -95,3 +98,55 @@ jobs:
           path: public-transport-observation.txt
           if-no-files-found: error
           retention-days: 30
+
+  restore-verified-site:
+    name: Restore the last verified site
+    # A deployment that fails public verification is replaced with the
+    # artifact of the last run whose verification passed.
+    needs: [deploy, verify-public-transport]
+    if: ${{ always() && needs.deploy.result == 'success' && needs.verify-public-transport.result == 'failure' }}
+    permissions:
+      actions: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.restore.outputs.page_url }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - name: Find the last verified run
+        id: verified
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          run=$(gh api "repos/$REPOSITORY/actions/workflows/github-pages.yml/runs?branch=main&event=push&status=success&per_page=1" \
+            --jq '.workflow_runs[0] | "\(.id) \(.head_sha)"')
+          if [ -z "$run" ]; then
+            echo "::error::No verified Pages run exists; the failed deployment stays live."
+            exit 1
+          fi
+          read -r run_id head_sha <<< "$run"
+          echo "run-id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "Restoring the site of run $run_id (commit $head_sha)." | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Download the verified artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: github-pages
+          run-id: ${{ steps.verified.outputs.run-id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/verified
+      - name: Stage the verified artifact for deployment
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: github-pages-verified
+          path: ${{ runner.temp }}/verified/artifact.tar
+          if-no-files-found: error
+          retention-days: 1
+      - name: Deploy the verified site
+        id: restore
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
+        with:
+          artifact_name: github-pages-verified

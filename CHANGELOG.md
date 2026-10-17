@@ -18,6 +18,7 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- A Pages deployment that fails the public-transport check no longer stays live: the `restore-verified-site` job redeploys the artifact of the last run whose verification passed, and the build keeps that artifact for 90 days instead of one. `npm run validate:policy` refuses a workflow without the restore job or with a bypass in it (#237).
 - The Fixture 019 runtime moves from CPython 3.14.8 to 3.15.0, a minor-version
   move rather than a bug-fix release. NumPy stays at 2.5.4 and moves to its
   CPython 3.15 wheel, whose single approved digest was read from PyPI on
