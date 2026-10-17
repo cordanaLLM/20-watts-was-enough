@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
@@ -95,7 +96,7 @@ type dockerArchiveEntry struct {
 
 func projectBaseArchive(ctx context.Context, archivePath, layoutRoot string, authority checkedAuthority) (imageIdentity, error) {
 	contract := authority.contract
-	if _, err := os.Lstat(layoutRoot); !errors.Is(err, os.ErrNotExist) {
+	if _, err := fileidentity.Lstat(layoutRoot); !errors.Is(err, os.ErrNotExist) {
 		if err == nil {
 			return imageIdentity{}, errors.New("base OCI projection root already exists")
 		}
@@ -378,7 +379,7 @@ func (reader *countingReader) Read(body []byte) (int, error) {
 }
 
 func openBoundedRegular(path string, maximum int64, label string) (*os.File, error) {
-	information, err := os.Lstat(path)
+	information, err := fileidentity.Lstat(path)
 	if err != nil || !information.Mode().IsRegular() || information.Mode()&os.ModeSymlink != 0 ||
 		information.Size() <= 0 || information.Size() > maximum {
 		return nil, fmt.Errorf("%s must be a regular non-symlink file between 1 and %d bytes", label, maximum)
@@ -397,7 +398,7 @@ func openBoundedRegular(path string, maximum int64, label string) (*os.File, err
 
 func verifyOpenedRegular(path string, file *os.File, size int64, label string) error {
 	opened, err := file.Stat()
-	current, currentErr := os.Lstat(path)
+	current, currentErr := fileidentity.Lstat(path)
 	if err != nil || currentErr != nil || !opened.Mode().IsRegular() || !current.Mode().IsRegular() ||
 		!os.SameFile(opened, current) || opened.Mode() != current.Mode() || opened.Size() != size || current.Size() != size ||
 		!opened.ModTime().Equal(current.ModTime()) {

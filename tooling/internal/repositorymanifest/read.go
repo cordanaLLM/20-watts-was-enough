@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 )
 
 const maximumAllowedBytes = 16 << 20
@@ -57,7 +59,7 @@ func Read(root, relativePath string, maximumBytes int64) ([]byte, error) {
 }
 
 func realDirectoryIdentity(path, label string) (os.FileInfo, error) {
-	information, err := os.Lstat(path)
+	information, err := fileidentity.Lstat(path)
 	if err != nil {
 		return nil, fmt.Errorf("inspect %s: %w", label, err)
 	}
@@ -75,7 +77,7 @@ func realDirectoryIdentity(path, label string) (os.FileInfo, error) {
 }
 
 func unchangedDirectoryIdentity(path string, expected os.FileInfo, label string) error {
-	current, err := os.Lstat(path)
+	current, err := fileidentity.Lstat(path)
 	if err != nil || !current.IsDir() || current.Mode()&os.ModeSymlink != 0 || !os.SameFile(expected, current) {
 		return fmt.Errorf("%s changed while the manifest was read", label)
 	}
@@ -83,7 +85,7 @@ func unchangedDirectoryIdentity(path string, expected os.FileInfo, label string)
 }
 
 func readStableRegularFile(path string, maximumBytes int64, afterRead func() error) ([]byte, error) {
-	before, err := os.Lstat(path)
+	before, err := fileidentity.Lstat(path)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +132,7 @@ func readStableRegularFile(path string, maximumBytes int64, afterRead func() err
 		!unchangedRegularFile(readState, confirmedState) {
 		return nil, errors.New("manifest changed while it was read")
 	}
-	after, err := os.Lstat(path)
+	after, err := fileidentity.Lstat(path)
 	if err != nil || after.Mode()&os.ModeSymlink != 0 || !unchangedRegularFile(confirmedState, after) {
 		return nil, errors.New("manifest changed while it was read")
 	}
