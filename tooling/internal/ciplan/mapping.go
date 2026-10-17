@@ -36,6 +36,7 @@ type WorkstationJob struct {
 	Artifact     string
 	Script       string
 	CreationRank int
+	Pack         string
 }
 
 type laneDefinition struct {

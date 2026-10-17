@@ -16,6 +16,7 @@ func TestParseWorkstationCatalogueRejectsAmbiguousAndMalformedAuthority(t *testi
 		"invalid artifact": strings.Replace(valid, `"artifact":"fixture-007"`, `"artifact":"fixture/007"`, 1),
 		"invalid script":   strings.Replace(valid, "test:workstation:fixture-007", "postinstall", 1),
 		"invalid rank":     strings.Replace(valid, `"creation_rank":1`, `"creation_rank":2`, 1),
+		"invalid pack":     strings.Replace(valid, `"creation_rank":1`, `"creation_rank":1,"pack":"invalid"`, 1),
 		"repeated core":    strings.Replace(valid, "test:workstation:fixture-007", "test:workstation:core", 1),
 		"trailing data":    valid + `{}`,
 		"oversized":        strings.Repeat(" ", maximumWorkstationCatalogueBytes+1),

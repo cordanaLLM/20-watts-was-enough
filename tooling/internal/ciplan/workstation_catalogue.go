@@ -28,6 +28,7 @@ type workstationCatalogueJob struct {
 	Artifact     string `json:"artifact"`
 	Script       string `json:"script"`
 	CreationRank int    `json:"creation_rank"`
+	Pack         string `json:"pack,omitempty"`
 }
 
 var (
@@ -94,6 +95,9 @@ func validateWorkstationCatalogue(document workstationCatalogueDocument) error {
 				index+1,
 			)
 		}
+		if job.Pack != "" && job.Pack != "short" {
+			return fmt.Errorf("workstation catalogue job %q has invalid pack %q, want \"\" or \"short\"", job.Artifact, job.Pack)
+		}
 		if _, duplicate := seenArtifacts[job.Artifact]; duplicate {
 			return fmt.Errorf("workstation catalogue artifact is repeated: %q", job.Artifact)
 		}
@@ -114,7 +118,7 @@ func workstationLaneDefinitions(document workstationCatalogueDocument) map[strin
 	for _, entry := range document.Jobs {
 		definition := definitions[entry.Lane]
 		definition.WorkstationJobs = append(definition.WorkstationJobs, WorkstationJob{
-			Artifact: entry.Artifact, Script: entry.Script, CreationRank: entry.CreationRank,
+			Artifact: entry.Artifact, Script: entry.Script, CreationRank: entry.CreationRank, Pack: entry.Pack,
 		})
 		definitions[entry.Lane] = definition
 	}
@@ -130,7 +134,7 @@ func WorkstationCatalogue() (string, []WorkstationJob, error) {
 	jobs := make([]WorkstationJob, len(embeddedWorkstationCatalogue.Jobs))
 	for index, entry := range embeddedWorkstationCatalogue.Jobs {
 		jobs[index] = WorkstationJob{
-			Artifact: entry.Artifact, Script: entry.Script, CreationRank: entry.CreationRank,
+			Artifact: entry.Artifact, Script: entry.Script, CreationRank: entry.CreationRank, Pack: entry.Pack,
 		}
 	}
 	return embeddedWorkstationCatalogue.CoreScript, jobs, nil

@@ -30,25 +30,21 @@ func TestProjectEmitsClosedFullSemanticsAndEveryWorkstationJob(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantJobs := []workstationMatrixEntry{
-		{Artifact: "fixture-026-shard-6", Script: "test:workstation:fixture-026:shard-6"},
-		{Artifact: "fixture-026-shard-2", Script: "test:workstation:fixture-026:shard-2"},
-		{Artifact: "fixture-026-shard-4", Script: "test:workstation:fixture-026:shard-4"},
-		{Artifact: "fixture-026-shard-1", Script: "test:workstation:fixture-026:shard-1"},
-		{Artifact: "fixture-026-shard-3", Script: "test:workstation:fixture-026:shard-3"},
-		{Artifact: "fixture-026-shard-5", Script: "test:workstation:fixture-026:shard-5"},
-		{Artifact: "fixture-029-shard-2", Script: "test:workstation:fixture-029:shard-2"},
-		{Artifact: "fixture-029-shard-1", Script: "test:workstation:fixture-029:shard-1"},
-		{Artifact: "fixture-026-shard-8", Script: "test:workstation:fixture-026:shard-8"},
-		{Artifact: "candidate-010", Script: "test:workstation:candidate-010"},
-		{Artifact: "fixture-026-shard-7", Script: "test:workstation:fixture-026:shard-7"},
-		{Artifact: "fixture-019", Script: "test:workstation:fixture-019"},
-		{Artifact: "fixture-024", Script: "test:workstation:fixture-024"},
-		{Artifact: "fixture-012", Script: "test:workstation:fixture-012"},
-		{Artifact: "fixture-022", Script: "test:workstation:fixture-022"},
-		{Artifact: "fixture-027", Script: "test:workstation:fixture-027"},
-		{Artifact: "fixture-023", Script: "test:workstation:fixture-023"},
-		{Artifact: "fixture-007", Script: "test:workstation:fixture-007"},
-		{Artifact: "fixture-025", Script: "test:workstation:fixture-025"},
+		{Artifact: "fixture-026-shard-6", Scripts: "test:workstation:fixture-026:shard-6"},
+		{Artifact: "fixture-026-shard-2", Scripts: "test:workstation:fixture-026:shard-2"},
+		{Artifact: "fixture-026-shard-4", Scripts: "test:workstation:fixture-026:shard-4"},
+		{Artifact: "fixture-026-shard-1", Scripts: "test:workstation:fixture-026:shard-1"},
+		{Artifact: "fixture-026-shard-3", Scripts: "test:workstation:fixture-026:shard-3"},
+		{Artifact: "fixture-026-shard-5", Scripts: "test:workstation:fixture-026:shard-5"},
+		{Artifact: "fixture-029-shard-2", Scripts: "test:workstation:fixture-029:shard-2"},
+		{Artifact: "fixture-029-shard-1", Scripts: "test:workstation:fixture-029:shard-1"},
+		{Artifact: "fixture-026-shard-8", Scripts: "test:workstation:fixture-026:shard-8"},
+		{Artifact: "candidate-010", Scripts: "test:workstation:candidate-010"},
+		{Artifact: "fixture-026-shard-7", Scripts: "test:workstation:fixture-026:shard-7"},
+		{
+			Artifact: "short-fixtures",
+			Scripts:  "test:workstation:fixture-019 test:workstation:fixture-024 test:workstation:fixture-012 test:workstation:fixture-022 test:workstation:fixture-027 test:workstation:fixture-023 test:workstation:fixture-007 test:workstation:fixture-025",
+		},
 	}
 	if !reflect.DeepEqual(jobs, wantJobs) {
 		t.Fatalf("full workstation matrix = %v, want %v", jobs, wantJobs)
@@ -60,7 +56,7 @@ func TestProjectEmitsClosedFullSemanticsAndEveryWorkstationJob(t *testing.T) {
 	for _, expected := range []string{
 		"container=false\n", "dependency=false\n", "go=false\n", "release=false\n", "renderer=false\n", "research=false\n",
 		"site=false\n", "workstation_any=true\n",
-		"workstation_matrix=[{\"artifact\":\"fixture-026-shard-6\",\"script\":\"test:workstation:fixture-026:shard-6\"}",
+		"workstation_matrix=[{\"artifact\":\"fixture-026-shard-6\",\"scripts\":\"test:workstation:fixture-026:shard-6\"}",
 	} {
 		if !strings.Contains(output.String(), expected) {
 			t.Fatalf("full GitHub outputs = %q, missing %q", output.String(), expected)
@@ -107,16 +103,16 @@ func TestProjectExpandsOnlySelectedShardedArtifacts(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []workstationMatrixEntry{
-		{Artifact: "fixture-026-shard-6", Script: "test:workstation:fixture-026:shard-6"},
-		{Artifact: "fixture-026-shard-2", Script: "test:workstation:fixture-026:shard-2"},
-		{Artifact: "fixture-026-shard-4", Script: "test:workstation:fixture-026:shard-4"},
-		{Artifact: "fixture-026-shard-1", Script: "test:workstation:fixture-026:shard-1"},
-		{Artifact: "fixture-026-shard-3", Script: "test:workstation:fixture-026:shard-3"},
-		{Artifact: "fixture-026-shard-5", Script: "test:workstation:fixture-026:shard-5"},
-		{Artifact: "fixture-029-shard-2", Script: "test:workstation:fixture-029:shard-2"},
-		{Artifact: "fixture-029-shard-1", Script: "test:workstation:fixture-029:shard-1"},
-		{Artifact: "fixture-026-shard-8", Script: "test:workstation:fixture-026:shard-8"},
-		{Artifact: "fixture-026-shard-7", Script: "test:workstation:fixture-026:shard-7"},
+		{Artifact: "fixture-026-shard-6", Scripts: "test:workstation:fixture-026:shard-6"},
+		{Artifact: "fixture-026-shard-2", Scripts: "test:workstation:fixture-026:shard-2"},
+		{Artifact: "fixture-026-shard-4", Scripts: "test:workstation:fixture-026:shard-4"},
+		{Artifact: "fixture-026-shard-1", Scripts: "test:workstation:fixture-026:shard-1"},
+		{Artifact: "fixture-026-shard-3", Scripts: "test:workstation:fixture-026:shard-3"},
+		{Artifact: "fixture-026-shard-5", Scripts: "test:workstation:fixture-026:shard-5"},
+		{Artifact: "fixture-029-shard-2", Scripts: "test:workstation:fixture-029:shard-2"},
+		{Artifact: "fixture-029-shard-1", Scripts: "test:workstation:fixture-029:shard-1"},
+		{Artifact: "fixture-026-shard-8", Scripts: "test:workstation:fixture-026:shard-8"},
+		{Artifact: "fixture-026-shard-7", Scripts: "test:workstation:fixture-026:shard-7"},
 	}
 	if !projection.WorkstationAny || !reflect.DeepEqual(jobs, want) {
 		t.Fatalf("sharded projection = %#v / %v, want %v", projection, jobs, want)
@@ -161,8 +157,8 @@ func TestProjectDerivesOnlyFixedAllowlistedOutputs(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(artifacts, []workstationMatrixEntry{
-		{Artifact: "candidate-010", Script: "test:workstation:candidate-010"},
-		{Artifact: "fixture-019", Script: "test:workstation:fixture-019"},
+		{Artifact: "candidate-010", Scripts: "test:workstation:candidate-010"},
+		{Artifact: "fixture-019", Scripts: "test:workstation:fixture-019"},
 	}) {
 		t.Fatalf("matrix = %v, want allowlisted artifacts", artifacts)
 	}
@@ -173,7 +169,7 @@ func TestProjectDerivesOnlyFixedAllowlistedOutputs(t *testing.T) {
 	}
 	want := "mode=impact\nreason=mapped-change-set\ncontainer=true\ndependency=true\ngo=false\n" +
 		"release=false\nrenderer=true\nrenderer_proof=image-build\nresearch=true\nsite=true\nworkstation_any=true\n" +
-		"workstation_matrix=[{\"artifact\":\"candidate-010\",\"script\":\"test:workstation:candidate-010\"},{\"artifact\":\"fixture-019\",\"script\":\"test:workstation:fixture-019\"}]\n"
+		"workstation_matrix=[{\"artifact\":\"candidate-010\",\"scripts\":\"test:workstation:candidate-010\"},{\"artifact\":\"fixture-019\",\"scripts\":\"test:workstation:fixture-019\"}]\n"
 	if output.String() != want {
 		t.Fatalf("GitHub outputs = %q, want %q", output.String(), want)
 	}
@@ -277,6 +273,9 @@ func TestProjectWorkstationJobsRejectsInvalidMatrices(t *testing.T) {
 		"malformed script": {
 			{Artifact: "fixture-026", Script: "preinstall", CreationRank: 1},
 		},
+		"invalid pack": {
+			{Artifact: "fixture-019", Script: "test:workstation:fixture-019", CreationRank: 1, Pack: "invalid"},
+		},
 		"excessive": make([]WorkstationJob, maximumWorkstationJobs+1),
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -284,6 +283,65 @@ func TestProjectWorkstationJobsRejectsInvalidMatrices(t *testing.T) {
 				t.Fatalf("projectWorkstationJobs(%q) accepted an invalid matrix", name)
 			}
 		})
+	}
+}
+
+func TestProjectWorkstationJobsPacksShortFixtures(t *testing.T) {
+	t.Parallel()
+	// Positive: all 8 packed jobs in rank order -> one entry "short-fixtures"
+	allEight := []WorkstationJob{
+		{Artifact: "fixture-019", Script: "test:workstation:fixture-019", CreationRank: 12, Pack: "short"},
+		{Artifact: "fixture-024", Script: "test:workstation:fixture-024", CreationRank: 13, Pack: "short"},
+		{Artifact: "fixture-012", Script: "test:workstation:fixture-012", CreationRank: 14, Pack: "short"},
+		{Artifact: "fixture-022", Script: "test:workstation:fixture-022", CreationRank: 15, Pack: "short"},
+		{Artifact: "fixture-027", Script: "test:workstation:fixture-027", CreationRank: 16, Pack: "short"},
+		{Artifact: "fixture-023", Script: "test:workstation:fixture-023", CreationRank: 17, Pack: "short"},
+		{Artifact: "fixture-007", Script: "test:workstation:fixture-007", CreationRank: 18, Pack: "short"},
+		{Artifact: "fixture-025", Script: "test:workstation:fixture-025", CreationRank: 19, Pack: "short"},
+	}
+	proj, err := projectWorkstationJobs(Projection{}, allEight)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var entries []workstationMatrixEntry
+	if err := json.Unmarshal([]byte(proj.WorkstationMatrix), &entries); err != nil {
+		t.Fatal(err)
+	}
+	want := []workstationMatrixEntry{
+		{
+			Artifact: "short-fixtures",
+			Scripts:  "test:workstation:fixture-019 test:workstation:fixture-024 test:workstation:fixture-012 test:workstation:fixture-022 test:workstation:fixture-027 test:workstation:fixture-023 test:workstation:fixture-007 test:workstation:fixture-025",
+		},
+	}
+	if !reflect.DeepEqual(entries, want) {
+		t.Fatalf("all 8 packed = %v, want %v", entries, want)
+	}
+
+	// Boundary: exactly 1 selected -> own entry
+	single := []WorkstationJob{
+		{Artifact: "fixture-019", Script: "test:workstation:fixture-019", CreationRank: 12, Pack: "short"},
+	}
+	projSingle, err := projectWorkstationJobs(Projection{}, single)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var singleEntries []workstationMatrixEntry
+	if err := json.Unmarshal([]byte(projSingle.WorkstationMatrix), &singleEntries); err != nil {
+		t.Fatal(err)
+	}
+	wantSingle := []workstationMatrixEntry{
+		{Artifact: "fixture-019", Scripts: "test:workstation:fixture-019"},
+	}
+	if !reflect.DeepEqual(singleEntries, wantSingle) {
+		t.Fatalf("single packed = %v, want %v", singleEntries, wantSingle)
+	}
+
+	// Negative: unknown pack value refused
+	invalidPack := []WorkstationJob{
+		{Artifact: "fixture-019", Script: "test:workstation:fixture-019", CreationRank: 12, Pack: "custom"},
+	}
+	if _, err := projectWorkstationJobs(Projection{}, invalidPack); err == nil {
+		t.Fatal("projectWorkstationJobs accepted unknown pack value")
 	}
 }
 

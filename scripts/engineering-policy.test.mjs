@@ -2074,6 +2074,10 @@ test("CI selected-lane aggregation and artifact dispatch fail closed", () => {
     'require_selection dependency-review "$RESULT_DEPENDENCY_REVIEW" "$SELECT_DEPENDENCY"',
   );
   assert.ok(validateCiImpactWorkflowObject(pushRunsDependencyReview).includes(successFinding));
+});
+
+test("CI workstation artifact dispatch fails closed", () => {
+  const valid = workflow("ci");
 
   const dynamicCommand = structuredClone(valid);
   const artifactStep = dynamicCommand.jobs["workstation-artifacts"].steps.find((step) => (
@@ -2088,7 +2092,7 @@ test("CI selected-lane aggregation and artifact dispatch fail closed", () => {
   const unquotedArtifactStep = unquotedDispatch.jobs["workstation-artifacts"].steps.find((step) => (
     step.name === "Run the allowlisted artifact test script"
   ));
-  unquotedArtifactStep.run = "npm run $SCRIPT";
+  unquotedArtifactStep.run = "node scripts/run-workstation-scripts.mjs --unquoted";
   assert.ok(validateCiImpactWorkflowObject(unquotedDispatch).includes(
     ".github/workflows/ci.yml: workstation matrix execution must quote the Go-projected script without a second dispatch table",
   ));
@@ -2105,8 +2109,18 @@ test("CI selected-lane aggregation and artifact dispatch fail closed", () => {
   const constantArtifactStep = constantArtifact.jobs["workstation-artifacts"].steps.find((step) => (
     step.name === "Run the allowlisted artifact test script"
   ));
-  constantArtifactStep.env.SCRIPT = "test:workstation:fixture-026:shard-1";
+  constantArtifactStep.env.SCRIPTS = "test:workstation:fixture-026:shard-1";
   assert.ok(validateCiImpactWorkflowObject(constantArtifact).includes(
+    ".github/workflows/ci.yml: workstation matrix execution must quote the Go-projected script without a second dispatch table",
+  ));
+
+  const legacyScriptDispatch = structuredClone(valid);
+  const legacyStep = legacyScriptDispatch.jobs["workstation-artifacts"].steps.find((step) => (
+    step.name === "Run the allowlisted artifact test script"
+  ));
+  legacyStep.env = { SCRIPT: "${{ matrix.script }}" };
+  legacyStep.run = 'npm run "$SCRIPT"';
+  assert.ok(validateCiImpactWorkflowObject(legacyScriptDispatch).includes(
     ".github/workflows/ci.yml: workstation matrix execution must quote the Go-projected script without a second dispatch table",
   ));
 });
