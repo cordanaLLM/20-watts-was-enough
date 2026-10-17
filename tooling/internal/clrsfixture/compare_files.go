@@ -8,6 +8,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 )
 
 type comparisonFileSnapshot struct {
@@ -115,7 +117,7 @@ func comparisonEntries(ctx context.Context, root, relative string, maximum int) 
 	if err := rejectGeneratorSymlink(root, path); err != nil {
 		return nil, nil, err
 	}
-	before, err := os.Lstat(path)
+	before, err := fileidentity.Lstat(path)
 	if err != nil || !before.IsDir() {
 		return nil, nil, fmt.Errorf("fixture directory %s is not a real directory", path)
 	}
@@ -135,7 +137,7 @@ func comparisonEntries(ctx context.Context, root, relative string, maximum int) 
 	if len(entries) > maximum {
 		return nil, nil, fmt.Errorf("fixture directory %s exceeds its %d-entry limit", path, maximum)
 	}
-	after, err := os.Lstat(path)
+	after, err := fileidentity.Lstat(path)
 	if err != nil || !sameComparisonDirectory(before, after) {
 		return nil, nil, fmt.Errorf("fixture directory %s changed during enumeration", path)
 	}
@@ -151,7 +153,7 @@ func readComparisonFile(ctx context.Context, root, path string, maximum int64) (
 		return nil, snapshot, err
 	}
 	absolute := filepath.Join(root, filepath.FromSlash(path))
-	before, err := os.Lstat(absolute)
+	before, err := fileidentity.Lstat(absolute)
 	if err != nil {
 		return nil, snapshot, fmt.Errorf("inspect fixture %s: %w", path, err)
 	}
@@ -159,7 +161,7 @@ func readComparisonFile(ctx context.Context, root, path string, maximum int64) (
 	if err != nil {
 		return nil, snapshot, err
 	}
-	after, err := os.Lstat(absolute)
+	after, err := fileidentity.Lstat(absolute)
 	if err != nil || !unchangedGeneratorFile(before, after) {
 		return nil, snapshot, fmt.Errorf("fixture file %s changed during read", path)
 	}

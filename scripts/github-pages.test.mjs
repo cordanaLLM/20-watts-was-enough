@@ -1164,7 +1164,7 @@ test("the sole public reader names its Git source and release identity", async (
   assert.doesNotMatch(book, /Owner-only|chatgpt\.site/);
 });
 
-test("third-party notices include bundler runtimes and accept the project portal index", () => {
+test("third-party notices include bundler runtimes and accept the project portal index", async () => {
   const notices = renderThirdPartyNotices({
     moduleIds: new Set([
       "\0rolldown/runtime.js",
@@ -1175,8 +1175,9 @@ test("third-party notices include bundler runtimes and accept the project portal
     repositoryRoot,
   });
 
-  assert.match(notices, /- rolldown@1\.2\.12 — MIT/);
-  assert.match(notices, /- vite@8\.3\.2 — MIT/);
+  const locked = JSON.parse(await readFile(path.join(repositoryRoot, "package-lock.json"), "utf8")).packages;
+  assert.ok(notices.includes(`- rolldown@${locked["node_modules/rolldown"].version} — MIT`));
+  assert.ok(notices.includes(`- vite@${locked["node_modules/vite"].version} — MIT`));
   assert.match(notices, /Copyright \(c\) 2024-present VoidZero Inc\. & Contributors/);
   assert.match(notices, /Copyright \(c\) 2019-present, VoidZero Inc\. and Vite contributors/);
 });
@@ -1205,6 +1206,38 @@ test("third-party notices require a LICENSING.md source offer for each EPL packa
   assert.match(
     renderThirdPartyNotices({ moduleIds, repositoryRoot: root }),
     /- epl-fixture@1\.2\.3 — EPL-2\.0/,
+  );
+});
+
+test("third-party notices take the bundler identity from package-lock.json", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "notices-locked-identity-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const packagePath = path.join(root, "node_modules", "vite");
+  await mkdir(packagePath, { recursive: true });
+  await writeFile(
+    path.join(packagePath, "package.json"),
+    JSON.stringify({ name: "vite", version: "9.0.1", license: "MIT" }),
+  );
+  await writeFile(path.join(packagePath, "LICENSE.md"), "MIT License fixture\n");
+  await mkdir(path.join(root, "LICENSES"));
+  await writeFile(path.join(root, "LICENSES", "OFL-1.1.txt"), "SIL Open Font License fixture\n");
+  await writeFile(path.join(root, "LICENSING.md"), "Licensing fixture\n");
+  const moduleIds = new Set(["\0vite/preload-helper.js"]);
+  const lock = (packages) => writeFile(path.join(root, "package-lock.json"), JSON.stringify({ packages }));
+
+  await lock({ "node_modules/vite": { version: "9.0.1" } });
+  assert.match(renderThirdPartyNotices({ moduleIds, repositoryRoot: root }), /- vite@9\.0\.1 — MIT/);
+
+  await lock({ "node_modules/vite": { version: "9.0.0" } });
+  assert.throws(
+    () => renderThirdPartyNotices({ moduleIds, repositoryRoot: root }),
+    /Bundled package expected vite@9\.0\.0, found vite@9\.0\.1/,
+  );
+
+  await lock({ "node_modules/rolldown": { version: "1.2.12" } });
+  assert.throws(
+    () => renderThirdPartyNotices({ moduleIds, repositoryRoot: root }),
+    /package-lock\.json in .* lacks a version for node_modules\/vite/,
   );
 });
 

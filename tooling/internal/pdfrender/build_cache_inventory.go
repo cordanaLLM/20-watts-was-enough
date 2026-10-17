@@ -11,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 )
 
 const maximumRendererCacheLayers = 128
@@ -20,13 +22,8 @@ const maximumRendererCacheBytes int64 = 4 * 1024 * 1024 * 1024
 // pinned BuildKit parser owns cacheconfig semantics; this boundary validates
 // the exact descriptor closure, sizes, strict JSON and safe filesystem shape.
 func inspectRendererCache(ctx context.Context, root string) (ReproducibilityCache, error) {
-	allowed := map[string]bool{"index.json": false, "oci-layout": false, "blobs": true}
-	if _, err := os.Lstat(filepath.Join(root, "ingest")); err == nil {
-		allowed["ingest"] = true
-		if err := exactCacheDirectory(filepath.Join(root, "ingest"), nil); err != nil {
-			return ReproducibilityCache{}, err
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
+	allowed, err := rendererCacheRootEntries(root)
+	if err != nil {
 		return ReproducibilityCache{}, err
 	}
 	if err := exactCacheDirectory(root, allowed); err != nil {
@@ -150,6 +147,31 @@ func inspectCacheBlobs(ctx context.Context, root, manifestDigest string, descrip
 	return observation, nil
 }
 
+// rendererCacheRootEntries admits two optional root entries next to the OCI
+// layout: an empty ingest directory, and the empty cache.lock file that the
+// BuildKit client creates from v0.34.0 (Buildx 0.38.0) to serialise exports
+// and deliberately keeps (client/solve.go, resetCacheStore).
+func rendererCacheRootEntries(root string) (map[string]bool, error) {
+	allowed := map[string]bool{"index.json": false, "oci-layout": false, "blobs": true}
+	if _, err := fileidentity.Lstat(filepath.Join(root, "ingest")); err == nil {
+		allowed["ingest"] = true
+		if err := exactCacheDirectory(filepath.Join(root, "ingest"), nil); err != nil {
+			return nil, err
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	if lock, err := fileidentity.Lstat(filepath.Join(root, "cache.lock")); err == nil {
+		if !lock.Mode().IsRegular() || lock.Size() != 0 {
+			return nil, errors.New("PDF renderer cache lock must be one empty regular file")
+		}
+		allowed["cache.lock"] = false
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	return allowed, nil
+}
+
 func hashCacheBlob(ctx context.Context, root string, descriptor imageProofDescriptor) (returnError error) {
 	file := filepath.Join(root, imageProofBlobPath(descriptor.Digest))
 	before, err := inspectRegularBoundedPath(root, file, "PDF renderer cache blob")
@@ -182,7 +204,7 @@ func hashCacheBlob(ctx context.Context, root string, descriptor imageProofDescri
 }
 
 func exactCacheDirectory(directory string, expected map[string]bool) (returnError error) {
-	initial, err := os.Lstat(directory)
+	initial, err := fileidentity.Lstat(directory)
 	if err != nil || !initial.IsDir() || initial.Mode()&os.ModeSymlink != 0 {
 		return fmt.Errorf("PDF renderer cache requires a non-symlink directory: %s", directory)
 	}
@@ -200,7 +222,7 @@ func exactCacheDirectory(directory string, expected map[string]bool) (returnErro
 	}
 	for _, entry := range entries {
 		directoryExpected, exists := expected[entry.Name()]
-		info, err := entry.Info()
+		info, err := fileidentity.Info(entry)
 		if err != nil || !exists || info.Mode()&os.ModeSymlink != 0 || info.IsDir() != directoryExpected || (!directoryExpected && !info.Mode().IsRegular()) {
 			return fmt.Errorf("PDF renderer cache has an unsupported entry: %s", entry.Name())
 		}
