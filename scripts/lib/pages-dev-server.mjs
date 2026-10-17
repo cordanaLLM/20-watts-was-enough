@@ -69,8 +69,42 @@ async function awaitReadiness(server, entries) {
   await settleDependencyOptimizer(server.environments.client.depsOptimizer);
 }
 
+// Vite buffers a full-reload sent while no browser is connected and replays
+// it to the next client that connects. The dependency optimizer rerun during
+// warmup sends one, so the first page a test opens would reload itself after
+// it rendered. A throwaway HMR connection takes that stale reload: the server
+// sends "connected" and the buffered message from one connection handler and
+// clears the buffer before either arrives.
+const HMR_DRAIN_DEADLINE_MS = 10_000;
+
+async function drainBufferedReload(server, origin) {
+  const url = new URL(server.config.base, origin);
+  url.protocol = "ws:";
+  url.searchParams.set("token", server.config.webSocketToken);
+  const socket = new WebSocket(url, "vite-hmr");
+  let timer;
+  try {
+    await new Promise((resolve, reject) => {
+      timer = setTimeout(() => reject(new Error(
+        `Vite HMR socket sent no connected message within ${HMR_DRAIN_DEADLINE_MS} ms`,
+      )), HMR_DRAIN_DEADLINE_MS);
+      socket.addEventListener("message", (event) => {
+        if (JSON.parse(event.data).type === "connected") resolve();
+      });
+      socket.addEventListener("error", () => reject(new Error("Vite HMR socket failed")), { once: true });
+    });
+  } finally {
+    clearTimeout(timer);
+    socket.close();
+  }
+}
+
+// createViteServer sets NODE_ENV to "development" when it is unset and never
+// restores it; a later in-process Vite build would then bundle development
+// modules, so NODE_ENV is restored together with the overrides.
 function applyEnvironment(overrides) {
-  const previous = Object.fromEntries(Object.keys(overrides).map((key) => [key, process.env[key]]));
+  const keys = new Set([...Object.keys(overrides), "NODE_ENV"]);
+  const previous = Object.fromEntries([...keys].map((key) => [key, process.env[key]]));
   Object.assign(process.env, overrides);
   return () => {
     for (const [key, value] of Object.entries(previous)) {
@@ -125,5 +159,12 @@ export async function startReadyPagesDevServer({
     await close();
     throw new Error("Pages development server exposed no TCP address");
   }
-  return { server, origin: `http://127.0.0.1:${address.port}`, close };
+  const origin = `http://127.0.0.1:${address.port}`;
+  try {
+    await drainBufferedReload(server, origin);
+  } catch (error) {
+    await close();
+    throw error;
+  }
+  return { server, origin, close };
 }
