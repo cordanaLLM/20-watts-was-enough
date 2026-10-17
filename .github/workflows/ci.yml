@@ -537,12 +537,12 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Use the locked Python runtime for Fixture 019
-        if: matrix.artifact == 'fixture-019'
+        if: contains(format(' {0} ', matrix.scripts), ' test:workstation:fixture-019 ')
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.15.0'
       - name: Install the locked scientific runtime for Fixture 019
-        if: matrix.artifact == 'fixture-019'
+        if: contains(format(' {0} ', matrix.scripts), ' test:workstation:fixture-019 ')
         run: python -m pip install --disable-pip-version-check --no-deps --require-hashes -r requirements-ci.txt
       - name: Use Node.js 26
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
@@ -557,8 +557,8 @@ jobs:
         run: npm ci --no-audit
       - name: Run the allowlisted artifact test script
         env:
-          SCRIPT: ${{ matrix.script }}
-        run: npm run "$SCRIPT"
+          SCRIPTS: ${{ matrix.scripts }}
+        run: node scripts/run-workstation-scripts.mjs
 
   container-smoke:
     name: Container smoke paths

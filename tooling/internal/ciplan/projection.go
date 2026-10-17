@@ -114,7 +114,7 @@ func Project(plan Plan) (Projection, error) {
 
 type workstationMatrixEntry struct {
 	Artifact string `json:"artifact"`
-	Script   string `json:"script"`
+	Scripts  string `json:"scripts"`
 }
 
 // WorkstationJobs returns an isolated, validated, creation-ordered copy of the
@@ -132,9 +132,30 @@ func projectWorkstationJobs(projection Projection, jobs []WorkstationJob) (Proje
 	if err != nil {
 		return Projection{}, err
 	}
-	entries := make([]workstationMatrixEntry, len(ordered))
-	for index, job := range ordered {
-		entries[index] = workstationMatrixEntry{Artifact: job.Artifact, Script: job.Script}
+	var packedScripts []string
+	for _, job := range ordered {
+		if job.Pack == "short" {
+			packedScripts = append(packedScripts, job.Script)
+		}
+	}
+	packShort := len(packedScripts) >= 2
+	entries := make([]workstationMatrixEntry, 0, len(ordered))
+	packedEmitted := false
+	for _, job := range ordered {
+		if job.Pack == "short" && packShort {
+			if !packedEmitted {
+				entries = append(entries, workstationMatrixEntry{
+					Artifact: "short-fixtures",
+					Scripts:  strings.Join(packedScripts, " "),
+				})
+				packedEmitted = true
+			}
+			continue
+		}
+		entries = append(entries, workstationMatrixEntry{
+			Artifact: job.Artifact,
+			Scripts:  job.Script,
+		})
 	}
 	projection.WorkstationAny = len(entries) > 0
 	matrix, err := json.Marshal(entries)
@@ -165,6 +186,9 @@ func orderAndValidateWorkstationJobs(jobs []WorkstationJob) ([]WorkstationJob, e
 		}
 		if !workstationScriptPattern.MatchString(job.Script) {
 			return nil, fmt.Errorf("workstation projection script is invalid: %q", job.Script)
+		}
+		if job.Pack != "" && job.Pack != "short" {
+			return nil, fmt.Errorf("workstation projection job %q has invalid pack %q", job.Artifact, job.Pack)
 		}
 		if job.CreationRank < 1 || job.CreationRank > maximumWorkstationJobs {
 			return nil, fmt.Errorf(

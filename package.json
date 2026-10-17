@@ -35,7 +35,7 @@
     "publish:research-watch": "node scripts/research-watch-publish.mjs",
     "validate:policy": "node scripts/validate-engineering-policy.mjs",
     "validate:topics": "node scripts/validate-topics.mjs",
-    "test:policy": "node --test --experimental-test-isolation=none scripts/engineering-policy.test.mjs scripts/install-locked-npm.test.mjs scripts/validate-topics.test.mjs scripts/research-watch-ingest.test.mjs scripts/research-watch-publish.test.mjs",
+    "test:policy": "node --test --experimental-test-isolation=none scripts/engineering-policy.test.mjs scripts/install-locked-npm.test.mjs scripts/validate-topics.test.mjs scripts/research-watch-ingest.test.mjs scripts/research-watch-publish.test.mjs scripts/run-workstation-scripts.test.mjs",
     "prepare:release": "node scripts/prepare-release-assets.mjs",
     "test:release": "node --test --experimental-test-isolation=none scripts/prepare-release-assets.test.mjs scripts/lib/atomic-file-pair.test.mjs scripts/lib/chromium-cdp.test.mjs scripts/lib/opened-file.test.mjs scripts/lib/pdf-metadata.test.mjs scripts/lib/book-provenance-record.test.mjs scripts/lib/published-book-render.test.mjs",
     "check:code-shape": "node scripts/audit-code-shape.mjs --check",

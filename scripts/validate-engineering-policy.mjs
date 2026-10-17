@@ -1731,8 +1731,8 @@ function workstationDispatchIsExact(step) {
   return [
     step?.if === undefined,
     Object.keys(step?.env ?? {}).length === 1,
-    step?.env?.SCRIPT === "${{ matrix.script }}",
-    String(step?.run ?? "").trim() === "npm run \"$SCRIPT\"",
+    step?.env?.SCRIPTS === "${{ matrix.scripts }}",
+    String(step?.run ?? "").trim() === "node scripts/run-workstation-scripts.mjs",
   ].every(Boolean);
 }
 
@@ -1775,7 +1775,9 @@ function validateCiImpactWorkstationJobs(jobs, relativePath, findings) {
   recordExpectation(
     findings,
     pythonSteps.length === 2
-      && pythonSteps.every((step) => step.if === "matrix.artifact == 'fixture-019'"),
+      && pythonSteps.every((step) => (
+        step.if === "contains(format(' {0} ', matrix.scripts), ' test:workstation:fixture-019 ')"
+      )),
     `${relativePath}: only Fixture 019 may provision the locked scientific runtime in the artifact matrix`,
   );
 }

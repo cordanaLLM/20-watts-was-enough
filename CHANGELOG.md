@@ -18,6 +18,7 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- CI packs the short workstation fixture jobs (`fixture-007`, `fixture-012`, `fixture-019`, `fixture-022`, `fixture-023`, `fixture-024`, `fixture-025`, `fixture-027`) into one `short-fixtures` matrix entry whenever a plan selects two or more of them; `node scripts/run-workstation-scripts.mjs` runs them in sequence and names every failed fixture ([Decision 0107](decisions/0107-pack-short-workstation-fixtures.md)). A full plan's workstation matrix drops from 19 to 12 jobs (#304).
 - Full-mode CI runs non-workstation checks in parallel across existing impact
   lanes (`impact-common`, `lane-go`, `lane-release`, `lane-research`,
   `lane-site`) rather than serially in `quality-full` ([Decision 0106](decisions/0106-fan-out-full-ci-to-impact-lanes.md)).
