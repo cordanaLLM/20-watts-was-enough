@@ -41,9 +41,15 @@ bottlenecks.
 ## Consequences
 
 - Full-mode CI wall clock time is no longer dominated by `quality-full`.
-- The full gate wall time is now bounded by the PDF renderer proof (9m10) and
-  workstation Fixture 026 shard 1 (5m28) on the same run; their speedups are tracked
-  in [issue #302](https://github.com/cordanaLLM/20-watts-was-enough/issues/302).
+- The longest single jobs are now the PDF renderer proof (9m10 in run 39055660294,
+  9m34 in pull-request run 39061573770) and the Site lane (8m45); their speedups are
+  tracked in [issue #302](https://github.com/cordanaLLM/20-watts-was-enough/issues/302).
+- The full gate wall time is not bounded by its longest job but by runner
+  concurrency. Both runs peak at 10 to 11 concurrent jobs, `Full quality` in run
+  39055660294 waited 5m17 for a runner, and the workstation matrix entries in run
+  39061573770 start in waves until 17m48. The fan-out shortened the job wall time
+  from 21m40 (run 39055660294) to 19m08 (run 39061573770), not below the 12-minute
+  target of issue #7.
 - The main ruleset requires `CI success`, not `Full quality`; `ci-success` still
   requires `quality-full` to succeed in full mode, so the dependency audit and the
   code-shape reset rejection stay blocking.
