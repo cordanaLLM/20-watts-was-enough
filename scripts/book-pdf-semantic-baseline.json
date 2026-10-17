@@ -7,7 +7,7 @@
     "pdf": "public/downloads/20-watts-was-enough-full-concept-book.pdf",
     "manifest": "public/downloads/book-manifest.json",
     "pdf_sha256": "80418fe4b5f91b48f26e420ba736bf9336aee8c828ddc78937f9c6e1e1287bdf",
-    "manifest_sha256": "a8313f32f5ee0638bbe624543b0de0ef537cb0a0ccd55f299b432178a5440ad8",
+    "manifest_sha256": "c0bc597fdffb2716bc6aaa05cb1ad2f05e229ea1422299b1ecc4bf2c306ff044",
     "size_bytes": 14375346,
     "pages": 421,
     "page_size_name": "A4",
@@ -18,7 +18,7 @@
     "pdf_version": "1.4",
     "tagged": true,
     "source_ref": "main",
-    "source_digest": "ee7b72708c1cb1dfd370c0f8d237afc21561358ed19ca5057a0fa222d8a52902",
+    "source_digest": "13ddc86b240dd1d451be65267d222510a96920fb9e80e4a3d301e660ad4f4baf",
     "version": "0.5.0"
   },
   "tools": {
