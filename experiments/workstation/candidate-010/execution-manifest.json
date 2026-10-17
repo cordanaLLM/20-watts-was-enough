@@ -16,7 +16,7 @@
       "validate": "node experiments/workstation/candidate-010/runner.mjs validate --output <run-directory>"
     },
     "environment": {
-      "runtime": "Node.js 26.10.0 on an admitted platform; exact runtime captured per run",
+      "runtime": "Node.js 26.11.1 on an admitted platform; exact runtime captured per run",
       "lockfiles": [
         "package-lock.json"
       ]
