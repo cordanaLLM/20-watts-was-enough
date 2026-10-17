@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
-import { main, validateAdditions } from "./research-watch-publish.mjs";
+import { commitBody, main, readGitIdentity, validateAdditions } from "./research-watch-publish.mjs";
 
 const instant = "2026-10-15T12:00:00Z";
 const defaultToken = "fixture-secret-token-xyz123";
+const fixtureIdentity = { name: "Fixture Maintainer", email: "maintainer@example.org" };
+const fixtureSignoff = "Signed-off-by: Fixture Maintainer <maintainer@example.org>";
 
 function sampleLeads(entries = []) {
   return JSON.stringify({ schema_version: "1.0.0", entries }, null, 2) + "\n";
@@ -161,11 +164,13 @@ async function createFixture(t, options = {}) {
   await chmod(tokenPath, options.tokenMode ?? 0o600);
 
   const runIngest = options.runIngest ?? (async () => ({ exitCode: 0, message: "ingest ok" }));
+  const readIdentity = options.readIdentity ?? (async () => fixtureIdentity);
 
   return {
     root,
     tokenPath,
     runIngest,
+    readIdentity,
     leads,
     watermark,
     runs,
@@ -184,6 +189,7 @@ test("positive: no lead change exits 0 and performs zero mutations", async (t) =
     env: {},
     fetchImpl: handler,
     runIngest: fix.runIngest,
+    readIdentity: fix.readIdentity,
     root: fix.root,
   });
 
@@ -208,6 +214,7 @@ test("positive: change + no branch -> createRef + commit + PR", async (t) => {
     env: {},
     fetchImpl: handler,
     runIngest: fix.runIngest,
+    readIdentity: fix.readIdentity,
     root: fix.root,
   });
 
@@ -227,6 +234,7 @@ test("positive: change + no branch -> createRef + commit + PR", async (t) => {
   assert.equal(calls[2].variables.input.expectedHeadOid, mainOid);
   assert.equal(calls[2].variables.input.message.headline, "chore(research): refresh research-watch leads");
   assert.match(calls[2].variables.input.message.body, /Lead count: 1/u);
+  assert.ok(calls[2].variables.input.message.body.endsWith(`\n\n${fixtureSignoff}\n`));
 
   // 3. createPullRequest
   assert.ok(calls[3].query.includes("CreatePullRequest"));
@@ -249,6 +257,7 @@ test("positive: branch + open PR -> commit only onto branch in place", async (t)
     env: {},
     fetchImpl: handler,
     runIngest: fix.runIngest,
+    readIdentity: fix.readIdentity,
     root: fix.root,
   });
 
@@ -277,6 +286,7 @@ test("positive: open PR already carrying the leads -> no mutation", async (t) =>
     env: {},
     fetchImpl: handler,
     runIngest: fix.runIngest,
+    readIdentity: fix.readIdentity,
     root: fix.root,
   });
 
@@ -300,6 +310,7 @@ test("positive: branch no PR -> reset + commit + PR", async (t) => {
     env: {},
     fetchImpl: handler,
     runIngest: fix.runIngest,
+    readIdentity: fix.readIdentity,
     root: fix.root,
   });
 
@@ -354,6 +365,7 @@ test("negative: ingest failure exits with same code and publishes nothing", asyn
     env: {},
     fetchImpl: handler,
     runIngest: fix.runIngest,
+    readIdentity: fix.readIdentity,
     root: fix.root,
   });
 
@@ -372,6 +384,7 @@ test("negative: token missing or unreadable exits 2 with fixed message", async (
     env: {},
     fetchImpl: handler,
     runIngest: fix.runIngest,
+    readIdentity: fix.readIdentity,
     root: fix.root,
   });
   assert.equal(result1.exitCode, 2);
@@ -384,6 +397,7 @@ test("negative: token missing or unreadable exits 2 with fixed message", async (
     env: {},
     fetchImpl: handler,
     runIngest: fix.runIngest,
+    readIdentity: fix.readIdentity,
     root: fix.root,
   });
   assert.equal(result2.exitCode, 2);
@@ -395,6 +409,7 @@ test("negative: token missing or unreadable exits 2 with fixed message", async (
     env: { GITHUB_TOKEN: "github_pat_env", GH_TOKEN: "github_pat_env" },
     fetchImpl: handler,
     runIngest: fix.runIngest,
+    readIdentity: fix.readIdentity,
     root: fix.root,
   });
   assert.equal(result3.exitCode, 2);
@@ -418,6 +433,7 @@ test("negative: token never appears in any output or thrown message", async (t) 
     env: {},
     fetchImpl: handlerErrors,
     runIngest: fix.runIngest,
+    readIdentity: fix.readIdentity,
     root: fix.root,
   });
   assert.equal(result1.exitCode, 1);
@@ -435,6 +451,7 @@ test("negative: token never appears in any output or thrown message", async (t) 
     env: {},
     fetchImpl: handler500,
     runIngest: fix.runIngest,
+    readIdentity: fix.readIdentity,
     root: fix.root,
     sleep: async () => {},
   });
@@ -454,6 +471,7 @@ test("negative: >1 open PR exits 1", async (t) => {
     env: {},
     fetchImpl: handler,
     runIngest: fix.runIngest,
+    readIdentity: fix.readIdentity,
     root: fix.root,
   });
 
@@ -473,6 +491,7 @@ test("negative: GraphQL errors array exits 1 without echoing message", async (t)
     env: {},
     fetchImpl: handler,
     runIngest: fix.runIngest,
+    readIdentity: fix.readIdentity,
     root: fix.root,
   });
 
@@ -506,6 +525,7 @@ test("boundary: file exactly at 1 MiB cap is accepted", async (t) => {
     env: {},
     fetchImpl: handler,
     runIngest: fix.runIngest,
+    readIdentity: fix.readIdentity,
     root: fix.root,
   });
 
@@ -535,6 +555,7 @@ test("boundary: cap+1 byte is rejected", async (t) => {
     env: {},
     fetchImpl: handler,
     runIngest: fix.runIngest,
+    readIdentity: fix.readIdentity,
     root: fix.root,
   }), /payload size cap/u);
 
@@ -554,6 +575,7 @@ test("boundary: dry-run makes zero mutations and outputs plan", async (t) => {
     env: {},
     fetchImpl: handler,
     runIngest: fix.runIngest,
+    readIdentity: fix.readIdentity,
     root: fix.root,
   });
 
@@ -576,6 +598,7 @@ test("token under CREDENTIALS_DIRECTORY admits systemd managed mode", async (t) 
     env: { CREDENTIALS_DIRECTORY: credDir },
     fetchImpl: handler,
     runIngest: fix.runIngest,
+    readIdentity: fix.readIdentity,
     root: fix.root,
   });
 
@@ -608,6 +631,7 @@ test("retry recovers from transient 500 error", async (t) => {
     env: {},
     fetchImpl: retryHandler,
     runIngest: fix.runIngest,
+    readIdentity: fix.readIdentity,
     root: fix.root,
     sleep: async () => {},
   });
@@ -629,6 +653,7 @@ test("custom additions parameter rejects extra paths during main call", async (t
     env: {},
     fetchImpl: handler,
     runIngest: fix.runIngest,
+    readIdentity: fix.readIdentity,
     root: fix.root,
     additions: [
       { path: "research/ingest/leads.json" },
@@ -639,3 +664,71 @@ test("custom additions parameter rejects extra paths during main call", async (t
   }), /Invalid additions allow-list/u);
 });
 
+
+test("positive: every published commit carries one Signed-off-by trailer from the identity", async (t) => {
+  const fix = await createFixture(t);
+  const { handler, calls } = mockGraphQLHandler({ remoteLeadsText: null, branchRef: null, openPRs: [] });
+
+  const result = await main({
+    args: ["--token-file", fix.tokenPath],
+    env: {},
+    fetchImpl: handler,
+    runIngest: fix.runIngest,
+    readIdentity: fix.readIdentity,
+    root: fix.root,
+  });
+
+  assert.equal(result.exitCode, 0);
+  const commits = calls.filter((call) => call.query.includes("CreateCommitOnBranch"));
+  assert.equal(commits.length, 1);
+  const trailers = commits[0].variables.input.message.body.split("\n").filter((line) => line.startsWith("Signed-off-by:"));
+  assert.deepEqual(trailers, [fixtureSignoff]);
+});
+
+test("negative: missing or invalid sign-off identity exits 2 before ingest and mutation", async (t) => {
+  const identities = [
+    async () => { throw new Error("git config: user.name not set"); },
+    async () => ({ name: "", email: "maintainer@example.org" }),
+    async () => ({ name: "Fixture Maintainer", email: "" }),
+    async () => ({ name: "Fixture\nSigned-off-by: Other <o@example.org>", email: "maintainer@example.org" }),
+    async () => ({ name: "Fixture <x>", email: "maintainer@example.org" }),
+    async () => ({ name: "Fixture Maintainer", email: "not-an-email" }),
+  ];
+  for (const readIdentity of identities) {
+    const fix = await createFixture(t, { readIdentity });
+    let ingestRuns = 0;
+    const { handler, calls } = mockGraphQLHandler({ remoteLeadsText: null, branchRef: null, openPRs: [] });
+    const result = await main({
+      args: ["--token-file", fix.tokenPath],
+      env: {},
+      fetchImpl: handler,
+      runIngest: async () => { ingestRuns += 1; return { exitCode: 0, message: "ingest ok" }; },
+      readIdentity: fix.readIdentity,
+      root: fix.root,
+    });
+    assert.equal(result.exitCode, 2);
+    assert.equal(result.message, "Research-watch sign-off identity missing or invalid in git config.");
+    assert.equal(ingestRuns, 0);
+    assert.equal(calls.length, 0);
+  }
+});
+
+test("boundary: commit body refuses an identity without a usable sign-off", () => {
+  const base = { publicLeadsCount: 0, fetchedAt: instant };
+  assert.equal(
+    commitBody({ ...base, signoff: { name: "A", email: "a@b" } }),
+    `Lead count: 0\nFetched at: ${instant}\n\nSigned-off-by: A <a@b>\n`,
+  );
+  assert.throws(() => commitBody({ ...base, signoff: null }), /Invalid sign-off identity/u);
+  assert.throws(() => commitBody({ ...base, signoff: { name: "A".repeat(129), email: "a@b" } }), /Invalid sign-off identity/u);
+  assert.doesNotThrow(() => commitBody({ ...base, signoff: { name: "A".repeat(128), email: "a@b" } }));
+});
+
+test("readGitIdentity reads user.name and user.email from the repository git config", async (t) => {
+  const fix = await createFixture(t);
+  const git = (...argv) => execFileSync("git", ["-C", fix.root, ...argv], { encoding: "utf8", timeout: 10_000 });
+  git("init", "-q");
+  git("config", "user.name", "Fixture Maintainer");
+  git("config", "user.email", "maintainer@example.org");
+  assert.deepEqual(await readGitIdentity({ root: fix.root }), fixtureIdentity);
+});
