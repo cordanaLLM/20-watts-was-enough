@@ -26,11 +26,11 @@ const runtimePolicy = Object.freeze({
   npmArchiveSha256: "6666b48816b39b86c3febac7b51a4ee4de6c5ca589c382ad8004b6b113f86677",
   npmArchiveUrl: "https://registry.npmjs.org/npm/-/npm-12.2.0.tgz",
   npmVersion: "12.2.0",
-  numpyDigest: "d549420b8858885cea8838a727842249218b9c1da24dd517e25c9c7a948310a3",
-  numpyFilename: "numpy-2.5.4-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+  numpyDigest: "56733449d2544178beaa4545cee357370440cf056c197f9c7bfb19dbfdd0e86d",
+  numpyFilename: "numpy-2.5.4-cp315-cp315-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
   numpyVersion: "2.5.4",
   pythonImplementation: "CPython",
-  pythonVersion: "3.14.8",
+  pythonVersion: "3.15.0",
 });
 
 // Workflows read the Node version from this file. runtimePolicy.nodeVersion
@@ -451,7 +451,7 @@ function validateScientificRuntimeLockPackages(lock, relativePath) {
     || numpyArtifact?.sha256 !== runtimePolicy.numpyDigest
   ) {
     findings.push(
-      `${relativePath}: NumPy ${runtimePolicy.numpyVersion} must use the approved CPython 3.14 Linux x86_64 wheel and SHA-256 digest`,
+      `${relativePath}: NumPy ${runtimePolicy.numpyVersion} must use the approved CPython 3.15 Linux x86_64 wheel and SHA-256 digest`,
     );
   }
   return findings;

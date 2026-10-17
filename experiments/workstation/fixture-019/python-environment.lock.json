@@ -2,14 +2,14 @@
   "schema": 1,
   "artifact": "fixture-019",
   "python_implementation": "CPython",
-  "python_version": "3.14.8",
+  "python_version": "3.15.0",
   "packages": {
     "numpy": "2.5.4"
   },
   "package_artifacts": {
     "numpy": {
-      "filename": "numpy-2.5.4-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
-      "sha256": "d549420b8858885cea8838a727842249218b9c1da24dd517e25c9c7a948310a3"
+      "filename": "numpy-2.5.4-cp315-cp315-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "sha256": "56733449d2544178beaa4545cee357370440cf056c197f9c7bfb19dbfdd0e86d"
     }
   },
   "bit_generator": "PCG64DXSM",

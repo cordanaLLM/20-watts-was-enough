@@ -18,6 +18,20 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- The Fixture 019 runtime moves from CPython 3.14.8 to 3.15.0, a minor-version
+  move rather than a bug-fix release. NumPy stays at 2.5.4 and moves to its
+  CPython 3.15 wheel, whose single approved digest was read from PyPI on
+  2026-10-17. The environment lock, the hash-locked CI requirements, the base
+  image of the fixture's Dockerfile (`python:3.15.0-slim-trixie` at the index
+  digest read from the registry on 2026-10-17; the tag was rebuilt after the
+  update bot's proposal, so the bot's older digest is not used), the manifest,
+  the three workflow jobs that provision Python, the two container checks, the
+  contributor guide and the policy move together. The fixture test suite (26
+  tests, including the `PCG64DXSM` bootstrap determinism checks) passes under
+  CPython 3.15.0 with the hash-locked NumPy 2.5.4 wheel installed with
+  `--require-hashes`; that run is local evidence for this environment only. No
+  seed, configuration, protocol or result authority changes; the fixture stays
+  `NO_RESULT`.
 - The Fixture 019 runtime moves from NumPy 2.5.3 to 2.5.4, a bug-fix release
   (linalg handling of non-finite inputs, StringDType NaN-sentinel hashing, a
   masked-array fill-value reset and typing fixes; the release notes name no
