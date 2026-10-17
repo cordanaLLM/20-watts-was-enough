@@ -1,6 +1,8 @@
+import { execFile } from "node:child_process";
 import { stat, readFile as fsReadFile } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
+import { promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { runCli as defaultRunIngest } from "./research-watch-ingest.mjs";
@@ -15,6 +17,10 @@ const maximumPayloadBytes = 1_048_576; // 1 MiB
 const maximumTimeoutMs = 15_000; // 15 seconds
 const maxRetries = 3;
 const totalDeadlineMs = 15 * 60 * 1000; // 15 minutes
+const gitConfigTimeoutMs = 5_000;
+const gitConfigMaxBytes = 4_096;
+const signoffNamePattern = /^[^\s<>][^\n\r<>]{0,126}[^\s<>]$|^[^\s<>]$/u;
+const signoffEmailPattern = /^[^\s<>@]{1,64}@[^\s<>@]{1,190}$/u;
 const allowListedPaths = [
   "research/ingest/leads.json",
   "research/ingest/.watermark",
@@ -441,7 +447,44 @@ async function applyBranchRefMutation({ branchAction, repoData, branchRef, mainH
   }
 }
 
-async function applyCommitMutation({ owner, repo, expectedHeadOid, publicLeadsCount, fetchedAt, additions, context }) {
+export function commitBody({ publicLeadsCount, fetchedAt, signoff }) {
+  if (!signoffIsValid(signoff)) throw new Error("Invalid sign-off identity");
+  return `Lead count: ${publicLeadsCount}\nFetched at: ${fetchedAt}\n\nSigned-off-by: ${signoff.name} <${signoff.email}>\n`;
+}
+
+function signoffIsValid(signoff) {
+  return signoffNamePattern.test(signoff?.name ?? "") && signoffEmailPattern.test(signoff?.email ?? "");
+}
+
+const runGitConfig = promisify(execFile);
+
+export async function readGitIdentity({ root }) {
+  const read = async (key) => {
+    const { stdout } = await runGitConfig("git", ["config", "--get", key], {
+      cwd: root,
+      timeout: gitConfigTimeoutMs,
+      maxBuffer: gitConfigMaxBytes,
+      encoding: "utf8",
+    });
+    return stdout.replace(/\r?\n$/u, "");
+  };
+  return { name: await read("user.name"), email: await read("user.email") };
+}
+
+async function obtainSignoff({ readIdentity, root }) {
+  let signoff;
+  try {
+    signoff = await readIdentity({ root });
+  } catch {
+    signoff = null;
+  }
+  if (!signoffIsValid(signoff)) {
+    return { ok: false, result: { exitCode: 2, message: "Research-watch sign-off identity missing or invalid in git config." } };
+  }
+  return { ok: true, signoff };
+}
+
+async function applyCommitMutation({ owner, repo, expectedHeadOid, publicLeadsCount, fetchedAt, signoff, additions, context }) {
   await requestGraphQL({
     query: createCommitOnBranchMutation,
     variables: {
@@ -453,7 +496,7 @@ async function applyCommitMutation({ owner, repo, expectedHeadOid, publicLeadsCo
         expectedHeadOid,
         message: {
           headline: "chore(research): refresh research-watch leads",
-          body: `Lead count: ${publicLeadsCount}\nFetched at: ${fetchedAt}\n`,
+          body: commitBody({ publicLeadsCount, fetchedAt, signoff }),
         },
         fileChanges: {
           additions,
@@ -487,6 +530,7 @@ async function executeMutations({
   plan,
   publicLeadsCount,
   fetchedAt,
+  signoff,
   additions,
   context,
 }) {
@@ -504,6 +548,7 @@ async function executeMutations({
     expectedHeadOid: plan.expectedHeadOid,
     publicLeadsCount,
     fetchedAt,
+    signoff,
     additions,
     context,
   });
@@ -539,6 +584,7 @@ export async function main({
   root = defaultRoot,
   readFile = fsReadFile,
   sleep = delay,
+  readIdentity = readGitIdentity,
   additions: customAdditions = null,
 } = {}) {
   const deadline = Date.now() + totalDeadlineMs;
@@ -547,6 +593,9 @@ export async function main({
   const tokenState = await obtainToken({ cliOptions, env, readFile });
   if (!tokenState.ok) return tokenState.result;
   const token = tokenState.token;
+
+  const signoffState = await obtainSignoff({ readIdentity, root });
+  if (!signoffState.ok) return signoffState.result;
 
   const ingestPhase = await executeIngestPhase({ runIngest, token, root, fetchImpl });
   if (!ingestPhase.ok) return { exitCode: ingestPhase.exitCode, message: ingestPhase.message };
@@ -570,7 +619,7 @@ export async function main({
   try {
     await executeMutations({
       owner, repo, repoData: inspectResult.repoData, plan: actionPlan.plan,
-      publicLeadsCount, fetchedAt, additions, context,
+      publicLeadsCount, fetchedAt, signoff: signoffState.signoff, additions, context,
     });
   } catch (error) {
     return mapPublicationError(error);

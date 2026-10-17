@@ -734,7 +734,7 @@ test("the scientific runtime lock is the exact reviewed CPython and NumPy artifa
 test("JavaScript workflows use the exact Node and npm toolchain in order", () => {
   const validSteps = [
     {
-      uses: "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+      uses: "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
       with: { "node-version-file": ".node-version", cache: "npm" },
     },
     { run: "node scripts/install-locked-npm.mjs" },
@@ -747,7 +747,7 @@ test("JavaScript workflows use the exact Node and npm toolchain in order", () =>
   ), []);
 
   const tampered = structuredClone(validSteps);
-  tampered[0].with = { "node-version": "26.10.0", cache: "npm" };
+  tampered[0].with = { "node-version": "26.11.1", cache: "npm" };
   tampered[1].run = "npm install --global npm@latest";
   tampered[2].run = "test \"$(npm --version)\" = \"12.0.1\"";
   assert.deepEqual(validateJavaScriptRuntimeWorkflowObject(
@@ -763,7 +763,7 @@ test("JavaScript workflows use the exact Node and npm toolchain in order", () =>
 
 test("every job reads the Node version from the one version file", () => {
   const setup = (inputs) => ({
-    uses: "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+    uses: "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
     with: inputs,
   });
   const jobsWith = (inputs) => ({
@@ -779,8 +779,8 @@ test("every job reads the Node version from the one version file", () => {
   assert.deepEqual(validateNodeSetupWorkflowObject({ jobs: {} }), []);
   assert.deepEqual(validateNodeSetupWorkflowObject(undefined), []);
   for (const inputs of [
-    { "node-version": "26.10.0" },
-    { "node-version-file": ".node-version", "node-version": "26.10.0" },
+    { "node-version": "26.11.1" },
+    { "node-version-file": ".node-version", "node-version": "26.11.1" },
     { "node-version-file": "package.json" },
     { "node-version-file": ".nvmrc" },
     {},
@@ -796,14 +796,14 @@ test("every job reads the Node version from the one version file", () => {
 });
 
 test("the Node version file names exactly the reviewed runtime", () => {
-  assert.deepEqual(validateNodeVersionFile("26.10.0\n"), []);
+  assert.deepEqual(validateNodeVersionFile("26.11.1\n"), []);
   assert.deepEqual(
     validateNodeVersionFile(readFileSync(new URL("../.node-version", import.meta.url), "utf8")),
     [],
   );
-  for (const text of ["26.8.0\n", "26.10.0", "v26.10.0\n", "26.10.0\n\n", "26\n", "26.10.0\r\n", ""]) {
+  for (const text of ["26.8.0\n", "26.11.1", "v26.11.1\n", "26.11.1\n\n", "26\n", "26.11.1\r\n", ""]) {
     assert.deepEqual(validateNodeVersionFile(text), [
-      ".node-version: must contain exactly 26.10.0 and a final newline",
+      ".node-version: must contain exactly 26.11.1 and a final newline",
     ]);
   }
 });
@@ -840,7 +840,7 @@ test("dependency installation suppresses audit fan-out and one full gate enforce
   preCommandFlagBypass.jobs.node = {
     steps: [
       {
-        uses: "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+        uses: "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
         with: { "node-version-file": ".node-version", cache: "npm" },
       },
       { run: "node scripts/install-locked-npm.mjs" },
@@ -3367,7 +3367,7 @@ test("container policy withholds arm64 and enforces exact-digest runtime identit
   for (const [from, to] of [
     ['if [[ "$tooling_identity" != "$expected_tooling_identity" ]]; then', "if false; then"],
     ['"go_version":"go1.27.2"', '"go_version":"go1.28.0"'],
-    ['if [[ "$fixture_007_node" != "v26.10.0" ]]; then', "if false; then"],
+    ['if [[ "$fixture_007_node" != "v26.11.1" ]]; then', "if false; then"],
     ['"Python 3.14.8"', '"Python 3.14.9"'],
     ['numpy.__version__ == \\"2.5.4\\"', 'numpy.__version__ == \\"2.5.5\\"'],
   ]) {
@@ -3467,7 +3467,7 @@ test("CI enforces the exact Fixture 007 Node runtime", () => {
     validateCiExperimentImageWorkflowObject,
     (subject) => {
       const step = ciImageStep(subject, "Execute the bounded Fixture 007 smoke path");
-      step.run = step.run.replaceAll("v26.10.0", "v26.8.2");
+      step.run = step.run.replaceAll("v26.11.1", "v26.8.2");
     },
     ".github/workflows/ci.yml: Fixture 007 must run smoke, analyze, and validate against one persistent result volume",
   );

@@ -27,6 +27,17 @@ the exact diff; this file records why the project changed.
   the Dockerfile and workflow container checks, the manifest and the policy
   move together. No seed, configuration, protocol or result authority changes;
   the fixture stays `NO_RESULT`.
+- The Node.js runtime moves from 26.10.0 to 26.11.1, the newest release past
+  the seven-day update delay. The version file, `engines`, the lock, the
+  workstation runtime policy, both container base images and the PDF
+  renderer's Node.js image (index digests read from Docker Hub on
+  2026-10-17), the workflow container checks, the experiment manifests,
+  Renovate's `constraints.node` in `renovate.json` and the policy tests move
+  together. The Fixture 026 RSD-T02 runner release binds the runtime policy
+  file by exact bytes, so its closure entry, the release digests, and the
+  null-maturation design that names them are re-bound; the release stays
+  `NO_RESULT` development infrastructure. No seed, configuration, protocol or
+  result authority changes.
 - Renew the declared-verify npm skip in `scripts/declared-verify-npm.mjs` to
   2026-10-21 (category B, three days): the engine fix for
   cordanaLLM/praetor#1385 has not landed, and without the renewal every
@@ -41,6 +52,7 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- Commits that the research-watch publisher makes through the GitHub API end in a `Signed-off-by:` trailer for the identity in the checkout's Git configuration, so the sign-off check accepts the ingest pull request; a missing or malformed identity stops the run before the ingester starts.
 - The CLRS specialist image test takes the expected Go builder digest from the repository Go builder and checks only its pinned shape, so a digest update no longer fails on a hand-kept copy.
 - Files that compare file identity with `os.SameFile` read path-based file information through the new `internal/fileidentity` package, which reads the identity at capture. On Windows, `os.Lstat`, `os.Stat` and some directory entries kept only the path, so information taken before a delete and recreate named the replacement and a swapped file passed the check. A Go test refuses a direct capture in such a file.
 - Third-party notices take the expected Vite and Rolldown identity from
