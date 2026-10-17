@@ -102,12 +102,23 @@ export function validatePortableOperationsTree(root) {
   }
 }
 
+// The Go test lane is the one admitted Windows job: it runs the portable Go
+// packages' tests and carries no host-specific entry point (Decision 0103).
+const admittedWindowsTestLane = { job: "lane-go-windows", runner: "windows-2025" };
+
+function isAdmittedWindowsTestLane(jobName, job) {
+  return jobName === admittedWindowsTestLane.job
+    && job?.["runs-on"] === admittedWindowsTestLane.runner
+    && job?.strategy === undefined;
+}
+
 export function validatePortableWorkflowObject(workflow, relativePath = "workflow.yml") {
   const findings = [];
   for (const [jobName, job] of Object.entries(workflow?.jobs ?? {})) {
     if (
-      containsWindowsRunner(job?.["runs-on"])
-      || containsWindowsRunner(job?.strategy?.matrix)
+      (containsWindowsRunner(job?.["runs-on"])
+      || containsWindowsRunner(job?.strategy?.matrix))
+      && !isAdmittedWindowsTestLane(jobName, job)
     ) {
       findings.push(`${relativePath}: job ${jobName} must not add a Windows runner lane`);
     }

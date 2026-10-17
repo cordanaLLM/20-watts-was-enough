@@ -1,10 +1,23 @@
 package relpath_test
 
 import (
+	"runtime"
 	"testing"
 
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/relpath"
 )
+
+func TestValidRejectsWindowsVolumeNames(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS != "windows" {
+		t.Skip("volume names exist only on Windows")
+	}
+	for _, value := range []string{"C:a", "C:/a", "C:", "//host/share/a"} {
+		if relpath.Valid(value) {
+			t.Fatalf("Valid(%q) = true, want false", value)
+		}
+	}
+}
 
 func TestValid(t *testing.T) {
 	t.Parallel()

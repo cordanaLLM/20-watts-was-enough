@@ -20,13 +20,8 @@ const maximumRendererCacheBytes int64 = 4 * 1024 * 1024 * 1024
 // pinned BuildKit parser owns cacheconfig semantics; this boundary validates
 // the exact descriptor closure, sizes, strict JSON and safe filesystem shape.
 func inspectRendererCache(ctx context.Context, root string) (ReproducibilityCache, error) {
-	allowed := map[string]bool{"index.json": false, "oci-layout": false, "blobs": true}
-	if _, err := os.Lstat(filepath.Join(root, "ingest")); err == nil {
-		allowed["ingest"] = true
-		if err := exactCacheDirectory(filepath.Join(root, "ingest"), nil); err != nil {
-			return ReproducibilityCache{}, err
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
+	allowed, err := rendererCacheRootEntries(root)
+	if err != nil {
 		return ReproducibilityCache{}, err
 	}
 	if err := exactCacheDirectory(root, allowed); err != nil {
@@ -148,6 +143,31 @@ func inspectCacheBlobs(ctx context.Context, root, manifestDigest string, descrip
 	}
 	observation.BlobCount = len(unique)
 	return observation, nil
+}
+
+// rendererCacheRootEntries admits two optional root entries next to the OCI
+// layout: an empty ingest directory, and the empty cache.lock file that the
+// BuildKit client creates from v0.34.0 (Buildx 0.38.0) to serialise exports
+// and deliberately keeps (client/solve.go, resetCacheStore).
+func rendererCacheRootEntries(root string) (map[string]bool, error) {
+	allowed := map[string]bool{"index.json": false, "oci-layout": false, "blobs": true}
+	if _, err := os.Lstat(filepath.Join(root, "ingest")); err == nil {
+		allowed["ingest"] = true
+		if err := exactCacheDirectory(filepath.Join(root, "ingest"), nil); err != nil {
+			return nil, err
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	if lock, err := os.Lstat(filepath.Join(root, "cache.lock")); err == nil {
+		if !lock.Mode().IsRegular() || lock.Size() != 0 {
+			return nil, errors.New("PDF renderer cache lock must be one empty regular file")
+		}
+		allowed["cache.lock"] = false
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	return allowed, nil
 }
 
 func hashCacheBlob(ctx context.Context, root string, descriptor imageProofDescriptor) (returnError error) {

@@ -819,8 +819,11 @@ func readGeneratorWheelhouseSnapshot(root string, expectedCount int) (generatorW
 			return generatorWheelhouseSnapshot{}, fmt.Errorf("CLRS generator wheelhouse entry %q is not one regular wheel", entry.Name())
 		}
 		information, inspectErr := os.Lstat(filepath.Join(root, entry.Name()))
+		// On Windows, Lstat keeps only the path and os.SameFile loads the file
+		// identity on first use; comparing the entry with itself pins it now, so
+		// a later delete and recreate cannot resolve to the replacement.
 		if inspectErr != nil || !information.Mode().IsRegular() || information.Mode()&os.ModeSymlink != 0 ||
-			information.Size() <= 0 {
+			information.Size() <= 0 || !os.SameFile(information, information) {
 			return generatorWheelhouseSnapshot{}, fmt.Errorf("CLRS generator wheelhouse entry %q changed before hashing", entry.Name())
 		}
 		snapshot.Entries = append(snapshot.Entries, generatorWheelhouseSnapshotEntry{

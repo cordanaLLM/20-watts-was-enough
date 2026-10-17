@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -102,14 +103,38 @@ func TestCheckScanAcceptsOnlyACleanExit(t *testing.T) {
 	}
 }
 
+// pinnedGovulncheck matches the tool directive and an exact release of
+// golang.org/x/vuln. The version itself lives only in go.mod, so an update
+// moves it without a second record here.
+var pinnedGovulncheck = regexp.MustCompile(`(?m)^\s*golang\.org/x/vuln v\d+\.\d+\.\d+( // indirect)?$`)
+
+func govulncheckPinned(mod string) bool {
+	return strings.Contains(mod, "tool golang.org/x/vuln/cmd/govulncheck") && pinnedGovulncheck.MatchString(mod)
+}
+
 func TestToolsModulePinsGovulncheck(t *testing.T) {
 	content, err := os.ReadFile(filepath.Join("..", "..", "tools", "go.mod"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, line := range []string{"tool golang.org/x/vuln/cmd/govulncheck", "golang.org/x/vuln v1.8.0"} {
-		if !strings.Contains(string(content), line) {
-			t.Errorf("tooling/tools/go.mod lacks %q", line)
+	if !govulncheckPinned(string(content)) {
+		t.Error("tooling/tools/go.mod lacks the govulncheck tool directive or an exact golang.org/x/vuln release")
+	}
+}
+
+func TestGovulncheckPinRefusesLooseModules(t *testing.T) {
+	const tool = "tool golang.org/x/vuln/cmd/govulncheck\n"
+	for name, mod := range map[string]string{
+		"no tool directive": "require golang.org/x/vuln v1.9.0\n",
+		"no requirement":    tool,
+		"pseudo-version":    tool + "\tgolang.org/x/vuln v0.0.0-20261010193011-f71dc92da45e // indirect\n",
+		"pre-release":       tool + "\tgolang.org/x/vuln v1.9.0-rc.1 // indirect\n",
+	} {
+		if govulncheckPinned(mod) {
+			t.Errorf("%s: accepted %q", name, mod)
 		}
+	}
+	if !govulncheckPinned(tool + "\tgolang.org/x/vuln v1.9.0 // indirect\n") {
+		t.Error("exact release refused")
 	}
 }
