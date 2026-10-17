@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/pdfrenderlock"
 )
 
@@ -94,7 +95,7 @@ func cleanRepositoryRoot(repositoryRoot string) (string, error) {
 		return "", fmt.Errorf("resolve repository root: %w", err)
 	}
 	root = filepath.Clean(root)
-	information, err := os.Lstat(root)
+	information, err := fileidentity.Lstat(root)
 	if err != nil {
 		return "", fmt.Errorf("inspect repository root: %w", err)
 	}
@@ -176,7 +177,7 @@ func inspectRegularBoundedPath(root, file, label string) ([]os.FileInfo, error) 
 	if err != nil || relative == "." || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
 		return nil, fmt.Errorf("%s escapes the repository root", label)
 	}
-	rootInformation, err := os.Lstat(root)
+	rootInformation, err := fileidentity.Lstat(root)
 	if err != nil {
 		return nil, fmt.Errorf("inspect %s path root: %w", label, err)
 	}
@@ -189,7 +190,7 @@ func inspectRegularBoundedPath(root, file, label string) ([]os.FileInfo, error) 
 	current := root
 	for index, component := range components {
 		current = filepath.Join(current, component)
-		information, componentError := os.Lstat(current)
+		information, componentError := fileidentity.Lstat(current)
 		if componentError != nil {
 			return nil, fmt.Errorf("inspect %s: %w", label, componentError)
 		}
