@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/pdfrenderlock"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/relpath"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
@@ -214,7 +215,7 @@ func cleanGeneratorRoot(value string) (string, error) {
 		return "", errors.New("repository root path must not contain symlinks")
 	}
 	resolved = filepath.Clean(resolved)
-	resolvedInformation, err := os.Lstat(resolved)
+	resolvedInformation, err := fileidentity.Lstat(resolved)
 	if err != nil || !resolvedInformation.IsDir() || resolvedInformation.Mode()&os.ModeSymlink != 0 ||
 		!os.SameFile(information, resolvedInformation) {
 		return "", errors.New("repository root path changed while it was resolved")
@@ -262,7 +263,7 @@ func readGeneratorFileWithInterlock(root, relative string, maximumBytes int64, a
 	if err := rejectGeneratorSymlink(root, absolute); err != nil {
 		return nil, err
 	}
-	before, err := os.Lstat(absolute)
+	before, err := fileidentity.Lstat(absolute)
 	if err != nil || !before.Mode().IsRegular() || before.Size() <= 0 || before.Size() > maximumBytes {
 		return nil, fmt.Errorf("CLRS generator file %s must be regular and between 1 and %d bytes", relative, maximumBytes)
 	}
@@ -318,7 +319,7 @@ func confirmGeneratorNamedFile(root, absolute, relative string, confirmedState o
 	if err := rejectGeneratorSymlink(root, absolute); err != nil {
 		return err
 	}
-	namedState, err := os.Lstat(absolute)
+	namedState, err := fileidentity.Lstat(absolute)
 	if err != nil || namedState.Mode()&os.ModeSymlink != 0 || !unchangedGeneratorFile(confirmedState, namedState) {
 		return fmt.Errorf("CLRS generator file %s changed while it was read", relative)
 	}
@@ -334,7 +335,7 @@ func inspectGeneratorPath(root, target string, allowMissing bool) error {
 	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
 		return errors.New("CLRS generator file escapes the repository root")
 	}
-	rootInformation, err := os.Lstat(root)
+	rootInformation, err := fileidentity.Lstat(root)
 	if err != nil || !rootInformation.IsDir() || rootInformation.Mode()&os.ModeSymlink != 0 {
 		return errors.New("CLRS generator repository root must remain a real directory")
 	}
@@ -342,7 +343,7 @@ func inspectGeneratorPath(root, target string, allowMissing bool) error {
 	components := strings.Split(relative, string(filepath.Separator))
 	for index, component := range components {
 		current = filepath.Join(current, component)
-		information, inspectErr := os.Lstat(current)
+		information, inspectErr := fileidentity.Lstat(current)
 		if inspectErr != nil {
 			if allowMissing && errors.Is(inspectErr, os.ErrNotExist) {
 				return nil
@@ -367,7 +368,7 @@ func requireMissingGeneratorFile(root, relative string) error {
 	if err := inspectGeneratorPath(root, absolute, true); err != nil {
 		return err
 	}
-	_, err := os.Lstat(absolute)
+	_, err := fileidentity.Lstat(absolute)
 	if err == nil {
 		return fmt.Errorf("CLRS generator file %s exists while its state is missing", relative)
 	}

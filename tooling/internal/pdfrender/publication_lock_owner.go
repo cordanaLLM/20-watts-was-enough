@@ -7,6 +7,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 )
 
 const maximumPublicationLockBytes = 4096
@@ -46,7 +48,7 @@ func parsePublicationLockOwner(body []byte) (publicationLockOwner, error) {
 // record names a process on this host that no longer exists, and only when
 // the file is still the one that was read. It returns why the lock was kept.
 func removeStalePublicationLock(lockPath string) error {
-	before, err := os.Lstat(lockPath)
+	before, err := fileidentity.Lstat(lockPath)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
@@ -71,7 +73,7 @@ func removeStalePublicationLock(lockPath string) error {
 	if err := requireExitedOwner(owner); err != nil {
 		return err
 	}
-	current, err := os.Lstat(lockPath)
+	current, err := fileidentity.Lstat(lockPath)
 	if err != nil || !os.SameFile(before, current) {
 		return errors.New("lock changed while its owner was checked")
 	}

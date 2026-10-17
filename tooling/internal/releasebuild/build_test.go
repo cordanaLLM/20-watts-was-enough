@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"slices"
 	"strings"
@@ -306,17 +307,38 @@ func TestReleaseTagGrammar(t *testing.T) {
 
 func TestRemoveFailedStagingRootRetainsCleanupFailure(t *testing.T) {
 	t.Parallel()
-	parent := filepath.Join(t.TempDir(), "not-a-directory")
-	if err := os.WriteFile(parent, []byte("file"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(parent, "staging")
+	path := unremovableStagingRoot(t)
 	primary := errors.New("build failed")
 	err := removeFailedStagingRoot(path, primary)
 	var pathError *os.PathError
 	if !errors.Is(err, primary) || !errors.As(err, &pathError) || !strings.Contains(err.Error(), "remove native release staging root "+path) {
 		t.Fatalf("cleanup lost failure context or causes: %v", err)
 	}
+}
+
+// unremovableStagingRoot returns a path whose removal fails. On Unix a path
+// below a regular file fails with ENOTDIR. Windows reports that case as "not
+// found", which RemoveAll treats as success, so there an open handle, which Go
+// opens without FILE_SHARE_DELETE, pins a file inside the staging root.
+func unremovableStagingRoot(t *testing.T) string {
+	t.Helper()
+	if runtime.GOOS != "windows" {
+		parent := filepath.Join(t.TempDir(), "not-a-directory")
+		if err := os.WriteFile(parent, []byte("file"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return filepath.Join(parent, "staging")
+	}
+	root := filepath.Join(t.TempDir(), "staging")
+	if err := os.Mkdir(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	held, err := os.Create(filepath.Join(root, "held"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = held.Close() })
+	return root
 }
 
 func TestRemoveFailedStagingRootPreservesBuildErrorAfterRemoval(t *testing.T) {
