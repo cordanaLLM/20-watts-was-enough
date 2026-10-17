@@ -129,3 +129,7 @@ test("raw event contract binds units, authority, sequence, and hash chain", () =
   );
   assert.throws(() => assertFixture024Record(authorityClaim), /runtime contract/);
 });
+
+test("planted failure: proves the packed CI job names this fixture", () => {
+  assert.equal(1, 2);
+});
