@@ -222,6 +222,8 @@ function runCiSuccessGate(source, overrides = {}) {
     RESULT_QUALITY_FULL: "success",
     RESULT_IMPACT_COMMON: "skipped",
     RESULT_GO: "skipped",
+    RESULT_GO_WINDOWS: "success",
+    RESULT_GO_MACOS: "success",
     RESULT_RELEASE: "skipped",
     RESULT_RENDERER: "skipped",
     RESULT_RESEARCH: "skipped",
@@ -520,6 +522,36 @@ test("public-repository workflows cannot request self-hosted or dynamic runners"
     "workflow.yml: public-repository job previous must run on GitHub-hosted ubuntu-26.04",
   ]);
 
+  assert.deepEqual(validatePublicRepositoryRunnerWorkflowObject({
+    jobs: {
+      "lane-go-windows": { "runs-on": "windows-2025" },
+      "lane-go-macos": { "runs-on": "macos-26" },
+      ci: { "runs-on": "ubuntu-26.04" },
+    },
+  }), []);
+
+  assert.deepEqual(validatePublicRepositoryRunnerWorkflowObject({
+    jobs: {
+      ci: { "runs-on": "windows-2025" },
+      release: { "runs-on": "macos-26" },
+    },
+  }), [
+    "workflow.yml: public-repository job ci must run on GitHub-hosted ubuntu-26.04",
+    "workflow.yml: public-repository job release must run on GitHub-hosted ubuntu-26.04",
+  ]);
+
+  assert.deepEqual(validatePublicRepositoryRunnerWorkflowObject({
+    jobs: {
+      "lane-go-windows": { "runs-on": "windows-2022" },
+      "lane-go-macos": { "runs-on": "macos-latest" },
+      "lane-go": { "runs-on": "unknown-runner" },
+    },
+  }), [
+    "workflow.yml: public-repository job lane-go-windows must run on GitHub-hosted windows-2025",
+    "workflow.yml: public-repository job lane-go-macos must run on GitHub-hosted macos-26",
+    "workflow.yml: public-repository job lane-go must run on GitHub-hosted ubuntu-26.04",
+  ]);
+
   const labelerPath = ".github/workflows/labeler.yml";
   const labeler = workflow("labeler");
   assert.deepEqual(validatePublicRepositoryRunnerWorkflowObject(labeler, labelerPath), []);
@@ -598,6 +630,30 @@ test("portable workflows reject Windows runners and PowerShell entry points", ()
     "workflow.yml: job shell step 0 must not use pwsh",
     "workflow.yml: job shell step 1 must not invoke PowerShell",
   ]);
+});
+
+test("portable workflows admit only the fixed Windows Go test lane", () => {
+  assert.deepEqual(validatePortableWorkflowObject({
+    jobs: { "lane-go-windows": { "runs-on": "windows-2025", steps: [{ run: "go -C tooling test ./..." }] } },
+  }), []);
+  assert.deepEqual(validatePortableWorkflowObject({
+    jobs: {
+      other: { "runs-on": "windows-2025" },
+      "lane-go-windows-matrix": { "runs-on": "windows-2025" },
+    },
+  }), [
+    "workflow.yml: job other must not add a Windows runner lane",
+    "workflow.yml: job lane-go-windows-matrix must not add a Windows runner lane",
+  ]);
+  for (const job of [
+    { "runs-on": "windows-2022" },
+    { "runs-on": "${{ matrix.os }}", strategy: { matrix: { os: ["windows-2025"] } } },
+    { "runs-on": "windows-2025", strategy: { matrix: { os: ["windows-2025"] } } },
+  ]) {
+    assert.deepEqual(validatePortableWorkflowObject({ jobs: { "lane-go-windows": job } }), [
+      "workflow.yml: job lane-go-windows must not add a Windows runner lane",
+    ]);
+  }
 });
 
 test("workflow validation accepts only the reviewed action digests", () => {
@@ -1262,6 +1318,18 @@ test("Go gates run under the race detector and type-check the Windows and macOS 
 
   const valid = workflow("ci");
   assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(valid), []);
+  for (const jobName of ["lane-go-windows", "lane-go-macos"]) {
+    const finding = `.github/workflows/ci.yml: ${jobName} must run the portable Go tests unconditionally`;
+    const vetOnly = structuredClone(valid);
+    vetOnly.jobs[jobName].steps.find((step) => step.name === "Test Go packages").run = "go -C tooling vet ./...";
+    assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(vetOnly), [finding]);
+    const conditional = structuredClone(valid);
+    conditional.jobs[jobName].steps.find((step) => step.name === "Test Go packages").if = "always()";
+    assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(conditional), [finding]);
+    const skippable = structuredClone(valid);
+    skippable.jobs[jobName].steps.find((step) => step.name === "Test Go packages")["continue-on-error"] = true;
+    assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(skippable), [finding]);
+  }
   const step = (copy, job, name) => copy.jobs[job].steps.find((candidate) => candidate.name === name);
 
   const withoutRace = structuredClone(valid);
@@ -1779,6 +1847,38 @@ test("CI selected-lane aggregation and artifact dispatch fail closed", () => {
   );
   assert.ok(validateCiImpactWorkflowObject(skippedSelectedLane).includes(successFinding));
 
+  const skippedSelectedMacLane = structuredClone(valid);
+  const macSuccess = skippedSelectedMacLane.jobs["ci-success"].steps.find((step) => (
+    step.name === "Require every expected gate state"
+  ));
+  macSuccess.run = macSuccess.run.replace(
+    'require_selection lane-go-macos "$RESULT_GO_MACOS" "$SELECT_GO"',
+    'require_state lane-go-macos "$RESULT_GO_MACOS" skipped',
+  );
+  assert.ok(validateCiImpactWorkflowObject(skippedSelectedMacLane).includes(successFinding));
+
+  const unselectedWindowsLane = structuredClone(valid);
+  unselectedWindowsLane.jobs["lane-go-windows"].if = "needs.impact-plan.outputs.mode == 'impact'";
+  assert.ok(validateCiImpactWorkflowObject(unselectedWindowsLane).includes(
+    ".github/workflows/ci.yml: lane-go-windows must run for full plans or its fixed Go selector",
+  ));
+  const impactOnlyMacLane = structuredClone(valid);
+  impactOnlyMacLane.jobs["lane-go-macos"].if = valid.jobs["lane-go"].if;
+  assert.ok(validateCiImpactWorkflowObject(impactOnlyMacLane).includes(
+    ".github/workflows/ci.yml: lane-go-macos must run for full plans or its fixed Go selector",
+  ));
+  const skippedFullWindowsLane = structuredClone(valid);
+  const fullSuccess = skippedFullWindowsLane.jobs["ci-success"].steps.find((step) => (
+    step.name === "Require every expected gate state"
+  ));
+  fullSuccess.run = fullSuccess.run.replace(
+    'require_state lane-go-windows "$RESULT_GO_WINDOWS" success',
+    'require_state lane-go-windows "$RESULT_GO_WINDOWS" skipped',
+  );
+  assert.ok(validateCiImpactWorkflowObject(skippedFullWindowsLane).includes(successFinding));
+
+
+
   const missingFullRendererGate = structuredClone(valid);
   const missingRendererSource = missingFullRendererGate.jobs["ci-success"].steps.find((step) => (
     step.name === "Require every expected gate state"
@@ -1970,18 +2070,10 @@ test("CI proves the pinned gitleaks on a planted secret before it scans the hist
   }
 });
 
-test("CI success accepts only the exact full or selected impact state vector", () => {
-  const subject = workflow("ci");
-  const source = subject.jobs["ci-success"].steps.find((step) => (
-    step.name === "Require every expected gate state"
-  )).run;
-  assert.equal(runCiSuccessGate(source).status, 0);
-  assert.equal(runCiSuccessGate(source, {
-    SELECT_RENDERER: "true",
-    RESULT_RENDERER: "success",
-  }).status, 0, "a full plan may select the orthogonal renderer gate");
-
-  const impact = {
+// A pull-request impact plan that selects the site, workstation and
+// dependency lanes and leaves every Go lane unselected.
+function impactStateVector() {
+  return {
     EVENT_NAME: "pull_request",
     MODE: "impact",
     SELECT_DEPENDENCY: "true",
@@ -1994,7 +2086,63 @@ test("CI success accepts only the exact full or selected impact state vector", (
     RESULT_WORKSTATION_ARTIFACTS: "success",
     RESULT_CONTAINER: "skipped",
     RESULT_DEPENDENCY_REVIEW: "success",
+    RESULT_GO_WINDOWS: "skipped",
+    RESULT_GO_MACOS: "skipped",
   };
+}
+
+test("CI success requires the native Go lanes in full plans and selected Go plans", () => {
+  const source = workflow("ci").jobs["ci-success"].steps.find((step) => (
+    step.name === "Require every expected gate state"
+  )).run;
+  const impact = impactStateVector();
+  assert.notEqual(runCiSuccessGate(source, {
+    ...impact,
+    RESULT_GO_WINDOWS: "success",
+  }).status, 0, "an unselected lane may not succeed unexpectedly");
+  assert.notEqual(runCiSuccessGate(source, {
+    ...impact,
+    RESULT_GO_MACOS: "success",
+  }).status, 0, "an unselected lane may not succeed unexpectedly");
+  assert.equal(runCiSuccessGate(source, {
+    ...impact,
+    SELECT_GO: "true",
+    RESULT_GO: "success",
+    RESULT_GO_WINDOWS: "success",
+    RESULT_GO_MACOS: "success",
+  }).status, 0, "a selected Go lane requires all three platforms to succeed");
+  for (const lane of ["RESULT_GO_WINDOWS", "RESULT_GO_MACOS"]) {
+    for (const state of ["failure", "skipped", "cancelled"]) {
+      assert.notEqual(runCiSuccessGate(source, { [lane]: state }).status, 0,
+        `full mode must reject ${lane}=${state}`);
+    }
+  }
+  for (const failed of ["RESULT_GO_WINDOWS", "RESULT_GO_MACOS"]) {
+    for (const state of ["failure", "skipped", "cancelled"]) {
+      assert.notEqual(runCiSuccessGate(source, {
+        ...impact,
+        SELECT_GO: "true",
+        RESULT_GO: "success",
+        RESULT_GO_WINDOWS: "success",
+        RESULT_GO_MACOS: "success",
+        [failed]: state,
+      }).status, 0, `a selected Go lane with ${failed}=${state} must fail`);
+    }
+  }
+});
+
+test("CI success accepts only the exact full or selected impact state vector", () => {
+  const subject = workflow("ci");
+  const source = subject.jobs["ci-success"].steps.find((step) => (
+    step.name === "Require every expected gate state"
+  )).run;
+  assert.equal(runCiSuccessGate(source).status, 0);
+  assert.equal(runCiSuccessGate(source, {
+    SELECT_RENDERER: "true",
+    RESULT_RENDERER: "success",
+  }).status, 0, "a full plan may select the orthogonal renderer gate");
+
+  const impact = impactStateVector();
   assert.equal(runCiSuccessGate(source, impact).status, 0);
   const pushImpact = {
     ...impact,
@@ -4083,7 +4231,7 @@ test("verify-all skips npm steps only inside the declared-verify stage without n
   assert.equal(declaredVerifyAction({ env: {}, hasNodeModules: false, today: lastDay }), "run");
   assert.equal(declaredVerifyAction({ env: stage, hasNodeModules: true, today: lastDay }), "run");
   // From the day after the exception expires the skip fails.
-  assert.equal(declaredVerifyAction({ env: stage, hasNodeModules: false, today: "2026-10-19" }), "expired");
+  assert.equal(declaredVerifyAction({ env: stage, hasNodeModules: false, today: "2026-10-22" }), "expired");
   assert.equal(DECLARED_VERIFY_EXCEPTION.category, "B");
   const makefile = readFileSync("Makefile", "utf8");
   assert.doesNotMatch(makefile, /'npm' 'run'/u, "every npm step in the Makefile goes through the exception script");

@@ -11,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 )
 
 type generatorOCIArchive struct {
@@ -47,7 +49,7 @@ func openGeneratorOCIArchive(filename string, expectedBytes int64) (archive gene
 	if err != nil {
 		return archive, err
 	}
-	archive.before, err = os.Lstat(filepath.Join(archive.parent, archive.name))
+	archive.before, err = fileidentity.Lstat(filepath.Join(archive.parent, archive.name))
 	if err != nil || !archive.before.Mode().IsRegular() || archive.before.Size() != expectedBytes {
 		return archive, errors.New("OCI archive must be a nonsymlink regular file of the exact expected size")
 	}
@@ -83,7 +85,7 @@ func (archive generatorOCIArchive) checkIdentity() error {
 	if err != nil || !unchangedGeneratorFile(archive.before, opened) {
 		return errors.New("OCI opened archive identity changed")
 	}
-	current, err := os.Lstat(filepath.Join(archive.parent, archive.name))
+	current, err := fileidentity.Lstat(filepath.Join(archive.parent, archive.name))
 	if err != nil || !unchangedGeneratorFile(archive.before, current) {
 		return errors.New("OCI archive pathname changed")
 	}

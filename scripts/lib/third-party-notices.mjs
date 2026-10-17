@@ -23,19 +23,13 @@ const LICENSE_OVERRIDES = Object.freeze({
   },
 });
 
+// Virtual modules a bundler emits, mapped to the package that ships them.
+// The expected version comes from package-lock.json, so a dependency update
+// moves it without a second record here.
 const VIRTUAL_MODULE_PACKAGES = Object.freeze({
-  "\0rolldown/runtime.js": {
-    expectedIdentity: "rolldown@1.2.12",
-    packagePath: "node_modules/rolldown",
-  },
-  "\0vite/modulepreload-polyfill.js": {
-    expectedIdentity: "vite@8.3.2",
-    packagePath: "node_modules/vite",
-  },
-  "\0vite/preload-helper.js": {
-    expectedIdentity: "vite@8.3.2",
-    packagePath: "node_modules/vite",
-  },
+  "\0rolldown/runtime.js": { packagePath: "node_modules/rolldown" },
+  "\0vite/modulepreload-polyfill.js": { packagePath: "node_modules/vite" },
+  "\0vite/preload-helper.js": { packagePath: "node_modules/vite" },
 });
 // Licences whose object-code distribution requires telling recipients where
 // the source code is; LICENSING.md must name each such bundled package.
@@ -91,6 +85,28 @@ function packageMetadata(root) {
     maximumBytes: 1_000_000,
   });
   return { bytes, value: JSON.parse(bytes.toString("utf8")) };
+}
+
+function lockedIdentity(repositoryRoot, packagePath, lockPackages) {
+  const entry = lockPackages[packagePath];
+  const name = packagePath.slice(packagePath.lastIndexOf("node_modules/") + "node_modules/".length);
+  if (typeof entry?.version !== "string" || entry.version === "" || (entry.name ?? name) !== name) {
+    throw new Error(`package-lock.json in ${repositoryRoot} lacks a version for ${packagePath}`);
+  }
+  return `${name}@${entry.version}`;
+}
+
+function lockPackagesOf(repositoryRoot) {
+  const bytes = readStableOpenedFileSync(path.join(repositoryRoot, "package-lock.json"), {
+    label: "package-lock.json for bundled virtual modules",
+    containedBy: repositoryRoot,
+    maximumBytes: 16_000_000,
+  });
+  const packages = JSON.parse(bytes.toString("utf8"))?.packages;
+  if (packages === null || typeof packages !== "object") {
+    throw new Error(`package-lock.json in ${repositoryRoot} has no packages map`);
+  }
+  return packages;
 }
 
 function collectPackageNotices(root, repositoryRoot, texts, expectedIdentity = null) {
@@ -171,11 +187,8 @@ function assertSourceOffers(packages, repositoryRoot) {
   }
 }
 
-export function renderThirdPartyNotices({ moduleIds, repositoryRoot }) {
-  const roots = new Map();
-  for (const root of [...moduleIds].map(packageRoot).filter((value) => value !== null)) {
-    roots.set(root, null);
-  }
+function addVirtualModuleRoots(roots, moduleIds, repositoryRoot) {
+  let lockPackages = null;
   for (const moduleId of moduleIds) {
     const virtualModuleId = normalizedVirtualModuleId(moduleId);
     if (virtualModuleId === null) continue;
@@ -184,16 +197,26 @@ export function renderThirdPartyNotices({ moduleIds, repositoryRoot }) {
     if (!mapping) {
       throw new Error(`Unmapped virtual bundle module: ${JSON.stringify(virtualModuleId)}`);
     }
+    lockPackages ??= lockPackagesOf(repositoryRoot);
+    const expectedIdentity = lockedIdentity(repositoryRoot, mapping.packagePath, lockPackages);
     const root = realpathSync(
       path.join(repositoryRoot, ...mapping.packagePath.split("/")),
     );
     const priorExpectation = roots.get(root);
     if (priorExpectation !== undefined && priorExpectation !== null
-      && priorExpectation !== mapping.expectedIdentity) {
+      && priorExpectation !== expectedIdentity) {
       throw new Error(`Conflicting identities for virtual bundle root ${root}`);
     }
-    roots.set(root, mapping.expectedIdentity);
+    roots.set(root, expectedIdentity);
   }
+}
+
+export function renderThirdPartyNotices({ moduleIds, repositoryRoot }) {
+  const roots = new Map();
+  for (const root of [...moduleIds].map(packageRoot).filter((value) => value !== null)) {
+    roots.set(root, null);
+  }
+  addVirtualModuleRoots(roots, moduleIds, repositoryRoot);
   const packages = [];
   const texts = new Map();
 
