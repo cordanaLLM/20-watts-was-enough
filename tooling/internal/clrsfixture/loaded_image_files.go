@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"slices"
 	"time"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 )
 
 func newLoadedImageBundle(options GeneratorLoadedImageOptions) (*os.Root, error) {
@@ -34,7 +36,7 @@ func newLoadedImageBundle(options GeneratorLoadedImageOptions) (*os.Root, error)
 	if err != nil {
 		return nil, err
 	}
-	after, err := os.Lstat(parent)
+	after, err := fileidentity.Lstat(parent)
 	if err == nil && (!os.SameFile(before, after) || before.Mode() != after.Mode()) {
 		err = errors.New("loaded-image output parent changed during exclusive creation")
 	}

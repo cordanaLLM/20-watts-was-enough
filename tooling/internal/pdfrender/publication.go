@@ -8,6 +8,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 )
 
 const (
@@ -62,7 +64,7 @@ func createPublicationLock(lockPath string) (_ *publicationLock, returnError err
 	defer func() {
 		if returnError != nil {
 			_ = file.Close()
-			current, currentError := os.Lstat(lockPath)
+			current, currentError := fileidentity.Lstat(lockPath)
 			if currentError == nil && os.SameFile(identity, current) {
 				_ = os.Remove(lockPath)
 			}
@@ -86,7 +88,7 @@ func createPublicationLock(lockPath string) (_ *publicationLock, returnError err
 }
 
 func (lock *publicationLock) release() error {
-	current, err := os.Lstat(lock.path)
+	current, err := fileidentity.Lstat(lock.path)
 	if err != nil || !current.Mode().IsRegular() || current.Mode()&os.ModeSymlink != 0 ||
 		!os.SameFile(lock.identity, current) {
 		return errors.New("full-book PDF generation lock changed while held")
@@ -261,7 +263,7 @@ func rollbackPublishedPair(destinations, backups []string, hadPrevious []bool) [
 }
 
 func regularFileExists(file string) (bool, error) {
-	information, err := os.Lstat(file)
+	information, err := fileidentity.Lstat(file)
 	if errors.Is(err, os.ErrNotExist) {
 		return false, nil
 	}
@@ -275,7 +277,7 @@ func regularFileExists(file string) (bool, error) {
 }
 
 func copyRegularFileExclusive(source, destination string) (returnError error) {
-	information, err := os.Lstat(source)
+	information, err := fileidentity.Lstat(source)
 	if err != nil || !information.Mode().IsRegular() || information.Mode()&os.ModeSymlink != 0 {
 		return errors.New("publication backup source must be a regular non-symlink file")
 	}
@@ -303,7 +305,7 @@ func copyRegularFileExclusive(source, destination string) (returnError error) {
 		return err
 	}
 	opened, err := input.Stat()
-	current, currentError := os.Lstat(source)
+	current, currentError := fileidentity.Lstat(source)
 	if err != nil || currentError != nil || !os.SameFile(information, opened) || !os.SameFile(information, current) {
 		return errors.New("publication backup source changed while copied")
 	}

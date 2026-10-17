@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
@@ -53,7 +54,7 @@ func newGenerationRunBundle(inputs generationRunInputs) (*os.Root, error) {
 	if err != nil {
 		return nil, err
 	}
-	after, err := os.Lstat(parent)
+	after, err := fileidentity.Lstat(parent)
 	if err != nil || !os.SameFile(before, after) || after.Mode() != before.Mode() {
 		bundle.Close()
 		return nil, errors.New("generation output parent changed while creating the fresh bundle")
@@ -89,7 +90,7 @@ func checkGenerationRoot(root *os.Root) error {
 	if err != nil {
 		return err
 	}
-	named, err := os.Lstat(path)
+	named, err := fileidentity.Lstat(path)
 	if err != nil || !os.SameFile(opened, named) || opened.Mode() != named.Mode() {
 		return errors.New("generation output root identity changed")
 	}
