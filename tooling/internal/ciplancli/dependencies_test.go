@@ -34,8 +34,8 @@ func TestPrivateCommandDependencyClosures(t *testing.T) {
 		command string
 		allowed []string
 	}{
-		{"ci-plan", []string{"cmd/ci-plan", "internal/ciplancli", "internal/ciplan", "internal/strictjson"}},
-		{"pdf-proof", []string{"cmd/pdf-proof", "internal/pdfrendercli", "internal/pdfrender", "internal/pdfrenderlock", "internal/strictjson"}},
+		{"ci-plan", []string{"cmd/ci-plan", "internal/ciplancli", "internal/ciplan", "internal/boundedexec", "internal/fileidentity", "internal/strictjson"}},
+		{"pdf-proof", []string{"cmd/pdf-proof", "internal/pdfrendercli", "internal/pdfrender", "internal/boundedexec", "internal/fileidentity", "internal/pdfrenderlock", "internal/releasetag", "internal/strictjson"}},
 	} {
 		t.Run(test.command, func(t *testing.T) {
 			command := exec.CommandContext(ctx, goPath, "list", "-mod=readonly", "-deps", "-f", "{{if not .Standard}}{{.ImportPath}}{{end}}", "./cmd/"+test.command)

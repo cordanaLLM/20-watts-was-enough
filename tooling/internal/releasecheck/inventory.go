@@ -15,14 +15,18 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 )
 
 const (
-	checksumManifestName      = "SHA256SUMS"
-	ociManifestName           = "oci-images.json"
-	maximumReleaseAttachments = 128
-	maximumChecksumBytes      = 64 * 1024
-	maximumReleaseFileSize    = 512 * 1024 * 1024
+	checksumManifestName       = "SHA256SUMS"
+	checksumBundleName         = "SHA256SUMS.sigstore.json"
+	maximumChecksumBundleBytes = 64 * 1024
+	ociManifestName            = "oci-images.json"
+	maximumReleaseAttachments  = 128
+	maximumChecksumBytes       = 64 * 1024
+	maximumReleaseFileSize     = 512 * 1024 * 1024
 )
 
 var (
@@ -49,7 +53,7 @@ func ValidateAssetInventory(assetsRoot string, phase InventoryPhase) ([]string, 
 	if err != nil {
 		return nil, err
 	}
-	rootBefore, err := os.Lstat(root)
+	rootBefore, err := fileidentity.Lstat(root)
 	if err != nil {
 		return nil, fmt.Errorf("inspect release asset root: %w", err)
 	}
@@ -66,15 +70,61 @@ func ValidateAssetInventory(assetsRoot string, phase InventoryPhase) ([]string, 
 	if err != nil {
 		return nil, err
 	}
+	if phase == PublicationAssets {
+		names, err = includeChecksumBundle(root, checksums, names)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err := validateChecksummedFiles(root, names, checksums); err != nil {
+		return nil, err
+	}
+
+	expected := append(slices.Clone(names), checksumManifestName)
+	slices.Sort(expected)
+	observed := snapshotNames(before)
+	if !slices.Equal(expected, observed) {
+		return nil, fmt.Errorf("local release assets do not match SHA256SUMS: expected %v, observed %v", expected, observed)
+	}
+	if err := verifyInventorySnapshot(root, manifestPath, body, before, rootBefore); err != nil {
+		return nil, err
+	}
+
+	return expected, nil
+}
+
+func verifyInventorySnapshot(root, manifestPath string, body []byte, before []assetSnapshot, rootBefore os.FileInfo) error {
+	bodyAfter, err := readRegularFile(root, manifestPath, maximumChecksumBytes)
+	if err != nil {
+		return fmt.Errorf("reread SHA256SUMS: %w", err)
+	}
+	if !bytes.Equal(body, bodyAfter) {
+		return errors.New("SHA256SUMS changed during inventory validation")
+	}
+	after, err := snapshotAssetDirectory(root)
+	if err != nil {
+		return err
+	}
+	rootAfter, err := fileidentity.Lstat(root)
+	if err != nil {
+		return fmt.Errorf("reinspect release asset root: %w", err)
+	}
+	if !sameStableFile(rootBefore, rootAfter) || !sameDirectorySnapshot(before, after) {
+		return errors.New("release asset directory changed during inventory validation")
+	}
+	return nil
+}
+
+func validateChecksummedFiles(root string, names []string, checksums map[string]string) error {
 	firstDigests := make(map[string]string, len(names))
 	for _, name := range names {
 		file := filepath.Join(root, name)
 		digest, err := digestRegularFile(root, file, maximumReleaseFileSize)
 		if err != nil {
-			return nil, fmt.Errorf("validate release asset %s: %w", name, err)
+			return fmt.Errorf("validate release asset %s: %w", name, err)
 		}
 		if digest != checksums[name] {
-			return nil, fmt.Errorf("release asset %s does not match SHA256SUMS", name)
+			return fmt.Errorf("release asset %s does not match SHA256SUMS", name)
 		}
 		firstDigests[name] = digest
 	}
@@ -82,37 +132,29 @@ func ValidateAssetInventory(assetsRoot string, phase InventoryPhase) ([]string, 
 		file := filepath.Join(root, name)
 		digest, err := digestRegularFile(root, file, maximumReleaseFileSize)
 		if err != nil {
-			return nil, fmt.Errorf("reread release asset %s: %w", name, err)
+			return fmt.Errorf("reread release asset %s: %w", name, err)
 		}
 		if digest != firstDigests[name] || digest != checksums[name] {
-			return nil, fmt.Errorf("release asset %s changed during inventory validation", name)
+			return fmt.Errorf("release asset %s changed during inventory validation", name)
 		}
 	}
-	expected := append(slices.Clone(names), checksumManifestName)
-	slices.Sort(expected)
-	observed := snapshotNames(before)
-	if !slices.Equal(expected, observed) {
-		return nil, fmt.Errorf("local release assets do not match SHA256SUMS: expected %v, observed %v", expected, observed)
+	return nil
+}
+
+// The detached signature cannot checksum itself. Its bytes are bounded here;
+// the workflow verifies its signature over the final SHA256SUMS before upload.
+func includeChecksumBundle(root string, checksums map[string]string, names []string) ([]string, error) {
+	file := filepath.Join(root, checksumBundleName)
+	info, err := validateRegularPath(root, file, maximumChecksumBundleBytes)
+	if err != nil || info.Size() == 0 {
+		return nil, fmt.Errorf("checksum bundle must be a nonempty bounded regular file: %s", file)
 	}
-	bodyAfter, err := readRegularFile(root, manifestPath, maximumChecksumBytes)
+	digest, err := digestRegularFile(root, file, maximumChecksumBundleBytes)
 	if err != nil {
-		return nil, fmt.Errorf("reread SHA256SUMS: %w", err)
+		return nil, fmt.Errorf("hash checksum bundle: %w", err)
 	}
-	if !bytes.Equal(body, bodyAfter) {
-		return nil, errors.New("SHA256SUMS changed during inventory validation")
-	}
-	after, err := snapshotAssetDirectory(root)
-	if err != nil {
-		return nil, err
-	}
-	rootAfter, err := os.Lstat(root)
-	if err != nil {
-		return nil, fmt.Errorf("reinspect release asset root: %w", err)
-	}
-	if !sameStableFile(rootBefore, rootAfter) || !sameDirectorySnapshot(before, after) {
-		return nil, errors.New("release asset directory changed during inventory validation")
-	}
-	return expected, nil
+	checksums[checksumBundleName] = digest
+	return append(names, checksumBundleName), nil
 }
 
 type assetSnapshot struct {
@@ -138,7 +180,7 @@ func snapshotAssetDirectory(root string) ([]assetSnapshot, error) {
 		if !assetNamePattern.MatchString(entry.Name()) {
 			return nil, fmt.Errorf("release asset directory contains an unsafe entry: %s", entry.Name())
 		}
-		information, err := os.Lstat(filepath.Join(root, entry.Name()))
+		information, err := fileidentity.Lstat(filepath.Join(root, entry.Name()))
 		if err != nil {
 			return nil, fmt.Errorf("inspect release asset %s: %w", entry.Name(), err)
 		}
@@ -218,7 +260,7 @@ func parseChecksumManifest(body []byte, phase InventoryPhase) (map[string]string
 	checksums := make(map[string]string)
 	var names []string
 	// SHA256SUMS is itself one release attachment but must not list itself.
-	maximumNames := maximumReleaseAttachments - 1
+	maximumNames := maximumReleaseAttachments - 2
 	if phase == SourceAssets {
 		// Reserve one final checksum identity for oci-images.json.
 		maximumNames--
@@ -237,6 +279,9 @@ func parseChecksumManifest(body []byte, phase InventoryPhase) (map[string]string
 		digest, name := match[1], match[2]
 		if name == checksumManifestName {
 			return nil, nil, errors.New("SHA256SUMS must not list itself")
+		}
+		if name == checksumBundleName {
+			return nil, nil, errors.New("SHA256SUMS must not list its detached signature")
 		}
 		if _, exists := checksums[name]; exists {
 			return nil, nil, fmt.Errorf("duplicate SHA256SUMS asset name: %s", name)
@@ -273,7 +318,7 @@ func cleanDirectory(directory string) (string, error) {
 		return "", fmt.Errorf("resolve release asset root: %w", err)
 	}
 	root = filepath.Clean(root)
-	information, err := os.Lstat(root)
+	information, err := fileidentity.Lstat(root)
 	if err != nil {
 		return "", fmt.Errorf("inspect release asset root: %w", err)
 	}
@@ -328,7 +373,7 @@ func readRegularFile(root, file string, maximumBytes int64) ([]byte, error) {
 		return nil, err
 	}
 	openedInformation, openedError := opened.Stat()
-	currentInformation, currentError := os.Lstat(file)
+	currentInformation, currentError := fileidentity.Lstat(file)
 	if openedError != nil || currentError != nil || !sameStableFile(information, openedInformation) ||
 		!sameStableFile(information, currentInformation) || int64(len(body)) != information.Size() {
 		return nil, errors.New("release file changed while it was read")
@@ -352,7 +397,7 @@ func digestRegularFile(root, file string, maximumBytes int64) (string, error) {
 		return "", err
 	}
 	openedInformation, openedError := opened.Stat()
-	currentInformation, currentError := os.Lstat(file)
+	currentInformation, currentError := fileidentity.Lstat(file)
 	if openedError != nil || currentError != nil || !sameStableFile(information, openedInformation) ||
 		!sameStableFile(information, currentInformation) || written != information.Size() {
 		return "", errors.New("release file changed while it was hashed")
@@ -375,7 +420,7 @@ func validateRegularPath(root, file string, maximumBytes int64) (os.FileInfo, er
 	current := root
 	for _, component := range strings.Split(relative, string(filepath.Separator)) {
 		current = filepath.Join(current, component)
-		information, err := os.Lstat(current)
+		information, err := fileidentity.Lstat(current)
 		if err != nil {
 			return nil, err
 		}
@@ -383,7 +428,7 @@ func validateRegularPath(root, file string, maximumBytes int64) (os.FileInfo, er
 			return nil, errors.New("release file path contains a symlink")
 		}
 	}
-	information, err := os.Lstat(file)
+	information, err := fileidentity.Lstat(file)
 	if err != nil {
 		return nil, err
 	}

@@ -15,6 +15,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 )
 
 const (
@@ -109,7 +111,7 @@ func Package(options Options) (returnError error) {
 	if err != nil {
 		return fmt.Errorf("resolve output root: %w", err)
 	}
-	if _, err := os.Lstat(outputRoot); err == nil {
+	if _, err := fileidentity.Lstat(outputRoot); err == nil {
 		return errors.New("output root already exists")
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("inspect output root: %w", err)
@@ -215,7 +217,7 @@ func cleanExistingDirectory(value, label string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve %s: %w", label, err)
 	}
-	information, err := os.Lstat(absolute)
+	information, err := fileidentity.Lstat(absolute)
 	if err != nil {
 		return "", fmt.Errorf("inspect %s: %w", label, err)
 	}
@@ -237,7 +239,7 @@ func copyRegularFile(repositoryRoot, stagingRoot, relativePath string) (string, 
 	if !inside(repositoryRoot, sourcePath) {
 		return "", 0, fmt.Errorf("runtime path escapes repository root: %s", relativePath)
 	}
-	information, err := os.Lstat(sourcePath)
+	information, err := fileidentity.Lstat(sourcePath)
 	if err != nil {
 		return "", 0, fmt.Errorf("inspect runtime file %s: %w", relativePath, err)
 	}
@@ -264,7 +266,7 @@ func copyRegularFile(repositoryRoot, stagingRoot, relativePath string) (string, 
 	if err != nil || !openedInformation.Mode().IsRegular() || !os.SameFile(information, openedInformation) {
 		return "", 0, fmt.Errorf("runtime file %s changed while opening", relativePath)
 	}
-	currentInformation, err := os.Lstat(sourcePath)
+	currentInformation, err := fileidentity.Lstat(sourcePath)
 	if err != nil || !currentInformation.Mode().IsRegular() || !os.SameFile(openedInformation, currentInformation) {
 		return "", 0, fmt.Errorf("runtime file %s changed while opening", relativePath)
 	}
@@ -293,7 +295,7 @@ func copyRegularFile(repositoryRoot, stagingRoot, relativePath string) (string, 
 	if err != nil || !os.SameFile(information, finalOpenedInformation) || finalOpenedInformation.Size() != information.Size() || !finalOpenedInformation.ModTime().Equal(information.ModTime()) {
 		return "", 0, fmt.Errorf("runtime file %s changed while copying", relativePath)
 	}
-	finalPathInformation, err := os.Lstat(sourcePath)
+	finalPathInformation, err := fileidentity.Lstat(sourcePath)
 	if err != nil || !finalPathInformation.Mode().IsRegular() || !os.SameFile(finalOpenedInformation, finalPathInformation) {
 		return "", 0, fmt.Errorf("runtime file %s changed while copying", relativePath)
 	}
@@ -358,7 +360,7 @@ func normalizeContextMetadata(root string) error {
 		if entries > maximumClosureFiles+16 {
 			return errors.New("generated experiment image context contains too many entries")
 		}
-		information, err := entry.Info()
+		information, err := fileidentity.Info(entry)
 		if err != nil {
 			return err
 		}

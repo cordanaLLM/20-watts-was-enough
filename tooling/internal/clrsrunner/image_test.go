@@ -5,12 +5,17 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/specialistcontrol"
 )
+
+// pinnedGoBuilder admits one exact Go release on a Debian base, pinned by
+// digest; the digest itself comes from the repository Go builder.
+var pinnedGoBuilder = regexp.MustCompile(`^FROM golang:[0-9]+\.[0-9]+\.[0-9]+-[a-z]+@sha256:[0-9a-f]{64} AS builder$`)
 
 func TestImageDefinitionKeepsPinnedStaticRuntimeAndHardenedSmoke(t *testing.T) {
 	t.Parallel()
@@ -21,8 +26,7 @@ func TestImageDefinitionKeepsPinnedStaticRuntimeAndHardenedSmoke(t *testing.T) {
 		!strings.HasPrefix(dockerfile, toolingBuilder+"\n") {
 		t.Fatal("CLRS specialist Dockerfile builder differs from the repository Go builder")
 	}
-	if strings.Count(dockerfile, "FROM ") != 2 || !strings.HasPrefix(dockerfile,
-		"FROM golang:1.27.2-trixie@sha256:e58d6f83b3416618d8bcac2b3dde1b7f7e3c4a77d25e88637f8bbae81536c48d AS builder\n") {
+	if strings.Count(dockerfile, "FROM ") != 2 || !pinnedGoBuilder.MatchString(toolingBuilder) {
 		t.Fatal("CLRS specialist Dockerfile lost its exact two-stage pinned builder")
 	}
 	for _, required := range []string{

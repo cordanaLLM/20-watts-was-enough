@@ -100,7 +100,9 @@ test("runtime identity binds the exact Node executable, lock, and installed prod
   assert.equal(first.runtime.executable_bytes, executable.size);
   assert.match(first.runtime.executable_sha256, /^[0-9a-f]{64}$/);
   assert.deepEqual(first.external_production_dependency_names, ["es-module-lexer"]);
-  assert.equal(first.external_production_dependencies[0].version, "3.0.3");
+  // The update bot moves the lock; the expected version follows it rather than a copy.
+  const lock = JSON.parse(await readFile(path.join(repositoryRoot, "package-lock.json"), "utf8"));
+  assert.equal(first.external_production_dependencies[0].version, lock.packages["node_modules/es-module-lexer"].version);
   assert.equal(first.external_production_dependencies[0].production_usage, true);
   assert.equal(first.external_production_dependencies[0].declared_section, "devDependencies");
   assert.ok(first.external_production_dependencies[0].files.some((row) => row.path === "package.json"));

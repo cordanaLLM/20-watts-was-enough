@@ -11,6 +11,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/githubapi"
 )
 
 const (
@@ -268,7 +270,7 @@ func listRepairPage(
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		if err := drainBounded(response.Body); err != nil {
+		if err := githubapi.DrainBounded(response.Body, maximumResponseBytes, "GitHub pull-request response exceeds its byte limit"); err != nil {
 			return nil, false, fmt.Errorf("discover GitHub pull requests for %s page %d: %w", status, page, err)
 		}
 		return nil, false, fmt.Errorf(
@@ -295,7 +297,7 @@ func listRepairPage(
 			item.Labels == nil || len(item.Labels) > maximumLabels {
 			return nil, false, fmt.Errorf("discover GitHub pull requests for %s page %d: malformed item", status, page)
 		}
-		if _, err := normalizedLabels(item.Labels); err != nil {
+		if _, err := githubapi.NormalizedLabels(item.Labels); err != nil {
 			return nil, false, fmt.Errorf("discover GitHub pull requests for %s page %d: %w", status, page, err)
 		}
 		if !containsRemoteLabel(item.Labels, status) {
@@ -340,7 +342,7 @@ func listOpenRepairPage(
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		if err := drainBounded(response.Body); err != nil {
+		if err := githubapi.DrainBounded(response.Body, maximumResponseBytes, "GitHub pull-request response exceeds its byte limit"); err != nil {
 			return nil, false, fmt.Errorf("discover open GitHub pull requests page %d: %w", page, err)
 		}
 		return nil, false, fmt.Errorf(
@@ -365,7 +367,7 @@ func listOpenRepairPage(
 			len(pointerText(pull.Body)) > maximumBodyBytes || pull.Labels == nil || len(pull.Labels) > maximumLabels {
 			return nil, false, fmt.Errorf("discover open GitHub pull requests page %d: malformed item", page)
 		}
-		if _, err := normalizedLabels(pull.Labels); err != nil {
+		if _, err := githubapi.NormalizedLabels(pull.Labels); err != nil {
 			return nil, false, fmt.Errorf("discover open GitHub pull requests page %d: %w", page, err)
 		}
 	}

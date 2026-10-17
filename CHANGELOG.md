@@ -7,6 +7,87 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- `run-clrs-shakedown-container` runs and checks the frozen development tree
+  through two bounded local containers selected by exact loaded image ID.
+  Go owns pre-start configuration checks, host-written failure evidence and
+  ownership-checked cleanup. The second container has read-only mounts; the
+  inner experiment and its `NO_RESULT` authority remain unchanged. This
+  replaces the manual runtime walkthrough without acquiring or admitting an
+  image, measuring energy or providing a hard quota on writable output storage.
+- Run the Go tests on Windows and macOS runners in CI for every full plan and every Go impact plan; the runner policy admits exactly these two jobs ([Decision 0103](decisions/0103-run-the-go-tests-on-windows-and-macos-runners.md)).
+
+### Changed
+
+- Renew the declared-verify npm skip in `scripts/declared-verify-npm.mjs` to
+  2026-10-21 (category B, three days): the engine fix for
+  cordanaLLM/praetor#1385 has not landed, and without the renewal every
+  pre-push gate would fail from 2026-10-19.
+- Citations of the `lusoris/k8s` cluster audit no longer link to that
+  repository, which is now private; the audit and the v0.3.0 disclosure keep the
+  full commit hashes as plain text and say the source cannot be inspected
+  publicly (#288).
+- Lock the PDF renderer to Buildx 0.38.0; the renderer cache inventory admits
+  the empty `cache.lock` file that its BuildKit client keeps in a local cache
+  store ([Decision 0105](decisions/0105-move-the-renderer-lock-to-buildx-0-38-0.md)).
+
+### Fixed
+
+- The CLRS specialist image test takes the expected Go builder digest from the repository Go builder and checks only its pinned shape, so a digest update no longer fails on a hand-kept copy.
+- Files that compare file identity with `os.SameFile` read path-based file information through the new `internal/fileidentity` package, which reads the identity at capture. On Windows, `os.Lstat`, `os.Stat` and some directory entries kept only the path, so information taken before a delete and recreate named the replacement and a swapped file passed the check. A Go test refuses a direct capture in such a file.
+- Third-party notices take the expected Vite and Rolldown identity from
+  `package-lock.json`, and the candidate-010 runtime-identity test takes the
+  expected `es-module-lexer` version from the same lock. A dependency update
+  no longer fails on a hand-kept copy of the version it moves.
+- Segment-intersection orientation no longer fuses multiply-add on arm64, where an exactly collinear case came out as a rounding residue and changed the answer.
+- The CLRS shakedown resolves the running executable's path before its real-directory check, so a test binary below a symlinked temporary directory (macOS) is identified instead of refused.
+- Reject a rooted path without a drive letter and a drive-relative path in the shared relative-path validator, which accepted `/a` on Windows.
+- Check text files out with LF bytes on every platform (`* text=auto eol=lf`), so the byte-compared and hashed Go inputs match on Windows runners.
+- Go tests run with a canonical temporary directory (`internal/testtmp`), so the symlink-refusing path checks pass on macOS (`/var` link) and Windows (8.3 short names).
+- Accept canonical `-rc.N` versions in experiment image builds and execution receipts so release-candidate builds pass the image guards.
+- The CLRS shakedown takes its per-request budget from bound inputs. Production keeps 1 s; the failure and cancellation test uses one minute, so a loaded runner no longer turns an injected failure into a deadline outcome (#148).
+
+## [0.5.0] - 2026-10-16
+
+### Security
+
+- Build and attest releases inside the local reusable builder required by the
+  declared SLSA Build L3 policy. Sign fresh image digests and final checksums
+  with keyless Cosign, publish a reusable checksum signature bundle, and
+  attest a tagged-source SPDX SBOM to the release assets
+  ([Decision 0101](decisions/0101-build-releases-in-a-reusable-workflow.md)).
+  Consumer verification now names `release-build.yml` as the trusted signer.
+
+- Re-resolve the CLRS generator's urllib3 dependency from 2.7.0 to 2.8.0 for
+  GHSA-8988-9cw3-xx77, GHSA-vxq7-64xx-v4gw and GHSA-gh4c-6fx4-qh6g.
+  Only urllib3 receives a later cutoff; the global cutoff and every other
+  package block remain unchanged
+  ([Decision 0100](decisions/0100-lift-the-urllib3-cutoff-in-the-clrs-generator.md)).
+  The retained SBOM bundle that CI checks moves to the
+  `clrs-sbom-bundle-2026-10-16` prerelease, scanned from the image rebuilt
+  with the new lock.
+
+### Added
+
+- Accept canonical `vMAJOR.MINOR.PATCH-rc.N` release tags alongside final
+  tags. Candidates stay GitHub draft pre-releases so no DOI is minted;
+  consumers verify draft assets with authenticated `gh release download` and
+  `gh attestation verify --signer-workflow` naming `release-build.yml`.
+  Images keep only the exact rc tag. Release manifests use the base version
+  before the suffix
+  ([Decision 0102](decisions/0102-accept-release-candidate-tags.md)).
+
+- Research-watch publication wrapper `scripts/research-watch-publish.mjs` runs
+  the daily lead ingester and publishes updated public catalogs to branch
+  `research-watch/ingest` as a pull request against `main` using GitHub GraphQL
+  `createCommitOnBranch`, providing web-flow signed commits without local Git
+  pushes. Credentials are read strictly from systemd credential storage, with
+  hard allow-listing of the three ingest output files, bounded timeouts and
+  retries, and `--dry-run` inspection.
+
+- Read-only research-watch ingestion v1 (#267) merges fleet issue leads by
+  external identifier, retains closed items, and keeps private origins out of
+  the public repository. The CLI has offline tests; no workflow is added yet.
+
 - The adoption matrix checks the *Physarum* solve-cost lead against primary
   sources (issue #231). Tero, Kobayashi and Nakagaki (2007, eq. 6) solve a
   network-wide Poisson equation for node pressures at every update, by
@@ -171,6 +252,9 @@ the exact diff; this file records why the project changed.
   repository map link to them.
 
 ### Changed
+
+- Remove eight exact-duplicate standalone Mermaid groups, retaining their
+  Markdown owners and reducing the duplicate baseline from 48 groups to 40.
 
 - Renovate extends the family preset `github>plurano/horistes` instead of
   `config:recommended` and `:dependencyDashboard`, and drops the automerge
@@ -432,6 +516,22 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- PDF rendering checks the installed dependency tree for Linux x64 glibc
+  bindings before invoking Docker or Buildx. A host tree installed for another
+  platform fails immediately with the missing package paths and a command to
+  reinstall using the pinned Node image and npm runtime.
+
+- The portal browser tests in `scripts/github-pages.test.mjs` and
+  `scripts/github-pages-dist-browser.test.mjs` poll through the shared
+  bounded wait helper as well. A test now fails when any tracked test file
+  polls against a wall-clock deadline.
+
+- Browser tests retain their polling budgets under host stalls, with bounded
+  wall time and explicit `UNDECIDED: host starved` failures. Keyboard overflow
+  checks retry motionless scroll completions at most three times. Fixture-026
+  setup measures CPU time; isolated population tests label overloaded-host
+  deadline failures without dropping child-process work from the time bound.
+
 - The code now passes the three rules ESLint 10 adds to its recommended set,
   enabled in `eslint.config.mjs` while ESLint stays at 9.
   `preserve-caught-error` found 41 errors that were rethrown without the
@@ -448,6 +548,23 @@ the exact diff; this file records why the project changed.
   edited files are book sources, so the book was re-rendered: the PDF is
   byte-identical, and the manifest and semantic baseline record the new
   source digest.
+- Engine `2d23b29` adds a pre-push gate stage that runs `make verify-all` in
+  a fresh worktree without the git-ignored `node_modules`, so every npm step
+  failed there (cordanaLLM/praetor#1385). Until the engine fix lands, the
+  Makefile runs its npm steps through `scripts/declared-verify-npm.mjs`, which
+  skips them, with a printed notice, only inside that stage and only while
+  `node_modules` is absent. Its dated exception expires on 2026-10-18 and is
+  removed with the engine pin bump that carries the fix.
+- Both agent personas name the model tier that Praetor engine `2d23b29`
+  (cordanaLLM/praetor#1341) requires: `repo-auditor` takes `pro` and
+  `repo-gatekeeper` takes `flash`. Without the key,
+  `praetorctl compile-context --verify` failed on `main`. The local engine
+  pin `PRAETOR_REF` in `.github/workflows/ci.yml` moves from `3bbde07` to
+  `2d23b29`, because the older engine copies the tier into the Claude Code
+  projection unmapped (`model: pro`) while the new one maps it to a Claude
+  model. The new engine locks a newer `tools/apicompat/gate/main.go`, which
+  is taken unchanged from `praetorctl adopt`; the other files that adopt
+  would rewrite stay as they are.
 
 - Release notes on the forge no longer break mid-sentence. The release
   body is the CHANGELOG section, which wraps at 80 columns, and the forge
@@ -1458,7 +1575,11 @@ the exact diff; this file records why the project changed.
   VMAFx's tiny typed estimators and Pelorus's proposed non-language content
   router. Exact source snapshots, implementation status, related-party limits,
   and a non-circular applied video shakedown are recorded without promoting a
-  controller result.
+  controller result. A later source-drift recheck corrects the stale VMAFx
+  runner boundary and refreshes the unchanged proposed Pelorus router without
+  reassigning historical test evidence.
+  Same-pool static dispatch and an offline oracle are retained only as future
+  protocol comparators, not implemented arms, results, or claims.
 - The `lusoris/k8s` engineering-transfer audit now binds its 503-test campaign
   and chart-harness disagreement to the exact historical source commit, then
   records a separate dated live/source observation and bounded drift at the

@@ -11,9 +11,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsfixture"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
@@ -55,7 +56,7 @@ func openDirectory(path string) (*os.Root, error) {
 			continue
 		}
 		current = filepath.Join(current, component)
-		info, err := os.Lstat(current)
+		info, err := fileidentity.Lstat(current)
 		if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 			return nil, fmt.Errorf("shakedown requires a real directory: %s", current)
 		}
@@ -86,25 +87,11 @@ func newBundle(options Options) (*os.Root, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := syncDirectory(parent, "."); err != nil {
+	if err := clrsfixture.SyncDirectory(parent, "."); err != nil {
 		root.Close()
 		return nil, err
 	}
 	return root, nil
-}
-
-func syncDirectory(root *os.Root, path string) error {
-	file, err := root.Open(path)
-	if err != nil {
-		return err
-	}
-	// Windows has no directory fsync: FlushFileBuffers on a directory handle
-	// returns ERROR_ACCESS_DENIED. The rename carries the ordering guarantee that
-	// fsync(dir) provides on POSIX.
-	if runtime.GOOS == "windows" {
-		return file.Close()
-	}
-	return errors.Join(file.Sync(), file.Close())
 }
 
 func writeNew(root *os.Root, path string, body []byte) error {
@@ -124,7 +111,7 @@ func writeNew(root *os.Root, path string, body []byte) error {
 	if err != nil || !final.Mode().IsRegular() || !os.SameFile(initial, final) || final.Size() != int64(len(body)) {
 		return errors.New("shakedown evidence changed while writing")
 	}
-	return syncDirectory(root, filepath.Dir(path))
+	return clrsfixture.SyncDirectory(root, filepath.Dir(path))
 }
 
 func readFile(ctx context.Context, root *os.Root, path string, maximum int64) (body []byte, err error) {
@@ -188,7 +175,7 @@ func checkBundleRoot(root *os.Root) error {
 	if err != nil {
 		return err
 	}
-	named, err := os.Lstat(root.Name())
+	named, err := fileidentity.Lstat(root.Name())
 	if err != nil || !named.IsDir() || named.Mode()&os.ModeSymlink != 0 || !os.SameFile(opened, named) {
 		return errors.New("shakedown output root changed during use")
 	}
@@ -210,6 +197,18 @@ func executableIdentity(ctx context.Context) (FileIdentity, error) {
 	path, err := os.Executable()
 	if err != nil {
 		return FileIdentity{}, err
+	}
+	return identifyExecutable(ctx, path)
+}
+
+// identifyExecutable hashes the executable at path. os.Executable may return a
+// path through a symlinked directory (macOS reports /var for /private/var), so
+// the path is resolved first; the resolved directory then passes the same
+// real-directory walk as every other shakedown path.
+func identifyExecutable(ctx context.Context, path string) (FileIdentity, error) {
+	path, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return FileIdentity{}, fmt.Errorf("resolve executable path: %w", err)
 	}
 	root, err := openDirectory(filepath.Dir(path))
 	if err != nil {

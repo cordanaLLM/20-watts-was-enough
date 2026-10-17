@@ -31,6 +31,9 @@ the controller, validator and fixture-import boundary.
   A dependency change is a reviewed re-resolution of `lock-input.json`,
   `pyproject.toml`, `uv.lock` and `wheelhouse.json` together, with a decision
   record that names the new cutoff.
+  [Decision 0100](../../decisions/0100-lift-the-urllib3-cutoff-in-the-clrs-generator.md)
+  retains the global cutoff `2026-08-31T13:22:50Z` and lifts only urllib3 to
+  `2026-09-16T00:00:00Z`, selecting 2.8.0 without changing other package blocks.
 - [`wheelhouse.json`](wheelhouse.json) selects one exact Python 3.13 Linux
   `amd64` wheel for each of the 61 runtime packages and binds the pinned
   Bookworm image's glibc 2.36 boundary. Sixty wheels map directly to compatible
@@ -44,7 +47,7 @@ the controller, validator and fixture-import boundary.
   authority fields. The Promise MIT text is retained at
   [`LICENSES/promise-MIT.txt`](../../LICENSES/promise-MIT.txt); the manifest
   binds its source and built-wheel paths, hash and size. The complete selected
-  set is 823,932,066 bytes; those bytes remain ignored build inputs rather than
+  set is 823,936,696 bytes; those bytes remain ignored build inputs rather than
   Git content.
 - [`image-contract.json`](image-contract.json) reuses the repository's pinned
   Buildx, BuildKit and timestamp-rewrite authority; fixes resource and runtime
@@ -72,8 +75,8 @@ go -C tooling vet ./internal/clrsfixture
 `CheckGeneratorImageFoundation` rejects ambiguous JSON, non-canonical authority
 files, symlinks and unstable reads. It derives the project requirements from
 the reviewed inputs, binds the complete lock and wheelhouse-manifest digests,
-checks the resolver header and cutoff, and requires exactly one selected wheel
-per runtime package. Every downloaded wheel must be an exact, platform-
+checks the resolver header and each package's applicable cutoff, and requires
+exactly one selected wheel per runtime package. Every downloaded wheel must be an exact, platform-
 compatible `uv.lock` artifact. The sole source-built wheel must match its
 frozen source, build tools, candidate arguments, environment subset and output
 identity. This does not turn those partial fields into a build procedure.

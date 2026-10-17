@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -71,6 +72,7 @@ func TestRunFailureAndCancellationRetainPartialJournal(t *testing.T) {
 		options := fixtureOptions(t)
 		ctx, cancel := context.WithCancel(context.Background())
 		report, err := run(ctx, options, func(bound *boundInputs, _ *journal) {
+			bound.requestBudget = time.Minute
 			original := bound.tasks[0].verifier
 			bound.tasks[0].verifier = verifierFunc(func(ctx context.Context, in specialistcontrol.Invocation, c specialistcontrol.Candidate) (specialistcontrol.Verification, error) {
 				result, err := original.Verify(ctx, in, c)
@@ -97,6 +99,95 @@ func TestRunFailureAndCancellationRetainPartialJournal(t *testing.T) {
 		if _, err := Check(context.Background(), options); err == nil {
 			t.Fatal("partial run passed checker")
 		}
+		assertTerminalWindow(t, options.OutputDirectory, retained, time.Minute)
+	}
+}
+
+func assertTerminalWindow(t *testing.T, directory string, report Report, want time.Duration) {
+	t.Helper()
+	terminals := 0
+	for _, artifact := range report.Events {
+		body, err := os.ReadFile(filepath.Join(directory, artifact.Path))
+		var e event
+		if err != nil || json.Unmarshal(body, &e) != nil {
+			t.Fatalf("event %s unreadable: %v", artifact.Path, err)
+		}
+		if e.Kind != "terminal" {
+			continue
+		}
+		terminals++
+		if window := e.Terminal.Request.Deadline.Sub(e.Terminal.Request.IssuedAt); window != want {
+			t.Fatalf("terminal request window %v, want %v", window, want)
+		}
+	}
+	if terminals != 1 {
+		t.Fatalf("terminal events %d, want 1", terminals)
+	}
+}
+
+func TestRunRejectsZeroOrNegativeBudget(t *testing.T) {
+	for _, invalidBudget := range []time.Duration{0, -time.Second} {
+		options := fixtureOptions(t)
+		report, err := run(context.Background(), options, func(bound *boundInputs, _ *journal) {
+			bound.requestBudget = invalidBudget
+		})
+		if err == nil || report.State != "incomplete" || !strings.Contains(report.Error, "request budget must be positive") {
+			t.Fatalf("invalid budget %v accepted: %+v %v", invalidBudget, report, err)
+		}
+		var retained Report
+		body, readErr := os.ReadFile(filepath.Join(options.OutputDirectory, "receipt.json"))
+		if readErr != nil || json.Unmarshal(body, &retained) != nil || retained.State != "incomplete" {
+			t.Fatalf("retained receipt missing or not incomplete for budget %v: %s %v", invalidBudget, body, readErr)
+		}
+		if _, err := Check(context.Background(), options); err == nil {
+			t.Fatalf("invalid budget %v passed check", invalidBudget)
+		}
+	}
+}
+
+func TestRunElapsedBudgetRetainsIncompleteReceiptAndJournal(t *testing.T) {
+	options := fixtureOptions(t)
+	report, err := run(context.Background(), options, func(bound *boundInputs, _ *journal) {
+		bound.requestBudget = time.Nanosecond
+	})
+	if err == nil || report.State != "incomplete" || len(report.Cases) != 1 || report.Cases[0].Exact {
+		t.Fatalf("elapsed budget not recorded as incomplete failure: %+v %v", report, err)
+	}
+	if len(report.Events) == 0 {
+		t.Fatalf("elapsed budget retained no events: %+v", report)
+	}
+	var retained Report
+	body, readErr := os.ReadFile(filepath.Join(options.OutputDirectory, "receipt.json"))
+	if readErr != nil || json.Unmarshal(body, &retained) != nil || retained.State != "incomplete" || len(retained.Events) != len(report.Events) {
+		t.Fatalf("incomplete receipt missing or event count differs: %s %v", body, readErr)
+	}
+	for _, eventArtifact := range retained.Events {
+		if _, err := os.Stat(filepath.Join(options.OutputDirectory, eventArtifact.Path)); err != nil {
+			t.Fatalf("retained event file missing: %s %v", eventArtifact.Path, err)
+		}
+	}
+	if _, err := Check(context.Background(), options); err == nil {
+		t.Fatal("elapsed budget run passed checker")
+	}
+}
+
+func TestRunPolicyFollowsBoundRequestBudget(t *testing.T) {
+	options := fixtureOptions(t)
+	_, bound, _, err := loadRunInputs(context.Background(), &options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bound.requestBudget != requestTimeout {
+		t.Fatalf("production budget %v, want %v", bound.requestBudget, requestTimeout)
+	}
+	production := bound.policy
+	bound.requestBudget = 2 * time.Second
+	if err := preparePolicy(&bound); err != nil {
+		t.Fatal(err)
+	}
+	want, err := specialistcontrol.NewPolicy(policyLimits(2*time.Second), bound.routes)
+	if err != nil || !reflect.DeepEqual(bound.policy, want) || reflect.DeepEqual(bound.policy, production) {
+		t.Fatalf("policy not rebound to the request budget: %v", err)
 	}
 }
 

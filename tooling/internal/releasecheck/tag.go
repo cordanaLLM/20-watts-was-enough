@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/releasetag"
 )
 
 const (
@@ -21,7 +23,7 @@ const (
 
 var (
 	repositoryPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$`)
-	releaseTagPattern = regexp.MustCompile(`^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$`)
+	releaseTagPattern = regexp.MustCompile(releasetag.Pattern)
 	commitPattern     = regexp.MustCompile(`^[0-9a-f]{40}$`)
 )
 
@@ -49,7 +51,7 @@ func VerifyTagBinding(
 		return errors.New("GitHub repository must be an owner/name pair")
 	}
 	if !releaseTagPattern.MatchString(tag) {
-		return errors.New("release tag must be vMAJOR.MINOR.PATCH")
+		return errors.New("release tag must be vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N")
 	}
 	if !commitPattern.MatchString(expectedCommit) {
 		return errors.New("release commit must be a lowercase 40-character Git identity")
@@ -161,7 +163,9 @@ func (writer *boundedBuffer) Write(body []byte) (int, error) {
 		body = body[:remaining]
 		writer.exceeded = true
 	}
-	_, _ = writer.buffer.Write(body)
+	if _, err := writer.buffer.Write(body); err != nil {
+		return 0, fmt.Errorf("capture bounded GitHub command output: %w", err)
+	}
 	return original, nil
 }
 

@@ -7,6 +7,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import postcss from "postcss";
 import ts from "typescript";
 import {
+  assertBookSourceRef,
+  assertBookSourceRefForVersion,
   bookEditionIdentity,
   bookSurfaceFromLocation,
   repositoryDocumentHref,
@@ -709,4 +711,24 @@ test("the focused reader has one outline rail and a bounded corpus drawer", asyn
   assert.match(portalComponent, /invokerRef\.current\?\.focus\(\)/);
   assert.match(portalComponent, /<span>Currently reading<\/span>/);
   assert.doesNotMatch(portalComponent, /<aside className="portal-library"/);
+});
+
+
+test("book release refs preserve canonical rc tags and bind their base version", () => {
+  const revision = "a".repeat(40);
+  for (const tag of ["v0.0.0", "v0.5.0", "v0.0.0-rc.0", "v0.5.0-rc.1", "v0.5.0-rc.10"]) {
+    const version = tag.slice(1).split("-", 1)[0];
+    assert.equal(assertBookSourceRef(tag), tag);
+    assert.equal(assertBookSourceRefForVersion(tag, version), tag);
+    assert.deepEqual(parseBookPdfGenerationOptions(["--ref", tag, "--revision", revision]), { sourceRef: tag, sourceRevision: revision });
+    assert.throws(() => assertBookSourceRefForVersion(tag, "0.4.1"), /does not match edition version/u);
+    assert.throws(() => parseBookPdfGenerationOptions(["--ref", tag]), /requires --revision/u);
+  }
+  for (const tag of ["v0.5.0-rc", "v0.5.0-rc.01", "v0.5.0-rc.1.2", "v0.5.0-beta.1", "v0.5.0-RC.1", "v05.0.0", "v0.5.0+meta", "v0.5.0-rc.1-x", "v0.5.0\n"]) {
+    assert.throws(() => assertBookSourceRef(tag), /Book source ref/u);
+  }
+  const boundary = `v0.5.0-rc.${"1".repeat(22)}`;
+  assert.equal(boundary.length, 32);
+  assert.equal(assertBookSourceRef(boundary), boundary);
+  assert.throws(() => assertBookSourceRef(`${boundary}0`), /Book source ref/u);
 });

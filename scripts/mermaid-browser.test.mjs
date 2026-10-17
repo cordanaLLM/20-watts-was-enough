@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { testWithHostDeadline } from "./lib/host-test-deadline.mjs";
+import { waitForCondition, WALL_CAP_FACTOR } from "./lib/browser-wait.mjs";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { access, mkdtemp, rm } from "node:fs/promises";
@@ -70,6 +72,10 @@ test("keyboard diagnostics remain bounded, self-contained and removable", () => 
   assert.equal(snapshot.events[0].isTrusted, false);
   assert.equal(snapshot.events[0].targetIsOriginal, true);
   assert.ok(snapshot.events[0].target.label.length <= 192);
+  for (const { listener } of listeners.filter((item) => item.type === "scrollend")) {
+    listener({ type: "scrollend", target: region, currentTarget: view });
+  }
+  assert.equal(trace.snapshot().scrollEnds, 1);
   view.document.querySelector = () => ({});
   region.isConnected = false;
   assert.equal(trace.snapshot().selectorStillOriginal, false);
@@ -144,17 +150,45 @@ test("keyboard diagnostics preserve the exact key protocol and five-second bound
     { type: "rawKeyDown", key: "ArrowRight", code: "ArrowRight", windowsVirtualKeyCode: 39, nativeVirtualKeyCode: 39 },
     { type: "keyUp", key: "ArrowRight", code: "ArrowRight", windowsVirtualKeyCode: 39, nativeVirtualKeyCode: 39 },
   ]);
-  const deadline = nodes.find((node) => ts.isVariableDeclaration(node) && node.name.getText(source) === "scrollDeadline");
-  assert.ok(ts.isBinaryExpression(deadline.initializer));
-  assert.equal(deadline.initializer.left.getText(source), "Date.now()");
-  assert.equal(deadline.initializer.operatorToken.kind, ts.SyntaxKind.PlusToken);
-  assert.equal(Number(deadline.initializer.right.text), 5_000);
-  const timers = nodes.filter((node) => ts.isCallExpression(node) && node.expression.getText(source) === "setTimeout");
-  assert.equal(timers.length, 1);
-  assert.equal(Number(timers[0].arguments[1].text), 50);
+  const wait = nodes.find((node) => ts.isCallExpression(node) && node.expression.getText(source) === "waitForCondition");
+  const options = wait.arguments[0].properties;
+  const option = (name) => options.find((property) => property.name.getText(source) === name).initializer;
+  assert.equal(Number(option("budgetMs").text), 5_000);
+  assert.equal(Number(option("intervalMs").text), 50);
+  const retries = nodes.find((node) => ts.isBinaryExpression(node)
+    && node.left.getText(source) === "presses" && node.operatorToken.kind === ts.SyntaxKind.LessThanToken);
+  assert.equal(Number(retries.right.text), 3);
   const { source: overflowSource, nodes: overflowNodes } = keyboardSyntaxNodes(assertBookOverflowRegions);
   const kinds = overflowNodes.find((node) => ts.isVariableDeclaration(node) && node.name.getText(overflowSource) === "requiredKinds");
   assert.deepEqual(kinds.initializer.elements.map((node) => node.text), ["code", "equation", "table", "diagram"]);
+});
+
+test("ArrowRight retries a motionless scrollend and stops after three presses", async () => {
+  for (const movesOnPress of [2, 3, Infinity]) {
+    let presses = 0;
+    let evaluations = 0;
+    let milliseconds = 0;
+    const cdp = { send: async (method, params) => {
+      if (method === "Input.dispatchKeyEvent") {
+        if (params.type === "rawKeyDown" && params.key === "ArrowRight") presses += 1;
+        return {};
+      }
+      assert.equal(method, "Runtime.evaluate");
+      evaluations += 1;
+      if (evaluations === 1) return { result: { value: true } };
+      if (evaluations === 2) return { result: { value: { active: true, outlineStyle: "solid", outlineWidth: "2px" } } };
+      return { result: { value: { active: true, scrollEnds: presses, scrollLeft: presses >= movesOnPress ? 10 : 0 } } };
+    } };
+    const clock = { now: () => milliseconds, sleep: async (duration) => { milliseconds += duration; } };
+    const result = exerciseArrowKeyScrollsRegion(cdp, "code", clock);
+    if (movesOnPress === Infinity) {
+      await assert.rejects(result, /did not respond to ArrowRight.*"presses":3/u);
+      assert.equal(presses, 3);
+    } else {
+      await result;
+      assert.equal(presses, movesOnPress);
+    }
+  }
 });
 
 function overflowAccessibilityFixture(kind = "code", mutate = (value) => value) {
@@ -409,21 +443,21 @@ function createOverflowKeyboardTrace(view, original, selector) {
   const identities = new WeakMap();
   let nextIdentity = 0;
   let dropped = 0;
+  let scrollEnds = 0;
   let disposed = false;
   const describe = (node) => {
     if (!node || typeof node !== "object") return null;
     if (!identities.has(node)) identities.set(node, ++nextIdentity);
     return {
-      id: identities.get(node),
-      node: node === view ? "window" : String(node.nodeName ?? "").slice(0, 32),
-      kind: node.getAttribute?.("data-overflow-kind")?.slice(0, 32) ?? null,
-      label: node.getAttribute?.("aria-label")?.slice(0, 192) ?? null,
+      id: identities.get(node), node: node === view ? "window" : String(node.nodeName ?? "").slice(0, 32),
+      kind: node.getAttribute?.("data-overflow-kind")?.slice(0, 32) ?? null, label: node.getAttribute?.("aria-label")?.slice(0, 192) ?? null,
     };
   };
   const originalIdentity = describe(original);
   const record = (event, phase) => {
     if (disposed) return;
     if (["keydown", "keyup"].includes(event.type) && !["Tab", "ArrowRight"].includes(event.key)) return;
+    if (event.type === "scrollend" && event.target === original && phase === "capture") scrollEnds += 1;
     if (events.length >= 64) { dropped += 1; return; }
     events.push({
       time: view.performance.now(), type: event.type, phase,
@@ -450,7 +484,7 @@ function createOverflowKeyboardTrace(view, original, selector) {
       activeIsOriginal: view.document.activeElement === original,
       hasFocus: view.document.hasFocus(), visibility: view.document.visibilityState,
       clientWidth: original.clientWidth, scrollWidth: original.scrollWidth,
-      scrollLeft: original.scrollLeft, events: [...events], dropped,
+      scrollLeft: original.scrollLeft, scrollEnds, events: [...events], dropped,
     }),
     dispose: () => {
       if (disposed) return;
@@ -506,10 +540,7 @@ async function assertArrowKeyScrollsRegion(cdp, kind) {
   }
 }
 
-async function exerciseArrowKeyScrollsRegion(cdp, kind) {
-  const selector = `.book-prose [data-overflow-kind="${kind}"][tabindex="0"]`;
-  const prepared = (await cdp.send("Runtime.evaluate", {
-    expression: `(() => {
+const overflowFocusPreparationExpression = (selector) => `(() => {
       const region = document.querySelector(${JSON.stringify(selector)});
       if (!region) return null;
       if (window.__20wOverflowKeyboardTrace) throw new Error('Previous keyboard trace was not disposed');
@@ -522,26 +553,9 @@ async function exerciseArrowKeyScrollsRegion(cdp, kind) {
       window.__20wOverflowKeyboardTrace.sentinel = sentinel;
       sentinel.focus();
       return document.activeElement === sentinel;
-    })()`,
-    returnByValue: true,
-  })).result?.value;
-  assert.equal(prepared, true, `${kind} focus sentinel was not ready`);
-  await cdp.send("Input.dispatchKeyEvent", {
-    type: "rawKeyDown",
-    key: "Tab",
-    code: "Tab",
-    windowsVirtualKeyCode: 9,
-    nativeVirtualKeyCode: 9,
-  });
-  await cdp.send("Input.dispatchKeyEvent", {
-    type: "keyUp",
-    key: "Tab",
-    code: "Tab",
-    windowsVirtualKeyCode: 9,
-    nativeVirtualKeyCode: 9,
-  });
-  const focused = (await cdp.send("Runtime.evaluate", {
-    expression: `(() => {
+    })()`;
+
+const overflowFocusSnapshotExpression = (kind) => `(() => {
       const region = document.activeElement;
       const style = getComputedStyle(region);
       document.querySelector('#overflow-focus-sentinel')?.remove();
@@ -550,95 +564,129 @@ async function exerciseArrowKeyScrollsRegion(cdp, kind) {
         outlineStyle: style.outlineStyle,
         outlineWidth: style.outlineWidth,
       };
-    })()`,
+    })()`;
+
+const overflowScrollSnapshotExpression = (selector) => `(() => {
+          const region = document.querySelector(${JSON.stringify(selector)});
+          return region ? {
+            active: document.activeElement === region,
+            clientWidth: region.clientWidth,
+            scrollLeft: region.scrollLeft,
+            scrollWidth: region.scrollWidth,
+            scrollEnds: window.__20wOverflowKeyboardTrace.snapshot().scrollEnds,
+          } : null;
+        })()`;
+
+async function prepareOverflowFocus(cdp, kind, selector) {
+  const prepared = (await cdp.send("Runtime.evaluate", {
+    expression: overflowFocusPreparationExpression(selector),
+    returnByValue: true,
+  })).result?.value;
+  assert.equal(prepared, true, `${kind} focus sentinel was not ready`);
+}
+
+async function assertOverflowFocus(cdp, kind) {
+  const focused = (await cdp.send("Runtime.evaluate", {
+    expression: overflowFocusSnapshotExpression(kind),
     returnByValue: true,
   })).result?.value;
   assert.ok(focused?.active, `${kind} overflow region was not focusable`);
   assert.notEqual(focused.outlineStyle, "none", JSON.stringify(focused));
   assert.ok(Number.parseFloat(focused.outlineWidth) > 0, JSON.stringify(focused));
+}
 
+async function exerciseArrowKeyScrollsRegion(cdp, kind, clock) {
+  const selector = `.book-prose [data-overflow-kind="${kind}"][tabindex="0"]`;
+  await prepareOverflowFocus(cdp, kind, selector);
   await cdp.send("Input.dispatchKeyEvent", {
     type: "rawKeyDown",
-    key: "ArrowRight",
-    code: "ArrowRight",
-    windowsVirtualKeyCode: 39,
-    nativeVirtualKeyCode: 39,
+    key: "Tab",
+    code: "Tab",
+    windowsVirtualKeyCode: 9,
+    nativeVirtualKeyCode: 9,
   });
   await cdp.send("Input.dispatchKeyEvent", {
     type: "keyUp",
-    key: "ArrowRight",
-    code: "ArrowRight",
-    windowsVirtualKeyCode: 39,
-    nativeVirtualKeyCode: 39,
+    key: "Tab",
+    code: "Tab",
+    windowsVirtualKeyCode: 9,
+    nativeVirtualKeyCode: 9,
   });
-  const scrollDeadline = Date.now() + 5_000;
-  let scrollState;
-  do {
-    scrollState = (await cdp.send("Runtime.evaluate", {
-      expression: `(() => {
-        const region = document.querySelector(${JSON.stringify(selector)});
-        return region ? {
-          active: document.activeElement === region,
-          clientWidth: region.clientWidth,
-          scrollLeft: region.scrollLeft,
-          scrollWidth: region.scrollWidth,
-        } : null;
-      })()`,
-      returnByValue: true,
-    })).result?.value;
-    if (scrollState?.scrollLeft > 0) break;
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  } while (Date.now() < scrollDeadline);
-  assert.equal(scrollState?.active, true, JSON.stringify(scrollState));
-  assert.ok(
-    scrollState?.scrollLeft > 0,
-    `${kind} overflow region did not respond to ArrowRight: ${JSON.stringify(scrollState)}`,
-  );
+  await assertOverflowFocus(cdp, kind);
+
+  let presses = 0;
+  let observedScrollEnds = 0;
+  let retry = true;
+  const scrollState = await waitForCondition({
+    probe: async () => {
+      if (retry && presses < 3) {
+        presses += 1;
+        await cdp.send("Input.dispatchKeyEvent", {
+          type: "rawKeyDown",
+          key: "ArrowRight",
+          code: "ArrowRight",
+          windowsVirtualKeyCode: 39,
+          nativeVirtualKeyCode: 39,
+        });
+        await cdp.send("Input.dispatchKeyEvent", {
+          type: "keyUp",
+          key: "ArrowRight",
+          code: "ArrowRight",
+          windowsVirtualKeyCode: 39,
+          nativeVirtualKeyCode: 39,
+        });
+        retry = false;
+      }
+      const snapshot = (await cdp.send("Runtime.evaluate", {
+        expression: overflowScrollSnapshotExpression(selector),
+        returnByValue: true,
+      })).result?.value;
+      if (snapshot?.scrollEnds > observedScrollEnds && snapshot.scrollLeft === 0) retry = true;
+      observedScrollEnds = snapshot?.scrollEnds ?? observedScrollEnds;
+      return { ...snapshot, presses };
+    },
+    accepts: (snapshot) => snapshot.scrollLeft > 0,
+    budgetMs: 5_000, intervalMs: 50, clock,
+    label: `${kind} overflow region did not respond to ArrowRight`,
+  });
+  assert.equal(scrollState.active, true, JSON.stringify(scrollState));
 }
 
 async function setEmulatedMediaAfterTransition(cdp, media) {
   assert.ok(["print", "screen"].includes(media));
-  // Applying print media can paginate the full book before its change event.
-  // Keep that driver transition separate from the five-second semantic wait.
-  const transitionTimeoutMs = 20_000;
-  const deadline = Date.now() + transitionTimeoutMs;
-  const remainingMs = () => Math.max(1, deadline - Date.now());
+  let initialized = false;
   try {
-    const registered = await cdp.send("Runtime.evaluate", {
-      expression: `(() => {
-        const query = matchMedia('print');
-        const expected = ${media === "print"};
-        const previous = query.matches;
-        let timer;
-        let finish;
-        const changed = (event) => {
-          if (event.matches === expected) finish(true);
-        };
-        const promise = new Promise((resolve) => {
-          finish = (observed) => {
-            clearTimeout(timer);
-            query.removeEventListener('change', changed);
-            resolve({ observed, matches: query.matches });
-          };
-          query.addEventListener('change', changed);
-          timer = setTimeout(() => finish(false), ${transitionTimeoutMs});
-        });
-        window.__overflowMediaTransition = { promise, cancel: () => finish(false) };
-        return previous;
-      })()`,
-      returnByValue: true,
-    }, remainingMs());
-    assert.equal(registered.result?.value, media !== "print");
-    await cdp.send("Emulation.setEmulatedMedia", { media }, remainingMs());
-    const transitioned = await cdp.send("Runtime.evaluate", {
-      expression: "window.__overflowMediaTransition.promise",
-      awaitPromise: true,
-      returnByValue: true,
-    }, remainingMs());
-    assert.deepEqual(transitioned.result?.value, {
-      observed: true,
-      matches: media === "print",
-    }, `${media} media-change event did not complete before semantic inspection`);
+    await waitForCondition({
+      probe: async () => {
+        if (!initialized) {
+          const registered = await cdp.send("Runtime.evaluate", {
+            expression: `(() => {
+              const query = matchMedia('print');
+              const state = { observed: false, matches: query.matches };
+              const changed = (event) => {
+                state.observed = true;
+                state.matches = event.matches;
+              };
+              query.addEventListener('change', changed);
+              window.__overflowMediaTransition = {
+                state, cancel: () => query.removeEventListener('change', changed),
+              };
+              return query.matches;
+            })()`,
+            returnByValue: true,
+          }, 20_000 * WALL_CAP_FACTOR);
+          assert.equal(registered.result?.value, media !== "print");
+          await cdp.send("Emulation.setEmulatedMedia", { media }, 20_000 * WALL_CAP_FACTOR);
+          initialized = true;
+        }
+        return (await cdp.send("Runtime.evaluate", {
+          expression: "window.__overflowMediaTransition.state", returnByValue: true,
+        }, 20_000 * WALL_CAP_FACTOR)).result?.value;
+      },
+      accepts: (state) => state?.observed && state.matches === (media === "print"),
+      budgetMs: 20_000, intervalMs: 100,
+      label: `${media} media-change event did not complete before semantic inspection`,
+    });
   } finally {
     await cdp.send("Runtime.evaluate", {
       expression: `(() => {
@@ -684,29 +732,21 @@ async function assertPrintRetiresOverflowSemantics(cdp, expectedRegionCount) {
     tabStops: 0,
   });
 
-  const restoreDeadline = Date.now() + 5_000;
-  let restored;
-  while (Date.now() < restoreDeadline) {
-    restored = await overflowRegionSnapshot(cdp);
-    if (
-      restored.regions.some((region) => region.role === "group")
-      && restored.regions.every((region) => region.overflows === (region.role !== null))
-    ) break;
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
+  const restored = await waitForCondition({
+    probe: () => overflowRegionSnapshot(cdp),
+    accepts: (restored) => (restored.regions.some((region) => region.role === "group")
+      && restored.regions.every((region) => region.overflows === (region.role !== null))),
+    budgetMs: 5_000, intervalMs: 100, label: "Screen overflow semantics did not return",
+  });
   assertConditionalOverflowSemantics(restored);
 
   await setEmulatedMediaAfterTransition(cdp, "print");
-  let print;
-  const printDeadline = Date.now() + 5_000;
-  while (Date.now() < printDeadline) {
-    print = await overflowRegionSnapshot(cdp);
-    if (
-      print.regions.length === expectedRegionCount
-      && print.regions.every((region) => !region.overflows && region.role === null)
-    ) break;
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
+  const print = await waitForCondition({
+    probe: () => overflowRegionSnapshot(cdp),
+    accepts: (print) => (print.regions.length === expectedRegionCount
+      && print.regions.every((region) => !region.overflows && region.role === null)),
+    budgetMs: 5_000, intervalMs: 100, label: "Print overflow semantics did not retire",
+  });
   assertConditionalOverflowSemantics(print);
   assert.equal(
     print.regions.every((region) => !region.overflows),
@@ -728,12 +768,12 @@ async function assertOverflowAccessibility(cdp, documentNodeId, kind, label) {
   assert.ok(["code", "equation", "table", "diagram"].includes(kind), "Unknown overflow kind");
   assert.ok(Number.isSafeInteger(documentNodeId) && documentNodeId > 0, "Missing AX document owner");
   assert.ok(typeof label === "string" && label.length > 0 && label.length <= 512, "Missing or oversized AX label");
-  const deadline = Date.now() + 20_000;
-  const send = async (method, params) => {
-    const remaining = deadline - Date.now();
-    assert.ok(remaining > 0, `${kind} AX inspection deadline expired`);
-    return boundedAccessibilityResponse(await cdp.send(method, params, remaining), method);
-  };
+  const send = async (method, params) => boundedAccessibilityResponse(
+    await waitForCondition({
+      probe: () => cdp.send(method, params, 20_000), accepts: () => true,
+      budgetMs: 20_000, label: `${kind} AX inspection ${method} did not complete`,
+    }), method,
+  );
   const selector = `.book-prose [data-overflow-kind="${kind}"][tabindex="0"]`;
   const { nodeId } = await send("DOM.querySelector", { nodeId: documentNodeId, selector });
   assert.ok(Number.isSafeInteger(nodeId) && nodeId > 0, `${kind} DOM owner is missing`);
@@ -770,18 +810,14 @@ async function assertOverflowAccessibility(cdp, documentNodeId, kind, label) {
 
 async function assertBookOverflowRegions(cdp) {
   const requiredKinds = ["code", "equation", "table", "diagram"];
-  let narrow;
-  const narrowDeadline = Date.now() + 5_000;
-  while (Date.now() < narrowDeadline) {
-    narrow = await overflowRegionSnapshot(cdp);
-    if (
-      requiredKinds.every((kind) => (
+  const narrow = await waitForCondition({
+    probe: () => overflowRegionSnapshot(cdp),
+    accepts: (narrow) => (requiredKinds.every((kind) => (
         narrow.regions.some((region) => region.kind === kind && region.overflows)
       ))
-      && narrow.regions.every((region) => region.overflows === (region.role !== null))
-    ) break;
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
+      && narrow.regions.every((region) => region.overflows === (region.role !== null))),
+    budgetMs: 5_000, intervalMs: 100, label: "Narrow overflow regions did not settle",
+  });
   assertConditionalOverflowSemantics(narrow);
   for (const kind of requiredKinds) {
     assert.equal(
@@ -812,18 +848,13 @@ async function assertBookOverflowRegions(cdp) {
     deviceScaleFactor: 1,
     mobile: false,
   });
-  let wide;
-  const wideDeadline = Date.now() + 5_000;
-  while (Date.now() < wideDeadline) {
-    wide = await overflowRegionSnapshot(cdp);
-    const wideOverflowCount = wide.regions.filter((region) => region.overflows).length;
-    if (
-      wide.regions.length === narrow.regions.length
+  const wide = await waitForCondition({
+    probe: () => overflowRegionSnapshot(cdp),
+    accepts: (wide) => (wide.regions.length === narrow.regions.length
       && wide.regions.every((region) => region.overflows === (region.role !== null))
-      && wideOverflowCount < narrowOverflowCount
-    ) break;
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
+      && wide.regions.filter((region) => region.overflows).length < narrowOverflowCount),
+    budgetMs: 5_000, intervalMs: 100, label: "Wide overflow regions did not settle",
+  });
   assertConditionalOverflowSemantics(wide);
   assert.ok(
     wide.regions.filter((region) => region.overflows).length < narrowOverflowCount,
@@ -833,16 +864,7 @@ async function assertBookOverflowRegions(cdp) {
   await assertPrintRetiresOverflowSemantics(cdp, wide.regions.length);
 }
 
-async function assertBookReflowSurface(cdp, address) {
-  await cdp.send("Emulation.setDeviceMetricsOverride", {
-    width: 320,
-    height: 1200,
-    deviceScaleFactor: 1,
-    mobile: true,
-  });
-  await new Promise((resolve) => setTimeout(resolve, 250));
-  const reflow = (await cdp.send("Runtime.evaluate", {
-    expression: `(() => {
+const bookReflowSnapshotExpression = `(() => {
       const root = document.documentElement;
       const fieldCoverage = document.querySelector('#book-research-field-coverage-md .book-prose');
       const wideRegions = [...document.querySelectorAll('.diagram-wide .diagram-scroll-region')];
@@ -858,7 +880,35 @@ async function assertBookReflowSurface(cdp, address) {
           (region) => region.scrollWidth > region.clientWidth + 1,
         ).length,
       };
-    })()`,
+    })()`;
+
+const denseViewportSnapshotExpression = `(() => {
+      const root = document.documentElement;
+      const actions = document.querySelector('.book-actions');
+      const bounds = actions?.getBoundingClientRect();
+      const controls = [...(actions?.children ?? [])].map((control) => {
+        const rect = control.getBoundingClientRect();
+        return { left: rect.left, right: rect.right };
+      });
+      return {
+        clientWidth: root.clientWidth,
+        scrollWidth: root.scrollWidth,
+        devicePixelRatio,
+        actions: bounds && { left: bounds.left, right: bounds.right },
+        controls,
+      };
+    })()`;
+
+async function assertBookReflowSurface(cdp, address) {
+  await cdp.send("Emulation.setDeviceMetricsOverride", {
+    width: 320,
+    height: 1200,
+    deviceScaleFactor: 1,
+    mobile: true,
+  });
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  const reflow = (await cdp.send("Runtime.evaluate", {
+    expression: bookReflowSnapshotExpression,
     returnByValue: true,
   })).result?.value;
   assert.ok(reflow.fieldCoverage, JSON.stringify(reflow));
@@ -879,35 +929,15 @@ async function assertBookReflowSurface(cdp, address) {
   const bookUrl = `http://127.0.0.1:${address.port}/book/`;
   const navigation = await cdp.send("Page.navigate", { url: bookUrl });
   assert.equal(navigation.errorText, undefined);
-  const deadline = Date.now() + 20_000;
-  let ready = false;
-  while (Date.now() < deadline) {
-    const result = await cdp.send("Runtime.evaluate", {
-      expression: `document.readyState === "complete" && document.querySelectorAll(".book-actions > *").length === 4`,
-      returnByValue: true,
-    });
-    ready = result.result?.value === true;
-    if (ready) break;
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  assert.equal(ready, true, "Web-book actions did not render in the 720 CSS pixel lane");
+  await waitForCondition({
+    probe: async () => (await cdp.send("Runtime.evaluate", {
+      expression: `document.readyState === "complete" && document.querySelectorAll(".book-actions > *").length === 4`, returnByValue: true,
+    })).result?.value,
+    accepts: (value) => value === true,
+    budgetMs: 20_000, intervalMs: 100, label: "Web-book actions did not render in the 720 CSS pixel lane",
+  });
   const denseViewport = (await cdp.send("Runtime.evaluate", {
-    expression: `(() => {
-      const root = document.documentElement;
-      const actions = document.querySelector('.book-actions');
-      const bounds = actions?.getBoundingClientRect();
-      const controls = [...(actions?.children ?? [])].map((control) => {
-        const rect = control.getBoundingClientRect();
-        return { left: rect.left, right: rect.right };
-      });
-      return {
-        clientWidth: root.clientWidth,
-        scrollWidth: root.scrollWidth,
-        devicePixelRatio,
-        actions: bounds && { left: bounds.left, right: bounds.right },
-        controls,
-      };
-    })()`,
+    expression: denseViewportSnapshotExpression,
     returnByValue: true,
   })).result?.value;
   assert.equal(denseViewport.devicePixelRatio, 2, JSON.stringify(denseViewport));
@@ -929,31 +959,7 @@ async function assertBookReflowSurface(cdp, address) {
   );
 }
 
-async function assertMobilePortalSurface(cdp, address) {
-  await cdp.send("Emulation.setDeviceMetricsOverride", {
-    width: 375,
-    height: 844,
-    deviceScaleFactor: 1,
-    mobile: true,
-  });
-  const portalUrl = `http://127.0.0.1:${address.port}/`;
-  const navigation = await cdp.send("Page.navigate", { url: portalUrl });
-  assert.equal(navigation.errorText, undefined);
-  const deadline = Date.now() + 20_000;
-  let ready = false;
-  while (Date.now() < deadline) {
-    const result = await cdp.send("Runtime.evaluate", {
-      expression: `document.readyState === "complete" && Boolean(document.querySelector(".language-access > summary"))`,
-      returnByValue: true,
-    });
-    ready = result.result?.value === true;
-    if (ready) break;
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  assert.equal(ready, true, "Portal language control did not render");
-  await openLanguageControlWithKeyboard(cdp);
-  const snapshot = (await cdp.send("Runtime.evaluate", {
-    expression: `(() => {
+const mobilePortalSnapshotExpression = `(() => {
       const panel = document.querySelector(".language-access-panel");
       const select = panel?.querySelector("select");
       const help = panel?.querySelector(".language-access-help");
@@ -1010,7 +1016,28 @@ async function assertMobilePortalSurface(cdp, address) {
         panel: panelRect && { left: panelRect.left, right: panelRect.right, width: panelRect.width },
         select: selectRect && { left: selectRect.left, right: selectRect.right, width: selectRect.width },
       };
-    })()`,
+    })()`;
+
+async function assertMobilePortalSurface(cdp, address) {
+  await cdp.send("Emulation.setDeviceMetricsOverride", {
+    width: 375,
+    height: 844,
+    deviceScaleFactor: 1,
+    mobile: true,
+  });
+  const portalUrl = `http://127.0.0.1:${address.port}/`;
+  const navigation = await cdp.send("Page.navigate", { url: portalUrl });
+  assert.equal(navigation.errorText, undefined);
+  await waitForCondition({
+    probe: async () => (await cdp.send("Runtime.evaluate", {
+      expression: `document.readyState === "complete" && Boolean(document.querySelector(".language-access > summary"))`, returnByValue: true,
+    })).result?.value,
+    accepts: (value) => value === true,
+    budgetMs: 20_000, intervalMs: 100, label: "Portal language control did not render",
+  });
+  await openLanguageControlWithKeyboard(cdp);
+  const snapshot = (await cdp.send("Runtime.evaluate", {
+    expression: mobilePortalSnapshotExpression,
     returnByValue: true,
   })).result?.value;
   assert.ok(snapshot.panel, JSON.stringify(snapshot));
@@ -1113,10 +1140,10 @@ async function openLanguageControlWithKeyboard(cdp) {
   });
 }
 
-test("browser rendering keeps Mermaid stable and wide publication content keyboard operable", {
+testWithHostDeadline("browser rendering keeps Mermaid stable and wide publication content keyboard operable", {
   // The tighter phase deadlines remain authoritative. This outer budget lets
   // each phase exhaust its own bound and still covers deterministic cleanup.
-  timeout: 360_000,
+  timeout: 360_000 * WALL_CAP_FACTOR,
 }, async (t) => {
   const browser = await firstExistingChromium();
   const profile = await mkdtemp(path.join(os.tmpdir(), "20w-mermaid-browser-"));
@@ -1171,29 +1198,18 @@ test("browser rendering keeps Mermaid stable and wide publication content keyboa
     const navigation = await cdp.send("Page.navigate", { url: bookUrl });
     assert.equal(navigation.errorText, undefined);
 
-    const deadline = Date.now() + 180_000;
-    let ready = false;
-    let snapshot;
-    while (Date.now() < deadline) {
-      const result = await cdp.send("Runtime.evaluate", {
-        expression: diagramSnapshotExpression,
-        returnByValue: true,
-      });
-      snapshot = result.result?.value;
-      if (snapshot?.errors?.length) break;
-      if (
-        snapshot?.href === bookUrl &&
-        snapshot.state === "complete" &&
-        snapshot.diagrams >= 2 &&
-        snapshot.loading === 0
-      ) {
-        ready = true;
-        break;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 250));
-    }
+    const snapshot = await waitForCondition({
+      probe: async () => (await cdp.send("Runtime.evaluate", {
+        expression: diagramSnapshotExpression, returnByValue: true,
+      })).result?.value,
+      accepts: (snapshot) => {
+        assert.deepEqual(snapshot?.errors ?? [], []);
+        return snapshot?.href === bookUrl && snapshot.state === "complete"
+          && snapshot.diagrams >= 2 && snapshot.loading === 0;
+      },
+      budgetMs: 180_000, intervalMs: 250, label: "Book diagrams did not become ready",
+    });
 
-    assert.equal(ready, true, `Book diagrams did not become ready: ${JSON.stringify(snapshot)}`);
     assert.ok(snapshot?.diagrams >= 2, `Book diagrams did not render: ${JSON.stringify(snapshot)}`);
     assert.deepEqual(snapshot.errors, []);
     await new Promise((resolve) => setTimeout(resolve, 1_250));

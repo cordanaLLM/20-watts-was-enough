@@ -1,4 +1,4 @@
-FROM golang:1.27.2-trixie@sha256:e58d6f83b3416618d8bcac2b3dde1b7f7e3c4a77d25e88637f8bbae81536c48d AS builder
+FROM golang:1.27.2-trixie@sha256:47667934874913a449b96faa7ef4777fa285d9ec29126ee80ed61c45b7cccf0e AS builder
 
 ARG TARGETARCH=amd64
 ARG TARGETOS=linux
@@ -24,9 +24,12 @@ COPY tooling/internal/clrsfixture ./internal/clrsfixture
 COPY tooling/internal/clrsinsertion ./internal/clrsinsertion
 COPY tooling/internal/clrskmp ./internal/clrskmp
 COPY tooling/internal/clrsmatrixchain ./internal/clrsmatrixchain
+COPY tooling/internal/clrsprompt ./internal/clrsprompt
 COPY tooling/internal/clrsrunner ./internal/clrsrunner
 COPY tooling/internal/clrssegments ./internal/clrssegments
+COPY tooling/internal/fileidentity ./internal/fileidentity
 COPY tooling/internal/pdfrenderlock ./internal/pdfrenderlock
+COPY tooling/internal/relpath ./internal/relpath
 COPY tooling/internal/specialistcontrol ./internal/specialistcontrol
 COPY tooling/internal/strictjson ./internal/strictjson
 RUN test "${TARGETOS}/${TARGETARCH}" = "linux/amd64" \

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -25,7 +26,16 @@ func TestLoadedImageAdapterPinsOneResolvedExecutable(t *testing.T) {
 	args := []string{"version", "--format", "{{.Client.Version}} {{.Server.Version}}"}
 	first, err := execute(ctx, args, nil, 64<<10)
 	fakeDockerInvocationExit(t, first, err)
-	if len(first.Arguments) < 3 || first.Arguments[0] != os.Args[0] || first.Arguments[1] != "--host" || first.Arguments[2] != generationDockerEndpoint {
+	if runtime.GOOS == "windows" {
+		return // the adapter refuses to start the fake, so no argument vector exists
+	}
+	// The adapter pins the symlink-free path; the test binary may sit below a
+	// symlinked temporary directory (macOS: /var links to /private/var).
+	executable, err := filepath.EvalSymlinks(os.Args[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(first.Arguments) < 3 || first.Arguments[0] != executable || first.Arguments[1] != "--host" || first.Arguments[2] != generationDockerEndpoint {
 		t.Fatalf("fake executable invocation: %+v %v", first, err)
 	}
 	t.Setenv("PATH", t.TempDir())

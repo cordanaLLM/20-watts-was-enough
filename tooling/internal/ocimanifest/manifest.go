@@ -13,6 +13,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/releasetag"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
@@ -25,7 +27,7 @@ const (
 )
 
 var (
-	tagPattern        = regexp.MustCompile(`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
+	tagPattern        = regexp.MustCompile(releasetag.Pattern)
 	commitPattern     = regexp.MustCompile(`^[0-9a-f]{40}$`)
 	digestPattern     = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 	repositoryPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9._-]{0,99}[a-z0-9])?/[a-z0-9](?:[a-z0-9._-]{0,99}[a-z0-9])?$`)
@@ -118,7 +120,7 @@ func Write(path string, options Options) error {
 		return fmt.Errorf("resolve OCI manifest output directory: %w", err)
 	}
 	directory = filepath.Clean(directory)
-	information, err := os.Lstat(directory)
+	information, err := fileidentity.Lstat(directory)
 	if err != nil {
 		return fmt.Errorf("inspect OCI manifest output directory: %w", err)
 	}
@@ -133,28 +135,34 @@ func Write(path string, options Options) error {
 		return errors.New("OCI manifest output directory path must not contain symlinks")
 	}
 	path = filepath.Join(directory, filepath.Base(path))
+	return writeManifestFile(path, body)
+}
+
+func writeManifestFile(path string, body []byte) (returnError error) {
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return fmt.Errorf("create OCI image manifest: %w", err)
 	}
-	complete := false
-	defer func() {
-		_ = file.Close()
-		if !complete {
-			_ = os.Remove(path)
-		}
-	}()
+	defer func() { returnError = closeManifestFile(file, path, returnError) }()
 	if _, err := file.Write(body); err != nil {
 		return fmt.Errorf("write OCI image manifest: %w", err)
 	}
 	if err := file.Sync(); err != nil {
 		return fmt.Errorf("synchronize OCI image manifest: %w", err)
 	}
-	if err := file.Close(); err != nil {
-		return fmt.Errorf("close OCI image manifest: %w", err)
-	}
-	complete = true
 	return nil
+}
+
+func closeManifestFile(file io.Closer, path string, primary error) error {
+	if err := file.Close(); err != nil {
+		primary = errors.Join(primary, fmt.Errorf("close OCI image manifest %s: %w", path, err))
+	}
+	if primary != nil {
+		if err := os.Remove(path); err != nil {
+			primary = errors.Join(primary, fmt.Errorf("remove incomplete OCI image manifest %s: %w", path, err))
+		}
+	}
+	return primary
 }
 
 // Load verifies a regular canonical file against the expected release identity.
@@ -162,50 +170,78 @@ func Load(path string, expected Release) (Manifest, error) {
 	if err := validateRelease(expected); err != nil {
 		return Manifest{}, err
 	}
+	body, err := readManifest(path)
+	if err != nil {
+		return Manifest{}, err
+	}
+	return decodeManifest(body, expected)
+}
+
+func inspectManifestPath(path string) (string, os.FileInfo, error) {
 	absolutePath, err := filepath.Abs(path)
 	if err != nil {
-		return Manifest{}, fmt.Errorf("resolve OCI image manifest path: %w", err)
+		return "", nil, fmt.Errorf("resolve OCI image manifest path: %w", err)
 	}
 	absolutePath = filepath.Clean(absolutePath)
 	directory := filepath.Dir(absolutePath)
 	resolvedDirectory, err := filepath.EvalSymlinks(directory)
 	if err != nil {
-		return Manifest{}, fmt.Errorf("resolve OCI image manifest directory links: %w", err)
+		return "", nil, fmt.Errorf("resolve OCI image manifest directory links: %w", err)
 	}
 	if filepath.Clean(resolvedDirectory) != directory {
-		return Manifest{}, errors.New("OCI image manifest directory path must not contain symlinks")
+		return "", nil, errors.New("OCI image manifest directory path must not contain symlinks")
 	}
 	path = absolutePath
-	information, err := os.Lstat(path)
+	information, err := fileidentity.Lstat(path)
 	if err != nil {
-		return Manifest{}, fmt.Errorf("inspect OCI image manifest: %w", err)
+		return "", nil, fmt.Errorf("inspect OCI image manifest: %w", err)
 	}
 	if !information.Mode().IsRegular() || information.Mode()&os.ModeSymlink != 0 {
-		return Manifest{}, errors.New("OCI image manifest must be a regular non-symlinked file")
+		return "", nil, errors.New("OCI image manifest must be a regular non-symlinked file")
 	}
 	if information.Size() > maximumBytes {
-		return Manifest{}, fmt.Errorf("OCI image manifest exceeds the %d-byte limit", maximumBytes)
+		return "", nil, fmt.Errorf("OCI image manifest exceeds the %d-byte limit", maximumBytes)
+	}
+	return path, information, nil
+}
+
+func readManifest(path string) ([]byte, error) {
+	path, information, err := inspectManifestPath(path)
+	if err != nil {
+		return nil, err
 	}
 	file, err := os.Open(path)
 	if err != nil {
-		return Manifest{}, fmt.Errorf("open OCI image manifest: %w", err)
+		return nil, fmt.Errorf("open OCI image manifest: %w", err)
 	}
 	defer file.Close()
 	opened, err := file.Stat()
 	if err != nil || !opened.Mode().IsRegular() || !os.SameFile(information, opened) {
-		return Manifest{}, errors.New("OCI image manifest changed while it was opened")
+		return nil, errors.New("OCI image manifest changed while it was opened")
 	}
+	body, err := readManifestBody(file)
+	if err != nil {
+		return nil, err
+	}
+	after, err := fileidentity.Lstat(path)
+	if err != nil || !after.Mode().IsRegular() || !os.SameFile(information, after) {
+		return nil, errors.New("OCI image manifest changed while it was read")
+	}
+	return body, nil
+}
+
+func readManifestBody(file io.Reader) ([]byte, error) {
 	body, err := io.ReadAll(io.LimitReader(file, maximumBytes+1))
 	if err != nil {
-		return Manifest{}, fmt.Errorf("read OCI image manifest: %w", err)
+		return nil, fmt.Errorf("read OCI image manifest: %w", err)
 	}
 	if len(body) > maximumBytes {
-		return Manifest{}, fmt.Errorf("OCI image manifest exceeds the %d-byte limit", maximumBytes)
+		return nil, fmt.Errorf("OCI image manifest exceeds the %d-byte limit", maximumBytes)
 	}
-	after, err := os.Lstat(path)
-	if err != nil || !after.Mode().IsRegular() || !os.SameFile(information, after) {
-		return Manifest{}, errors.New("OCI image manifest changed while it was read")
-	}
+	return body, nil
+}
+
+func decodeManifest(body []byte, expected Release) (Manifest, error) {
 	if err := strictjson.Validate(body, 8); err != nil {
 		return Manifest{}, fmt.Errorf("validate unambiguous OCI image manifest: %w", err)
 	}
@@ -285,7 +321,7 @@ func validateRelease(release Release) error {
 		return errors.New("OCI image repository must be a lowercase owner/name identity")
 	}
 	if !tagPattern.MatchString(release.Tag) {
-		return errors.New("OCI image source tag must have the exact form vMAJOR.MINOR.PATCH")
+		return errors.New("OCI image source tag must have the exact form vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N")
 	}
 	if !commitPattern.MatchString(release.Commit) {
 		return errors.New("OCI image source commit must be a lowercase 40-character identity")

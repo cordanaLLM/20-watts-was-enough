@@ -67,7 +67,7 @@ func generationManifestConfig(body, config []byte, digest string) (int, error) {
 	}
 	var schema int
 	if err := json.Unmarshal(object["schemaVersion"], &schema); err != nil || schema != 2 ||
-		generationImageString(object, "mediaType") != "application/vnd.oci.image.manifest.v1+json" {
+		jsonString(object, "mediaType") != "application/vnd.oci.image.manifest.v1+json" {
 		return 0, errors.New("generator requires a schema-2 OCI image manifest")
 	}
 	descriptor, err := generationImageObject(object["config"], "mediaType digest size", "annotations")
@@ -76,8 +76,8 @@ func generationManifestConfig(body, config []byte, digest string) (int, error) {
 	}
 	var size int64
 	if err := json.Unmarshal(descriptor["size"], &size); err != nil || size != int64(len(config)) ||
-		generationImageString(descriptor, "mediaType") != "application/vnd.oci.image.config.v1+json" ||
-		generationImageString(descriptor, "digest") != digest {
+		jsonString(descriptor, "mediaType") != "application/vnd.oci.image.config.v1+json" ||
+		jsonString(descriptor, "digest") != digest {
 		return 0, errors.New("generator original manifest does not bind the supplied config bytes")
 	}
 	var layers []json.RawMessage
@@ -98,9 +98,9 @@ func generationLayerDescriptor(body []byte) error {
 		return err
 	}
 	var size int64
-	media := generationImageString(object, "mediaType")
+	media := jsonString(object, "mediaType")
 	if err := json.Unmarshal(object["size"], &size); err != nil || size <= 0 ||
-		!generationImageDigest(generationImageString(object, "digest")) ||
+		!generationImageDigest(jsonString(object, "digest")) ||
 		!slices.Contains([]string{"application/vnd.oci.image.layer.v1.tar", "application/vnd.oci.image.layer.v1.tar+gzip", "application/vnd.oci.image.layer.v1.tar+zstd"}, media) {
 		return errors.New("generator manifest has an invalid OCI layer descriptor")
 	}
@@ -112,7 +112,7 @@ func generationConfigInspection(body []byte, runtime GeneratorRuntime) (generati
 	if err != nil {
 		return generationImageInspection{}, err
 	}
-	if generationImageString(object, "architecture") != "amd64" || generationImageString(object, "os") != "linux" {
+	if jsonString(object, "architecture") != "amd64" || jsonString(object, "os") != "linux" {
 		return generationImageInspection{}, errors.New("generator image platform must be linux/amd64")
 	}
 	if _, err := generationImageObject(object["config"], "User WorkingDir Entrypoint Env", "Image Cmd OnBuild Labels Volumes ExposedPorts Healthcheck StopTimeout StopSignal Tty OpenStdin"); err != nil {
@@ -130,7 +130,7 @@ func generationConfigInspection(body []byte, runtime GeneratorRuntime) (generati
 		return generationImageInspection{}, err
 	}
 	if err := json.Unmarshal(rootfs["diff_ids"], &result.RootFS.Layers); err != nil ||
-		generationImageString(rootfs, "type") != "layers" || len(result.RootFS.Layers) < 1 || len(result.RootFS.Layers) > 128 {
+		jsonString(rootfs, "type") != "layers" || len(result.RootFS.Layers) < 1 || len(result.RootFS.Layers) > 128 {
 		return generationImageInspection{}, errors.New("generator config requires layers rootfs and 1 to 128 diff IDs")
 	}
 	for _, digest := range result.RootFS.Layers {
@@ -212,9 +212,9 @@ func generationImageObject(body []byte, required, optional string) (map[string]j
 	return object, nil
 }
 
-func generationImageString(object map[string]json.RawMessage, name string) string {
+func jsonString(object map[string]json.RawMessage, key string) string {
 	var value string
-	if err := json.Unmarshal(object[name], &value); err != nil {
+	if err := json.Unmarshal(object[key], &value); err != nil {
 		return ""
 	}
 	return value

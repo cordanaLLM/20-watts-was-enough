@@ -104,3 +104,9 @@ than silently changing its outcome.
 | [0097](0097-keep-workflow-tool-versions-out-of-the-action-update-group.md) | Keep workflow tool versions out of the action update group | accepted |
 | [0098](0098-move-the-renderer-lock-to-buildx-0-37-2.md) | Move the renderer lock to Buildx 0.37.2 | accepted |
 | [0099](0099-scan-the-history-for-secrets-with-a-proven-gitleaks.md) | Scan the history for secrets with a proven gitleaks | accepted |
+| [0100](0100-lift-the-urllib3-cutoff-in-the-clrs-generator.md) | Lift the urllib3 cutoff in the CLRS generator | accepted |
+| [0101](0101-build-releases-in-a-reusable-workflow.md) | Build releases in a reusable workflow | accepted |
+| [0102](0102-accept-release-candidate-tags.md) | Accept release-candidate tags | accepted |
+| [0103](0103-run-the-go-tests-on-windows-and-macos-runners.md) | Run the Go tests on Windows and macOS runners | accepted |
+| [0104](0104-own-clrs-container-execution-in-go.md) | Own CLRS container execution in Go | accepted |
+| [0105](0105-move-the-renderer-lock-to-buildx-0-38-0.md) | Move the renderer lock to Buildx 0.38.0 | accepted |

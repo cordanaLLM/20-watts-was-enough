@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -150,5 +151,34 @@ func TestEvidenceDecoderRejectsNonCanonicalFieldSpellingsAndOmissions(t *testing
 		if err := decode([]byte(changed), &decoded); err == nil {
 			t.Fatalf("noncanonical evidence passed: %s", changed)
 		}
+	}
+}
+
+func TestIdentifyExecutableResolvesSymlinkedDirectories(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink creation needs a privilege on Windows")
+	}
+	real, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(os.Args[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(real, "binary"), body, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+	want := identify(body)
+	got, err := identifyExecutable(context.Background(), filepath.Join(link, "binary"))
+	if err != nil || got != want {
+		t.Fatalf("identifyExecutable through a symlinked directory = %+v, %v; want %+v", got, err, want)
+	}
+	if _, err := identifyExecutable(context.Background(), filepath.Join(link, "missing")); err == nil {
+		t.Fatal("identifyExecutable accepted a missing executable")
 	}
 }

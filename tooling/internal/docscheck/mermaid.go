@@ -8,10 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -411,7 +413,7 @@ func validateMermaidBaselinePath(value string) error {
 }
 
 func compareMermaidDuplicateDebt(baseline, observed map[string]mermaidOccurrenceSet, report *collector) {
-	for _, digest := range sortedMermaidDigests(observed) {
+	for _, digest := range slices.Sorted(maps.Keys(observed)) {
 		current := observed[digest]
 		admitted, found := baseline[digest]
 		if !found {
@@ -427,7 +429,7 @@ func compareMermaidDuplicateDebt(baseline, observed map[string]mermaidOccurrence
 			)
 		}
 	}
-	for _, digest := range sortedMermaidDigests(baseline) {
+	for _, digest := range slices.Sorted(maps.Keys(baseline)) {
 		if _, found := observed[digest]; !found {
 			report.addError("Stale Mermaid duplicate baseline entry %s: remove it because the body is no longer duplicated", digest)
 		}
@@ -465,15 +467,6 @@ func equalMermaidOccurrences(left, right mermaidOccurrenceSet) bool {
 		}
 	}
 	return true
-}
-
-func sortedMermaidDigests(groups map[string]mermaidOccurrenceSet) []string {
-	digests := make([]string, 0, len(groups))
-	for digest := range groups {
-		digests = append(digests, digest)
-	}
-	sort.Strings(digests)
-	return digests
 }
 
 func formatMermaidOccurrences(occurrences mermaidOccurrenceSet) string {

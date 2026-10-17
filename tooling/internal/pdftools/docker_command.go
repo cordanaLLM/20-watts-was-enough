@@ -1,7 +1,6 @@
 package pdftools
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -11,8 +10,10 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/boundedexec"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 )
 
 const maximumDockerWaitDelay = 5 * time.Second
@@ -52,14 +53,6 @@ type dockerExecutor interface {
 
 type localDockerExecutor struct{}
 
-type boundedDockerOutput struct {
-	mutex    sync.Mutex
-	buffer   bytes.Buffer
-	limit    int64
-	written  int64
-	exceeded bool
-}
-
 func verifyLocalDockerEndpoint(
 	ctx context.Context,
 	executor dockerExecutor,
@@ -88,30 +81,6 @@ func verifyLocalDockerEndpoint(
 	return nil
 }
 
-func (output *boundedDockerOutput) Write(body []byte) (int, error) {
-	output.mutex.Lock()
-	defer output.mutex.Unlock()
-	remaining := output.limit - output.written
-	accepted := int64(len(body))
-	if accepted > remaining {
-		accepted = remaining
-	}
-	if accepted > 0 {
-		_, _ = output.buffer.Write(body[:accepted])
-	}
-	output.written += int64(len(body))
-	if output.written > output.limit {
-		output.exceeded = true
-	}
-	return len(body), nil
-}
-
-func (output *boundedDockerOutput) result() ([]byte, bool) {
-	output.mutex.Lock()
-	defer output.mutex.Unlock()
-	return bytes.Clone(output.buffer.Bytes()), output.exceeded
-}
-
 func (localDockerExecutor) run(ctx context.Context, request dockerRequest) (dockerResult, error) {
 	if request.operation == "" || request.timeout <= 0 || request.output <= 0 || len(request.arguments) == 0 {
 		return dockerResult{}, errors.New("invalid bounded Docker request")
@@ -120,8 +89,8 @@ func (localDockerExecutor) run(ctx context.Context, request dockerRequest) (dock
 	defer timeoutCancel()
 	commandContext, commandCancel := context.WithCancelCause(timeoutContext)
 	defer commandCancel(nil)
-	stdout := &boundedDockerOutput{limit: request.output}
-	stderr := &boundedDockerOutput{limit: request.output}
+	stdout := boundedexec.NewOutput(int(request.output))
+	stderr := boundedexec.NewOutput(int(request.output))
 	dockerBinary, err := exec.LookPath("docker")
 	if err != nil {
 		return dockerResult{}, errors.New("Docker CLI is required for local PDF-tools reproduction")
@@ -139,8 +108,8 @@ func (localDockerExecutor) run(ctx context.Context, request dockerRequest) (dock
 	commandCause := context.Cause(commandContext)
 	commandCancel(nil)
 	monitorError := <-monitorDone
-	stdoutBody, stdoutExceeded := stdout.result()
-	stderrBody, stderrExceeded := stderr.result()
+	stdoutBody, stdoutExceeded := stdout.Result()
+	stderrBody, stderrExceeded := stderr.Result()
 	result := dockerResult{stdout: stdoutBody, stderr: stderrBody}
 	if monitorError != nil {
 		return result, fmt.Errorf("%s: %w", request.operation, monitorError)
@@ -204,7 +173,7 @@ func validateBoundedDockerOutputs(files []boundedDockerFile, directories []bound
 		if file.path == "" || file.maximum <= 0 || file.label == "" {
 			return errors.New("invalid Docker output-file boundary")
 		}
-		information, err := os.Lstat(file.path)
+		information, err := fileidentity.Lstat(file.path)
 		if errors.Is(err, os.ErrNotExist) {
 			continue
 		}
@@ -232,7 +201,7 @@ func validateBoundedDockerDirectory(directory boundedDockerDirectory) error {
 		return errors.New("invalid Docker output-directory boundary")
 	}
 	var bytes int64
-	if _, err := os.Lstat(directory.path); errors.Is(err, os.ErrNotExist) {
+	if _, err := fileidentity.Lstat(directory.path); errors.Is(err, os.ErrNotExist) {
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("inspect bounded %s: %w", directory.label, err)
@@ -268,7 +237,7 @@ func walkBoundedTree(
 	if maximumEntries <= 0 || maximumDepth <= 0 || visit == nil {
 		return errors.New("invalid bounded filesystem traversal")
 	}
-	rootInformation, err := os.Lstat(root)
+	rootInformation, err := fileidentity.Lstat(root)
 	if err != nil {
 		return err
 	}
@@ -290,7 +259,7 @@ func walkBoundedTree(
 			return err
 		}
 		opened, statError := file.Stat()
-		current, lstatError := os.Lstat(directory.path)
+		current, lstatError := fileidentity.Lstat(directory.path)
 		if statError != nil || lstatError != nil || !opened.IsDir() || !current.IsDir() ||
 			current.Mode()&os.ModeSymlink != 0 || !os.SameFile(directory.information, opened) ||
 			!os.SameFile(opened, current) {
@@ -312,7 +281,7 @@ func walkBoundedTree(
 					return errors.New("bounded filesystem contains a non-canonical entry name")
 				}
 				path := filepath.Join(directory.path, name)
-				information, err := os.Lstat(path)
+				information, err := fileidentity.Lstat(path)
 				if err != nil {
 					_ = file.Close()
 					return err

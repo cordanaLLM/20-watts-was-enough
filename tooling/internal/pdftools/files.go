@@ -14,6 +14,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/relpath"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
@@ -25,7 +27,7 @@ func cleanRoot(value string) (string, os.FileInfo, error) {
 	if err != nil {
 		return "", nil, fmt.Errorf("resolve repository root: %w", err)
 	}
-	info, err := os.Lstat(root)
+	info, err := fileidentity.Lstat(root)
 	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 		return "", nil, errors.New("repository root must be a real non-symlink directory")
 	}
@@ -33,14 +35,14 @@ func cleanRoot(value string) (string, os.FileInfo, error) {
 }
 
 func readRelative(root, relative, label string, maximum int64) ([]byte, error) {
-	if !validRelativePath(relative) {
+	if !relpath.Valid(relative) {
 		return nil, fmt.Errorf("%s path is not a clean repository-relative path", label)
 	}
 	path := filepath.Join(root, filepath.FromSlash(relative))
 	if err := rejectLinkedPath(root, path, label); err != nil {
 		return nil, err
 	}
-	info, err := os.Lstat(path)
+	info, err := fileidentity.Lstat(path)
 	if err != nil || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > maximum {
 		return nil, fmt.Errorf("%s must be a regular file between 1 and %d bytes", label, maximum)
 	}
@@ -60,7 +62,7 @@ func readRelative(root, relative, label string, maximum int64) ([]byte, error) {
 	if err != nil || !os.SameFile(info, opened) {
 		return nil, fmt.Errorf("%s changed while it was read", label)
 	}
-	current, err := os.Lstat(path)
+	current, err := fileidentity.Lstat(path)
 	if err != nil || !os.SameFile(opened, current) {
 		return nil, fmt.Errorf("%s path changed while it was read", label)
 	}
@@ -75,7 +77,7 @@ func rejectLinkedPath(root, target, label string) error {
 	current := root
 	for _, component := range strings.Split(relative, string(filepath.Separator)) {
 		current = filepath.Join(current, component)
-		info, componentError := os.Lstat(current)
+		info, componentError := fileidentity.Lstat(current)
 		if componentError != nil {
 			return fmt.Errorf("inspect %s: %w", label, componentError)
 		}
@@ -84,14 +86,6 @@ func rejectLinkedPath(root, target, label string) error {
 		}
 	}
 	return nil
-}
-
-func validRelativePath(value string) bool {
-	if value == "" || filepath.IsAbs(value) || strings.Contains(value, "\\") {
-		return false
-	}
-	cleaned := filepath.ToSlash(filepath.Clean(filepath.FromSlash(value)))
-	return cleaned == value && value != "." && !strings.HasPrefix(value, "../")
 }
 
 func containsConfusingPathControl(value string) bool {
