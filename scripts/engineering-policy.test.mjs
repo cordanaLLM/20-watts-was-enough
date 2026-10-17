@@ -734,7 +734,7 @@ test("the scientific runtime lock is the exact reviewed CPython and NumPy artifa
 test("JavaScript workflows use the exact Node and npm toolchain in order", () => {
   const validSteps = [
     {
-      uses: "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+      uses: "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
       with: { "node-version-file": ".node-version", cache: "npm" },
     },
     { run: "node scripts/install-locked-npm.mjs" },
@@ -763,7 +763,7 @@ test("JavaScript workflows use the exact Node and npm toolchain in order", () =>
 
 test("every job reads the Node version from the one version file", () => {
   const setup = (inputs) => ({
-    uses: "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+    uses: "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
     with: inputs,
   });
   const jobsWith = (inputs) => ({
@@ -840,7 +840,7 @@ test("dependency installation suppresses audit fan-out and one full gate enforce
   preCommandFlagBypass.jobs.node = {
     steps: [
       {
-        uses: "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+        uses: "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
         with: { "node-version-file": ".node-version", cache: "npm" },
       },
       { run: "node scripts/install-locked-npm.mjs" },
