@@ -150,7 +150,7 @@ Bundled package inventory
 - uuid@14.0.2 — MIT
 - vfile-message@4.0.3 — MIT
 - vfile@6.0.3 — MIT
-- vite@8.3.2 — MIT
+- vite@8.3.4 — MIT
 - web-namespaces@2.0.1 — MIT
 
 Upstream licence and notice texts
@@ -1755,7 +1755,7 @@ Redistribution and use in source and binary forms, with or without modification,
 This software is provided by the copyright holders and contributors “as is” and any express or implied warranties, including, but not limited to, the implied warranties of merchantability and fitness for a particular purpose are disclaimed. In no event shall the copyright owner or contributors be liable for any direct, indirect, incidental, special, exemplary, or consequential damages (including, but not limited to, procurement of substitute goods or services; loss of use, data, or profits; or business interruption) however caused and on any theory of liability, whether in contract, strict liability, or tort (including negligence or otherwise) arising in any way out of the use of this software, even if advised of the possibility of such damage.
 
 ================================================================================
-Packages: vite@8.3.2
+Packages: vite@8.3.4
 Upstream notice file(s): LICENSE.md
 SHA-256: 8f1715f772cf26b4b91fb4a8401a160ab841ecb2b4ef2b9bcca12b65c5ebe2fd
 --------------------------------------------------------------------------------
