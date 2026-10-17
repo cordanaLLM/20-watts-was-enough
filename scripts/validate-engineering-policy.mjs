@@ -1072,11 +1072,6 @@ export function validateCiFuzzingWorkflowObject(
   workflow,
   relativePath = ".github/workflows/ci.yml",
 ) {
-  const qualityJob = workflow?.jobs?.["quality-full"];
-  const steps = qualityJob?.steps;
-  if (!Array.isArray(steps)) {
-    return [`${relativePath}: quality-full must run the bounded strict-JSON fuzz target`];
-  }
   const expectedCommand = [
     "go -C tooling test ./internal/strictjson",
     "-run '^$'",
@@ -1086,30 +1081,9 @@ export function validateCiFuzzingWorkflowObject(
     "-parallel=2",
     "-timeout=2m",
   ].join(" ");
-  const repositoryCheckIndex = steps.findIndex((step) => (
-    step?.run?.trim() === "npm run check:full-without-workstation"
-    && step?.if === undefined
-    && continueOnErrorIsDisabled(step)
-  ));
-  const fuzzIndex = steps.findIndex((step) => (
-    step?.name === "Fuzz the untrusted JSON boundary"
-    && step?.run?.trim() === expectedCommand
-    && step?.if === undefined
-    && continueOnErrorIsDisabled(step)
-  ));
   const findings = [];
-  if (
-    !continueOnErrorIsDisabled(qualityJob)
-    || fuzzIndex < 0
-    || repositoryCheckIndex < 0
-    || fuzzIndex <= repositoryCheckIndex
-  ) {
-    findings.push(
-      `${relativePath}: quality-full must run the exact bounded strict-JSON fuzz target after the full non-workstation check`,
-    );
-  }
-  if (!arrayIncludes(workflow?.jobs?.["ci-success"]?.needs, "quality-full")) {
-    findings.push(`${relativePath}: ci-success must require the fuzzing quality-full gate`);
+  if (!arrayIncludes(workflow?.jobs?.["ci-success"]?.needs, "lane-go")) {
+    findings.push(`${relativePath}: ci-success must require the fuzzing lane-go gate`);
   }
   findings.push(...goLaneFuzzFindings(workflow, expectedCommand, relativePath));
   return findings;
@@ -1181,7 +1155,7 @@ export function validateCiNativeReleaseWorkflowObject(
   relativePath = ".github/workflows/ci.yml",
 ) {
   const findings = [];
-  for (const jobName of ["lane-go", "quality-full"]) {
+  for (const jobName of ["lane-go"]) {
     const steps = workflow?.jobs?.[jobName]?.steps;
     const list = Array.isArray(steps) ? steps : [];
     const fuzzIndex = list.findIndex((step) => step?.name === "Fuzz the untrusted JSON boundary");
@@ -1226,7 +1200,6 @@ export function validateCiGoRaceAndPlatformWorkflowObject(
   const findings = [];
   const gates = [
     ["lane-go", (step) => step?.name === "Test and vet Go packages" && step?.run?.trim() === goRaceTestCommand],
-    ["quality-full", (step) => step?.run?.trim() === "npm run check:full-without-workstation"],
   ];
   for (const [jobName, isTestStep] of gates) {
     const steps = workflow?.jobs?.[jobName]?.steps;
@@ -1686,8 +1659,9 @@ function validateCiImpactLaneJobs(jobs, relativePath, findings) {
   );
   recordExpectation(
     findings,
-    jobs["impact-common"]?.if === impactMode,
-    `${relativePath}: impact-common must run for every impact plan`,
+    jobs["impact-common"]?.if
+      === "needs.impact-plan.outputs.mode == 'full' || needs.impact-plan.outputs.mode == 'impact'",
+    `${relativePath}: impact-common must run for full plans or every impact plan`,
   );
   const impactLanes = [
     ["lane-go", "go"],
@@ -1698,8 +1672,9 @@ function validateCiImpactLaneJobs(jobs, relativePath, findings) {
   for (const [jobName, selector] of impactLanes) {
     recordExpectation(
       findings,
-      jobs[jobName]?.if === `${impactMode} && needs.impact-plan.outputs.${selector} == 'true'`,
-      `${relativePath}: ${jobName} must use only its fixed Go selector`,
+      jobs[jobName]?.if
+        === `needs.impact-plan.outputs.mode == 'full' || (${impactMode} && needs.impact-plan.outputs.${selector} == 'true')`,
+      `${relativePath}: ${jobName} must run for full plans or its fixed selector`,
     );
   }
   // Native Go lanes also run in full plans, which shared-authority changes
@@ -1873,6 +1848,20 @@ function validateCiImpactSuccessNeedsAndEnvironment(success, successStep, relati
   );
 }
 
+// Exact occurrence counts: full and impact cases each name these lines a
+// fixed number of times, so a dropped or duplicated case is refused.
+const ciImpactSuccessLineCounts = Object.freeze([
+  ['require_selection pdf-renderer-reproducibility "$RESULT_RENDERER" "$SELECT_RENDERER"', 2],
+  ['require_selection dependency-review "$RESULT_DEPENDENCY_REVIEW" "$SELECT_DEPENDENCY"', 1],
+  ['require_state dependency-review "$RESULT_DEPENDENCY_REVIEW" skipped', 2],
+  ['require_state secret-scan "$RESULT_SECRET_SCAN" success\n', 1],
+  ['require_state impact-common "$RESULT_IMPACT_COMMON" success', 2],
+  ['require_state lane-go "$RESULT_GO" success', 1],
+  ['require_state lane-release "$RESULT_RELEASE" success', 1],
+  ['require_state lane-research "$RESULT_RESEARCH" success', 1],
+  ['require_state lane-site "$RESULT_SITE" success', 1],
+]);
+
 function validateCiImpactSuccessScript(successSource, relativePath, findings) {
   recordExpectation(
     findings,
@@ -1904,22 +1893,9 @@ function validateCiImpactSuccessScript(successSource, relativePath, findings) {
       'false) require_state "$gate" "$actual" skipped ;;',
       '*) echo "::error::$gate selector is malformed: $selected"; exit 1 ;;',
     ])
-      && countOccurrences(
-        successSource,
-        'require_selection pdf-renderer-reproducibility "$RESULT_RENDERER" "$SELECT_RENDERER"',
-      ) === 2
-      && countOccurrences(
-        successSource,
-        'require_selection dependency-review "$RESULT_DEPENDENCY_REVIEW" "$SELECT_DEPENDENCY"',
-      ) === 1
-      && countOccurrences(
-        successSource,
-        'require_state dependency-review "$RESULT_DEPENDENCY_REVIEW" skipped',
-      ) === 2
-      && countOccurrences(
-        successSource,
-        'require_state secret-scan "$RESULT_SECRET_SCAN" success\n',
-      ) === 1
+      && ciImpactSuccessLineCounts.every(([line, count]) => (
+        countOccurrences(successSource, line) === count
+      ))
       && String(successSource ?? "").includes(
         'require_state impact-plan "$RESULT_PLAN" success\nrequire_state secret-scan "$RESULT_SECRET_SCAN" success\n',
       )
@@ -4435,6 +4411,70 @@ function validatePackageDependenciesAndMetadata(manifest, relativePath) {
   return findings;
 }
 
+export function validateFullCiFanOutCoverageObject(
+  manifest,
+  workflow,
+  manifestPath = "package.json",
+  workflowPath = ".github/workflows/ci.yml",
+) {
+  const findings = [];
+  const scripts = manifest?.scripts ?? {};
+  const coveredEntries = new Set();
+
+  const laneJobs = [
+    ["impact-common", "check:impact-common"],
+    ["lane-release", "check:lane-release"],
+    ["lane-research", "check:lane-research"],
+    ["lane-site", "check:lane-site"],
+  ];
+
+  for (const [jobName, scriptName] of laneJobs) {
+    const job = workflow?.jobs?.[jobName];
+    const steps = Array.isArray(job?.steps) ? job.steps : [];
+    const stepRunsScript = continueOnErrorIsDisabled(job)
+      && unconditionalStepIndex(
+        steps,
+        (step) => step?.run?.trim() === `npm run ${scriptName}`,
+      ) >= 0;
+    if (!stepRunsScript) {
+      findings.push(`${workflowPath}: ${jobName} must run npm run ${scriptName}`);
+    }
+    const commands = String(scripts[scriptName] ?? "")
+      .split(" && ")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+    for (const cmd of commands) {
+      coveredEntries.add(cmd);
+    }
+  }
+
+  const goJob = workflow?.jobs?.["lane-go"];
+  const goSteps = Array.isArray(goJob?.steps) ? goJob.steps : [];
+  const hasGoTestStep = continueOnErrorIsDisabled(goJob)
+    && unconditionalStepIndex(
+      goSteps,
+      (step) => step?.run?.trim() === goRaceTestCommand,
+    ) >= 0;
+  if (hasGoTestStep) {
+    coveredEntries.add("npm run test:go");
+  }
+
+  const fullEntries = String(scripts["check:full-without-workstation"] ?? "")
+    .split(" && ")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  for (const entry of fullEntries) {
+    if (!coveredEntries.has(entry)) {
+      findings.push(
+        `${manifestPath}: full-mode lanes drop ${entry} from check:full-without-workstation`,
+      );
+    }
+  }
+
+  return findings;
+}
+
 function validatePackage(root, findings) {
   const relativePath = "package.json";
   let manifest;
@@ -4455,6 +4495,17 @@ function validatePackage(root, findings) {
   findings.push(...validateTaxonomyImporterScriptObject(manifest, relativePath));
   findings.push(...validatePackageScripts(manifest, relativePath));
   findings.push(...validatePackageDependenciesAndMetadata(manifest, relativePath));
+
+  const ciWorkflowPath = ".github/workflows/ci.yml";
+  const ciWorkflow = parseYaml(root, ciWorkflowPath, []);
+  if (ciWorkflow) {
+    findings.push(...validateFullCiFanOutCoverageObject(
+      manifest,
+      ciWorkflow,
+      relativePath,
+      ciWorkflowPath,
+    ));
+  }
 }
 
 export function validateRetiredHostingPaths(root = defaultRoot) {
@@ -4950,11 +5001,21 @@ function validateCiWorkflowPolicy(workflow, relativePath, lock, findings) {
   findings.push(...validateScientificRuntimeWorkflowObject(
     workflow,
     lock,
-    "quality-full",
+    "workstation-artifacts",
     relativePath,
   ));
-  findings.push(...validateJavaScriptRuntimeWorkflowObject(workflow, "quality-full", relativePath));
-  findings.push(...validateGoRuntimeWorkflowObject(workflow, "quality-full", relativePath));
+  for (const jobName of [
+    "quality-full",
+    "impact-common",
+    "lane-release",
+    "lane-research",
+    "lane-site",
+  ]) {
+    findings.push(...validateJavaScriptRuntimeWorkflowObject(workflow, jobName, relativePath));
+  }
+  for (const jobName of ["lane-go", "lane-release", "lane-research"]) {
+    findings.push(...validateGoRuntimeWorkflowObject(workflow, jobName, relativePath));
+  }
   findings.push(...validatePDFRendererReproducibilityWorkflowObject(workflow, relativePath));
 }
 

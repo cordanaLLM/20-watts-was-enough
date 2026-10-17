@@ -49,7 +49,7 @@ than silently changing its outcome.
 | [0041](0041-attest-only-current-run-build-outputs.md) | Attest only current-run build outputs | accepted |
 | [0042](0042-retire-the-host-specific-fixture-012-acquisition-lane.md) | Retire the host-specific Fixture 012 acquisition lane | accepted |
 | [0043](0043-impact-scope-pull-request-ci.md) | Impact-scope pull-request CI | superseded by [0088](0088-impact-scope-ci-and-local-validation.md) |
-| [0044](0044-shard-workstation-ci-without-splitting-test-authority.md) | Shard workstation CI without splitting test authority | accepted; ready-PR gate extended by [0048](0048-gate-ready-pull-requests-with-the-full-ci-matrix.md), six-Fixture-026-shard clauses partly superseded by [0051](0051-add-a-seventh-fixture-026-shard-after-live-timing.md), local-serial aggregate partly superseded by [0068](0068-run-workstation-tests-through-the-bounded-go-catalogue.md) |
+| [0044](0044-shard-workstation-ci-without-splitting-test-authority.md) | Shard workstation CI without splitting test authority | accepted; ready-PR gate extended by [0048](0048-gate-ready-pull-requests-with-the-full-ci-matrix.md), six-Fixture-026-shard clauses partly superseded by [0051](0051-add-a-seventh-fixture-026-shard-after-live-timing.md), local-serial aggregate partly superseded by [0068](0068-run-workstation-tests-through-the-bounded-go-catalogue.md), full-plan quality-full clause partly superseded by [0106](0106-fan-out-full-ci-to-impact-lanes.md) |
 | [0045](0045-rewrite-renderer-layer-timestamps-before-recording-image-identity.md) | Rewrite renderer layer timestamps before recording image identity | accepted |
 | [0046](0046-project-the-research-roadmap-into-github-milestones.md) | Project the research roadmap into GitHub milestones | accepted; pull-request exclusion clauses 3 and 6 partly superseded by [0057](0057-project-pull-request-metadata-from-managed-issues.md) |
 | [0047](0047-keep-cloudflare-as-the-public-pages-tls-authority.md) | Keep Cloudflare as the public Pages TLS authority | accepted |
@@ -110,3 +110,4 @@ than silently changing its outcome.
 | [0103](0103-run-the-go-tests-on-windows-and-macos-runners.md) | Run the Go tests on Windows and macOS runners | accepted |
 | [0104](0104-own-clrs-container-execution-in-go.md) | Own CLRS container execution in Go | accepted |
 | [0105](0105-move-the-renderer-lock-to-buildx-0-38-0.md) | Move the renderer lock to Buildx 0.38.0 | accepted |
+| [0106](0106-fan-out-full-ci-to-impact-lanes.md) | Fan out full CI to impact lanes | accepted |

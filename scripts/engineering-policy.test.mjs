@@ -43,6 +43,7 @@ import {
   validateExperimentReportIdentity,
   validateExperimentRunFailureForm,
   validateFundingConfig,
+  validateFullCiFanOutCoverageObject,
   validateGoGateScriptObject,
   validateGoCodeQlWorkflowObject,
   validateGoRuntimeWorkflowObject,
@@ -221,14 +222,14 @@ function runCiSuccessGate(source, overrides = {}) {
     SELECT_WORKSTATION: "true",
     RESULT_PLAN: "success",
     RESULT_QUALITY_FULL: "success",
-    RESULT_IMPACT_COMMON: "skipped",
-    RESULT_GO: "skipped",
+    RESULT_IMPACT_COMMON: "success",
+    RESULT_GO: "success",
     RESULT_GO_WINDOWS: "success",
     RESULT_GO_MACOS: "success",
-    RESULT_RELEASE: "skipped",
+    RESULT_RELEASE: "success",
     RESULT_RENDERER: "skipped",
-    RESULT_RESEARCH: "skipped",
-    RESULT_SITE: "skipped",
+    RESULT_RESEARCH: "success",
+    RESULT_SITE: "success",
     RESULT_WORKSTATION_CORE: "success",
     RESULT_WORKSTATION_ARTIFACTS: "success",
     RESULT_CONTAINER: "success",
@@ -344,6 +345,71 @@ test("the topic registry validator runs in the aggregate gate and every impact p
     assert.deepEqual(validateTopicRegistryScriptsObject(tampered), [finding]);
   }
   assert.equal(validateTopicRegistryScriptsObject({}).length, 3);
+});
+
+test("full-mode lanes cover every non-workstation check and lane-go satisfies Go tests and vet", () => {
+  const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  const validCi = workflow("ci");
+  assert.deepEqual(validateFullCiFanOutCoverageObject(manifest, validCi), []);
+
+  const plantedDrop = structuredClone(manifest);
+  plantedDrop.scripts["check:lane-research"] = plantedDrop.scripts["check:lane-research"].replace(
+    "npm run validate:math && ",
+    "",
+  );
+  assert.deepEqual(validateFullCiFanOutCoverageObject(plantedDrop, validCi), [
+    "package.json: full-mode lanes drop npm run validate:math from check:full-without-workstation",
+  ]);
+
+  const droppedTestGo = structuredClone(validCi);
+  droppedTestGo.jobs["lane-go"].steps = droppedTestGo.jobs["lane-go"].steps.filter(
+    (step) => step.name !== "Test and vet Go packages",
+  );
+  assert.deepEqual(validateFullCiFanOutCoverageObject(manifest, droppedTestGo), [
+    "package.json: full-mode lanes drop npm run test:go from check:full-without-workstation",
+  ]);
+
+  const detachedLane = structuredClone(validCi);
+  detachedLane.jobs["lane-site"].steps = detachedLane.jobs["lane-site"].steps.filter(
+    (step) => step.run?.trim() !== "npm run check:lane-site",
+  );
+  assert.deepEqual(validateFullCiFanOutCoverageObject(manifest, detachedLane), [
+    ".github/workflows/ci.yml: lane-site must run npm run check:lane-site",
+  ]);
+
+  const conditionalLaneSite = structuredClone(validCi);
+  conditionalLaneSite.jobs["lane-site"].steps.find(
+    (step) => step.run?.trim() === "npm run check:lane-site",
+  ).if = "false";
+  assert.deepEqual(validateFullCiFanOutCoverageObject(manifest, conditionalLaneSite), [
+    ".github/workflows/ci.yml: lane-site must run npm run check:lane-site",
+  ]);
+
+  const continueOnErrorLaneResearch = structuredClone(validCi);
+  continueOnErrorLaneResearch.jobs["lane-research"].steps.find(
+    (step) => step.run?.trim() === "npm run check:lane-research",
+  )["continue-on-error"] = true;
+  assert.deepEqual(validateFullCiFanOutCoverageObject(manifest, continueOnErrorLaneResearch), [
+    ".github/workflows/ci.yml: lane-research must run npm run check:lane-research",
+  ]);
+
+  const continueOnErrorLaneRelease = structuredClone(validCi);
+  continueOnErrorLaneRelease.jobs["lane-release"]["continue-on-error"] = true;
+  assert.deepEqual(validateFullCiFanOutCoverageObject(manifest, continueOnErrorLaneRelease), [
+    ".github/workflows/ci.yml: lane-release must run npm run check:lane-release",
+  ]);
+
+  const conditionalGoRace = structuredClone(validCi);
+  conditionalGoRace.jobs["lane-go"].steps.find(
+    (step) => step.name === "Test and vet Go packages",
+  ).if = "false";
+  assert.deepEqual(validateFullCiFanOutCoverageObject(manifest, conditionalGoRace), [
+    "package.json: full-mode lanes drop npm run test:go from check:full-without-workstation",
+  ]);
+
+  const boundaryDuplicate = structuredClone(manifest);
+  boundaryDuplicate.scripts["check:lane-site"] += " && npm run validate:math";
+  assert.deepEqual(validateFullCiFanOutCoverageObject(boundaryDuplicate, validCi), []);
 });
 
 test("the taxonomy gate rebuilds the taxonomy JSON from its sources in every lane that runs it", () => {
@@ -764,6 +830,31 @@ test("JavaScript workflows use the exact Node and npm toolchain in order", () =>
     "workflow.yml: job quality must verify locked npm 12.2.0 after installation",
     "workflow.yml: job quality must run npm ci --no-audit after verifying the locked npm version",
   ]);
+});
+
+test("CI lane jobs enforce the locked Node and Go runtime policies", () => {
+  const valid = workflow("ci");
+  const uncachedNode = structuredClone(valid);
+  delete uncachedNode.jobs["lane-site"].steps.find(
+    (step) => step.uses?.startsWith("actions/setup-node@"),
+  ).with.cache;
+  assert.deepEqual(
+    validateJavaScriptRuntimeWorkflowObject(uncachedNode, "lane-site", ".github/workflows/ci.yml"),
+    [
+      ".github/workflows/ci.yml: job lane-site must read the Node version from .node-version with the npm cache",
+    ],
+  );
+
+  const uncachedGo = structuredClone(valid);
+  delete uncachedGo.jobs["lane-research"].steps.find(
+    (step) => step.uses?.startsWith("actions/setup-go@"),
+  ).with["cache-dependency-path"];
+  assert.deepEqual(
+    validateGoRuntimeWorkflowObject(uncachedGo, "lane-research", ".github/workflows/ci.yml"),
+    [
+      ".github/workflows/ci.yml: job lane-research must use Go 1.27.2 from tooling/go.mod with tooling/go.sum caching",
+    ],
+  );
 });
 
 test("every job reads the Node version from the one version file", () => {
@@ -1240,45 +1331,12 @@ test("CI runs the strict-JSON fuzzer with explicit time and process bounds", () 
   const valid = workflow("ci");
   assert.deepEqual(validateCiFuzzingWorkflowObject(valid), []);
 
-  const unboundedMinimisation = structuredClone(valid);
-  const fuzz = unboundedMinimisation.jobs["quality-full"].steps.find((step) => (
-    step.name === "Fuzz the untrusted JSON boundary"
-  ));
-  fuzz.run = fuzz.run.replace(" -fuzzminimizetime=5s", "");
-  assert.deepEqual(validateCiFuzzingWorkflowObject(unboundedMinimisation), [
-    ".github/workflows/ci.yml: quality-full must run the exact bounded strict-JSON fuzz target after the full non-workstation check",
-  ]);
-
-  const allowedFailure = structuredClone(valid);
-  allowedFailure.jobs["quality-full"].steps.find((step) => (
-    step.name === "Fuzz the untrusted JSON boundary"
-  ))["continue-on-error"] = true;
-  assert.deepEqual(validateCiFuzzingWorkflowObject(allowedFailure), [
-    ".github/workflows/ci.yml: quality-full must run the exact bounded strict-JSON fuzz target after the full non-workstation check",
-  ]);
-
-  const allowedRepositoryCheckFailure = structuredClone(valid);
-  allowedRepositoryCheckFailure.jobs["quality-full"].steps.find((step) => (
-    step.run === "npm run check:full-without-workstation"
-  ))["continue-on-error"] = true;
-  assert.deepEqual(validateCiFuzzingWorkflowObject(allowedRepositoryCheckFailure), [
-    ".github/workflows/ci.yml: quality-full must run the exact bounded strict-JSON fuzz target after the full non-workstation check",
-  ]);
-
-  const skippedRepositoryCheck = structuredClone(valid);
-  skippedRepositoryCheck.jobs["quality-full"].steps.find((step) => (
-    step.run === "npm run check:full-without-workstation"
-  )).if = "false";
-  assert.deepEqual(validateCiFuzzingWorkflowObject(skippedRepositoryCheck), [
-    ".github/workflows/ci.yml: quality-full must run the exact bounded strict-JSON fuzz target after the full non-workstation check",
-  ]);
-
   const detachedGate = structuredClone(valid);
   detachedGate.jobs["ci-success"].needs = detachedGate.jobs["ci-success"].needs.filter(
-    (job) => job !== "quality-full",
+    (job) => job !== "lane-go",
   );
   assert.deepEqual(validateCiFuzzingWorkflowObject(detachedGate), [
-    ".github/workflows/ci.yml: ci-success must require the fuzzing quality-full gate",
+    ".github/workflows/ci.yml: ci-success must require the fuzzing lane-go gate",
   ]);
 
   const laneFinding = ".github/workflows/ci.yml: lane-go must run the exact bounded strict-JSON fuzz target after the Go tests";
@@ -1301,6 +1359,19 @@ test("CI runs the strict-JSON fuzzer with explicit time and process bounds", () 
   )), 1)[0];
   laneSteps.unshift(laneFuzz);
   assert.deepEqual(validateCiFuzzingWorkflowObject(fuzzBeforeTests), [laneFinding]);
+
+  const unboundedMinimisation = structuredClone(valid);
+  const fuzz = unboundedMinimisation.jobs["lane-go"].steps.find((step) => (
+    step.name === "Fuzz the untrusted JSON boundary"
+  ));
+  fuzz.run = fuzz.run.replace(" -fuzzminimizetime=5s", "");
+  assert.deepEqual(validateCiFuzzingWorkflowObject(unboundedMinimisation), [laneFinding]);
+
+  const allowedFailure = structuredClone(valid);
+  allowedFailure.jobs["lane-go"].steps.find((step) => (
+    step.name === "Fuzz the untrusted JSON boundary"
+  ))["continue-on-error"] = true;
+  assert.deepEqual(validateCiFuzzingWorkflowObject(allowedFailure), [laneFinding]);
 });
 
 test("CI rejects a code-shape baseline reset on every event", () => {
@@ -1330,7 +1401,7 @@ test("CI rejects a code-shape baseline reset on every event", () => {
   assert.deepEqual(validateCiCodeShapeResetWorkflowObject(removed), [finding]);
 });
 
-test("CI builds and executes the native release binary in the Go lane and the full gate", () => {
+test("CI builds and executes the native release binary in the Go lane", () => {
   const valid = workflow("ci");
   assert.deepEqual(validateCiNativeReleaseWorkflowObject(valid), []);
   const finding = (job) => `.github/workflows/ci.yml: ${job} must build and execute the native release binary after the Go checks`;
@@ -1345,8 +1416,8 @@ test("CI builds and executes the native release binary in the Go lane and the fu
   assert.deepEqual(validateCiNativeReleaseWorkflowObject(removed), [finding("lane-go")]);
 
   const skipped = structuredClone(valid);
-  nativeStep(skipped, "quality-full").if = "false";
-  assert.deepEqual(validateCiNativeReleaseWorkflowObject(skipped), [finding("quality-full")]);
+  nativeStep(skipped, "lane-go").if = "false";
+  assert.deepEqual(validateCiNativeReleaseWorkflowObject(skipped), [finding("lane-go")]);
 
   const unexecuted = structuredClone(valid);
   const step = nativeStep(unexecuted, "lane-go");
@@ -1394,10 +1465,10 @@ test("Go gates run under the race detector and type-check the Windows and macOS 
   ]);
 
   const withoutMacOS = structuredClone(valid);
-  const qualityVet = step(withoutMacOS, "quality-full", "Type-check the Windows and macOS builds");
-  qualityVet.run = qualityVet.run.split("\n")[0];
+  const laneVet = step(withoutMacOS, "lane-go", "Type-check the Windows and macOS builds");
+  laneVet.run = laneVet.run.split("\n")[0];
   assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(withoutMacOS), [
-    ".github/workflows/ci.yml: quality-full must type-check the Windows and macOS builds after the Go tests",
+    ".github/workflows/ci.yml: lane-go must type-check the Windows and macOS builds after the Go tests",
   ]);
 
   const skipped = structuredClone(valid);
@@ -1407,11 +1478,11 @@ test("Go gates run under the race detector and type-check the Windows and macOS 
   ]);
 
   const beforeTests = structuredClone(valid);
-  const steps = beforeTests.jobs["quality-full"].steps;
+  const steps = beforeTests.jobs["lane-go"].steps;
   const vetIndex = steps.findIndex((candidate) => candidate.name === "Type-check the Windows and macOS builds");
   steps.unshift(...steps.splice(vetIndex, 1));
   assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(beforeTests), [
-    ".github/workflows/ci.yml: quality-full must type-check the Windows and macOS builds after the Go tests",
+    ".github/workflows/ci.yml: lane-go must type-check the Windows and macOS builds after the Go tests",
   ]);
 
   const allowedFailure = structuredClone(valid);
@@ -1887,6 +1958,33 @@ test("CI impact selection is projected once and every job state fails closed", (
 
 });
 
+test("CI full plans run every impact lane and require its success", () => {
+  const valid = workflow("ci");
+  const successFinding = ".github/workflows/ci.yml: ci-success must reject unexpected states and any skipped selected lane";
+
+  const impactOnlySiteLane = structuredClone(valid);
+  impactOnlySiteLane.jobs["lane-site"].if = "needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.site == 'true'";
+  assert.ok(validateCiImpactWorkflowObject(impactOnlySiteLane).includes(
+    ".github/workflows/ci.yml: lane-site must run for full plans or its fixed selector",
+  ));
+
+  const impactOnlyCommon = structuredClone(valid);
+  impactOnlyCommon.jobs["impact-common"].if = "needs.impact-plan.outputs.mode == 'impact'";
+  assert.ok(validateCiImpactWorkflowObject(impactOnlyCommon).includes(
+    ".github/workflows/ci.yml: impact-common must run for full plans or every impact plan",
+  ));
+
+  const skippedFullResearchLane = structuredClone(valid);
+  const fullResearchSuccess = skippedFullResearchLane.jobs["ci-success"].steps.find((step) => (
+    step.name === "Require every expected gate state"
+  ));
+  fullResearchSuccess.run = fullResearchSuccess.run.replace(
+    'require_state lane-research "$RESULT_RESEARCH" success',
+    'require_state lane-research "$RESULT_RESEARCH" skipped',
+  );
+  assert.ok(validateCiImpactWorkflowObject(skippedFullResearchLane).includes(successFinding));
+});
+
 test("CI selected-lane aggregation and artifact dispatch fail closed", () => {
   const valid = workflow("ci");
   const successFinding = ".github/workflows/ci.yml: ci-success must reject unexpected states and any skipped selected lane";
@@ -1917,7 +2015,7 @@ test("CI selected-lane aggregation and artifact dispatch fail closed", () => {
     ".github/workflows/ci.yml: lane-go-windows must run for full plans or its fixed Go selector",
   ));
   const impactOnlyMacLane = structuredClone(valid);
-  impactOnlyMacLane.jobs["lane-go-macos"].if = valid.jobs["lane-go"].if;
+  impactOnlyMacLane.jobs["lane-go-macos"].if = "needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.go == 'true'";
   assert.ok(validateCiImpactWorkflowObject(impactOnlyMacLane).includes(
     ".github/workflows/ci.yml: lane-go-macos must run for full plans or its fixed Go selector",
   ));
@@ -1930,8 +2028,6 @@ test("CI selected-lane aggregation and artifact dispatch fail closed", () => {
     'require_state lane-go-windows "$RESULT_GO_WINDOWS" skipped',
   );
   assert.ok(validateCiImpactWorkflowObject(skippedFullWindowsLane).includes(successFinding));
-
-
 
   const missingFullRendererGate = structuredClone(valid);
   const missingRendererSource = missingFullRendererGate.jobs["ci-success"].steps.find((step) => (
@@ -2135,6 +2231,9 @@ function impactStateVector() {
     SELECT_WORKSTATION: "true",
     RESULT_QUALITY_FULL: "skipped",
     RESULT_IMPACT_COMMON: "success",
+    RESULT_GO: "skipped",
+    RESULT_RELEASE: "skipped",
+    RESULT_RESEARCH: "skipped",
     RESULT_SITE: "success",
     RESULT_WORKSTATION_CORE: "success",
     RESULT_WORKSTATION_ARTIFACTS: "success",
@@ -2260,6 +2359,9 @@ test("CI success accepts only the exact full or selected impact state vector", (
   assert.notEqual(runCiSuccessGate(source, {
     SELECT_GO: "true",
   }).status, 0, "full mode must expose false semantic selectors");
+  assert.notEqual(runCiSuccessGate(source, {
+    RESULT_SITE: "skipped",
+  }).status, 0, "full mode must reject a skipped site lane");
   for (const state of ["failure", "skipped", "cancelled", ""]) {
     assert.notEqual(runCiSuccessGate(source, {
       RESULT_SECRET_SCAN: state,

@@ -18,6 +18,14 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Full-mode CI runs non-workstation checks in parallel across existing impact
+  lanes (`impact-common`, `lane-go`, `lane-release`, `lane-research`,
+  `lane-site`) rather than serially in `quality-full` ([Decision 0106](decisions/0106-fan-out-full-ci-to-impact-lanes.md)).
+  `quality-full` retains dependency auditing, locked npm verification, and
+  baseline reset rejection under the required branch-protection name. Full gate
+  wall time is no longer dominated by `quality-full` (15m45, with 13m09 in
+  serial non-workstation checks) and is bounded by the PDF renderer and
+  workstation shard execution.
 - A Pages deployment that fails the public-transport check no longer stays live: the `restore-verified-site` job redeploys the artifact of the last run whose verification passed, and the build keeps that artifact for 90 days instead of one. `npm run validate:policy` refuses a workflow without the restore job or with a bypass in it (#237).
 - The Fixture 019 runtime moves from CPython 3.14.8 to 3.15.0, a minor-version
   move rather than a bug-fix release. NumPy stays at 2.5.4 and moves to its
