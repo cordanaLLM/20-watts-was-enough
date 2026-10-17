@@ -6,7 +6,7 @@ import { readFile, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createServer as createViteServer } from "vite";
+import { startReadyPagesDevServer } from "./lib/pages-dev-server.mjs";
 
 import {
   connectCdp,
@@ -57,6 +57,12 @@ async function navigate(cdp, url) {
   const result = await cdp.send("Page.navigate", { url });
   assert.equal(result.errorText, undefined);
 }
+
+// The book renders every chapter in one document. With all CPUs busy, CDP
+// Performance TaskDuration for that render measured 9 to 13 times its idle
+// value while the server answered at once, so the wait is renderer-bound and
+// keeps its own budget; every other browser wait stays at 30 s (#281).
+const BOOK_RENDER_BUDGET_MS = 90_000;
 
 async function waitForExpression(cdp, expression, timeoutMs = 30_000) {
   return waitForCondition({
@@ -366,6 +372,7 @@ async function assertContinuousBook(cdp, origin, edition) {
     cdp,
     `document.readyState === "complete"
       && document.querySelector('.book-cover code')?.textContent === ${JSON.stringify(sourceRevision)}`,
+    BOOK_RENDER_BUDGET_MS,
   );
   const snapshot = await bookSnapshot(cdp);
   assert.equal(snapshot.edition, edition);
@@ -457,26 +464,16 @@ testWithHostDeadline("hydrated research objects and the book preserve the static
   const browser = await firstExistingChromium();
   const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "20w-object-parity-"));
   const profile = path.join(temporaryRoot, "chrome-profile");
-  const previousSourceRevision = process.env.GITHUB_SHA;
-  const previousPagesBasePath = process.env.PAGES_BASE_PATH;
-  process.env.GITHUB_SHA = sourceRevision;
-  process.env.PAGES_BASE_PATH = pagesBasePath;
-  let vite;
+  let pagesServer;
   let browserProcess;
   let cdp;
 
   try {
-    vite = await createViteServer({
-      configFile: path.join(repositoryRoot, "vite.pages.config.ts"),
-      configLoader: "runner",
+    pagesServer = await startReadyPagesDevServer({
       cacheDir: path.join(temporaryRoot, "vite-cache"),
-      logLevel: "silent",
-      server: { host: "127.0.0.1", port: 0 },
+      env: { GITHUB_SHA: sourceRevision, PAGES_BASE_PATH: pagesBasePath },
     });
-    await vite.listen();
-    const address = vite.httpServer?.address();
-    assert.equal(typeof address, "object");
-    const origin = `http://127.0.0.1:${address.port}`;
+    const { origin } = pagesServer;
 
     browserProcess = spawn(browser, [
       "--headless=new",
@@ -515,14 +512,8 @@ testWithHostDeadline("hydrated research objects and the book preserve the static
     await settleCleanupSteps([
       async () => cdp?.socket.close(),
       async () => stopProcess(browserProcess),
-      async () => vite?.close(),
+      async () => pagesServer?.close(),
       async () => rm(temporaryRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }),
-      async () => {
-        if (previousSourceRevision === undefined) delete process.env.GITHUB_SHA;
-        else process.env.GITHUB_SHA = previousSourceRevision;
-        if (previousPagesBasePath === undefined) delete process.env.PAGES_BASE_PATH;
-        else process.env.PAGES_BASE_PATH = previousPagesBasePath;
-      },
     ]);
   }
 });

@@ -409,11 +409,15 @@ test("full-book browser probes stay in one bounded process-isolated site-test gr
     ["Mermaid", ["mermaid-browser.test.mjs", 'cacheDir: path.join(profile, "vite-cache")']],
     ["research object", ["research-object-header-browser.test.mjs", 'cacheDir: path.join(temporaryRoot, "vite-cache")']],
   ]);
+  // A probe may start its server through the shared readiness helper, which
+  // then carries the runner config loader for it.
+  const sharedServer = readFileSync(new URL("lib/pages-dev-server.mjs", import.meta.url), "utf8");
   for (const [label, [file, cacheBinding]] of isolatedCaches) {
     const source = readFileSync(new URL(file, import.meta.url), "utf8");
     assert.ok(source.includes(cacheBinding), `${label} browser probe needs a private Vite cache`);
+    const usesSharedServer = source.includes('import { startReadyPagesDevServer } from "./lib/pages-dev-server.mjs";');
     assert.ok(
-      source.includes('configLoader: "runner"'),
+      (usesSharedServer ? sharedServer : source).includes('configLoader: "runner"'),
       `${label} browser probe must not emit shared temporary config modules`,
     );
     assert.ok(
