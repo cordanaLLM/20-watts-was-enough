@@ -15,6 +15,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 )
 
 const (
@@ -51,7 +53,7 @@ func ValidateAssetInventory(assetsRoot string, phase InventoryPhase) ([]string, 
 	if err != nil {
 		return nil, err
 	}
-	rootBefore, err := os.Lstat(root)
+	rootBefore, err := fileidentity.Lstat(root)
 	if err != nil {
 		return nil, fmt.Errorf("inspect release asset root: %w", err)
 	}
@@ -103,7 +105,7 @@ func verifyInventorySnapshot(root, manifestPath string, body []byte, before []as
 	if err != nil {
 		return err
 	}
-	rootAfter, err := os.Lstat(root)
+	rootAfter, err := fileidentity.Lstat(root)
 	if err != nil {
 		return fmt.Errorf("reinspect release asset root: %w", err)
 	}
@@ -178,7 +180,7 @@ func snapshotAssetDirectory(root string) ([]assetSnapshot, error) {
 		if !assetNamePattern.MatchString(entry.Name()) {
 			return nil, fmt.Errorf("release asset directory contains an unsafe entry: %s", entry.Name())
 		}
-		information, err := os.Lstat(filepath.Join(root, entry.Name()))
+		information, err := fileidentity.Lstat(filepath.Join(root, entry.Name()))
 		if err != nil {
 			return nil, fmt.Errorf("inspect release asset %s: %w", entry.Name(), err)
 		}
@@ -316,7 +318,7 @@ func cleanDirectory(directory string) (string, error) {
 		return "", fmt.Errorf("resolve release asset root: %w", err)
 	}
 	root = filepath.Clean(root)
-	information, err := os.Lstat(root)
+	information, err := fileidentity.Lstat(root)
 	if err != nil {
 		return "", fmt.Errorf("inspect release asset root: %w", err)
 	}
@@ -371,7 +373,7 @@ func readRegularFile(root, file string, maximumBytes int64) ([]byte, error) {
 		return nil, err
 	}
 	openedInformation, openedError := opened.Stat()
-	currentInformation, currentError := os.Lstat(file)
+	currentInformation, currentError := fileidentity.Lstat(file)
 	if openedError != nil || currentError != nil || !sameStableFile(information, openedInformation) ||
 		!sameStableFile(information, currentInformation) || int64(len(body)) != information.Size() {
 		return nil, errors.New("release file changed while it was read")
@@ -395,7 +397,7 @@ func digestRegularFile(root, file string, maximumBytes int64) (string, error) {
 		return "", err
 	}
 	openedInformation, openedError := opened.Stat()
-	currentInformation, currentError := os.Lstat(file)
+	currentInformation, currentError := fileidentity.Lstat(file)
 	if openedError != nil || currentError != nil || !sameStableFile(information, openedInformation) ||
 		!sameStableFile(information, currentInformation) || written != information.Size() {
 		return "", errors.New("release file changed while it was hashed")
@@ -418,7 +420,7 @@ func validateRegularPath(root, file string, maximumBytes int64) (os.FileInfo, er
 	current := root
 	for _, component := range strings.Split(relative, string(filepath.Separator)) {
 		current = filepath.Join(current, component)
-		information, err := os.Lstat(current)
+		information, err := fileidentity.Lstat(current)
 		if err != nil {
 			return nil, err
 		}
@@ -426,7 +428,7 @@ func validateRegularPath(root, file string, maximumBytes int64) (os.FileInfo, er
 			return nil, errors.New("release file path contains a symlink")
 		}
 	}
-	information, err := os.Lstat(file)
+	information, err := fileidentity.Lstat(file)
 	if err != nil {
 		return nil, err
 	}

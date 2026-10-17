@@ -11,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 )
 
 const maximumRendererCacheLayers = 128
@@ -151,7 +153,7 @@ func inspectCacheBlobs(ctx context.Context, root, manifestDigest string, descrip
 // and deliberately keeps (client/solve.go, resetCacheStore).
 func rendererCacheRootEntries(root string) (map[string]bool, error) {
 	allowed := map[string]bool{"index.json": false, "oci-layout": false, "blobs": true}
-	if _, err := os.Lstat(filepath.Join(root, "ingest")); err == nil {
+	if _, err := fileidentity.Lstat(filepath.Join(root, "ingest")); err == nil {
 		allowed["ingest"] = true
 		if err := exactCacheDirectory(filepath.Join(root, "ingest"), nil); err != nil {
 			return nil, err
@@ -159,7 +161,7 @@ func rendererCacheRootEntries(root string) (map[string]bool, error) {
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
-	if lock, err := os.Lstat(filepath.Join(root, "cache.lock")); err == nil {
+	if lock, err := fileidentity.Lstat(filepath.Join(root, "cache.lock")); err == nil {
 		if !lock.Mode().IsRegular() || lock.Size() != 0 {
 			return nil, errors.New("PDF renderer cache lock must be one empty regular file")
 		}
@@ -202,7 +204,7 @@ func hashCacheBlob(ctx context.Context, root string, descriptor imageProofDescri
 }
 
 func exactCacheDirectory(directory string, expected map[string]bool) (returnError error) {
-	initial, err := os.Lstat(directory)
+	initial, err := fileidentity.Lstat(directory)
 	if err != nil || !initial.IsDir() || initial.Mode()&os.ModeSymlink != 0 {
 		return fmt.Errorf("PDF renderer cache requires a non-symlink directory: %s", directory)
 	}
@@ -220,7 +222,7 @@ func exactCacheDirectory(directory string, expected map[string]bool) (returnErro
 	}
 	for _, entry := range entries {
 		directoryExpected, exists := expected[entry.Name()]
-		info, err := entry.Info()
+		info, err := fileidentity.Info(entry)
 		if err != nil || !exists || info.Mode()&os.ModeSymlink != 0 || info.IsDir() != directoryExpected || (!directoryExpected && !info.Mode().IsRegular()) {
 			return fmt.Errorf("PDF renderer cache has an unsupported entry: %s", entry.Name())
 		}

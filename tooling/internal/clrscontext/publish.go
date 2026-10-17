@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 )
 
 // A private, owned staging directory keeps partial bytes away from the requested
@@ -97,11 +99,11 @@ func confirmPublication(root *os.Root, parent string, parentInfo os.FileInfo, na
 	if err != nil || !linked.Mode().IsRegular() || !os.SameFile(owned, linked) || linked.Size() != size {
 		return errors.New("published CLRS context identity differs")
 	}
-	namedParent, err := os.Lstat(parent)
+	namedParent, err := fileidentity.Lstat(parent)
 	if err != nil || !namedParent.IsDir() || !os.SameFile(parentInfo, namedParent) {
 		return errors.New("CLRS context output parent changed during publication")
 	}
-	named, err := os.Lstat(filepath.Join(parent, name))
+	named, err := fileidentity.Lstat(filepath.Join(parent, name))
 	if err != nil || !sameFile(linked, named) {
 		return errors.New("CLRS context output name changed during publication")
 	}

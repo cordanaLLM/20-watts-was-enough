@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
@@ -169,7 +170,7 @@ func validatePathPattern(pattern string) error {
 }
 
 func requireRealDirectory(directory, label string) error {
-	information, err := os.Lstat(directory)
+	information, err := fileidentity.Lstat(directory)
 	if err != nil || !information.IsDir() || information.Mode()&os.ModeSymlink != 0 {
 		return fmt.Errorf("%s must be a real directory", label)
 	}
@@ -181,7 +182,7 @@ func requireRealDirectory(directory, label string) error {
 }
 
 func readStableMapping(filename string) ([]byte, error) {
-	before, err := os.Lstat(filename)
+	before, err := fileidentity.Lstat(filename)
 	if err != nil || !before.Mode().IsRegular() {
 		return nil, errors.New("mapping must be a regular file")
 	}
@@ -217,7 +218,7 @@ func readStableMapping(filename string) ([]byte, error) {
 	if !bytes.Equal(body, confirmation) {
 		return nil, errors.New("mapping changed while it was read")
 	}
-	after, err := os.Lstat(filename)
+	after, err := fileidentity.Lstat(filename)
 	if err != nil || after.Mode()&os.ModeSymlink != 0 || !os.SameFile(opened, after) ||
 		after.Size() != opened.Size() || !after.ModTime().Equal(opened.ModTime()) {
 		return nil, errors.New("mapping changed while it was read")

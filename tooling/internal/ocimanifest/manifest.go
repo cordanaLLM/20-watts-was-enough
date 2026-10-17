@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/releasetag"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
@@ -119,7 +120,7 @@ func Write(path string, options Options) error {
 		return fmt.Errorf("resolve OCI manifest output directory: %w", err)
 	}
 	directory = filepath.Clean(directory)
-	information, err := os.Lstat(directory)
+	information, err := fileidentity.Lstat(directory)
 	if err != nil {
 		return fmt.Errorf("inspect OCI manifest output directory: %w", err)
 	}
@@ -191,7 +192,7 @@ func inspectManifestPath(path string) (string, os.FileInfo, error) {
 		return "", nil, errors.New("OCI image manifest directory path must not contain symlinks")
 	}
 	path = absolutePath
-	information, err := os.Lstat(path)
+	information, err := fileidentity.Lstat(path)
 	if err != nil {
 		return "", nil, fmt.Errorf("inspect OCI image manifest: %w", err)
 	}
@@ -222,7 +223,7 @@ func readManifest(path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	after, err := os.Lstat(path)
+	after, err := fileidentity.Lstat(path)
 	if err != nil || !after.Mode().IsRegular() || !os.SameFile(information, after) {
 		return nil, errors.New("OCI image manifest changed while it was read")
 	}
