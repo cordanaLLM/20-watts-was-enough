@@ -96,6 +96,15 @@
       ]
     },
     {
+      "id": "global-file-identity",
+      "paths": [
+        "tooling/internal/fileidentity/**"
+      ],
+      "lanes": [
+        "full"
+      ]
+    },
+    {
       "id": "global-github-metadata",
       "paths": [
         ".github/FUNDING.yml",

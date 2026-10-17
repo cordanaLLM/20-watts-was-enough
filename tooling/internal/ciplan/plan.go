@@ -241,6 +241,7 @@ func isRendererAuthority(changedPath string) bool {
 		"tooling/internal/boundedexec/",
 		"tooling/internal/ciplan/",
 		"tooling/internal/ciplancli/",
+		"tooling/internal/fileidentity/",
 		"tooling/internal/pdfrender/",
 		"tooling/internal/pdfrendercli/",
 		"tooling/internal/pdfrenderlock/",
