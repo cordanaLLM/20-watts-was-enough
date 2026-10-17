@@ -1,0 +1,934 @@
+{
+  "schema_version": "1.0.0",
+  "entries": [
+    {
+      "canonical_key": "arxiv:2506.14350",
+      "origins": [
+        {
+          "stable_key": "VMAFx/pelorus#121",
+          "node_id": "I_kwDOS6YaTc8AAAABV7e4Pg",
+          "title": "[EPIC] Research and competitive watch (ongoing)",
+          "url": "https://github.com/VMAFx/pelorus/issues/121",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "area:evidence",
+            "epic",
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-08T18:04:38Z",
+          "updated_at": "2026-10-15T20:40:58Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "paper",
+          "source_links": {
+            "urls": [
+              "https://github.com/VMAFx/pelorus/blob/master/docs/research/0172-competitive-audit.md",
+              "https://github.com/VMAFx/pelorus/blob/master/docs/research/0172-roadmap-inventory.md"
+            ],
+            "dois": [],
+            "arxiv_ids": [
+              "2506.14350"
+            ],
+            "release_tags": []
+          },
+          "content_hash": "8e08cee7a91defb3d87de1b136944d4115423f13c73a7c2138a5851ab23caced",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        },
+        {
+          "stable_key": "VMAFx/pelorus#213",
+          "node_id": "I_kwDOS6YaTc8AAAABV7qjCQ",
+          "title": "ffmpeg: rebase the patch stack on each FFmpeg release and review overlap with upstream filters",
+          "url": "https://github.com/VMAFx/pelorus/issues/213",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "area:release",
+            "area:upstream",
+            "enhancement",
+            "priority:P2",
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Upstream and rebases",
+          "created_at": "2026-10-08T18:19:25Z",
+          "updated_at": "2026-10-15T20:41:03Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [
+              "https://github.com/VMAFx/pelorus/blob/master/docs/research/0172-competitive-audit.md",
+              "https://github.com/VMAFx/pelorus/blob/master/docs/research/0172-roadmap-inventory.md"
+            ],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "a7cd975c347533c4aa72492f174b6c61b7424815d6fc47b110dff9e026b37325",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "arxiv:2610.08579",
+      "origins": [
+        {
+          "stable_key": "VMAFx/vmafx#2395",
+          "node_id": "I_kwDOSqOYRs8AAAABVkOXAg",
+          "title": "Research radar: weekly sweep of public video-quality research (recurring epic)",
+          "url": "https://github.com/VMAFx/vmafx/issues/2395",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "research-radar",
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-07T08:58:15Z",
+          "updated_at": "2026-10-15T20:41:48Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [
+              "https://github.com/VMAFx/vmafx/blob/master/docs/adr/2171-research-radar.md",
+              "https://github.com/VMAFx/vmafx/blob/master/docs/research/radar/README.md",
+              "https://github.com/VMAFx/vmafx/blob/master/docs/research/radar/sources.yaml",
+              "https://github.com/VMAFx/vmafx/blob/master/docs/research/radar/triage.md",
+              "https://github.com/pavancm/CONTRIQUE/issues/32",
+              "https://github.com/pavancm/CONVIQT/issues/3",
+              "https://github.com/pavancm/GREED/issues/7",
+              "https://github.com/pavancm/LIVE-HFR/issues/1"
+            ],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "d544d78a8bbd898500aba6dbd44d32a4a2973045c1ee41c3b0018c87effe3923",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        },
+        {
+          "stable_key": "VMAFx/vmafx#2755",
+          "node_id": "I_kwDOSqOYRs8AAAABWqRGEw",
+          "title": "Research radar digest 2026-W42",
+          "url": "https://github.com/VMAFx/vmafx/issues/2755",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "research-radar",
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-12T14:46:51Z",
+          "updated_at": "2026-10-15T20:41:45Z",
+          "closed_at": null,
+          "author_type": "Bot",
+          "tier": "paper",
+          "source_links": {
+            "urls": [
+              "https://arxiv.org/abs/2610.08579v1",
+              "https://arxiv.org/abs/2610.08941v1",
+              "https://arxiv.org/abs/2610.10264v1",
+              "https://arxiv.org/abs/2610.11736v1",
+              "https://arxiv.org/abs/2610.13217v1",
+              "https://doi.org/10.1117/12.3112771",
+              "https://doi.org/10.1117/12.3112825",
+              "https://doi.org/10.21203/rs.3.rs-11277835/v1",
+              "https://doi.org/10.48550/arxiv.2610.05967",
+              "https://doi.org/10.5281/zenodo.23250907",
+              "https://doi.org/10.5281/zenodo.23255432",
+              "https://doi.org/10.5281/zenodo.23275117",
+              "https://github.com/Telecommunication-Telemedia-Assessment/bitstream_mode3_p1204_3",
+              "https://github.com/VMAFx/vmafx/blob/master/docs/research/radar/triage.md",
+              "https://github.com/chaofengc/IQA-PyTorch",
+              "https://github.com/slhck/ffmpeg-quality-metrics",
+              "https://github.com/slhck/ffmpeg-quality-metrics/releases/tag/v3.12.3",
+              "https://github.com/slhck/ffmpeg-quality-metrics/releases/tag/v3.12.4",
+              "https://github.com/slhck/ffmpeg-quality-metrics/releases/tag/v3.12.5",
+              "https://github.com/slhck/ffmpeg-quality-metrics/releases/tag/v3.12.6",
+              "https://github.com/slhck/ffmpeg-quality-metrics/releases/tag/v3.12.7"
+            ],
+            "dois": [
+              "10.1117/12.3112771",
+              "10.1117/12.3112825",
+              "10.21203/rs.3.rs-11277835/v1",
+              "10.48550/arxiv.2610.05967",
+              "10.5281/zenodo.23250907",
+              "10.5281/zenodo.23255432",
+              "10.5281/zenodo.23275117"
+            ],
+            "arxiv_ids": [
+              "2610.08579",
+              "2610.08941",
+              "2610.10264",
+              "2610.11736",
+              "2610.13217"
+            ],
+            "release_tags": [
+              "slhck/ffmpeg-quality-metrics@v3.12.3",
+              "slhck/ffmpeg-quality-metrics@v3.12.4",
+              "slhck/ffmpeg-quality-metrics@v3.12.5",
+              "slhck/ffmpeg-quality-metrics@v3.12.6",
+              "slhck/ffmpeg-quality-metrics@v3.12.7"
+            ]
+          },
+          "content_hash": "d2f5212800be8b1716ee460ed411b795afc5fe77a9d1e37da27a9df0b6a965bc",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOS6YaTc8AAAABV7giew",
+      "origins": [
+        {
+          "stable_key": "VMAFx/pelorus#151",
+          "node_id": "I_kwDOS6YaTc8AAAABV7giew",
+          "title": "study: AV2/AVM, EVC and APV readiness watch (no build)",
+          "url": "https://github.com/VMAFx/pelorus/issues/151",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "area:codecs",
+            "enhancement",
+            "priority:P3",
+            "research-watch"
+          ],
+          "milestone_title": "0.8 — Codec and encoder breadth",
+          "created_at": "2026-10-08T18:06:41Z",
+          "updated_at": "2026-10-15T20:41:00Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "5d6cc7ef4fc9963b8bd71cf530d5b11c61bf553c8752e18ee0f89823f44a2a8a",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOSBdLbc8AAAABRcvB4g",
+      "origins": [
+        {
+          "stable_key": "golusoris/golusoris#550",
+          "node_id": "I_kwDOSBdLbc8AAAABRcvB4g",
+          "title": "Specify a Rust sibling framework: five day-one crates, each justified by 6-14x duplication already in Aegis-OS",
+          "url": "https://github.com/golusoris/golusoris/issues/550",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "P3-low",
+            "architecture",
+            "enhancement",
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-09-15T18:32:45Z",
+          "updated_at": "2026-10-15T20:37:30Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "97f93ea331e06e3097c6bed875eb33e4013c25117143ed8059ecae013a53c31d",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOSBdLbc8AAAABWTmODg",
+      "origins": [
+        {
+          "stable_key": "golusoris/golusoris#784",
+          "node_id": "I_kwDOSBdLbc8AAAABWTmODg",
+          "title": "ci: remove the test/testcontainers-3868 validation branch once the upstream reaper fix is released",
+          "url": "https://github.com/golusoris/golusoris/issues/784",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-10T14:02:20Z",
+          "updated_at": "2026-10-15T20:37:25Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "c7c2306700765d710f97953ac6ab4a6423a4f2ac8f683e36cba99dd7d8f1dfbd",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOSBdLbc8AAAABWUdTWw",
+      "origins": [
+        {
+          "stable_key": "golusoris/golusoris#785",
+          "node_id": "I_kwDOSBdLbc8AAAABWUdTWw",
+          "title": "governance: Praetor upstream defects that still block full adoption",
+          "url": "https://github.com/golusoris/golusoris/issues/785",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "governance",
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-10T15:50:37Z",
+          "updated_at": "2026-10-15T20:37:21Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "bdfca7105bec6a195960eb821b1b1c34f5dc9e7f0834d39f5d9fa16c75cc7517",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOSBdLbc8AAAABWUdUHg",
+      "origins": [
+        {
+          "stable_key": "golusoris/golusoris#786",
+          "node_id": "I_kwDOSBdLbc8AAAABWUdUHg",
+          "title": "devcontainer: take up the upstream Go feature fix for unpinned editor tools",
+          "url": "https://github.com/golusoris/golusoris/issues/786",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-10T15:50:39Z",
+          "updated_at": "2026-10-15T20:37:19Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "e2d86651a41ff12f74cf77d5421ba3681ac2ab035427b7e6009f490572ab8563",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOSBdLbc8AAAABWVp50g",
+      "origins": [
+        {
+          "stable_key": "golusoris/golusoris#801",
+          "node_id": "I_kwDOSBdLbc8AAAABWVp50g",
+          "title": "Track Dependabot alert 35: braces 3.0.3 has no patched release (exception until 2027-01-10)",
+          "url": "https://github.com/golusoris/golusoris/issues/801",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "dependencies",
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-10T18:26:04Z",
+          "updated_at": "2026-10-15T20:37:27Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "733869a84725c397e20f2d2386eac2dd379edc6c78ed21accf496aa5b1b483bf",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOSqOYRs8AAAABVLHplA",
+      "origins": [
+        {
+          "stable_key": "VMAFx/vmafx#2168",
+          "node_id": "I_kwDOSqOYRs8AAAABVLHplA",
+          "title": "Research watch: quality metrics for neural and generative codecs",
+          "url": "https://github.com/VMAFx/vmafx/issues/2168",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "area:docs",
+            "enhancement",
+            "research-watch",
+            "type:docs"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-05T16:55:03Z",
+          "updated_at": "2026-10-15T20:41:50Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "1a4d6d302ad7e3f69f90e4c42812a60a124dc6be1e2ea28c05f1538508378dbf",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOTuoNes8AAAABR6-95g",
+      "origins": [
+        {
+          "stable_key": "cordanaLLM/20-watts-was-enough#136",
+          "node_id": "I_kwDOTuoNes8AAAABR6-95g",
+          "title": "research: host several research topics in one repository (20 watts becomes the founding topic)",
+          "url": "https://github.com/cordanaLLM/20-watts-was-enough/issues/136",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "area:governance",
+            "area:research",
+            "area:site",
+            "research-watch",
+            "severity:p2",
+            "status:needs-triage",
+            "type:feat"
+          ],
+          "milestone_title": "M0 — Evidence, synthesis, and contracts",
+          "created_at": "2026-09-18T08:55:43Z",
+          "updated_at": "2026-10-15T20:37:42Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "e30ae40c640a8304d5044d3e32f3c3722d33bca143e160f82b5d869993845a3b",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOTuoNes8AAAABW81LZA",
+      "origins": [
+        {
+          "stable_key": "cordanaLLM/20-watts-was-enough#230",
+          "node_id": "I_kwDOTuoNes8AAAABW81LZA",
+          "title": "research: extend the mechanism index to audits, decisions and engineering relations when a consumer needs them",
+          "url": "https://github.com/cordanaLLM/20-watts-was-enough/issues/230",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "area:research",
+            "research-watch",
+            "status:blocked",
+            "type:feat"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-13T17:56:00Z",
+          "updated_at": "2026-10-15T20:37:38Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "fb52019f2ef898647a7203edd4ef8e2d6f6f6c91b2d32a86f87e204696f24b42",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOTuoNes8AAAABW81N9A",
+      "origins": [
+        {
+          "stable_key": "cordanaLLM/20-watts-was-enough#232",
+          "node_id": "I_kwDOTuoNes8AAAABW81N9A",
+          "title": "research: record cluster adaptive sampling as an engineering relation once its code is public",
+          "url": "https://github.com/cordanaLLM/20-watts-was-enough/issues/232",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "area:research",
+            "research-watch",
+            "status:blocked",
+            "type:docs"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-13T17:56:03Z",
+          "updated_at": "2026-10-15T20:37:36Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "cab2fc0ef678b9e29f7870a2907e3d733470af86ef14b535f1e77f5c205b4347",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOTuoNes8AAAABWr108w",
+      "origins": [
+        {
+          "stable_key": "cordanaLLM/20-watts-was-enough#213",
+          "node_id": "I_kwDOTuoNes8AAAABWr108w",
+          "title": "Adopt the five open major dependency updates",
+          "url": "https://github.com/cordanaLLM/20-watts-was-enough/issues/213",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "dependencies",
+            "research-watch",
+            "type:chore"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-12T16:48:44Z",
+          "updated_at": "2026-10-15T20:37:40Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "24a2a89131c44f73275d23fe88335dd4865e219bbee2e5f1e340ac659de46f5b",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOTuoNes8AAAABXhgX8w",
+      "origins": [
+        {
+          "stable_key": "cordanaLLM/20-watts-was-enough#267",
+          "node_id": "I_kwDOTuoNes8AAAABXhgX8w",
+          "title": "research: define how the hub ingests research-watch issues from every fleet repository",
+          "url": "https://github.com/cordanaLLM/20-watts-was-enough/issues/267",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "area:research",
+            "research-watch",
+            "status:needs-triage",
+            "type:docs"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-15T20:42:19Z",
+          "updated_at": "2026-10-15T20:46:08Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "3db949e3781e48b6ecea03ea9441d3ea8bab1ed7e4e82a7503322bbb3926502a",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOUVsqNs8AAAABV1xqqw",
+      "origins": [
+        {
+          "stable_key": "cordanaLLM/praetor#878",
+          "node_id": "I_kwDOUVsqNs8AAAABV1xqqw",
+          "title": "adopt the radar module in an adopter repository with its licence gate",
+          "url": "https://github.com/cordanaLLM/praetor/issues/878",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "P2",
+            "enhancement",
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-08T11:07:01Z",
+          "updated_at": "2026-10-15T20:37:15Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "a2685af4f82250292cbe39caa220c9b977c37055ca24635576d2c260e97f27ab",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOUVsqNs8AAAABV1yzjw",
+      "origins": [
+        {
+          "stable_key": "cordanaLLM/praetor#885",
+          "node_id": "I_kwDOUVsqNs8AAAABV1yzjw",
+          "title": "[EPIC] Radar digest capability (Ongoing)",
+          "url": "https://github.com/cordanaLLM/praetor/issues/885",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "epic",
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-08T11:08:20Z",
+          "updated_at": "2026-10-15T20:37:13Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "8b5975391c61454e4320302088e3a4b6e8bc43a0937a1cac0a05fb6cd30df70a",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOUVsqNs8AAAABV9-mkA",
+      "origins": [
+        {
+          "stable_key": "cordanaLLM/praetor#1013",
+          "node_id": "I_kwDOUVsqNs8AAAABV9-mkA",
+          "title": "Comparison and positioning pages with dated sources and a claims check",
+          "url": "https://github.com/cordanaLLM/praetor/issues/1013",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "P3",
+            "docs",
+            "enhancement",
+            "research-watch"
+          ],
+          "milestone_title": "0.2 — Facts before inference",
+          "created_at": "2026-10-08T21:35:33Z",
+          "updated_at": "2026-10-15T20:37:19Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "9efe89e7b24a225495a00a99f6140ca58d2cd71786c985caa796bba200948325",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOUVsqNs8AAAABWPiNEw",
+      "origins": [
+        {
+          "stable_key": "cordanaLLM/praetor#1151",
+          "node_id": "I_kwDOUVsqNs8AAAABWPiNEw",
+          "title": "skills: research-digest shape in adhd-format and social-text, with a two-stage faithfulness check",
+          "url": "https://github.com/cordanaLLM/praetor/issues/1151",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-10T03:22:43Z",
+          "updated_at": "2026-10-15T20:37:21Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "02b3ccddad930d0dce7708cbd4c191231f4797108571ec406c8c84f7cc662366",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOUjyzX88AAAABWYoObQ",
+      "origins": [
+        {
+          "stable_key": "lusoris/SnatchArr#148",
+          "node_id": "I_kwDOUjyzX88AAAABWYoObQ",
+          "title": "Remove the workarounds that wait on upstream fixes",
+          "url": "https://github.com/lusoris/SnatchArr/issues/148",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "enhancement",
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-11T02:10:59Z",
+          "updated_at": "2026-10-15T20:37:10Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "ad547d32e6d85d6592a6f3b93915f11490bb0575d12d45233c2ec82449466f3a",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOVC-MNc8AAAABXE_8ZQ",
+      "origins": [
+        {
+          "stable_key": "VMAFx/ffmpeg-patches#36",
+          "node_id": "I_kwDOVC-MNc8AAAABXE_8ZQ",
+          "title": "File the NVIDIA NVENC driver report behind 0004 and track its drop condition",
+          "url": "https://github.com/VMAFx/ffmpeg-patches/issues/36",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "bug",
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-14T07:24:25Z",
+          "updated_at": "2026-10-15T20:37:16Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "6be6ec0b8f828f1a42315ef60a9a008e27ec1bd172c107d9a149a3d9523f0f77",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOVC-MNc8AAAABXE__Ag",
+      "origins": [
+        {
+          "stable_key": "VMAFx/ffmpeg-patches#40",
+          "node_id": "I_kwDOVC-MNc8AAAABXE__Ag",
+          "title": "Re-pin and verify when the 24975 backport reaches a tagged 9.0 release",
+          "url": "https://github.com/VMAFx/ffmpeg-patches/issues/40",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "enhancement",
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-14T07:24:29Z",
+          "updated_at": "2026-10-15T20:37:13Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "df4e09df980ce900e9e37dfac2031b81e0efbb8de5e70e9094b9d4a8665ba2ba",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOVE4LYc8AAAABWc_NSA",
+      "origins": [
+        {
+          "stable_key": "plurano/amussis#2",
+          "node_id": "I_kwDOVE4LYc8AAAABWc_NSA",
+          "title": "Windows and macOS hosts do not build the bytes of the committed WebAssembly module",
+          "url": "https://github.com/plurano/amussis/issues/2",
+          "state": "closed",
+          "visibility": "public",
+          "labels": [
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-11T14:02:21Z",
+          "updated_at": "2026-10-16T20:57:21Z",
+          "closed_at": "2026-10-16T20:57:21Z",
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "c850d279b21cb33a1dc23282424c460d9365ab7759b729108bee26c52492f384",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "url:https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/24368",
+      "origins": [
+        {
+          "stable_key": "VMAFx/ffmpeg-patches#48",
+          "node_id": "I_kwDOVC-MNc8AAAABXg25uA",
+          "title": "Track the open FFmpeg pull requests of the series until they merge",
+          "url": "https://github.com/VMAFx/ffmpeg-patches/issues/48",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-15T19:52:39Z",
+          "updated_at": "2026-10-16T16:10:40Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [
+              "https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/24368",
+              "https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/24970",
+              "https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/24973",
+              "https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/24974",
+              "https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/24977",
+              "https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/24978",
+              "https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/24993",
+              "https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/24994",
+              "https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/25053",
+              "https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/25109",
+              "https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/25110",
+              "https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/25111",
+              "https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/25112"
+            ],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "72c4e75c592de100298e4ed45b1cdffadff24d1ab8e49305a4fb12199ed0d80c",
+          "fetched_at": "2026-10-17T02:07:01.951Z",
+          "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    }
+  ]
+}
