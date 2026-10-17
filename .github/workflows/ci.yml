@@ -141,7 +141,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full'
     runs-on: ubuntu-26.04
-    timeout-minutes: 120
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -150,17 +150,6 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Use Go 1.27
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: tooling/go.mod
-          cache-dependency-path: tooling/go.sum
-      - name: Use the locked Python runtime
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.15.0'
-      - name: Install the locked scientific runtime
-        run: python -m pip install --disable-pip-version-check --no-deps --require-hashes -r requirements-ci.txt
       - name: Use Node.js 26
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
@@ -184,45 +173,11 @@ jobs:
             BASE_SHA="$(git merge-base "origin/$DEFAULT_BRANCH" HEAD)"
           fi
           node scripts/audit-code-shape.mjs --base-revision "$BASE_SHA"
-      - name: Fetch the locked CLRS retained inputs
-        run: |
-          go -C tooling run ./cmd/20w experiment fetch-clrs-retained-inputs --root .. --output "$RUNNER_TEMP/clrs-retained"
-          {
-            echo "CLRS_RETAINED_INPUTS_REQUIRED=1"
-            echo "CLRS_PROMISE_TEST_INPUTS=$RUNNER_TEMP/clrs-retained"
-            echo "CLRS_SOURCE_ARCHIVE_TEST_PATH=$RUNNER_TEMP/clrs-retained/clrs-source.tar.gz"
-            echo "CLRS_SBOM_BUNDLE=$RUNNER_TEMP/clrs-retained/sbom-bundle"
-          } >> "$GITHUB_ENV"
-      - name: Reproduce the locked Promise wheel
-        run: |
-          docker pull "$(jq -er .source_build.builder_image tooling/clrs-generator/wheelhouse.json)"
-          go -C tooling run ./cmd/20w experiment reproduce-clrs-promise-wheel --root .. --inputs "$RUNNER_TEMP/clrs-retained" --output "$RUNNER_TEMP/promise-wheel"
-          {
-            echo "CLRS_PROMISE_TEST_SOURCE=$RUNNER_TEMP/clrs-retained/source-build-inputs/promise-2.3.tar.gz"
-            echo "CLRS_PROMISE_TEST_WHEEL=$RUNNER_TEMP/promise-wheel/run-1/promise-2.3-py3-none-any.whl"
-          } >> "$GITHUB_ENV"
-      - name: Run the full quality check without workstation tests
-        run: npm run check:full-without-workstation
-      - name: Type-check the Windows and macOS builds
-        run: |
-          GOOS=windows GOARCH=amd64 go -C tooling vet ./...
-          GOOS=darwin GOARCH=arm64 go -C tooling vet ./...
-      - name: Fuzz the untrusted JSON boundary
-        run: go -C tooling test ./internal/strictjson -run '^$' -fuzz '^FuzzValidate$' -fuzztime=30s -fuzzminimizetime=5s -parallel=2 -timeout=2m
-      - name: Build and execute the native release binary
-        run: |
-          set -euo pipefail
-          revision="$(git rev-parse HEAD)"
-          source_timestamp="$(git show -s --format=%cI "$revision")"
-          go -C tooling run ./cmd/build-release --version v0.0.0 --revision "$revision" --built-at "$source_timestamp" --output-root ../build/native-release
-          ./build/native-release/20w-linux-amd64 validate docs --root .
-      - name: Scan Go packages for known vulnerabilities
-        run: go -C tooling run ./cmd/20w security govulncheck --root ..
 
   impact-common:
     name: Impact common
     needs: impact-plan
-    if: needs.impact-plan.outputs.mode == 'impact'
+    if: needs.impact-plan.outputs.mode == 'full' || needs.impact-plan.outputs.mode == 'impact'
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
@@ -249,7 +204,7 @@ jobs:
   lane-go:
     name: Go lane
     needs: impact-plan
-    if: needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.go == 'true'
+    if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.go == 'true')
     runs-on: ubuntu-26.04
     timeout-minutes: 20
     permissions:
@@ -347,7 +302,7 @@ jobs:
   lane-release:
     name: Release lane
     needs: impact-plan
-    if: needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.release == 'true'
+    if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.release == 'true')
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
@@ -474,7 +429,7 @@ jobs:
   lane-research:
     name: Research lane
     needs: impact-plan
-    if: needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.research == 'true'
+    if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.research == 'true')
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
@@ -510,7 +465,7 @@ jobs:
   lane-site:
     name: Site lane
     needs: impact-plan
-    if: needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.site == 'true'
+    if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.site == 'true')
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
@@ -921,14 +876,14 @@ jobs:
                 exit 1
               fi
               require_state quality-full "$RESULT_QUALITY_FULL" success
-              require_state impact-common "$RESULT_IMPACT_COMMON" skipped
-              require_state lane-go "$RESULT_GO" skipped
+              require_state impact-common "$RESULT_IMPACT_COMMON" success
+              require_state lane-go "$RESULT_GO" success
               require_state lane-go-windows "$RESULT_GO_WINDOWS" success
               require_state lane-go-macos "$RESULT_GO_MACOS" success
-              require_state lane-release "$RESULT_RELEASE" skipped
+              require_state lane-release "$RESULT_RELEASE" success
               require_selection pdf-renderer-reproducibility "$RESULT_RENDERER" "$SELECT_RENDERER"
-              require_state lane-research "$RESULT_RESEARCH" skipped
-              require_state lane-site "$RESULT_SITE" skipped
+              require_state lane-research "$RESULT_RESEARCH" success
+              require_state lane-site "$RESULT_SITE" success
               require_state workstation-core "$RESULT_WORKSTATION_CORE" success
               require_state workstation-artifacts "$RESULT_WORKSTATION_ARTIFACTS" success
               require_state container-smoke "$RESULT_CONTAINER" success
