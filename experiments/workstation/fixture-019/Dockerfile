@@ -52,7 +52,7 @@ RUN set -eu; \
     cmp /tmp/expected-directories /tmp/actual-directories; \
     python -m pip install --no-deps --require-hashes -r requirements-ci.txt; \
     ln --symbolic libatomic.so.1.2.0 /usr/lib/x86_64-linux-gnu/libatomic.so.1; \
-    test "$(node --version)" = "v26.10.0"; \
+    test "$(node --version)" = "v26.11.1"; \
     test "$(python --version)" = "Python 3.14.8"; \
     python -c 'import numpy; assert numpy.__version__ == "2.5.3"'; \
     groupadd --gid 1000 experiment; \

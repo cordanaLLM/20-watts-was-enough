@@ -18,6 +18,17 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- The Node.js runtime moves from 26.10.0 to 26.11.1, the newest release past
+  the seven-day update delay. The version file, `engines`, the lock, the
+  workstation runtime policy, both container base images and the PDF
+  renderer's Node.js image (index digests read from Docker Hub on
+  2026-10-17), the workflow container checks, the experiment manifests,
+  Renovate's `constraints.node` in `renovate.json` and the policy tests move
+  together. The Fixture 026 RSD-T02 runner release binds the runtime policy
+  file by exact bytes, so its closure entry, the release digests, and the
+  null-maturation design that names them are re-bound; the release stays
+  `NO_RESULT` development infrastructure. No seed, configuration, protocol or
+  result authority changes.
 - Renew the declared-verify npm skip in `scripts/declared-verify-npm.mjs` to
   2026-10-21 (category B, three days): the engine fix for
   cordanaLLM/praetor#1385 has not landed, and without the renewal every

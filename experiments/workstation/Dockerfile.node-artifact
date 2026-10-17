@@ -26,7 +26,7 @@ COPY . /workspace/
 
 RUN set -eu; \
     test "${EXPERIMENT_ARTIFACT}" = "fixture-007"; \
-    test "$(node --version)" = "v26.10.0"; \
+    test "$(node --version)" = "v26.11.1"; \
     printf '%s\n' "${IMAGE_NAME}" > /tmp/image-name; \
     grep -Eq '^[a-z0-9][a-z0-9._/-]{0,199}$' /tmp/image-name; \
     printf '%s\n' "${IMAGE_VERSION}" > /tmp/image-version; \
