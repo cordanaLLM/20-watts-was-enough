@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/boundedexec"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/releasetag"
 )
 
@@ -386,7 +387,7 @@ func dockerTmpfs(destination string, size int64) string {
 }
 
 func readImageID(path string) (string, error) {
-	information, err := os.Lstat(path)
+	information, err := fileidentity.Lstat(path)
 	if err != nil {
 		return "", fmt.Errorf("inspect PDF renderer image ID: %w", err)
 	}
@@ -403,7 +404,7 @@ func readImageID(path string) (string, error) {
 		return "", fmt.Errorf("read PDF renderer image ID: %w", err)
 	}
 	openedInformation, err := opened.Stat()
-	currentInformation, currentError := os.Lstat(path)
+	currentInformation, currentError := fileidentity.Lstat(path)
 	if err != nil || currentError != nil || !os.SameFile(information, openedInformation) ||
 		!os.SameFile(information, currentInformation) || int64(len(body)) != information.Size() {
 		return "", errors.New("PDF renderer image ID changed while it was read")
@@ -432,7 +433,7 @@ func requireContainedDirectory(root, relative string, create bool) error {
 	current := root
 	for _, component := range strings.Split(filepath.FromSlash(relative), string(filepath.Separator)) {
 		current = filepath.Join(current, component)
-		information, err := os.Lstat(current)
+		information, err := fileidentity.Lstat(current)
 		if errors.Is(err, os.ErrNotExist) && create {
 			if err := os.Mkdir(current, 0o755); err != nil {
 				return fmt.Errorf("create PDF renderer directory %s: %w", relative, err)

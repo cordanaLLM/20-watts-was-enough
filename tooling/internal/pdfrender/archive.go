@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 )
 
 const (
@@ -63,7 +65,7 @@ func (remoteBuildContextPreparer) prepare(ctx context.Context, configuration Con
 }
 
 func copyVerifiedArchive(source, destination string, chrome ChromeForTesting) (returnError error) {
-	information, err := os.Lstat(source)
+	information, err := fileidentity.Lstat(source)
 	if err != nil {
 		return fmt.Errorf("inspect cached Chrome for Testing archive: %w", err)
 	}
@@ -147,7 +149,7 @@ func cachedChromeArchive(ctx context.Context, configuration Configuration) (stri
 }
 
 func validArchiveFile(file string, chrome ChromeForTesting) error {
-	information, err := os.Lstat(file)
+	information, err := fileidentity.Lstat(file)
 	if err != nil {
 		return err
 	}
@@ -304,7 +306,7 @@ func extractArchiveEntry(entry *zip.File, destination, clean string) (returnErro
 }
 
 func digestRegularFile(file string, maximumBytes int64) (string, error) {
-	information, err := os.Lstat(file)
+	information, err := fileidentity.Lstat(file)
 	if err != nil {
 		return "", err
 	}
@@ -334,7 +336,7 @@ func normalizeBuildContext(root string, sourceDateEpoch int64) error {
 		if walkError != nil {
 			return walkError
 		}
-		information, err := entry.Info()
+		information, err := fileidentity.Info(entry)
 		if err != nil {
 			return err
 		}

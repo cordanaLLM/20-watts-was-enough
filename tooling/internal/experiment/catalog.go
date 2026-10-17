@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
@@ -171,7 +172,7 @@ func LoadReleasePlan(repositoryRoot string) ([]Entry, error) {
 }
 
 func readManifest(path string) (manifest, error) {
-	information, err := os.Lstat(path)
+	information, err := fileidentity.Lstat(path)
 	if err != nil {
 		return manifest{}, err
 	}
@@ -197,7 +198,7 @@ func readManifest(path string) (manifest, error) {
 	if len(body) > maxManifestBytes {
 		return manifest{}, fmt.Errorf("manifest exceeds the %d-byte limit", maxManifestBytes)
 	}
-	finalInformation, err := os.Lstat(path)
+	finalInformation, err := fileidentity.Lstat(path)
 	if err != nil || finalInformation.Mode()&os.ModeSymlink != 0 || !os.SameFile(openedInformation, finalInformation) {
 		return manifest{}, errors.New("manifest changed while it was read")
 	}
@@ -309,7 +310,7 @@ func validateRepositoryFile(root, relative string) error {
 	if closeErr != nil {
 		return fmt.Errorf("close repository file %q: %w", relative, closeErr)
 	}
-	finalInformation, err := os.Lstat(path)
+	finalInformation, err := fileidentity.Lstat(path)
 	if err != nil || !openedInformation.Mode().IsRegular() || !os.SameFile(information, openedInformation) || !os.SameFile(openedInformation, finalInformation) {
 		return fmt.Errorf("repository file %q changed while its identity was checked", relative)
 	}
@@ -322,7 +323,7 @@ func resolveRepositoryRoot(repositoryRoot string) (string, error) {
 		return "", fmt.Errorf("resolve repository root: %w", err)
 	}
 	root = filepath.Clean(root)
-	information, err := os.Lstat(root)
+	information, err := fileidentity.Lstat(root)
 	if err != nil {
 		return "", fmt.Errorf("inspect repository root: %w", err)
 	}
@@ -364,7 +365,7 @@ func inspectRepositoryPath(root, relative string, wantDirectory bool) (string, o
 	components := strings.Split(relative, "/")
 	for index, component := range components {
 		current = filepath.Join(current, filepath.FromSlash(component))
-		information, err := os.Lstat(current)
+		information, err := fileidentity.Lstat(current)
 		if err != nil {
 			return "", nil, fmt.Errorf("inspect repository path %q: %w", relative, err)
 		}

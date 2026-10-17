@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 )
 
 var sbomBundleFiles = []struct {
@@ -50,7 +52,7 @@ func readSBOMBundle(ctx context.Context, directory string) (sbomBundle, error) {
 		if err := ctx.Err(); err != nil {
 			return sbomBundle{}, err
 		}
-		info, err := os.Lstat(filepath.Join(root, expected.name))
+		info, err := fileidentity.Lstat(filepath.Join(root, expected.name))
 		if err != nil {
 			return sbomBundle{}, err
 		}
@@ -111,7 +113,7 @@ func recheckSBOMBundle(ctx context.Context, bundle sbomBundle) error {
 		if err != nil {
 			return err
 		}
-		current, err := os.Lstat(filepath.Join(bundle.root, expected.name))
+		current, err := fileidentity.Lstat(filepath.Join(bundle.root, expected.name))
 		if err != nil || !unchangedGeneratorFile(previous.info, current) ||
 			len(body) != len(previous.body) || rawSHA256(body) != rawSHA256(previous.body) {
 			return fmt.Errorf("SBOM bundle file %s changed during verification", expected.name)
