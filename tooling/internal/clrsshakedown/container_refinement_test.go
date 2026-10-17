@@ -5,11 +5,16 @@ import (
 	"errors"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 )
 
 func TestContainerCreateArgumentsMatchIndependentFixedProfiles(t *testing.T) {
+	// The mount sources are host paths; runContainer refuses non-Linux hosts.
+	if runtime.GOOS != "linux" {
+		t.Skip("container execution supports only Linux operators")
+	}
 	options := ContainerOptions{Options: Options{RepositoryRoot: "/source", DatasetDirectory: "/fixtures", OutputDirectory: "/evidence", ExpectedTreeSHA256: strings.Repeat("b", 64), RunID: "run-1"}, ImageID: "sha256:" + strings.Repeat("a", 64)}
 	r := &containerRunner{options: options, owner: "owned-run", report: &ContainerReport{UID: 1000, GID: 1001}}
 	for _, test := range []struct {
