@@ -1958,6 +1958,33 @@ test("CI impact selection is projected once and every job state fails closed", (
 
 });
 
+test("CI full plans run every impact lane and require its success", () => {
+  const valid = workflow("ci");
+  const successFinding = ".github/workflows/ci.yml: ci-success must reject unexpected states and any skipped selected lane";
+
+  const impactOnlySiteLane = structuredClone(valid);
+  impactOnlySiteLane.jobs["lane-site"].if = "needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.site == 'true'";
+  assert.ok(validateCiImpactWorkflowObject(impactOnlySiteLane).includes(
+    ".github/workflows/ci.yml: lane-site must run for full plans or its fixed selector",
+  ));
+
+  const impactOnlyCommon = structuredClone(valid);
+  impactOnlyCommon.jobs["impact-common"].if = "needs.impact-plan.outputs.mode == 'impact'";
+  assert.ok(validateCiImpactWorkflowObject(impactOnlyCommon).includes(
+    ".github/workflows/ci.yml: impact-common must run for full plans or every impact plan",
+  ));
+
+  const skippedFullResearchLane = structuredClone(valid);
+  const fullResearchSuccess = skippedFullResearchLane.jobs["ci-success"].steps.find((step) => (
+    step.name === "Require every expected gate state"
+  ));
+  fullResearchSuccess.run = fullResearchSuccess.run.replace(
+    'require_state lane-research "$RESULT_RESEARCH" success',
+    'require_state lane-research "$RESULT_RESEARCH" skipped',
+  );
+  assert.ok(validateCiImpactWorkflowObject(skippedFullResearchLane).includes(successFinding));
+});
+
 test("CI selected-lane aggregation and artifact dispatch fail closed", () => {
   const valid = workflow("ci");
   const successFinding = ".github/workflows/ci.yml: ci-success must reject unexpected states and any skipped selected lane";
@@ -2001,30 +2028,6 @@ test("CI selected-lane aggregation and artifact dispatch fail closed", () => {
     'require_state lane-go-windows "$RESULT_GO_WINDOWS" skipped',
   );
   assert.ok(validateCiImpactWorkflowObject(skippedFullWindowsLane).includes(successFinding));
-
-  const impactOnlySiteLane = structuredClone(valid);
-  impactOnlySiteLane.jobs["lane-site"].if = "needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.site == 'true'";
-  assert.ok(validateCiImpactWorkflowObject(impactOnlySiteLane).includes(
-    ".github/workflows/ci.yml: lane-site must run for full plans or its fixed selector",
-  ));
-
-  const impactOnlyCommon = structuredClone(valid);
-  impactOnlyCommon.jobs["impact-common"].if = "needs.impact-plan.outputs.mode == 'impact'";
-  assert.ok(validateCiImpactWorkflowObject(impactOnlyCommon).includes(
-    ".github/workflows/ci.yml: impact-common must run for full plans or every impact plan",
-  ));
-
-  const skippedFullResearchLane = structuredClone(valid);
-  const fullResearchSuccess = skippedFullResearchLane.jobs["ci-success"].steps.find((step) => (
-    step.name === "Require every expected gate state"
-  ));
-  fullResearchSuccess.run = fullResearchSuccess.run.replace(
-    'require_state lane-research "$RESULT_RESEARCH" success',
-    'require_state lane-research "$RESULT_RESEARCH" skipped',
-  );
-  assert.ok(validateCiImpactWorkflowObject(skippedFullResearchLane).includes(successFinding));
-
-
 
   const missingFullRendererGate = structuredClone(valid);
   const missingRendererSource = missingFullRendererGate.jobs["ci-success"].steps.find((step) => (
