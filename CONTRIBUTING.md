@@ -38,7 +38,7 @@ The complete validation gate currently binds these development tools:
 
 - Git;
 - Go 1.27.2 from `tooling/go.mod`;
-- the official Node.js 26.10.0 distribution or a pinned project container;
+- the official Node.js 26.11.1 distribution or a pinned project container;
 - npm 12.2.0 with the committed `package-lock.json`;
 - CPython 3.15.0 with NumPy 2.5.4; and
 - an OCI runtime with Docker Buildx for container changes and authoritative PDF
