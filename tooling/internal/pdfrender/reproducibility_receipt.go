@@ -141,7 +141,7 @@ func prepareReproducibilityReceiptPath(root, relative string) (string, error) {
 	}
 	slash := filepath.ToSlash(clean)
 	allowed := slices.ContainsFunc([]string{
-		".workingdir2/evidence/publication/",
+		".workingdir/evidence/publication/",
 		"build/evidence/",
 		"build/release-inputs/",
 	}, func(prefix string) bool { return strings.HasPrefix(slash, prefix) })

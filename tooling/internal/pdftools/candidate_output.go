@@ -159,7 +159,7 @@ func prepareCandidateOutputDirectory(repository publicationRootIdentity, output 
 
 func allowedReproductionOutputPath(relative string) bool {
 	return slices.ContainsFunc([]string{
-		".workingdir2/evidence/publication/",
+		".workingdir/evidence/publication/",
 		"build/evidence/",
 		"build/release-inputs/",
 	}, func(prefix string) bool { return strings.HasPrefix(relative, prefix) })

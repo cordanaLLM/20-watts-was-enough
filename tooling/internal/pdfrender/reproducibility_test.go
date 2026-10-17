@@ -39,7 +39,7 @@ func TestVerifyReproducibilityRejectsAWellFormedRevisionOtherThanRepositoryHEAD(
 func TestVerifyReproducibilityUsesTwoFreshNoCacheBuildersAndRetainsAReceipt(t *testing.T) {
 	t.Parallel()
 	configuration := renderConfiguration(t)
-	receiptRelative := ".workingdir2/evidence/publication/pdf-reproducibility.json"
+	receiptRelative := ".workingdir/evidence/publication/pdf-reproducibility.json"
 	executor := &reproducibilityExecutor{
 		imageIDs:        []string{testManifestDigest, testManifestDigest},
 		manifestDigests: []string{testManifestDigest, testManifestDigest},
@@ -505,5 +505,22 @@ func TestCompareReproducibilityBuildsRequiresEveryImageIdentity(t *testing.T) {
 	comparison := compareReproducibilityBuilds(first, second)
 	if comparison.ImageID || comparison.ManifestDigest || comparison.AllMatch || !comparison.CompletePair {
 		t.Fatalf("identity mismatch comparison = %+v", comparison)
+	}
+}
+
+func TestPrepareReproducibilityReceiptPathRefusesPathsOutsideEvidenceFolders(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	for _, relative := range []string{
+		".workingdir2/evidence/publication/retired.json",
+		".workingdir/evidence/other/proof.json",
+		"receipt.json",
+	} {
+		if _, err := prepareReproducibilityReceiptPath(root, relative); err == nil {
+			t.Fatalf("prepareReproducibilityReceiptPath() accepted %q", relative)
+		}
+	}
+	if _, err := prepareReproducibilityReceiptPath(root, ".workingdir/evidence/publication/ok.json"); err != nil {
+		t.Fatalf("prepareReproducibilityReceiptPath() refused the private evidence folder: %v", err)
 	}
 }

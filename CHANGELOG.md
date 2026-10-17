@@ -67,6 +67,7 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- Translation candidates, PDF reproducibility receipts and PDF-tools receipts confine their private output to `.workingdir/` and refuse the retired `.workingdir2/` location. The math and portable-operation scans skip `.workingdir/`, and the translation and CLRS container docs name the new folder.
 - Commits that the research-watch publisher makes through the GitHub API end in a `Signed-off-by:` trailer for the identity in the checkout's Git configuration, so the sign-off check accepts the ingest pull request; a missing or malformed identity stops the run before the ingester starts.
 - The CLRS specialist image test takes the expected Go builder digest from the repository Go builder and checks only its pinned shape, so a digest update no longer fails on a hand-kept copy.
 - Files that compare file identity with `os.SameFile` read path-based file information through the new `internal/fileidentity` package, which reads the identity at capture. On Windows, `os.Lstat`, `os.Stat` and some directory entries kept only the path, so information taken before a delete and recreate named the replacement and a swapped file passed the check. A Go test refuses a direct capture in such a file.

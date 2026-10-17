@@ -272,9 +272,9 @@ func safeCandidateOutput(root, output string) (string, error) {
 	}
 	absolute = filepath.Clean(absolute)
 	if inside(root, absolute) {
-		cache := filepath.Join(root, ".workingdir2", "cache", "translation-candidates")
+		cache := filepath.Join(root, ".workingdir", "cache", "translation-candidates")
 		if absolute == cache || !inside(cache, absolute) {
-			return "", errors.New("candidate output inside the repository must remain under .workingdir2/cache/translation-candidates")
+			return "", errors.New("candidate output inside the repository must remain under .workingdir/cache/translation-candidates")
 		}
 	}
 	return absolute, nil

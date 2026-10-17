@@ -18,7 +18,7 @@ export const mathLimits = Object.freeze({
 });
 
 const ignoredRoots = new Set([
-  ".cache", ".git", ".next", ".openai", ".vinext", ".vite", ".workingdir2", ".wrangler",
+  ".cache", ".git", ".next", ".openai", ".vinext", ".vite", ".workingdir", ".workingdir2", ".wrangler",
   "build", "coverage", "dist", "dist-github-pages", "node_modules", "sources", "tmp",
   "experiments/workstation/runs", "public/repository-files",
 ]);

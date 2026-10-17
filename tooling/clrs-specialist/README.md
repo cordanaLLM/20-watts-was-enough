@@ -84,8 +84,8 @@ not a remote Docker context. Set the verified dataset and tree hash above,
 then choose an output parent that does not yet exist:
 
 ```bash
-mkdir -p .workingdir2
-CLRS_OUTPUT_PARENT="$PWD/.workingdir2/clrs-container-development-001"
+mkdir -p .workingdir
+CLRS_OUTPUT_PARENT="$PWD/.workingdir/clrs-container-development-001"
 go -C tooling run ./cmd/20w experiment run-clrs-shakedown-container \
   --root "$PWD" --dataset "$CLRS_DATASET_DIRECTORY" \
   --expected-tree "$CLRS_TREE_SHA256" --image-id "$CLRS_IMAGE_ID" \

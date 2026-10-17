@@ -52,7 +52,7 @@ go -C tooling run ./cmd/20w translation export-candidate \
   --root .. \
   --source concept/00-thesis-and-principles.md \
   --language de \
-  --output ../.workingdir2/cache/translation-candidates/de-thesis.json
+  --output ../.workingdir/cache/translation-candidates/de-thesis.json
 ```
 
 The target code must come from the same shared
@@ -71,7 +71,7 @@ Check a returned bundle before creating any candidate artifact:
 ```bash
 go -C tooling run ./cmd/20w translation validate-candidate \
   --root .. \
-  --input ../.workingdir2/cache/translation-candidates/de-thesis.json \
+  --input ../.workingdir/cache/translation-candidates/de-thesis.json \
   --source concept/00-thesis-and-principles.md \
   --language de
 ```
@@ -86,17 +86,17 @@ Import the returned bundle into a new candidate directory:
 ```bash
 go -C tooling run ./cmd/20w translation import-candidate \
   --root .. \
-  --input ../.workingdir2/cache/translation-candidates/de-thesis.json \
+  --input ../.workingdir/cache/translation-candidates/de-thesis.json \
   --source concept/00-thesis-and-principles.md \
   --language de \
-  --output ../.workingdir2/cache/translation-candidates/de-thesis-import
+  --output ../.workingdir/cache/translation-candidates/de-thesis-import
 ```
 
 Import rejects ambiguous JSON, unknown fields, a changed source path or target
 language, stale or altered English source, missing drafting disclosure,
 malformed reviewer/glossary metadata, symlinks, oversized files and an existing
 output. Repository-local output is allowed only under
-`.workingdir2/cache/translation-candidates/`. The result is named
+`.workingdir/cache/translation-candidates/`. The result is named
 `candidate-not-for-publication.md` and its receipt says
 `candidate-only-not-publication-authority`; none of the candidate commands
 writes beneath the public `translations/` tree or changes `manifest.json`.
