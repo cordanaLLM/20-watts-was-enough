@@ -17,6 +17,7 @@ ENV CGO_ENABLED=0 \
 WORKDIR /source/tooling
 COPY tooling/go.mod tooling/go.sum ./
 COPY tooling/cmd/clrs-specialist ./cmd/clrs-specialist
+COPY tooling/internal/boundedexec ./internal/boundedexec
 COPY tooling/internal/buildinfo ./internal/buildinfo
 COPY tooling/internal/clrsbellmanford ./internal/clrsbellmanford
 COPY tooling/internal/clrsbinary ./internal/clrsbinary
