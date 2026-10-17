@@ -158,11 +158,11 @@ jobs:
       - name: Use the locked Python runtime
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.14.8'
+          python-version: '3.15.0'
       - name: Install the locked scientific runtime
         run: python -m pip install --disable-pip-version-check --no-deps --require-hashes -r requirements-ci.txt
       - name: Use Node.js 26
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .node-version
           cache: npm
@@ -233,7 +233,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Use Node.js 26
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .node-version
           cache: npm
@@ -364,7 +364,7 @@ jobs:
           go-version-file: tooling/go.mod
           cache-dependency-path: tooling/go.sum
       - name: Use Node.js 26
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .node-version
           cache: npm
@@ -396,7 +396,7 @@ jobs:
           go-version-file: tooling/go.mod
           cache-dependency-path: tooling/go.sum
       - name: Use Node.js 26
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .node-version
           cache: npm
@@ -459,7 +459,7 @@ jobs:
           key: pdf-renderer-buildkit-v1-linux-amd64-${{ hashFiles('tooling/pdf-renderer/lock.json', 'tooling/internal/boundedexec/**', 'tooling/internal/fileidentity/**', 'tooling/internal/pdfrender/**', 'tooling/internal/pdfrenderlock/**', 'tooling/internal/pdfrendercli/**', 'tooling/internal/strictjson/**', 'tooling/cmd/pdf-proof/**', 'tooling/go.mod', 'tooling/go.sum') }}
       - name: Retain the PDF renderer reproducibility evidence
         if: ${{ always() && !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: pdf-renderer-reproducibility
           path: |-
@@ -490,7 +490,7 @@ jobs:
           go-version-file: tooling/go.mod
           cache-dependency-path: tooling/go.sum
       - name: Use Node.js 26
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .node-version
           cache: npm
@@ -503,7 +503,7 @@ jobs:
       - name: Use the locked Python runtime
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.14.8'
+          python-version: '3.15.0'
       - name: Run research checks
         run: npm run check:lane-research
 
@@ -522,7 +522,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Use Node.js 26
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .node-version
           cache: npm
@@ -549,7 +549,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Use Node.js 26
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .node-version
           cache: npm
@@ -585,12 +585,12 @@ jobs:
         if: matrix.artifact == 'fixture-019'
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.14.8'
+          python-version: '3.15.0'
       - name: Install the locked scientific runtime for Fixture 019
         if: matrix.artifact == 'fixture-019'
         run: python -m pip install --disable-pip-version-check --no-deps --require-hashes -r requirements-ci.txt
       - name: Use Node.js 26
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .node-version
           cache: npm
@@ -730,8 +730,8 @@ jobs:
           node_version="$(docker run --rm --pull never --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             --entrypoint node 20w-fixture-007:test --version)"
-          if [[ "$node_version" != "v26.10.0" ]]; then
-            echo "::error::Fixture 007 Node.js runtime is $node_version, want v26.10.0"
+          if [[ "$node_version" != "v26.11.1" ]]; then
+            echo "::error::Fixture 007 Node.js runtime is $node_version, want v26.11.1"
             exit 1
           fi
           volume="20w-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-fixture-007"
@@ -771,7 +771,7 @@ jobs:
           docker run --rm --pull never --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             --entrypoint sh 20w-fixture-019:test -c \
-            'test "$(node --version)" = "v26.10.0" && test "$(python --version)" = "Python 3.14.8" && python -c "import numpy; assert numpy.__version__ == \"2.5.3\""'
+            'test "$(node --version)" = "v26.11.1" && test "$(python --version)" = "Python 3.15.0" && python -c "import numpy; assert numpy.__version__ == \"2.5.4\""'
           docker run --rm --pull never --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             20w-fixture-019:test prepare --profile smoke

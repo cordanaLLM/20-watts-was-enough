@@ -1,4 +1,4 @@
-# CPython 3.14 / Linux x86_64 scientific runtime used by GitHub-hosted jobs.
-# The artifact digest is published by PyPI for NumPy 2.5.3.
-numpy==2.5.3 \
-    --hash=sha256:b0521d0f4aebb6e06189451025fa17a913287b13c03d5fe05c017333b654ea5b
+# CPython 3.15 / Linux x86_64 scientific runtime used by GitHub-hosted jobs.
+# The artifact digest is published by PyPI for NumPy 2.5.4.
+numpy==2.5.4 \
+    --hash=sha256:56733449d2544178beaa4545cee357370440cf056c197f9c7bfb19dbfdd0e86d

@@ -26,11 +26,11 @@ const runtimePolicy = Object.freeze({
   npmArchiveSha256: "6666b48816b39b86c3febac7b51a4ee4de6c5ca589c382ad8004b6b113f86677",
   npmArchiveUrl: "https://registry.npmjs.org/npm/-/npm-12.2.0.tgz",
   npmVersion: "12.2.0",
-  numpyDigest: "b0521d0f4aebb6e06189451025fa17a913287b13c03d5fe05c017333b654ea5b",
-  numpyFilename: "numpy-2.5.3-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
-  numpyVersion: "2.5.3",
+  numpyDigest: "56733449d2544178beaa4545cee357370440cf056c197f9c7bfb19dbfdd0e86d",
+  numpyFilename: "numpy-2.5.4-cp315-cp315-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+  numpyVersion: "2.5.4",
   pythonImplementation: "CPython",
-  pythonVersion: "3.14.8",
+  pythonVersion: "3.15.0",
 });
 
 // Workflows read the Node version from this file. runtimePolicy.nodeVersion
@@ -102,17 +102,17 @@ const approvedActionPins = new Map([
   ["actions/download-artifact", "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"],
   ["actions/labeler", "bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13"],
   ["actions/setup-go", "b7ad1dad31e06c5925ef5d2fc7ad053ef454303e"],
-  ["actions/setup-node", "820762786026740c76f36085b0efc47a31fe5020"],
+  ["actions/setup-node", "949feb2413d6458794dcd2491c4babbbce0c15c1"],
   ["actions/setup-python", "5fda3b95a4ea91299a34e894583c3862153e4b97"],
-  ["actions/upload-artifact", "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"],
+  ["actions/upload-artifact", "cf430e030ddbb5b0abf93d22962f4752f3646cd9"],
   ["actions/upload-pages-artifact", "fc324d3547104276b827a68afc52ff2a11cc49c9"],
   ["docker/build-push-action", "c3c9e263c25d99ce0380d002d59b67737d91b0dc"],
   ["docker/login-action", "dbcb813823bdd20940b903addbd779551569679f"],
   ["docker/metadata-action", "dc802804100637a589fabce1cb79ff13a1411302"],
   ["docker/setup-buildx-action", "f87e5991a6d7451dcb8d9637bfbc97413f497069"],
-  ["github/codeql-action/analyze", "2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2"],
-  ["github/codeql-action/init", "2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2"],
-  ["github/codeql-action/upload-sarif", "2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2"],
+  ["github/codeql-action/analyze", "24c54180a607b1449ed407dd24f251e4e9147c8d"],
+  ["github/codeql-action/init", "24c54180a607b1449ed407dd24f251e4e9147c8d"],
+  ["github/codeql-action/upload-sarif", "24c54180a607b1449ed407dd24f251e4e9147c8d"],
   ["ossf/scorecard-action", "2d1146689b8cda280b9bc96326124645441f03bc"],
 ]);
 
@@ -451,7 +451,7 @@ function validateScientificRuntimeLockPackages(lock, relativePath) {
     || numpyArtifact?.sha256 !== runtimePolicy.numpyDigest
   ) {
     findings.push(
-      `${relativePath}: NumPy ${runtimePolicy.numpyVersion} must use the approved CPython 3.14 Linux x86_64 wheel and SHA-256 digest`,
+      `${relativePath}: NumPy ${runtimePolicy.numpyVersion} must use the approved CPython 3.15 Linux x86_64 wheel and SHA-256 digest`,
     );
   }
   return findings;
@@ -961,7 +961,7 @@ function pagesPublicTransportExecutionStepsAreExact(steps, expectedCommand) {
 function pagesPublicTransportReceiptStepIsExact(steps, verifyCommand) {
   const verifyIndex = steps.findIndex((step) => step?.run?.trim() === verifyCommand);
   const receiptIndex = steps.findIndex((step) => (
-    step?.uses === "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+    step?.uses === "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9"
   ));
   const receipt = receiptIndex >= 0 ? steps[receiptIndex] : undefined;
   return (
@@ -1358,7 +1358,7 @@ function pdfReproducibilityCiJobIsExact(job) {
     && receiptIndex > verifyIndex
     && pdfRendererSurroundingStepsAreExact(steps, setupIndex, verifyIndex, receiptIndex)
     && receipt?.if === "${{ always() && !cancelled() }}"
-    && receipt?.uses === "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+    && receipt?.uses === "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9"
     && continueOnErrorIsDisabled(receipt)
     && Object.keys(receipt?.with ?? {}).length === 4
     && receipt.with.name === "pdf-renderer-reproducibility"

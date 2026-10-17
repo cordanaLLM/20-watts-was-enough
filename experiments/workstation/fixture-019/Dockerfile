@@ -1,6 +1,6 @@
-FROM node:26.10.0-trixie-slim@sha256:930557a230abacbc3f4fd9b8648abf8f4bee1e17cb72195dcdfb2f709bc85b33 AS node-runtime
+FROM node:26.11.1-trixie-slim@sha256:193fe51b64e77981119c98c2002c9e32a70e2f006fb4d25068ce0558998917f0 AS node-runtime
 
-FROM python:3.14.8-slim-trixie@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170
+FROM python:3.15.0-slim-trixie@sha256:d802f03223b9e00604cd54574bcac1a4638914c43683d3f0afd6ebee35f25313
 
 ARG IMAGE_VERSION=development
 ARG IMAGE_NAME=ghcr.io/cordanallm/20-watts-was-enough-fixture-019
@@ -52,9 +52,9 @@ RUN set -eu; \
     cmp /tmp/expected-directories /tmp/actual-directories; \
     python -m pip install --no-deps --require-hashes -r requirements-ci.txt; \
     ln --symbolic libatomic.so.1.2.0 /usr/lib/x86_64-linux-gnu/libatomic.so.1; \
-    test "$(node --version)" = "v26.10.0"; \
-    test "$(python --version)" = "Python 3.14.8"; \
-    python -c 'import numpy; assert numpy.__version__ == "2.5.3"'; \
+    test "$(node --version)" = "v26.11.1"; \
+    test "$(python --version)" = "Python 3.15.0"; \
+    python -c 'import numpy; assert numpy.__version__ == "2.5.4"'; \
     groupadd --gid 1000 experiment; \
     useradd --create-home --uid 1000 --gid experiment --shell /usr/sbin/nologin experiment; \
     install --directory --owner=experiment --group=experiment /workspace/results; \

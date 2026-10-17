@@ -18,6 +18,40 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- The Fixture 019 runtime moves from CPython 3.14.8 to 3.15.0, a minor-version
+  move rather than a bug-fix release. NumPy stays at 2.5.4 and moves to its
+  CPython 3.15 wheel, whose single approved digest was read from PyPI on
+  2026-10-17. The environment lock, the hash-locked CI requirements, the base
+  image of the fixture's Dockerfile (`python:3.15.0-slim-trixie` at the index
+  digest read from the registry on 2026-10-17; the tag was rebuilt after the
+  update bot's proposal, so the bot's older digest is not used), the manifest,
+  the three workflow jobs that provision Python, the two container checks, the
+  contributor guide and the policy move together. The fixture test suite (26
+  tests, including the `PCG64DXSM` bootstrap determinism checks) passes under
+  CPython 3.15.0 with the hash-locked NumPy 2.5.4 wheel installed with
+  `--require-hashes`; that run is local evidence for this environment only. No
+  seed, configuration, protocol or result authority changes; the fixture stays
+  `NO_RESULT`.
+- The Fixture 019 runtime moves from NumPy 2.5.3 to 2.5.4, a bug-fix release
+  (linalg handling of non-finite inputs, StringDType NaN-sentinel hashing, a
+  masked-array fill-value reset and typing fixes; the release notes name no
+  change to random streams or the `PCG64DXSM` generator, and the fixture uses
+  none of the changed functions). The environment lock, the single approved
+  wheel digest read from PyPI on 2026-10-16, the hash-locked CI requirements,
+  the Dockerfile and workflow container checks, the manifest and the policy
+  move together. No seed, configuration, protocol or result authority changes;
+  the fixture stays `NO_RESULT`.
+- The Node.js runtime moves from 26.10.0 to 26.11.1, the newest release past
+  the seven-day update delay. The version file, `engines`, the lock, the
+  workstation runtime policy, both container base images and the PDF
+  renderer's Node.js image (index digests read from Docker Hub on
+  2026-10-17), the workflow container checks, the experiment manifests,
+  Renovate's `constraints.node` in `renovate.json` and the policy tests move
+  together. The Fixture 026 RSD-T02 runner release binds the runtime policy
+  file by exact bytes, so its closure entry, the release digests, and the
+  null-maturation design that names them are re-bound; the release stays
+  `NO_RESULT` development infrastructure. No seed, configuration, protocol or
+  result authority changes.
 - Renew the declared-verify npm skip in `scripts/declared-verify-npm.mjs` to
   2026-10-21 (category B, three days): the engine fix for
   cordanaLLM/praetor#1385 has not landed, and without the renewal every
@@ -32,6 +66,7 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- Commits that the research-watch publisher makes through the GitHub API end in a `Signed-off-by:` trailer for the identity in the checkout's Git configuration, so the sign-off check accepts the ingest pull request; a missing or malformed identity stops the run before the ingester starts.
 - The CLRS specialist image test takes the expected Go builder digest from the repository Go builder and checks only its pinned shape, so a digest update no longer fails on a hand-kept copy.
 - Files that compare file identity with `os.SameFile` read path-based file information through the new `internal/fileidentity` package, which reads the identity at capture. On Windows, `os.Lstat`, `os.Stat` and some directory entries kept only the path, so information taken before a delete and recreate named the replacement and a swapped file passed the check. A Go test refuses a direct capture in such a file.
 - Third-party notices take the expected Vite and Rolldown identity from
