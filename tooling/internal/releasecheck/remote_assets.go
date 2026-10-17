@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/ocimanifest"
 )
 
@@ -107,7 +108,7 @@ func FetchReleaseAssets(
 	complete := false
 	defer func() {
 		if !complete {
-			current, currentErr := os.Lstat(outputRoot)
+			current, currentErr := fileidentity.Lstat(outputRoot)
 			if currentErr == nil && current.IsDir() && current.Mode()&os.ModeSymlink == 0 &&
 				os.SameFile(outputInitial, current) {
 				resultErr = errors.Join(resultErr, os.RemoveAll(outputRoot))
@@ -162,7 +163,7 @@ func validateDownloadedInventory(outputRoot string, outputInitial os.FileInfo, n
 	if !slices.Equal(snapshotNames(snapshot), names) {
 		return errors.New("downloaded release asset directory does not match the remote inventory")
 	}
-	outputCurrent, err := os.Lstat(outputRoot)
+	outputCurrent, err := fileidentity.Lstat(outputRoot)
 	if err != nil || !outputCurrent.IsDir() || outputCurrent.Mode()&os.ModeSymlink != 0 ||
 		!os.SameFile(outputInitial, outputCurrent) {
 		return errors.New("release asset output directory changed during download")
@@ -405,7 +406,7 @@ func createExclusiveOutputDirectory(output, expectedRoot string) (string, os.Fil
 		(relative == "." || (relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)))) {
 		return "", nil, errors.New("release asset output directory must be outside the expected asset root")
 	}
-	if _, err := os.Lstat(absolute); !errors.Is(err, os.ErrNotExist) {
+	if _, err := fileidentity.Lstat(absolute); !errors.Is(err, os.ErrNotExist) {
 		if err == nil {
 			return "", nil, errors.New("release asset output directory already exists")
 		}
@@ -414,7 +415,7 @@ func createExclusiveOutputDirectory(output, expectedRoot string) (string, os.Fil
 	if err := os.Mkdir(absolute, 0o700); err != nil {
 		return "", nil, fmt.Errorf("create release asset output directory: %w", err)
 	}
-	information, err := os.Lstat(absolute)
+	information, err := fileidentity.Lstat(absolute)
 	if err != nil || !information.IsDir() || information.Mode()&os.ModeSymlink != 0 {
 		return "", nil, errors.Join(errors.New("release asset output must be a real directory"), os.Remove(absolute))
 	}
@@ -484,7 +485,7 @@ func publishDownloadedAsset(temporary *os.File, outputRoot string, asset RemoteR
 	if err := os.Link(temporaryPath, destination); err != nil {
 		return fmt.Errorf("publish downloaded release asset %s without replacement: %w", asset.Name, err)
 	}
-	destinationInformation, err := os.Lstat(destination)
+	destinationInformation, err := fileidentity.Lstat(destination)
 	if err != nil || !destinationInformation.Mode().IsRegular() || destinationInformation.Mode()&os.ModeSymlink != 0 ||
 		!os.SameFile(information, destinationInformation) || destinationInformation.Size() != expected.size {
 		return fmt.Errorf("published release asset %s is not the verified temporary file", asset.Name)

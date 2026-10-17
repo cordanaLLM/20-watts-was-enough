@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 )
 
 var dependencyNamePattern = regexp.MustCompile(`^[A-Za-z0-9_-][A-Za-z0-9._-]*$`)
@@ -131,7 +133,7 @@ func dependencyEntryPaths(ctx context.Context, root, directory, name string) ([]
 
 func nestedDependencyDirectory(root, relative string) (bool, error) {
 	name := relative + "/node_modules"
-	_, err := os.Lstat(filepath.Join(root, filepath.FromSlash(name)))
+	_, err := fileidentity.Lstat(filepath.Join(root, filepath.FromSlash(name)))
 	if errors.Is(err, os.ErrNotExist) {
 		return false, nil
 	}
@@ -146,7 +148,7 @@ func dependencyDirectoryNames(root, relative string) ([]string, error) {
 		return nil, err
 	}
 	name := filepath.Join(root, filepath.FromSlash(relative))
-	before, err := os.Lstat(name)
+	before, err := fileidentity.Lstat(name)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +168,7 @@ func dependencyDirectoryNames(root, relative string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	after, err := os.Lstat(name)
+	after, err := fileidentity.Lstat(name)
 	if err != nil || !os.SameFile(before, opened) || !os.SameFile(before, after) || !before.ModTime().Equal(after.ModTime()) {
 		return nil, fmt.Errorf("%s changed while its inventory was read", relative)
 	}

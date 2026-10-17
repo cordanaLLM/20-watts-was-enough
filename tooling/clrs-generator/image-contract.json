@@ -14,9 +14,9 @@
   },
   "builder": {
     "authority_path": "tooling/pdf-renderer/lock.json",
-    "authority_subset_sha256": "bb833df0aa38edd08341868bbae0a96cb069c06b939c055e80a0146bd2dff758",
-    "buildx_version": "0.37.2",
-    "buildx_revision": "2d379c0c3f22da0d2759d132a0ec81ca949098f0",
+    "authority_subset_sha256": "6dfae8d0f6cbd4f7afe7e31f36b70cbc4894d1d4e9cdb29e66ad476ba5e86def",
+    "buildx_version": "0.38.0",
+    "buildx_revision": "0dbe87f36ed472fe36b6796c3f70b4210a731fc5",
     "buildkit_version": "0.32.2",
     "buildkit_image": "moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8",
     "rewrite_timestamp": true,

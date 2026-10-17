@@ -11,6 +11,11 @@ func Valid(value string) bool {
 	if value == "" || filepath.IsAbs(value) || strings.Contains(value, "\\") {
 		return false
 	}
+	// A rooted path without a drive letter ("/a") is not absolute on Windows,
+	// and a drive-relative path ("C:a") names another volume's directory.
+	if strings.HasPrefix(value, "/") || filepath.VolumeName(value) != "" {
+		return false
+	}
 	cleaned := filepath.ToSlash(filepath.Clean(filepath.FromSlash(value)))
 	return cleaned == value && value != "." && !strings.HasPrefix(value, "../")
 }

@@ -9,6 +9,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 )
 
 func hashBytes(body []byte) string { sum := sha256.Sum256(body); return hex.EncodeToString(sum[:]) }
@@ -19,7 +21,7 @@ func realDirectory(value string) (string, error) {
 		return "", err
 	}
 	for current := absolute; ; current = filepath.Dir(current) {
-		info, err := os.Lstat(current)
+		info, err := fileidentity.Lstat(current)
 		if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 			return "", fmt.Errorf("CLRS context directory %q must contain only real directories", value)
 		}
@@ -38,7 +40,7 @@ func openStable(name string, maximum int64) (*os.File, os.FileInfo, error) {
 	if _, err := realDirectory(filepath.Dir(name)); err != nil {
 		return nil, nil, err
 	}
-	before, err := os.Lstat(name)
+	before, err := fileidentity.Lstat(name)
 	if err != nil || !before.Mode().IsRegular() || before.Size() < 0 || before.Size() > maximum {
 		return nil, nil, fmt.Errorf("CLRS context input %q is not a bounded regular file", name)
 	}
@@ -47,7 +49,7 @@ func openStable(name string, maximum int64) (*os.File, os.FileInfo, error) {
 		return nil, nil, err
 	}
 	opened, err := file.Stat()
-	named, namedErr := os.Lstat(name)
+	named, namedErr := fileidentity.Lstat(name)
 	if err != nil || namedErr != nil || !sameFile(before, opened) || !sameFile(opened, named) {
 		file.Close()
 		return nil, nil, errors.New("CLRS context input changed before read")
@@ -57,7 +59,7 @@ func openStable(name string, maximum int64) (*os.File, os.FileInfo, error) {
 
 func confirmFile(file *os.File, name string, before os.FileInfo) error {
 	after, err := file.Stat()
-	named, namedErr := os.Lstat(name)
+	named, namedErr := fileidentity.Lstat(name)
 	if err != nil || namedErr != nil || !sameFile(before, after) || !sameFile(after, named) {
 		return errors.New("CLRS context input changed during read")
 	}
