@@ -15,7 +15,7 @@
     "validate": "node experiments/workstation/fixture-026/runner.mjs validate --output <run-directory>"
   },
   "environment": {
-    "runtime": "Node.js 26.10.0 on a little-endian CPU; binary64 arithmetic only; no GPU; every run binds actual Node, V8, libuv, platform, architecture, endianness, and OS-release fingerprint; same-environment tests observed repeatability, but the fingerprint omits executable hash, CPU model/features, and host math-library identity, so no cross-host or unrecorded-difference byte guarantee is made",
+    "runtime": "Node.js 26.11.1 on a little-endian CPU; binary64 arithmetic only; no GPU; every run binds actual Node, V8, libuv, platform, architecture, endianness, and OS-release fingerprint; same-environment tests observed repeatability, but the fingerprint omits executable hash, CPU model/features, and host math-library identity, so no cross-host or unrecorded-difference byte guarantee is made",
     "lockfiles": ["package-lock.json"]
   },
   "hardware": {
