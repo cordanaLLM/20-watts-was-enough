@@ -7,7 +7,7 @@ import {
   createExperimentExecutionReceipt,
 } from "./execution-receipt.mjs";
 
-const runtime = Object.freeze({ version: "v26.10.0", platform: "linux", arch: "x64" });
+const runtime = Object.freeze({ version: "v26.11.1", platform: "linux", arch: "x64" });
 const releaseEnvironment = Object.freeze({
   EXPERIMENT_ARTIFACT: "fixture-007",
   EXPERIMENT_IMAGE_NAME: "ghcr.io/cordanallm/20-watts-was-enough-fixture-007",
@@ -32,7 +32,7 @@ test("source execution records typed local states", () => {
   assert.equal(actual.execution_mode, "source");
   assert.deepEqual(actual.image.digest, { state: "unavailable-local", value: null });
   assert.deepEqual(actual.source_revision, { state: "local-worktree", value: null });
-  assert.deepEqual(actual.runtime, { node: "v26.10.0", os: "linux", architecture: "x64" });
+  assert.deepEqual(actual.runtime, { node: "v26.11.1", os: "linux", architecture: "x64" });
   assert.equal(assertExperimentExecutionReceipt(actual, {
     artifact: "fixture-007",
     profile: "smoke",
