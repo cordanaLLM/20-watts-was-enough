@@ -19,7 +19,7 @@
     "validate": "node experiments/workstation/fixture-019/runner.mjs validate --output <run-directory>"
   },
   "environment": {
-    "runtime": "Node.js 26.10.0 plus CPython 3.14.8 and NumPy 2.5.4 in the release-admitted Linux amd64 scoped OCI image; published only by a passing v0.3.0 or later release workflow",
+    "runtime": "Node.js 26.10.0 plus CPython 3.15.0 and NumPy 2.5.4 in the release-admitted Linux amd64 scoped OCI image; published only by a passing v0.3.0 or later release workflow",
     "lockfiles": [
       "package-lock.json",
       "experiments/workstation/fixture-019/python-environment.lock.json"
