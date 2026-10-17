@@ -337,7 +337,7 @@ bytes. No path deletes or moves a tag or asset, replaces an existing asset, or
 uses `--clobber`.
 
 GitHub recommends creating a draft, attaching every asset, and publishing only
-after the draft is complete. A fresh run follows that sequence, verifies all
+after the draft is complete. A fresh final-tag run follows that sequence, verifies all
 draft bytes, publishes it, and then requires GitHub to report the release as
 immutable. A manual rerun may fill only missing assets in an existing
 non-prerelease draft after every present asset compares exactly. An existing
@@ -346,6 +346,16 @@ immutable; that branch performs no container-image build, upload, attestation
 creation, release edit or other remote mutation. It still verifies
 release-asset attestations, every persisted image and tag binding, image
 provenance, and anonymous exact-digest pulls.
+
+Release-candidate tags (`vMAJOR.MINOR.PATCH-rc.N`) remain GitHub draft
+pre-releases with `--prerelease=true --latest=false`. New runs and manual
+repairs verify the complete draft assets and exact tag, then stop successfully
+without publication or an immutability wait. An already published candidate
+fails preflight. This avoids Zenodo archival and a permanent DOI during the
+rehearsal ([Decision 0102](../decisions/0102-accept-release-candidate-tags.md)).
+Consumers use authenticated `gh release download` for draft assets, then
+`gh attestation verify --signer-workflow` naming `release-build.yml` with the
+repository, exact source commit and tag ref.
 
 The Go catalogue derives `experiment-release-plan.json` from the checked
 workstation manifests. Policy validation reads the same manifest projection

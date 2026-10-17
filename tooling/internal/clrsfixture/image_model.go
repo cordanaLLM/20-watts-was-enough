@@ -36,13 +36,14 @@ type GeneratorPython struct {
 }
 
 type GeneratorResolver struct {
-	Name         string `json:"name"`
-	Version      string `json:"version"`
-	Image        string `json:"image"`
-	Revision     string `json:"revision"`
-	Resolution   string `json:"resolution"`
-	Prerelease   string `json:"prerelease"`
-	ExcludeNewer string `json:"exclude_newer"`
+	Name                string            `json:"name"`
+	Version             string            `json:"version"`
+	Image               string            `json:"image"`
+	Revision            string            `json:"revision"`
+	Resolution          string            `json:"resolution"`
+	Prerelease          string            `json:"prerelease"`
+	ExcludeNewer        string            `json:"exclude_newer"`
+	ExcludeNewerPackage map[string]string `json:"exclude_newer_package"`
 }
 
 type GeneratorRequirements struct {

@@ -24,9 +24,12 @@ COPY tooling/internal/clrsfixture ./internal/clrsfixture
 COPY tooling/internal/clrsinsertion ./internal/clrsinsertion
 COPY tooling/internal/clrskmp ./internal/clrskmp
 COPY tooling/internal/clrsmatrixchain ./internal/clrsmatrixchain
+COPY tooling/internal/clrsprompt ./internal/clrsprompt
 COPY tooling/internal/clrsrunner ./internal/clrsrunner
 COPY tooling/internal/clrssegments ./internal/clrssegments
+COPY tooling/internal/fileidentity ./internal/fileidentity
 COPY tooling/internal/pdfrenderlock ./internal/pdfrenderlock
+COPY tooling/internal/relpath ./internal/relpath
 COPY tooling/internal/specialistcontrol ./internal/specialistcontrol
 COPY tooling/internal/strictjson ./internal/strictjson
 RUN test "${TARGETOS}/${TARGETARCH}" = "linux/amd64" \

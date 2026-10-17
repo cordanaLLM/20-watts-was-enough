@@ -3,12 +3,16 @@ package clrsfixture
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
+	"regexp"
 	"slices"
+	"time"
 )
 
 const (
 	maximumGeneratorLockInputBytes = 16 << 10
+	maximumGeneratorPackageCutoffs = 8
 	lockedSourceArchiveSHA256      = "754ef8fbaaec647b7bfdcc88ccbb21653dfff25b05bd7df30658f2253ebcf796"
 	lockedSourceArchiveBytes       = 5_347_008
 )
@@ -134,6 +138,9 @@ func validateGeneratorSourceContext(context GeneratorSourceContext, source Sourc
 }
 
 func validateGeneratorPythonAndResolver(python GeneratorPython, resolver GeneratorResolver) error {
+	if _, err := generatorPackageCutoffs(resolver); err != nil {
+		return err
+	}
 	wantPython := GeneratorPython{
 		Version: "3.13.15", ABI: "cp313",
 		BaseImage:              "docker.io/library/python:3.13.15-slim-bookworm@sha256:c45a22ea000adfd9cda29364bbe7edd23001ce5cc2ad15857cfbf7766943b9ca",
@@ -145,11 +152,40 @@ func validateGeneratorPythonAndResolver(python GeneratorPython, resolver Generat
 		Image:      "ghcr.io/astral-sh/uv:0.12.9@sha256:8b940d3a9d65bed080436972241af2e21c84b5e8c9193f7014ed71479ee795ff",
 		Revision:   "9f928602938ac5cf1cd6b294a725833c16f5720e",
 		Resolution: "highest-compatible", Prerelease: "if-necessary", ExcludeNewer: "2026-08-31T13:22:50Z",
+		ExcludeNewerPackage: map[string]string{"urllib3": "2026-09-16T00:00:00Z"},
 	}
-	if python != wantPython || resolver != wantResolver {
+	if python != wantPython || resolver.Name != wantResolver.Name || resolver.Version != wantResolver.Version ||
+		resolver.Image != wantResolver.Image || resolver.Revision != wantResolver.Revision ||
+		resolver.Resolution != wantResolver.Resolution || resolver.Prerelease != wantResolver.Prerelease ||
+		resolver.ExcludeNewer != wantResolver.ExcludeNewer ||
+		!maps.Equal(resolver.ExcludeNewerPackage, wantResolver.ExcludeNewerPackage) {
 		return errors.New("generator Python or uv candidate differs from the reviewed Linux amd64 boundary")
 	}
 	return nil
+}
+
+var generatorCanonicalPackageName = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+
+func generatorPackageCutoffs(resolver GeneratorResolver) (map[string]time.Time, error) {
+	global, err := time.Parse(time.RFC3339, resolver.ExcludeNewer)
+	if err != nil {
+		return nil, errors.New("generator dependency cutoff is invalid")
+	}
+	if len(resolver.ExcludeNewerPackage) > maximumGeneratorPackageCutoffs {
+		return nil, fmt.Errorf("generator package cutoffs exceed %d entries", maximumGeneratorPackageCutoffs)
+	}
+	cutoffs := make(map[string]time.Time, len(resolver.ExcludeNewerPackage))
+	for name, date := range resolver.ExcludeNewerPackage {
+		if !generatorCanonicalPackageName.MatchString(name) {
+			return nil, fmt.Errorf("generator package cutoff name %q is not canonical", name)
+		}
+		cutoff, err := time.Parse(time.RFC3339, date)
+		if err != nil || !cutoff.After(global) {
+			return nil, fmt.Errorf("generator package cutoff for %q must be RFC3339 and after the global cutoff", name)
+		}
+		cutoffs[name] = cutoff
+	}
+	return cutoffs, nil
 }
 
 func validateGeneratorWheel(wheel GeneratorWheel) error {

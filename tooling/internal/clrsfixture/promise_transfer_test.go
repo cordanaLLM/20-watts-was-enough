@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
 func TestPromiseTransfersUseFixedRuntimeExec(t *testing.T) {
@@ -64,7 +66,7 @@ func TestPromiseReceiptRejectsModifiedTransferPrograms(t *testing.T) {
 					entries[index].Arguments = arguments
 				}
 			}
-			body, err := marshalPromiseJSON(entries)
+			body, err := strictjson.Canonical(entries)
 			if err != nil {
 				t.Fatal(err)
 			}

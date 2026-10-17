@@ -229,7 +229,7 @@ func NewPolicy(limits Limits, routes []Route) (Policy, error) {
 	validated := make(map[TaskKind][]string, len(taskKinds))
 	seenSpecialists := make(map[string]bool, len(routes))
 	for _, route := range routes {
-		if !knownTasks[route.Task] || !validIdentity(route.SpecialistID) {
+		if !knownTasks[route.Task] || !ValidIdentity(route.SpecialistID) {
 			return Policy{}, fmt.Errorf("invalid specialist-control route %q/%q", route.Task, route.SpecialistID)
 		}
 		if seenSpecialists[route.SpecialistID] {
@@ -500,7 +500,7 @@ func validAdmissionFitEvidence(now time.Time, admission AdmissionDecision) bool 
 	// observation so a forged fit cannot outlive that record.
 	fitValidity := admission.FitValidUntil.Sub(admission.FitMeasuredAt)
 	observationValidity := admission.ValidUntil.Sub(admission.ObservedAt)
-	return validIdentity(admission.FitMeasurementBasis) && !admission.FitMeasuredAt.IsZero() &&
+	return ValidIdentity(admission.FitMeasurementBasis) && !admission.FitMeasuredAt.IsZero() &&
 		!admission.FitMeasuredAt.After(admission.ObservedAt) &&
 		fitValidity > 0 && observationValidity > 0 && fitValidity <= observationValidity &&
 		!admission.FitValidUntil.After(admission.ValidUntil) && now.Before(admission.FitValidUntil)
@@ -522,12 +522,13 @@ func (policy Policy) validDecision(request Request, decision Decision) bool {
 }
 
 func validRequestMetadata(now time.Time, request Request) bool {
-	return !now.IsZero() && validIdentity(request.RunID) && validIdentity(request.RequestID) &&
+	return !now.IsZero() && ValidIdentity(request.RunID) && ValidIdentity(request.RequestID) &&
 		len(request.Payload) > 0 && !request.IssuedAt.IsZero() && !request.Deadline.IsZero() &&
 		!request.IssuedAt.After(now) && request.Deadline.After(request.IssuedAt)
 }
 
-func validIdentity(value string) bool {
+// ValidIdentity reports whether value is 1..128 bytes of ASCII letters, digits, or ._:-.
+func ValidIdentity(value string) bool {
 	if len(value) == 0 || len(value) > maxIdentityBytes {
 		return false
 	}

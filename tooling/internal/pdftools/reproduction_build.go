@@ -14,6 +14,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/boundedexec"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 )
 
 const reproductionBuildCount = 2
@@ -286,8 +289,8 @@ func apkoBuildRequest(authority checkedAuthority, outputRoot, containerName stri
 		"--env", "LC_ALL=C.UTF-8",
 		"--env", "SOURCE_DATE_EPOCH=" + decimalInt64(contract.SourceDateEpoch),
 		"--env", "TZ=UTC",
-		"--mount", dockerBindValue(source, "/work", true),
-		"--mount", dockerBindValue(outputRoot, "/output", false),
+		"--mount", boundedexec.DockerBind(source, "/work", true),
+		"--mount", boundedexec.DockerBind(outputRoot, "/output", false),
 		contract.Builder.Image,
 		"-C", "/work", "build",
 		"--arch", "amd64",
@@ -330,7 +333,7 @@ func validateApkoOutputInventory(root string) error {
 		if _, expected := wanted[entry.Name()]; !expected || entry.Type()&os.ModeSymlink != 0 {
 			return fmt.Errorf("apko output contains unexpected path %q", entry.Name())
 		}
-		information, err := entry.Info()
+		information, err := fileidentity.Info(entry)
 		if err != nil || (entry.Name() == "base.tar" && !information.Mode().IsRegular()) ||
 			(entry.Name() == "sbom" && !information.IsDir()) {
 			return fmt.Errorf("apko output path %q has an invalid type", entry.Name())
@@ -342,7 +345,7 @@ func validateApkoOutputInventory(root string) error {
 		return errors.New("apko SPDX output must contain exactly index and linux-amd64 documents")
 	}
 	for _, entry := range sbomEntries {
-		information, informationError := entry.Info()
+		information, informationError := fileidentity.Info(entry)
 		if informationError != nil || !information.Mode().IsRegular() || entry.Type()&os.ModeSymlink != 0 ||
 			(entry.Name() != "sbom-index.spdx.json" && entry.Name() != "sbom-x86_64.spdx.json") {
 			return fmt.Errorf("apko SPDX output contains unexpected path %q", entry.Name())
@@ -819,14 +822,6 @@ func validDockerMountSources(values ...string) error {
 		}
 	}
 	return nil
-}
-
-func dockerBindValue(source, destination string, readOnly bool) string {
-	value := "type=bind,src=" + source + ",dst=" + destination
-	if readOnly {
-		value += ",readonly"
-	}
-	return value
 }
 
 func dockerTmpfsValue(destination string, size int64) string {

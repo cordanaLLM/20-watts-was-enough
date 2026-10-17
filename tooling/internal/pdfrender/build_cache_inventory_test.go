@@ -125,15 +125,19 @@ func TestRendererCacheInventoryRecordsExactClosureAndAllowsEmptyIngest(t *testin
 		ManifestDigest: index.Manifests[0].Digest, BlobCount: 3,
 		BlobBytes: index.Manifests[0].Size + manifest.Config.Size + manifest.Layers[0].Size,
 	}
-	for _, emptyIngest := range []bool{false, true} {
-		if emptyIngest {
+	for _, optional := range []string{"", "ingest", "cache.lock"} {
+		switch optional {
+		case "ingest":
 			if err := os.Mkdir(filepath.Join(root, "ingest"), 0o700); err != nil {
 				t.Fatal(err)
 			}
+		case "cache.lock":
+			// The BuildKit client of Buildx 0.38.0 leaves this empty lock file.
+			writeCacheInventoryFixture(t, root, "cache.lock", nil)
 		}
 		observed, err := inspectRendererCache(context.Background(), root)
 		if err != nil || observed != expected || observed.Imported {
-			t.Fatalf("cache closure differs with empty ingest=%t: %+v %v", emptyIngest, observed, err)
+			t.Fatalf("cache closure differs after adding %q: %+v %v", optional, observed, err)
 		}
 	}
 }
@@ -167,7 +171,7 @@ func TestRendererCacheInventoryCountsRepeatedLayerBlobOnce(t *testing.T) {
 
 func TestRendererCacheInventoryRejectsSymlinkBoundaries(t *testing.T) {
 	t.Parallel()
-	for _, target := range []string{".", "blobs", "blobs/sha256", "index.json", "oci-layout", "manifest", "config", "layer", "ingest"} {
+	for _, target := range []string{".", "blobs", "blobs/sha256", "index.json", "oci-layout", "manifest", "config", "layer", "ingest", "cache.lock"} {
 		t.Run(target, func(t *testing.T) {
 			root := cacheInventoryFixture(t)
 			relative := target
@@ -183,6 +187,8 @@ func TestRendererCacheInventoryRejectsSymlinkBoundaries(t *testing.T) {
 				if err := os.Mkdir(filepath.Join(root, relative), 0o700); err != nil {
 					t.Fatal(err)
 				}
+			case "cache.lock":
+				writeCacheInventoryFixture(t, root, relative, nil)
 			}
 			original := filepath.Join(root, relative)
 			saved := filepath.Join(t.TempDir(), "original")
@@ -202,7 +208,7 @@ func TestRendererCacheInventoryRejectsSymlinkBoundaries(t *testing.T) {
 
 func TestRendererCacheInventoryRejectsMissingExtraAndCorruptedBlobs(t *testing.T) {
 	t.Parallel()
-	for _, mutation := range []string{"missing layer", "extra blob", "wrong size", "wrong digest", "directory blob", "extra root", "extra algorithm", "nonempty ingest", "excessive entries"} {
+	for _, mutation := range []string{"missing layer", "extra blob", "wrong size", "wrong digest", "directory blob", "extra root", "extra algorithm", "nonempty ingest", "nonempty lock", "directory lock", "excessive entries"} {
 		t.Run(mutation, func(t *testing.T) {
 			root := cacheInventoryFixture(t)
 			layer := imageProofBlobPath(cacheInventoryManifest(t, root).Layers[0].Digest)
@@ -238,6 +244,14 @@ func TestRendererCacheInventoryRejectsMissingExtraAndCorruptedBlobs(t *testing.T
 					t.Fatal(err)
 				}
 				writeCacheInventoryFixture(t, root, "ingest/partial", []byte("partial"))
+			case "nonempty lock":
+				writeCacheInventoryFixture(t, root, "cache.lock", []byte("x"))
+				diagnostic = "lock must be one empty regular file"
+			case "directory lock":
+				if err := os.Mkdir(filepath.Join(root, "cache.lock"), 0o700); err != nil {
+					t.Fatal(err)
+				}
+				diagnostic = "lock must be one empty regular file"
 			case "excessive entries":
 				for index := range maximumRendererCacheLayers + 5 {
 					body := []byte{byte(index)}

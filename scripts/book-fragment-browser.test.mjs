@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { testWithHostDeadline } from "./lib/host-test-deadline.mjs";
+import { waitForCondition, systemClock, WALL_CAP_FACTOR } from "./lib/browser-wait.mjs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -82,10 +84,6 @@ const fragmentWaitPolicy = Object.freeze({
   requiredStableObservations: 5,
   stableObservationLimit: 50,
 });
-const systemClock = Object.freeze({
-  now: () => Date.now(),
-  sleep: (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
-});
 
 function isVisibleFragment(snapshot, targetId) {
   return snapshot?.readyState === "complete"
@@ -100,17 +98,6 @@ function isUnmovedFragment(snapshot, previous) {
   return previous !== undefined && previous !== null
     && Math.abs(snapshot.targetTop - previous.targetTop) < 0.5
     && Math.abs(snapshot.scrollY - previous.scrollY) < 0.5;
-}
-
-async function firstVisibleObservation(observer, clock, policy) {
-  const deadline = clock.now() + policy.readyTimeoutMs;
-  let snapshot;
-  while (clock.now() < deadline) {
-    snapshot = await observer.sample();
-    if (observer.accepts(snapshot)) return { accepted: true, snapshot };
-    await clock.sleep(policy.intervalMs);
-  }
-  return { accepted: false, snapshot };
 }
 
 async function stableVisibleObservation(observer, clock, policy, first) {
@@ -130,9 +117,12 @@ async function stableVisibleObservation(observer, clock, policy, first) {
 }
 
 async function observeStableVisibility(observer, clock = systemClock, policy = fragmentWaitPolicy) {
-  const ready = await firstVisibleObservation(observer, clock, policy);
-  if (!ready.accepted) return { ...ready, phase: "visibility" };
-  const settled = await stableVisibleObservation(observer, clock, policy, ready.snapshot);
+  const ready = await waitForCondition({
+    probe: observer.sample, accepts: observer.accepts, clock,
+    budgetMs: policy.readyTimeoutMs, intervalMs: policy.intervalMs,
+    label: "Fragment did not become visible",
+  });
+  const settled = await stableVisibleObservation(observer, clock, policy, ready);
   return { ...settled, phase: "stability" };
 }
 
@@ -143,11 +133,9 @@ async function waitForVisibleFragment(cdp, targetId) {
     unmoved: isUnmovedFragment,
   });
   if (result.accepted) return result.snapshot;
-  const failure = result.phase === "visibility"
-    ? `Fragment did not become visible within ${fragmentWaitPolicy.readyTimeoutMs} ms`
-    : `Fragment did not stay visible and unmoved for ${fragmentWaitPolicy.requiredStableObservations} `
-      + `consecutive observations within ${fragmentWaitPolicy.stableObservationLimit} `
-      + "observations after it first became visible";
+  const failure = `Fragment did not stay visible and unmoved for ${fragmentWaitPolicy.requiredStableObservations} `
+    + `consecutive observations within ${fragmentWaitPolicy.stableObservationLimit} `
+    + "observations after it first became visible";
   assert.fail(`${failure}: ${JSON.stringify(result.snapshot)}`);
 }
 
@@ -213,14 +201,10 @@ async function evaluateInBrowser(cdp, expression) {
 }
 
 async function waitForBrowserState(cdp, expression, accepts, label, timeoutMs = 30_000) {
-  const deadline = Date.now() + timeoutMs;
-  let snapshot;
-  while (Date.now() < deadline) {
-    snapshot = await evaluateInBrowser(cdp, expression);
-    if (accepts(snapshot)) return snapshot;
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  assert.fail(`${label}: ${JSON.stringify(snapshot)}`);
+  return waitForCondition({
+    probe: () => evaluateInBrowser(cdp, expression), accepts,
+    budgetMs: timeoutMs, intervalMs: 100, label,
+  });
 }
 
 async function pressKey(cdp, key, code, windowsVirtualKeyCode) {
@@ -604,17 +588,15 @@ test("fragment stability needs consecutive unmoved observations within its limit
 
 test("fragment visibility fails at the load deadline when the heading never appears", async () => {
   const run = scriptedFragmentObservation([hydratingFragment]);
-  const result = await observeStableVisibility(run.observer, run.clock);
-
-  assert.deepEqual(result, { accepted: false, phase: "visibility", snapshot: hydratingFragment });
+  await assert.rejects(observeStableVisibility(run.observer, run.clock), /Fragment did not become visible/u);
   assert.equal(
     run.samples(),
-    fragmentWaitPolicy.readyTimeoutMs / fragmentWaitPolicy.intervalMs,
+    fragmentWaitPolicy.readyTimeoutMs / fragmentWaitPolicy.intervalMs + 1,
   );
 });
 
-test("the full book preserves fragment, semantic, and keyboard contracts", {
-  timeout: 120_000,
+testWithHostDeadline("the full book preserves fragment, semantic, and keyboard contracts", {
+  timeout: 120_000 * WALL_CAP_FACTOR,
 }, async (t) => {
   const browser = await firstExistingChromium();
   const profile = await mkdtemp(path.join(os.tmpdir(), "20w-book-fragment-"));

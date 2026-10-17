@@ -129,10 +129,10 @@ func validateRequest(request Request) error {
 		request.SourceID != FrozenSourceID || request.GenerationContractID != FrozenGenerationContractID {
 		return fmt.Errorf("%w: schema, authority, source, or generation contract differs", ErrMalformedRequest)
 	}
-	if !validIdentity(request.RunID) || !validIdentity(request.RequestID) || !validIdentity(request.SpecialistID) {
+	if !specialistcontrol.ValidIdentity(request.RunID) || !specialistcontrol.ValidIdentity(request.RequestID) || !specialistcontrol.ValidIdentity(request.SpecialistID) {
 		return fmt.Errorf("%w: run, request, or specialist identity is invalid", ErrMalformedRequest)
 	}
-	if !validIdentity(string(request.Task)) {
+	if !specialistcontrol.ValidIdentity(string(request.Task)) {
 		return fmt.Errorf("%w: task identity is invalid", ErrMalformedRequest)
 	}
 	if len(request.Payload) == 0 {
@@ -172,20 +172,6 @@ func parseBinding(value string) (specialistcontrol.Binding, error) {
 
 func formatBinding(binding specialistcontrol.Binding) string {
 	return "sha256:" + hex.EncodeToString(binding[:])
-}
-
-func validIdentity(value string) bool {
-	if len(value) == 0 || len(value) > maximumIdentityBytes {
-		return false
-	}
-	for _, character := range []byte(value) {
-		if (character < 'a' || character > 'z') && (character < 'A' || character > 'Z') &&
-			(character < '0' || character > '9') && character != '.' && character != '_' &&
-			character != ':' && character != '-' {
-			return false
-		}
-	}
-	return true
 }
 
 func ascii(value string) bool {
