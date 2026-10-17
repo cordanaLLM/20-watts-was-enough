@@ -64,12 +64,16 @@ export function loadPackageScripts(workingDirectory = process.cwd()) {
   return parsed?.scripts ?? {};
 }
 
-function signalProcessGroup(pid, signal) {
+export function signalProcessGroup(pid, signal, kill = process.kill) {
   if (pid === undefined) {
     return;
   }
+  // kill(-1) signals every process the user owns and kill(0) the runner's own group.
+  if (!Number.isInteger(pid) || pid <= 1) {
+    throw new Error(`refusing to send ${signal} to process group ${pid}: pid must be an integer above 1`);
+  }
   try {
-    process.kill(-pid, signal);
+    kill(-pid, signal);
   } catch (error) {
     // ESRCH: the group already exited, which is the outcome termination wants.
     if (error?.code !== "ESRCH") {

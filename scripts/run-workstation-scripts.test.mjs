@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { runWorkstationScripts } from "./run-workstation-scripts.mjs";
+import { runWorkstationScripts, signalProcessGroup } from "./run-workstation-scripts.mjs";
 
 const runnerScript = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "run-workstation-scripts.mjs");
 
@@ -194,7 +194,7 @@ test("negative: a hung script whose descendant ignores SIGTERM is killed and the
     "test:workstation:stub-descendant":
       "node -e \"const { spawn } = require('node:child_process'); const fs = require('node:fs'); const child = spawn(process.execPath, ['-e', 'process.on(\\\"SIGTERM\\\",()=>{}); setTimeout(()=>{},60000)'], { stdio: 'ignore' }); fs.writeFileSync('descendant.pid', String(child.pid)); setTimeout(()=>{}, 60000);\"",
     "test:workstation:stub-next":
-      "node -e \"const fs = require('node:fs'); const pid = Number(fs.readFileSync('descendant.pid', 'utf8')); try { process.kill(pid, 0); process.exit(42); } catch (err) { process.exit(0); }\"",
+      "node -e \"const fs = require('node:fs'); const pid = Number(fs.readFileSync('descendant.pid', 'utf8')); if (!Number.isInteger(pid) || pid <= 1) process.exit(43); try { process.kill(pid, 0); process.exit(42); } catch (err) { process.exit(0); }\"",
   });
   const pidPath = path.join(dir, "descendant.pid");
   try {
@@ -216,12 +216,15 @@ test("negative: a hung script whose descendant ignores SIGTERM is killed and the
     assert.match(output, /workstation script passed: test:workstation:stub-next/u);
     assert.ok(fs.existsSync(pidPath), "descendant pid must have been recorded");
     const descendantPid = Number(fs.readFileSync(pidPath, "utf8"));
+    assert.ok(Number.isInteger(descendantPid) && descendantPid > 1, "descendant pid must be an integer above 1");
     assert.throws(() => process.kill(descendantPid, 0), { code: "ESRCH" });
   } finally {
     if (fs.existsSync(pidPath)) {
       try {
         const descendantPid = Number(fs.readFileSync(pidPath, "utf8"));
-        process.kill(descendantPid, "SIGKILL");
+        if (Number.isInteger(descendantPid) && descendantPid > 1) {
+          process.kill(descendantPid, "SIGKILL");
+        }
       } catch (cleanupError) {
         if (cleanupError?.code !== "ESRCH") {
           process.stderr.write(`cleanup failed: ${cleanupError?.message}\n`);
@@ -244,4 +247,25 @@ test("negative: win32 platform refusal logs reason and returns 2", async () => {
     errors.includes("workstation script runner supports POSIX process groups only; CI runs it on Linux"),
     "must log POSIX process groups only refusal"
   );
+});
+
+test("negative: process-group signals refuse pids that would reach other processes", () => {
+  const sent = [];
+  const recordKill = (target, signal) => sent.push([target, signal]);
+  for (const pid of [1, 0, -1, -4242, 1.5, Number.NaN, "4242"]) {
+    assert.throws(
+      () => signalProcessGroup(pid, "SIGTERM", recordKill),
+      /pid must be an integer above 1/u,
+      `pid ${String(pid)} must be refused`,
+    );
+  }
+  assert.deepStrictEqual(sent, [], "no signal may be sent for a refused pid");
+});
+
+test("boundary: process-group signals reach the group of pid 2 and skip an unspawned child", () => {
+  const sent = [];
+  const recordKill = (target, signal) => sent.push([target, signal]);
+  signalProcessGroup(2, "SIGKILL", recordKill);
+  signalProcessGroup(undefined, "SIGKILL", recordKill);
+  assert.deepStrictEqual(sent, [[-2, "SIGKILL"]]);
 });
