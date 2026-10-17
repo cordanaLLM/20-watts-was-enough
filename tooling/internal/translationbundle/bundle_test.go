@@ -150,7 +150,7 @@ func TestValidateCandidateIsReadOnlyAndSourceBound(t *testing.T) {
 	if err != nil || !bytes.Equal(inputBefore, inputAfter) {
 		t.Fatalf("read-only validation changed input: %v", err)
 	}
-	if _, err := os.Lstat(filepath.Join(root, ".workingdir2")); !os.IsNotExist(err) {
+	if _, err := os.Lstat(filepath.Join(root, ".workingdir")); !os.IsNotExist(err) {
 		t.Fatalf("read-only validation created candidate output: %v", err)
 	}
 	if _, err := os.Lstat(filepath.Join(root, "translations", "manifest.json")); !os.IsNotExist(err) {
@@ -281,7 +281,7 @@ func TestCandidateCommandsRejectAuthorityOutputPaths(t *testing.T) {
 		SourcePath:     fixtureSourcePath,
 		TargetLanguage: "de",
 		OutputPath:     filepath.Join(root, "translations", "draft.json"),
-	}); err == nil || !strings.Contains(err.Error(), ".workingdir2") {
+	}); err == nil || !strings.Contains(err.Error(), ".workingdir") {
 		t.Fatalf("ExportCandidate() error = %v, want authority-path refusal", err)
 	}
 	input := returnedFixture(t, root, nil)
@@ -289,7 +289,7 @@ func TestCandidateCommandsRejectAuthorityOutputPaths(t *testing.T) {
 		root,
 		input,
 		filepath.Join(root, "translations", "de", "candidate"),
-	)); err == nil || !strings.Contains(err.Error(), ".workingdir2") {
+	)); err == nil || !strings.Contains(err.Error(), ".workingdir") {
 		t.Fatalf("ImportCandidate() error = %v, want authority-path refusal", err)
 	}
 }
@@ -322,7 +322,7 @@ func TestImportCandidateRejectsAmbiguousAndUnknownJSON(t *testing.T) {
 func TestExportCandidateAllowsOnlyIgnoredRepositoryCache(t *testing.T) {
 	t.Parallel()
 	root := repositoryFixture(t)
-	output := filepath.Join(root, ".workingdir2", "cache", "translation-candidates", "de-test.json")
+	output := filepath.Join(root, ".workingdir", "cache", "translation-candidates", "de-test.json")
 	if _, err := ExportCandidate(ExportOptions{
 		RepositoryRoot: root,
 		SourcePath:     fixtureSourcePath,
@@ -433,5 +433,19 @@ func TestImportCandidateRequiresExpectedSourceAndLanguage(t *testing.T) {
 				t.Fatalf("ImportCandidate() error = %v, want expected-identity refusal", err)
 			}
 		})
+	}
+}
+
+func TestExportCandidateRefusesTheRetiredWorkingdir2Cache(t *testing.T) {
+	t.Parallel()
+	root := repositoryFixture(t)
+	_, err := ExportCandidate(ExportOptions{
+		RepositoryRoot: root,
+		SourcePath:     fixtureSourcePath,
+		TargetLanguage: "de",
+		OutputPath:     filepath.Join(root, ".workingdir2", "cache", "translation-candidates", "de-test.json"),
+	})
+	if err == nil || !strings.Contains(err.Error(), ".workingdir/cache/translation-candidates") {
+		t.Fatalf("ExportCandidate() error = %v, want refusal outside .workingdir cache", err)
 	}
 }

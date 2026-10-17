@@ -84,7 +84,7 @@ test("actual math assertions keep validation and source-line diagnostics", async
 
 test("noncanonical descendants cannot change canonical math results", async (t) => {
   for (const prefix of [
-    ".workingdir2/worktrees/foreign", ".workingdir2/evidence/failed", "build/report",
+    ".workingdir/worktrees/foreign", ".workingdir/evidence/failed", "build/report",
     "dist-github-pages/documents", "public/repository-files", "sources/imported", "node_modules/package",
   ]) {
     const root = await fixture(t, { "README.md": "$x+1$\n", [`${prefix}/README.md`]: "$broken\n" });
@@ -164,7 +164,7 @@ test("normalizer changes only live delimiters and preserves literal code", async
   const source = "🧪 `\\(literal\\)`\r\n\r\n\\(x+1\\)\r\n\r\n\\[\r\ny\r\n\\]\r\n";
   const root = await fixture(t, {
     "README.md": source,
-    ".workingdir2/evidence/report.md": "\\(retained\\)\n",
+    ".workingdir/evidence/report.md": "\\(retained\\)\n",
   });
   const checked = command(root, "normalize-math-delimiters.mjs");
   assert.equal(checked.status, 1);
@@ -173,7 +173,7 @@ test("normalizer changes only live delimiters and preserves literal code", async
   assert.equal(written.status, 0, written.stderr);
   assert.equal(await readFile(path.join(root, "README.md"), "utf8"),
     "🧪 `\\(literal\\)`\r\n\r\n$x+1$\r\n\r\n$$\r\ny\r\n$$\r\n");
-  assert.equal(await readFile(path.join(root, ".workingdir2/evidence/report.md"), "utf8"), "\\(retained\\)\n");
+  assert.equal(await readFile(path.join(root, ".workingdir/evidence/report.md"), "utf8"), "\\(retained\\)\n");
   assert.equal(command(root, "normalize-math-delimiters.mjs").status, 0);
 });
 
@@ -217,7 +217,7 @@ test("math input and diagnostic limits fail closed using small fixtures", async 
 
 test("canonical inventory is sorted and prunes ignored links without following them", async (t) => {
   const root = await fixture(t, { "tooling/README.md": "x", "README.md": "x", "docs/z.md": "x", "docs/a.md": "x" });
-  await symlink(path.join(root, "missing"), path.join(root, ".workingdir2"), "dir");
+  await symlink(path.join(root, "missing"), path.join(root, ".workingdir"), "dir");
   const inventory = await collectMathMarkdown(root);
   assert.deepEqual(inventory.files.map((file) => relativePosix(root, file)), ["README.md", "docs/a.md", "docs/z.md", "tooling/README.md"]);
   await symlink(path.join(root, "README.md"), path.join(root, "linked.md"));

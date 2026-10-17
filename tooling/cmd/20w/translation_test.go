@@ -82,7 +82,7 @@ func TestRunTranslationValidateCandidateWritesNothingAndClaimsNoQuality(t *testi
 		!strings.Contains(stdout.String(), "translation quality was not assessed") {
 		t.Fatalf("run() exit/stdout/stderr = %d/%q/%q", exitCode, stdout.String(), stderr.String())
 	}
-	if _, err := os.Lstat(filepath.Join(root, ".workingdir2")); !os.IsNotExist(err) {
+	if _, err := os.Lstat(filepath.Join(root, ".workingdir")); !os.IsNotExist(err) {
 		t.Fatalf("validate command created candidate output: %v", err)
 	}
 	if _, err := os.Lstat(filepath.Join(root, "translations", "manifest.json")); !os.IsNotExist(err) {
@@ -284,7 +284,7 @@ func TestRunTranslationImportCandidateRejectsUnconfinedOutputDirectory(t *testin
 		"--language", "de",
 		"--output", output,
 	}, &stdout, &stderr)
-	if exitCode != 1 || !strings.Contains(stderr.String(), "candidate output inside the repository must remain under .workingdir2/cache/translation-candidates") {
+	if exitCode != 1 || !strings.Contains(stderr.String(), "candidate output inside the repository must remain under .workingdir/cache/translation-candidates") {
 		t.Fatalf("run() exit/stderr = %d/%q", exitCode, stderr.String())
 	}
 }

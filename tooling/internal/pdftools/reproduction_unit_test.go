@@ -540,6 +540,7 @@ func TestPrepareReproductionReceiptPathRejectsEscapeAndExisting(t *testing.T) {
 	for _, path := range []string{
 		"../escape.json",
 		"receipt.json",
+		".workingdir2/evidence/publication/retired.json",
 		"build/evidence/not-json",
 		"build/evidence/line\nbreak.json",
 		"build/evidence/tab\tname.json",
@@ -549,14 +550,14 @@ func TestPrepareReproductionReceiptPathRejectsEscapeAndExisting(t *testing.T) {
 			t.Fatalf("prepareReproductionReceiptPath() accepted %q", path)
 		}
 	}
-	path, err := prepareReproductionReceiptPath(root, ".workingdir2/evidence/publication/existing.json")
+	path, err := prepareReproductionReceiptPath(root, ".workingdir/evidence/publication/existing.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(path, []byte("existing"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := prepareReproductionReceiptPath(root, ".workingdir2/evidence/publication/existing.json"); err == nil {
+	if _, err := prepareReproductionReceiptPath(root, ".workingdir/evidence/publication/existing.json"); err == nil {
 		t.Fatal("prepareReproductionReceiptPath() accepted an existing receipt")
 	}
 }

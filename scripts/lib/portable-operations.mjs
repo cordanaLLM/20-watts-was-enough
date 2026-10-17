@@ -5,6 +5,7 @@ const MAX_SCANNED_ENTRIES = 20_000;
 const ignoredPrefixes = Object.freeze([
   ".claude/worktrees",
   ".git",
+  ".workingdir",
   ".workingdir2",
   "build",
   "coverage",

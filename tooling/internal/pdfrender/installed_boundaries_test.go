@@ -20,7 +20,7 @@ func TestInstalledDependencyPreflightStopsBothCommandsBeforeDocker(t *testing.T)
 			executor := &recordingExecutor{imageID: testImageID}
 			var err error
 			if verification {
-				_, err = verifyReproducibilityWithDependencies(context.Background(), configuration, "main", "", ".workingdir2/evidence/proof.json", noOpPreparer{}, executor)
+				_, err = verifyReproducibilityWithDependencies(context.Background(), configuration, "main", "", ".workingdir/evidence/proof.json", noOpPreparer{}, executor)
 			} else {
 				_, err = renderWithDependencies(context.Background(), configuration, "main", "", noOpPreparer{}, executor)
 			}
@@ -88,7 +88,7 @@ func TestInstalledDependencyDriftNeverWritesAPassingReproducibilityReceipt(t *te
 		imageIDs: []string{testProofConfigDigest, testProofConfigDigest}, manifestDigests: []string{testManifestDigest, testManifestDigest},
 	}
 	executor := &installedDriftExecutor{t: t, root: configuration.RepositoryRoot, delegate: delegate, trigger: "render-2"}
-	relative := ".workingdir2/evidence/publication/dependency-drift.json"
+	relative := ".workingdir/evidence/publication/dependency-drift.json"
 	_, err := verifyReproducibilityWithDependencies(context.Background(), configuration, "main", "", relative, reproducibilityFixturePreparer{}, executor)
 	if !executor.triggered || err == nil || !strings.Contains(err.Error(), "metadata changed during rendering") {
 		t.Fatalf("second-render drift: triggered=%t error=%v", executor.triggered, err)
