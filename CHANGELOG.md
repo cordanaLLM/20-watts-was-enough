@@ -18,6 +18,15 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- The Fixture 019 runtime moves from NumPy 2.5.3 to 2.5.4, a bug-fix release
+  (linalg handling of non-finite inputs, StringDType NaN-sentinel hashing, a
+  masked-array fill-value reset and typing fixes; the release notes name no
+  change to random streams or the `PCG64DXSM` generator, and the fixture uses
+  none of the changed functions). The environment lock, the single approved
+  wheel digest read from PyPI on 2026-10-16, the hash-locked CI requirements,
+  the Dockerfile and workflow container checks, the manifest and the policy
+  move together. No seed, configuration, protocol or result authority changes;
+  the fixture stays `NO_RESULT`.
 - Renew the declared-verify npm skip in `scripts/declared-verify-npm.mjs` to
   2026-10-21 (category B, three days): the engine fix for
   cordanaLLM/praetor#1385 has not landed, and without the renewal every

@@ -54,7 +54,7 @@ RUN set -eu; \
     ln --symbolic libatomic.so.1.2.0 /usr/lib/x86_64-linux-gnu/libatomic.so.1; \
     test "$(node --version)" = "v26.10.0"; \
     test "$(python --version)" = "Python 3.14.8"; \
-    python -c 'import numpy; assert numpy.__version__ == "2.5.3"'; \
+    python -c 'import numpy; assert numpy.__version__ == "2.5.4"'; \
     groupadd --gid 1000 experiment; \
     useradd --create-home --uid 1000 --gid experiment --shell /usr/sbin/nologin experiment; \
     install --directory --owner=experiment --group=experiment /workspace/results; \
