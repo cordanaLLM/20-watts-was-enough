@@ -158,6 +158,7 @@ const bookSupportSourcePaths = [
   "tooling/internal/docscheck/mermaid-duplicate-baseline.json",
   "tooling/internal/docscheck/mermaid.go",
   "tooling/internal/experiment/catalog.go",
+  "tooling/internal/fileidentity/fileidentity.go",
   "tooling/internal/githubapi/client.go",
   "tooling/internal/githublabels/labels.go",
   "tooling/internal/nodeimage/package.go",

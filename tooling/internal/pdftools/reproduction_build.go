@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/boundedexec"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 )
 
 const reproductionBuildCount = 2
@@ -332,7 +333,7 @@ func validateApkoOutputInventory(root string) error {
 		if _, expected := wanted[entry.Name()]; !expected || entry.Type()&os.ModeSymlink != 0 {
 			return fmt.Errorf("apko output contains unexpected path %q", entry.Name())
 		}
-		information, err := entry.Info()
+		information, err := fileidentity.Info(entry)
 		if err != nil || (entry.Name() == "base.tar" && !information.Mode().IsRegular()) ||
 			(entry.Name() == "sbom" && !information.IsDir()) {
 			return fmt.Errorf("apko output path %q has an invalid type", entry.Name())
@@ -344,7 +345,7 @@ func validateApkoOutputInventory(root string) error {
 		return errors.New("apko SPDX output must contain exactly index and linux-amd64 documents")
 	}
 	for _, entry := range sbomEntries {
-		information, informationError := entry.Info()
+		information, informationError := fileidentity.Info(entry)
 		if informationError != nil || !information.Mode().IsRegular() || entry.Type()&os.ModeSymlink != 0 ||
 			(entry.Name() != "sbom-index.spdx.json" && entry.Name() != "sbom-x86_64.spdx.json") {
 			return fmt.Errorf("apko SPDX output contains unexpected path %q", entry.Name())
