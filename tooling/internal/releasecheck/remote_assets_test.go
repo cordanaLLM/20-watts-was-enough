@@ -60,7 +60,7 @@ func (client *fakeReleaseAssetClient) DownloadReleaseAsset(
 
 func TestFetchReleaseAssetsAcceptsTheExact128AssetBoundAndSortsNames(t *testing.T) {
 	t.Parallel()
-	options, expectations := sourceFetchFixture(t, maximumReleaseAttachments-2)
+	options, expectations := sourceFetchFixture(t, maximumReleaseAttachments-3)
 	assets, bodies := remoteAssetsForExpectations(t, expectations)
 	if len(assets) != maximumReleaseAttachments {
 		t.Fatalf("fixture contains %d assets, want %d", len(assets), maximumReleaseAttachments)
@@ -94,9 +94,31 @@ func TestFetchReleaseAssetsAcceptsTheExact128AssetBoundAndSortsNames(t *testing.
 	}
 }
 
+func TestSourceFetchBoundsNondeterministicChecksumBundleBeforeDownload(t *testing.T) {
+	for _, size := range []int64{0, 1, maximumChecksumBundleBytes, maximumChecksumBundleBytes + 1} {
+		t.Run(fmt.Sprint(size), func(t *testing.T) {
+			options, expectations := sourceFetchFixture(t, 1)
+			assets, bodies := remoteAssetsForExpectations(t, expectations)
+			for index := range assets {
+				if assets[index].Name == checksumBundleName {
+					assets[index].Size = size
+					bodies[assets[index].ID] = []byte(strings.Repeat("x", int(size)))
+				}
+			}
+			client := &fakeReleaseAssetClient{pages: map[int][]RemoteReleaseAsset{1: assets}, bodies: bodies}
+			_, err := FetchReleaseAssets(context.Background(), options, client)
+			if size == 0 || size > maximumChecksumBundleBytes {
+				assertFetchFailureBeforeBody(t, options.OutputDirectory, client, err, "reports size")
+			} else if err != nil {
+				t.Fatalf("valid bundle size %d: %v", size, err)
+			}
+		})
+	}
+}
+
 func TestFetchReleaseAssetsRejectsThe129thRecordBeforeAnyBodyRequest(t *testing.T) {
 	t.Parallel()
-	options, expectations := sourceFetchFixture(t, maximumReleaseAttachments-2)
+	options, expectations := sourceFetchFixture(t, maximumReleaseAttachments-3)
 	assets, bodies := remoteAssetsForExpectations(t, expectations)
 	assets = append(assets, RemoteReleaseAsset{
 		ID:    10_000,
@@ -447,6 +469,7 @@ func publicationFetchFixture(t *testing.T) (FetchAssetsOptions, map[string]expec
 	t.Helper()
 	root := t.TempDir()
 	writeAsset(t, root, ociManifestName, `{}`)
+	writeAsset(t, root, checksumBundleName, `{}`)
 	writeChecksums(t, root, []string{ociManifestName})
 	options := FetchAssetsOptions{
 		Repository:      testReleaseRepository,

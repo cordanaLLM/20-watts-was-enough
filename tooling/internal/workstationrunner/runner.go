@@ -2,7 +2,6 @@
 package workstationrunner
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -15,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/boundedexec"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/ciplan"
 )
 
@@ -72,44 +72,6 @@ type jobResult struct {
 	detail   string
 	output   []byte
 	exceeded bool
-}
-
-type boundedOutput struct {
-	mutex    sync.Mutex
-	buffer   bytes.Buffer
-	limit    int
-	exceeded bool
-	cancel   context.CancelFunc
-}
-
-func newBoundedOutput(limit int, cancel context.CancelFunc) *boundedOutput {
-	return &boundedOutput{limit: limit, cancel: cancel}
-}
-
-func (output *boundedOutput) Write(body []byte) (int, error) {
-	output.mutex.Lock()
-	available := output.limit - output.buffer.Len()
-	if available > len(body) {
-		available = len(body)
-	}
-	if available > 0 {
-		_, _ = output.buffer.Write(body[:available])
-	}
-	firstOverflow := available < len(body) && !output.exceeded
-	if available < len(body) {
-		output.exceeded = true
-	}
-	output.mutex.Unlock()
-	if firstOverflow {
-		output.cancel()
-	}
-	return len(body), nil
-}
-
-func (output *boundedOutput) snapshot() ([]byte, bool) {
-	output.mutex.Lock()
-	defer output.mutex.Unlock()
-	return bytes.Clone(output.buffer.Bytes()), output.exceeded
 }
 
 // Run executes core and every closed artifact script, then writes one ordered
@@ -315,7 +277,7 @@ func executeJob(ctx context.Context, root string, current job, options runOption
 	}
 	jobContext, cancel := context.WithTimeout(ctx, options.jobDuration)
 	defer cancel()
-	output := newBoundedOutput(options.outputBytes, cancel)
+	output := boundedexec.NewCancellingOutput(options.outputBytes, cancel)
 	command := exec.CommandContext(jobContext, options.executable, current.arguments...)
 	command.Dir = root
 	command.Env = options.environment
@@ -344,7 +306,7 @@ func executeJob(ctx context.Context, root string, current job, options runOption
 	}
 	runErr := command.Wait()
 	cleanupErr := tree.cleanup()
-	captured, exceeded := output.snapshot()
+	captured, exceeded := output.Result()
 	result := jobResult{job: current, output: captured, exceeded: exceeded}
 	switch {
 	case cleanupErr != nil:

@@ -1,37 +1,37 @@
 {
   "schema": 1,
   "description": "Scanner bundle of one pinned SBOM run over the CLRS candidate image, published as hash-locked prerelease assets so CI can run TestGeneratorSBOMBundleActualRetainedInput. Test input only; NO_RESULT.",
-  "image_manifest_digest": "sha256:43d40509f83178d00212a892f5265bc24a09bab5dd516223ebd88b5584093954",
-  "image_config_digest": "sha256:4c6b5005459d8daf21a31edaa674a25773679d40d0952d6a39331746e38885b9",
+  "image_manifest_digest": "sha256:04830d94ea3b73cc56a6a26a933024a8ec7f013e1176a58d6619915fab7d5647",
+  "image_config_digest": "sha256:1d6a32e21d383d7bb0e4acc3e8eb3c3e5e05efec278d87dbd42d5935451382c2",
   "files": [
     {
       "name": "derivation-receipt.json",
-      "url": "https://github.com/cordanaLLM/20-watts-was-enough/releases/download/clrs-sbom-bundle-2026-10-12/derivation-receipt.json",
-      "sha256": "3807f0f0db69698113e3cf47ad80eebb2d188879f4a33e05d5639fecafc74116",
+      "url": "https://github.com/cordanaLLM/20-watts-was-enough/releases/download/clrs-sbom-bundle-2026-10-16/derivation-receipt.json",
+      "sha256": "686f0d536f996111da75b57b77b1723a182c0df71fc88bbc9f645cf4deeed28a",
       "size_bytes": 2135
     },
     {
       "name": "execution-record.json",
-      "url": "https://github.com/cordanaLLM/20-watts-was-enough/releases/download/clrs-sbom-bundle-2026-10-12/execution-record.json",
-      "sha256": "ad2cbb9fcce470ac0dbf82dbf3612e4d9a3d26f22be5b00be164305c2974b4c6",
+      "url": "https://github.com/cordanaLLM/20-watts-was-enough/releases/download/clrs-sbom-bundle-2026-10-16/execution-record.json",
+      "sha256": "3393a30605be29d9696792570cfcbcb7fc38cb8eb98641cfbc4e19a7f478fbe0",
       "size_bytes": 11171
     },
     {
       "name": "image.spdx.json",
-      "url": "https://github.com/cordanaLLM/20-watts-was-enough/releases/download/clrs-sbom-bundle-2026-10-12/image.spdx.json",
-      "sha256": "6ead44af341d88afee47a992ece0d36d51f03e599b3bbc1befe7c3d3e8b390b8",
+      "url": "https://github.com/cordanaLLM/20-watts-was-enough/releases/download/clrs-sbom-bundle-2026-10-16/image.spdx.json",
+      "sha256": "94cdeaa985ab062e1ea6504f333d270aeda51ecb5d92c9af90556b3381f9ac71",
       "size_bytes": 3051484
     },
     {
       "name": "scanner-statement.intoto.json",
-      "url": "https://github.com/cordanaLLM/20-watts-was-enough/releases/download/clrs-sbom-bundle-2026-10-12/scanner-statement.intoto.json",
-      "sha256": "646d85a3854cb77376683f59776f44c358fb739121d37a68a8565ac5aa9167b1",
+      "url": "https://github.com/cordanaLLM/20-watts-was-enough/releases/download/clrs-sbom-bundle-2026-10-16/scanner-statement.intoto.json",
+      "sha256": "e476c2fa57e2c7869bf411f8d81304115a98397497b9f07d3a7f3333b29a07c6",
       "size_bytes": 3051600
     },
     {
       "name": "supplied-binding.json",
-      "url": "https://github.com/cordanaLLM/20-watts-was-enough/releases/download/clrs-sbom-bundle-2026-10-12/supplied-binding.json",
-      "sha256": "2070a28a417623375fd483e3fd1551795447ac361bb0b5804dbf7b94810033d0",
+      "url": "https://github.com/cordanaLLM/20-watts-was-enough/releases/download/clrs-sbom-bundle-2026-10-16/supplied-binding.json",
+      "sha256": "24b97270eaca2263ec632566c1b6fb9c05b11a0ae7c0d8a94e94f3e8efc76384",
       "size_bytes": 996
     }
   ]

@@ -14,6 +14,7 @@ import (
 	"text/template"
 
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/buildinfo"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
 func copyPromiseProcedureRoot(t *testing.T, version string) string {
@@ -46,7 +47,7 @@ func copyPromiseProcedureRoot(t *testing.T, version string) string {
 
 func writePromiseReceiptFixture(t *testing.T, receipt promiseReceipt) string {
 	t.Helper()
-	body, err := marshalPromiseJSON(receipt)
+	body, err := strictjson.Canonical(receipt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +257,7 @@ func TestPromiseReceiptRejectsAuthorityAndCoverageChanges(t *testing.T) {
 
 func TestPromiseReceiptRejectsMalformedJSONBeforeFiles(t *testing.T) {
 	_, receipt := promiseReceiptFixture(t)
-	valid, err := marshalPromiseJSON(receipt)
+	valid, err := strictjson.Canonical(receipt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -346,7 +347,7 @@ func TestPromiseReceiptRejectsChangedRequestedArguments(t *testing.T) {
 					entries[index].Arguments = append(slices.Clone(entries[index].Arguments), "--network=host")
 				}
 			}
-			body, err := marshalPromiseJSON(entries)
+			body, err := strictjson.Canonical(entries)
 			if err != nil {
 				t.Fatal(err)
 			}

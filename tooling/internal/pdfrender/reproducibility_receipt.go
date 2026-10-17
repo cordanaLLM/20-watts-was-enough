@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
@@ -152,7 +153,7 @@ func prepareReproducibilityReceiptPath(root, relative string) (string, error) {
 		return "", err
 	}
 	destination := filepath.Join(root, clean)
-	if _, err := os.Lstat(destination); err == nil {
+	if _, err := fileidentity.Lstat(destination); err == nil {
 		return "", errors.New("PDF reproducibility receipt already exists")
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return "", fmt.Errorf("inspect PDF reproducibility receipt: %w", err)
@@ -173,7 +174,7 @@ func inspectNormalizedBuildContext(
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		information, err := entry.Info()
+		information, err := fileidentity.Info(entry)
 		if err != nil {
 			return err
 		}

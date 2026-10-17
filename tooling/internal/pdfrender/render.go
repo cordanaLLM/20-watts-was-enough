@@ -13,11 +13,15 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/boundedexec"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/releasetag"
 )
 
 var (
 	imageIDPattern   = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
-	sourceRefPattern = regexp.MustCompile(`^(?:main|v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))$`)
+	sourceRefPattern = regexp.MustCompile(releasetag.Pattern)
 	numericIDPattern = regexp.MustCompile(`^[0-9]+$`)
 )
 
@@ -64,8 +68,8 @@ func Render(ctx context.Context, options Options) (Result, error) {
 
 // ValidateSourceRef rejects a mutable or ambiguous publication source identity.
 func ValidateSourceRef(sourceRef string) error {
-	if !sourceRefPattern.MatchString(sourceRef) {
-		return errors.New("source ref must be main or vMAJOR.MINOR.PATCH")
+	if sourceRef != "main" && !sourceRefPattern.MatchString(sourceRef) {
+		return errors.New("source ref must be main or vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N")
 	}
 	return nil
 }
@@ -109,11 +113,7 @@ func renderWithDependencies(
 	}
 	defer func() {
 		if releaseError := publication.release(); releaseError != nil {
-			if returnError == nil {
-				returnError = releaseError
-			} else {
-				returnError = errors.Join(returnError, releaseError)
-			}
+			returnError = errors.Join(returnError, releaseError)
 		}
 	}()
 	temporaryRoot, err := os.MkdirTemp("", "20w-pdf-renderer-")
@@ -125,22 +125,20 @@ func renderWithDependencies(
 			returnError = errors.Join(returnError, fmt.Errorf("remove PDF renderer staging root: %w", removeError))
 		}
 	}()
+	return renderWithLockedBuilder(ctx, configuration, sourceRef, sourceRevision, preparer, executor, temporaryRoot)
+}
+
+func renderWithLockedBuilder(
+	ctx context.Context, configuration Configuration, sourceRef, sourceRevision string,
+	preparer buildContextPreparer, executor commandExecutor, temporaryRoot string,
+) (result Result, returnError error) {
 	contextRoot := filepath.Join(temporaryRoot, "context")
 	if err := os.Mkdir(contextRoot, 0o755); err != nil {
 		return Result{}, fmt.Errorf("create PDF renderer build context: %w", err)
 	}
 	buildContext, cancelBuild := context.WithTimeout(ctx, time.Duration(configuration.Lock.Limits.BuildSeconds)*time.Second)
 	defer cancelBuild()
-	if err := verifyBuildxIdentity(buildContext, configuration, executor); err != nil {
-		return Result{}, err
-	}
-	if err := preparer.prepare(buildContext, configuration, contextRoot); err != nil {
-		return Result{}, fmt.Errorf("prepare PDF renderer build context: %w", err)
-	}
-	if err := checkAuthorityUnchanged(ctx, configuration); err != nil {
-		return Result{}, err
-	}
-	builderName, err := createLockedBuilder(buildContext, configuration, executor)
+	builderName, err := prepareRendererBuilder(ctx, buildContext, configuration, preparer, executor, contextRoot)
 	if err != nil {
 		return Result{}, err
 	}
@@ -148,51 +146,16 @@ func renderWithDependencies(
 	defer func() {
 		if builderActive {
 			if cleanupError := removeBuilder(executor, builderName, configuration.Lock.Limits.OutputBytes); cleanupError != nil {
-				if returnError == nil {
-					returnError = cleanupError
-				} else {
-					returnError = errors.Join(returnError, cleanupError)
-				}
+				returnError = errors.Join(returnError, cleanupError)
 			}
 		}
 	}()
 	iidPath := filepath.Join(temporaryRoot, "renderer.iid")
-	buildOutput, err := executor.run(buildContext, commandRequest{
-		operation:  "build pinned PDF renderer image",
-		directory:  configuration.RepositoryRoot,
-		timeout:    time.Duration(configuration.Lock.Limits.BuildSeconds) * time.Second,
-		outputSize: configuration.Lock.Limits.OutputBytes,
-		arguments:  buildArguments(configuration, builderName, contextRoot, iidPath),
-	})
+	imageID, err := buildRendererImage(ctx, buildContext, configuration, executor, builderName, contextRoot, iidPath)
 	if err != nil {
 		return Result{}, err
 	}
-	if err := rejectTimestampRewriteWarnings(buildOutput); err != nil {
-		return Result{}, err
-	}
-	if err := checkAuthorityUnchanged(ctx, configuration); err != nil {
-		return Result{}, err
-	}
-	imageID, err := readImageID(iidPath)
-	if err != nil {
-		return Result{}, err
-	}
-	renderDirectories := make([]string, 2)
-	for index, label := range []string{"run-a", "run-b"} {
-		outputDirectory := filepath.Join(temporaryRoot, label, "downloads")
-		temporaryDirectory := filepath.Join(temporaryRoot, label, "workspace-tmp")
-		if err := os.MkdirAll(outputDirectory, 0o755); err != nil {
-			return Result{}, fmt.Errorf("create isolated PDF output: %w", err)
-		}
-		if err := os.MkdirAll(temporaryDirectory, 0o755); err != nil {
-			return Result{}, fmt.Errorf("create isolated PDF temporary directory: %w", err)
-		}
-		if err := runRendererOnce(ctx, configuration, executor, imageID, sourceRef, sourceRevision, outputDirectory, temporaryDirectory, index+1); err != nil {
-			return Result{}, err
-		}
-		renderDirectories[index] = outputDirectory
-	}
-	artifacts, err := compareRenderPairs(configuration.RepositoryRoot, renderDirectories[0], renderDirectories[1])
+	artifacts, err := renderIsolatedPair(ctx, configuration, executor, imageID, sourceRef, sourceRevision, temporaryRoot)
 	if err != nil {
 		return Result{}, err
 	}
@@ -207,6 +170,58 @@ func renderWithDependencies(
 		return Result{}, err
 	}
 	return Result{ImageID: imageID, LockSHA256: configuration.LockSHA256, Platform: configuration.Lock.Platform}, nil
+}
+
+func prepareRendererBuilder(ctx, buildContext context.Context, configuration Configuration, preparer buildContextPreparer, executor commandExecutor, contextRoot string) (string, error) {
+	if err := verifyBuildxIdentity(buildContext, configuration, executor); err != nil {
+		return "", err
+	}
+	if err := preparer.prepare(buildContext, configuration, contextRoot); err != nil {
+		return "", fmt.Errorf("prepare PDF renderer build context: %w", err)
+	}
+	if err := checkAuthorityUnchanged(ctx, configuration); err != nil {
+		return "", err
+	}
+	return createLockedBuilder(buildContext, configuration, executor)
+}
+
+func buildRendererImage(ctx, buildContext context.Context, configuration Configuration, executor commandExecutor, builderName, contextRoot, iidPath string) (string, error) {
+	buildOutput, err := executor.run(buildContext, commandRequest{
+		operation:  "build pinned PDF renderer image",
+		directory:  configuration.RepositoryRoot,
+		timeout:    time.Duration(configuration.Lock.Limits.BuildSeconds) * time.Second,
+		outputSize: configuration.Lock.Limits.OutputBytes,
+		arguments:  buildArguments(configuration, builderName, contextRoot, iidPath),
+	})
+	if err != nil {
+		return "", err
+	}
+	if err := rejectTimestampRewriteWarnings(buildOutput); err != nil {
+		return "", err
+	}
+	if err := checkAuthorityUnchanged(ctx, configuration); err != nil {
+		return "", err
+	}
+	return readImageID(iidPath)
+}
+
+func renderIsolatedPair(ctx context.Context, configuration Configuration, executor commandExecutor, imageID, sourceRef, sourceRevision, temporaryRoot string) ([]renderedArtifact, error) {
+	renderDirectories := make([]string, 2)
+	for index, label := range []string{"run-a", "run-b"} {
+		outputDirectory := filepath.Join(temporaryRoot, label, "downloads")
+		temporaryDirectory := filepath.Join(temporaryRoot, label, "workspace-tmp")
+		if err := os.MkdirAll(outputDirectory, 0o755); err != nil {
+			return nil, fmt.Errorf("create isolated PDF output: %w", err)
+		}
+		if err := os.MkdirAll(temporaryDirectory, 0o755); err != nil {
+			return nil, fmt.Errorf("create isolated PDF temporary directory: %w", err)
+		}
+		if err := runRendererOnce(ctx, configuration, executor, imageID, sourceRef, sourceRevision, outputDirectory, temporaryDirectory, index+1); err != nil {
+			return nil, err
+		}
+		renderDirectories[index] = outputDirectory
+	}
+	return compareRenderPairs(configuration.RepositoryRoot, renderDirectories[0], renderDirectories[1])
 }
 
 func verifyBuildxIdentity(ctx context.Context, configuration Configuration, executor commandExecutor) error {
@@ -280,8 +295,7 @@ func runRendererOnce(
 		),
 	})
 	if err != nil {
-		cleanupContainer(executor, containerName, configuration.Lock.Limits.OutputBytes)
-		return err
+		return errors.Join(err, cleanupContainer(executor, containerName, configuration.Lock.Limits.OutputBytes))
 	}
 	return checkAuthorityUnchanged(ctx, configuration)
 }
@@ -350,9 +364,9 @@ func runArguments(
 		"--env", "BOOK_RENDERER_LOCK_SHA256=" + configuration.LockSHA256,
 		"--env", "BOOK_RENDERER_PLATFORM=" + configuration.Lock.Platform,
 		"--env", "VITE_CACHE_DIR=/tmp/vite-cache",
-		"--mount", dockerBind(root, "/workspace", true),
-		"--mount", dockerBind(outputDirectory, "/workspace/public/downloads", false),
-		"--mount", dockerBind(temporaryDirectory, "/workspace/tmp", false),
+		"--mount", boundedexec.DockerBind(root, "/workspace", true),
+		"--mount", boundedexec.DockerBind(outputDirectory, "/workspace/public/downloads", false),
+		"--mount", boundedexec.DockerBind(temporaryDirectory, "/workspace/tmp", false),
 		"--tmpfs", dockerTmpfs("/tmp", limits.TemporaryBytes),
 	}
 	if containerUser := currentContainerUser(); containerUser != "" {
@@ -368,20 +382,12 @@ func runArguments(
 	return arguments
 }
 
-func dockerBind(source, destination string, readOnly bool) string {
-	mount := "type=bind,src=" + source + ",dst=" + destination
-	if readOnly {
-		mount += ",readonly"
-	}
-	return mount
-}
-
 func dockerTmpfs(destination string, size int64) string {
 	return destination + ":rw,noexec,nosuid,nodev,size=" + decimal(size) + ",mode=1777"
 }
 
 func readImageID(path string) (string, error) {
-	information, err := os.Lstat(path)
+	information, err := fileidentity.Lstat(path)
 	if err != nil {
 		return "", fmt.Errorf("inspect PDF renderer image ID: %w", err)
 	}
@@ -398,7 +404,7 @@ func readImageID(path string) (string, error) {
 		return "", fmt.Errorf("read PDF renderer image ID: %w", err)
 	}
 	openedInformation, err := opened.Stat()
-	currentInformation, currentError := os.Lstat(path)
+	currentInformation, currentError := fileidentity.Lstat(path)
 	if err != nil || currentError != nil || !os.SameFile(information, openedInformation) ||
 		!os.SameFile(information, currentInformation) || int64(len(body)) != information.Size() {
 		return "", errors.New("PDF renderer image ID changed while it was read")
@@ -427,7 +433,7 @@ func requireContainedDirectory(root, relative string, create bool) error {
 	current := root
 	for _, component := range strings.Split(filepath.FromSlash(relative), string(filepath.Separator)) {
 		current = filepath.Join(current, component)
-		information, err := os.Lstat(current)
+		information, err := fileidentity.Lstat(current)
 		if errors.Is(err, os.ErrNotExist) && create {
 			if err := os.Mkdir(current, 0o755); err != nil {
 				return fmt.Errorf("create PDF renderer directory %s: %w", relative, err)
@@ -467,15 +473,19 @@ func randomContainerName() (string, error) {
 	return fmt.Sprintf("20w-pdf-%d-%x", os.Getpid(), random), nil
 }
 
-func cleanupContainer(executor commandExecutor, containerName string, outputSize int) {
+func cleanupContainer(executor commandExecutor, containerName string, outputSize int) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	_, _ = executor.run(ctx, commandRequest{
+	_, err := executor.run(ctx, commandRequest{
 		operation:  "remove failed PDF renderer container",
 		timeout:    30 * time.Second,
 		outputSize: outputSize,
 		arguments:  []string{"rm", "--force", containerName},
 	})
+	if err != nil {
+		return fmt.Errorf("remove failed PDF renderer container %s: %w", containerName, err)
+	}
+	return nil
 }
 
 func removeBuilder(executor commandExecutor, builderName string, outputSize int) error {

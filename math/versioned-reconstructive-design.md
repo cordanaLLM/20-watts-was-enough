@@ -301,4 +301,4 @@ retrieval, evaluator access, lineage, labor, material, or energy can explain
 the result.
 
 Editable system diagram:
-[versioned-reconstructive-design.mmd](../assets/diagrams/versioned-reconstructive-design.mmd).
+[Versioned reconstructive design diagram](../experiments/fixtures/002-versioned-reconstructive-design.md#construct-and-information-boundary).

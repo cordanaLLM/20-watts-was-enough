@@ -5,9 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 )
 
 func newLoadedImageBundle(options GeneratorLoadedImageOptions) (*os.Root, error) {
@@ -32,12 +36,12 @@ func newLoadedImageBundle(options GeneratorLoadedImageOptions) (*os.Root, error)
 	if err != nil {
 		return nil, err
 	}
-	after, err := os.Lstat(parent)
+	after, err := fileidentity.Lstat(parent)
 	if err == nil && (!os.SameFile(before, after) || before.Mode() != after.Mode()) {
 		err = errors.New("loaded-image output parent changed during exclusive creation")
 	}
 	if err == nil {
-		err = errors.Join(checkGenerationRoot(bundle), syncGenerationDirectory(root, "."))
+		err = errors.Join(checkGenerationRoot(bundle), SyncDirectory(root, "."))
 	}
 	if err != nil {
 		bundle.Close()
@@ -82,7 +86,7 @@ func finishLoadedImageBundle(ctx context.Context, bundle *os.Root, report Genera
 		err = recheckLoadedImageFiles(ctx, bundle, files, false)
 	}
 	report.Finished = time.Now().UTC().Format(time.RFC3339Nano)
-	for _, path := range sortedGenerationKeys(files) {
+	for _, path := range slices.Sorted(maps.Keys(files)) {
 		report.Files = append(report.Files, GeneratorLoadedImageFile{path, rawSHA256(files[path]), int64(len(files[path]))})
 	}
 	if err == nil {
@@ -116,7 +120,7 @@ func recheckLoadedImageFiles(ctx context.Context, bundle *os.Root, files map[str
 			return errors.New("loaded-image bundle contains an unexpected or non-regular entry")
 		}
 	}
-	for _, name := range sortedGenerationKeys(files) {
+	for _, name := range slices.Sorted(maps.Keys(files)) {
 		body, _, err := readComparisonFile(ctx, bundle.Name(), name, int64(len(files[name])))
 		if err != nil || !bytes.Equal(body, files[name]) {
 			return errors.Join(err, fmt.Errorf("retained loaded-image file changed: %s", name))
@@ -170,5 +174,5 @@ func publishLoadedImageReceipt(ctx context.Context, bundle *os.Root, report Gene
 	if err := bundle.Remove("receipt.pending.json"); err != nil {
 		return report, err
 	}
-	return report, syncGenerationDirectory(bundle, ".")
+	return report, SyncDirectory(bundle, ".")
 }

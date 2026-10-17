@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsprompt"
 )
 
 const (
@@ -122,58 +124,9 @@ func parsePrompt(ctx context.Context, prompt []byte, limits Limits) (chainInput,
 }
 
 func parseBoundedScalar(token string, maximumBytes int) (scalar, error) {
-	if token == "" {
-		return scalar{}, errors.New("empty scalar")
-	}
-	if len(token) > maximumBytes {
-		return scalar{}, fmt.Errorf("%w: scalar exceeds %d bytes", ErrPromptLimit, maximumBytes)
-	}
-	if !decimalGrammar(token) {
-		return scalar{}, errors.New("scalar is outside the finite decimal grammar")
-	}
-	value, err := strconv.ParseFloat(token, 64)
-	if err != nil || math.IsInf(value, 0) || math.IsNaN(value) {
-		return scalar{}, errors.New("scalar is not finite float64")
-	}
 	// The pinned SortingSampler draws matrix dimensions from U[0,1).
-	if value < 0 || value >= 1 {
-		return scalar{}, errors.New("scalar is outside the pinned sampler range [0,1)")
-	}
-	return scalar{value: value}, nil
-}
-
-func decimalGrammar(token string) bool {
-	index := 0
-	if index >= len(token) || token[index] < '0' || token[index] > '9' {
-		return false
-	}
-	for index < len(token) && token[index] >= '0' && token[index] <= '9' {
-		index++
-	}
-	if index < len(token) && token[index] == '.' {
-		index++
-		start := index
-		for index < len(token) && token[index] >= '0' && token[index] <= '9' {
-			index++
-		}
-		if start == index {
-			return false
-		}
-	}
-	if index < len(token) && token[index] == 'e' {
-		index++
-		if index < len(token) && (token[index] == '+' || token[index] == '-') {
-			index++
-		}
-		start := index
-		for index < len(token) && token[index] >= '0' && token[index] <= '9' {
-			index++
-		}
-		if start == index {
-			return false
-		}
-	}
-	return index == len(token)
+	value, err := clrsprompt.ParseUnitScalar(token, maximumBytes, ErrPromptLimit)
+	return scalar{value: value}, err
 }
 
 // matrixChainOrder mirrors the pinned synchronous relaxation, including its

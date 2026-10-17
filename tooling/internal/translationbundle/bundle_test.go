@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
 const fixtureSourcePath = "concept/00-test.md"
@@ -74,7 +76,7 @@ func returnedFixture(t *testing.T, root string, mutate func(*Bundle)) string {
 	if mutate != nil {
 		mutate(&bundle)
 	}
-	body, err := encodeJSON(bundle)
+	body, err := strictjson.Canonical(bundle)
 	if err != nil {
 		t.Fatal(err)
 	}

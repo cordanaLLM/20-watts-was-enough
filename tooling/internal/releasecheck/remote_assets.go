@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/ocimanifest"
 )
 
@@ -68,6 +69,7 @@ type GHReleaseAssetClient struct{}
 type expectedRemoteAsset struct {
 	name         string
 	size         int64
+	maximumSize  int64
 	digest       string
 	localPath    string
 	localDigest  string
@@ -81,19 +83,11 @@ func FetchReleaseAssets(
 	ctx context.Context,
 	options FetchAssetsOptions,
 	client ReleaseAssetClient,
-) ([]string, error) {
-	if ctx == nil {
-		return nil, errors.New("release asset context is required")
+) (names []string, resultErr error) {
+	if err := validateFetchOptions(ctx, options, client); err != nil {
+		return nil, err
 	}
-	if !repositoryPattern.MatchString(options.Repository) {
-		return nil, errors.New("GitHub repository must be an owner/name pair")
-	}
-	if options.ReleaseID <= 0 {
-		return nil, errors.New("GitHub Release ID must be a positive integer")
-	}
-	if client == nil {
-		return nil, errors.New("GitHub Release asset client is required")
-	}
+
 	expectedRoot, expectations, err := buildRemoteAssetExpectations(options)
 	if err != nil {
 		return nil, err
@@ -114,10 +108,10 @@ func FetchReleaseAssets(
 	complete := false
 	defer func() {
 		if !complete {
-			current, currentErr := os.Lstat(outputRoot)
+			current, currentErr := fileidentity.Lstat(outputRoot)
 			if currentErr == nil && current.IsDir() && current.Mode()&os.ModeSymlink == 0 &&
 				os.SameFile(outputInitial, current) {
-				_ = os.RemoveAll(outputRoot)
+				resultErr = errors.Join(resultErr, os.RemoveAll(outputRoot))
 			}
 		}
 	}()
@@ -125,7 +119,7 @@ func FetchReleaseAssets(
 	slices.SortFunc(assets, func(left, right RemoteReleaseAsset) int {
 		return strings.Compare(left.Name, right.Name)
 	})
-	names := make([]string, 0, len(assets))
+	names = make([]string, 0, len(assets))
 	for _, asset := range assets {
 		expected := expectations[asset.Name]
 		if err := downloadReleaseAsset(ctx, outputRoot, options.Repository, asset, expected, client); err != nil {
@@ -137,20 +131,44 @@ func FetchReleaseAssets(
 		return nil, err
 	}
 
-	snapshot, err := snapshotAssetDirectory(outputRoot)
-	if err != nil {
-		return nil, fmt.Errorf("validate downloaded release asset directory: %w", err)
+	if err := validateDownloadedInventory(outputRoot, outputInitial, names); err != nil {
+		return nil, err
 	}
-	if !slices.Equal(snapshotNames(snapshot), names) {
-		return nil, errors.New("downloaded release asset directory does not match the remote inventory")
-	}
-	outputCurrent, err := os.Lstat(outputRoot)
-	if err != nil || !outputCurrent.IsDir() || outputCurrent.Mode()&os.ModeSymlink != 0 ||
-		!os.SameFile(outputInitial, outputCurrent) {
-		return nil, errors.New("release asset output directory changed during download")
-	}
+
 	complete = true
 	return names, nil
+}
+
+func validateFetchOptions(ctx context.Context, options FetchAssetsOptions, client ReleaseAssetClient) error {
+	if ctx == nil {
+		return errors.New("release asset context is required")
+	}
+	if !repositoryPattern.MatchString(options.Repository) {
+		return errors.New("GitHub repository must be an owner/name pair")
+	}
+	if options.ReleaseID <= 0 {
+		return errors.New("GitHub Release ID must be a positive integer")
+	}
+	if client == nil {
+		return errors.New("GitHub Release asset client is required")
+	}
+	return nil
+}
+
+func validateDownloadedInventory(outputRoot string, outputInitial os.FileInfo, names []string) error {
+	snapshot, err := snapshotAssetDirectory(outputRoot)
+	if err != nil {
+		return fmt.Errorf("validate downloaded release asset directory: %w", err)
+	}
+	if !slices.Equal(snapshotNames(snapshot), names) {
+		return errors.New("downloaded release asset directory does not match the remote inventory")
+	}
+	outputCurrent, err := fileidentity.Lstat(outputRoot)
+	if err != nil || !outputCurrent.IsDir() || outputCurrent.Mode()&os.ModeSymlink != 0 ||
+		!os.SameFile(outputInitial, outputCurrent) {
+		return errors.New("release asset output directory changed during download")
+	}
+	return nil
 }
 
 func buildRemoteAssetExpectations(options FetchAssetsOptions) (string, map[string]expectedRemoteAsset, error) {
@@ -165,47 +183,35 @@ func buildRemoteAssetExpectations(options FetchAssetsOptions) (string, map[strin
 	if err != nil {
 		return "", nil, err
 	}
-	expectations := make(map[string]expectedRemoteAsset, len(names)+1)
-	for _, name := range names {
-		path := filepath.Join(root, name)
-		maximumBytes := int64(maximumReleaseFileSize)
-		if name == checksumManifestName {
-			maximumBytes = maximumChecksumBytes
-		}
-		information, err := validateRegularPath(root, path, maximumBytes)
-		if err != nil {
-			return "", nil, fmt.Errorf("inspect expected release asset %s: %w", name, err)
-		}
-		digest, err := digestRegularFile(root, path, maximumBytes)
-		if err != nil {
-			return "", nil, fmt.Errorf("hash expected release asset %s: %w", name, err)
-		}
-		expectations[name] = expectedRemoteAsset{
-			name:         name,
-			size:         information.Size(),
-			digest:       digest,
-			localPath:    path,
-			localDigest:  digest,
-			localInitial: information,
-		}
+	expectations, err := localAssetExpectations(root, names)
+	if err != nil {
+		return "", nil, err
 	}
+
 	if options.Phase == PublicationAssets {
 		if options.ReleaseTag != "" || options.ReleaseCommit != "" {
 			return "", nil, errors.New("publication asset fetch must not accept source-shaping identities")
 		}
 		return root, expectations, nil
 	}
+	if err := extendSourceExpectations(root, options, expectations); err != nil {
+		return "", nil, err
+	}
+	return root, expectations, nil
+}
+
+func extendSourceExpectations(root string, options FetchAssetsOptions, expectations map[string]expectedRemoteAsset) error {
 	if !releaseTagPattern.MatchString(options.ReleaseTag) {
-		return "", nil, errors.New("source asset fetch requires a vMAJOR.MINOR.PATCH release tag")
+		return errors.New("source asset fetch requires a vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N release tag")
 	}
 	if !commitPattern.MatchString(options.ReleaseCommit) {
-		return "", nil, errors.New("source asset fetch requires a lowercase 40-character release commit")
+		return errors.New("source asset fetch requires a lowercase 40-character release commit")
 	}
 
 	checksum := expectations[checksumManifestName]
 	checksumBody, err := readRegularFile(root, checksum.localPath, maximumChecksumBytes)
 	if err != nil {
-		return "", nil, fmt.Errorf("read source checksum shape: %w", err)
+		return fmt.Errorf("read source checksum shape: %w", err)
 	}
 	checksumAddition := len(strings.Repeat("0", 64) + "  " + ociManifestName + "\n")
 	if !bytes.HasSuffix(checksumBody, []byte("\n")) {
@@ -214,7 +220,7 @@ func buildRemoteAssetExpectations(options FetchAssetsOptions) (string, map[strin
 	checksum.size += int64(checksumAddition)
 	checksum.digest = ""
 	if checksum.size > maximumChecksumBytes {
-		return "", nil, errors.New("final publication SHA256SUMS would exceed its byte limit")
+		return errors.New("final publication SHA256SUMS would exceed its byte limit")
 	}
 	expectations[checksumManifestName] = checksum
 
@@ -228,17 +234,52 @@ func buildRemoteAssetExpectations(options FetchAssetsOptions) (string, map[strin
 		Fixture019Digest: "sha256:" + strings.Repeat("3", 64),
 	})
 	if err != nil {
-		return "", nil, fmt.Errorf("derive expected OCI manifest shape: %w", err)
+		return fmt.Errorf("derive expected OCI manifest shape: %w", err)
 	}
 	body, err := ocimanifest.Marshal(manifest)
 	if err != nil {
-		return "", nil, fmt.Errorf("encode expected OCI manifest shape: %w", err)
+		return fmt.Errorf("encode expected OCI manifest shape: %w", err)
 	}
 	expectations[ociManifestName] = expectedRemoteAsset{
 		name: ociManifestName,
 		size: int64(len(body)),
 	}
-	return root, expectations, nil
+	// A remote signature is nondeterministic. Bound it before download, then
+	// require the workflow to verify its identity and signed checksum bytes.
+	expectations[checksumBundleName] = expectedRemoteAsset{
+		name:        checksumBundleName,
+		size:        maximumChecksumBundleBytes,
+		maximumSize: maximumChecksumBundleBytes,
+	}
+	return nil
+}
+
+func localAssetExpectations(root string, names []string) (map[string]expectedRemoteAsset, error) {
+	expectations := make(map[string]expectedRemoteAsset, len(names)+1)
+	for _, name := range names {
+		path := filepath.Join(root, name)
+		maximumBytes := int64(maximumReleaseFileSize)
+		if name == checksumManifestName {
+			maximumBytes = maximumChecksumBytes
+		}
+		information, err := validateRegularPath(root, path, maximumBytes)
+		if err != nil {
+			return nil, fmt.Errorf("inspect expected release asset %s: %w", name, err)
+		}
+		digest, err := digestRegularFile(root, path, maximumBytes)
+		if err != nil {
+			return nil, fmt.Errorf("hash expected release asset %s: %w", name, err)
+		}
+		expectations[name] = expectedRemoteAsset{
+			name:         name,
+			size:         information.Size(),
+			digest:       digest,
+			localPath:    path,
+			localDigest:  digest,
+			localInitial: information,
+		}
+	}
+	return expectations, nil
 }
 
 func placeholderRepository(repository string) string {
@@ -268,35 +309,9 @@ func listBoundedReleaseAssets(
 			if len(assets) >= maximumReleaseAttachments {
 				return nil, errors.New("remote release exceeds the 128-attachment bound")
 			}
-			if asset.ID <= 0 {
-				return nil, errors.New("remote release asset has a nonpositive ID")
+			if err := validateRemoteAssetMetadata(asset, expectations, seenIDs, seenNames); err != nil {
+				return nil, err
 			}
-			if _, exists := seenIDs[asset.ID]; exists {
-				return nil, fmt.Errorf("remote release contains duplicate asset ID %d", asset.ID)
-			}
-			if !assetNamePattern.MatchString(asset.Name) {
-				return nil, fmt.Errorf("remote release contains unsafe asset name %s", valueOrMissing(asset.Name))
-			}
-			if _, exists := seenNames[asset.Name]; exists {
-				return nil, fmt.Errorf("remote release contains duplicate asset name %s", asset.Name)
-			}
-			expected, exists := expectations[asset.Name]
-			if !exists {
-				return nil, fmt.Errorf("remote release contains unexpected asset %s", asset.Name)
-			}
-			if asset.State != "uploaded" {
-				return nil, fmt.Errorf("remote release asset %s is not uploaded", asset.Name)
-			}
-			if asset.Size < 0 || asset.Size != expected.size {
-				return nil, fmt.Errorf(
-					"remote release asset %s reports size %d, expected %d",
-					asset.Name,
-					asset.Size,
-					expected.size,
-				)
-			}
-			seenIDs[asset.ID] = struct{}{}
-			seenNames[asset.Name] = struct{}{}
 			assets = append(assets, asset)
 		}
 		if len(pageAssets) < maximumReleaseAssetPageSize {
@@ -304,6 +319,43 @@ func listBoundedReleaseAssets(
 		}
 	}
 	return assets, nil
+}
+
+func validateRemoteAssetMetadata(asset RemoteReleaseAsset, expectations map[string]expectedRemoteAsset, seenIDs map[int64]struct{}, seenNames map[string]struct{}) error {
+	if asset.ID <= 0 {
+		return errors.New("remote release asset has a nonpositive ID")
+	}
+	if _, exists := seenIDs[asset.ID]; exists {
+		return fmt.Errorf("remote release contains duplicate asset ID %d", asset.ID)
+	}
+	if !assetNamePattern.MatchString(asset.Name) {
+		return fmt.Errorf("remote release contains unsafe asset name %s", valueOrMissing(asset.Name))
+	}
+	if _, exists := seenNames[asset.Name]; exists {
+		return fmt.Errorf("remote release contains duplicate asset name %s", asset.Name)
+	}
+	expected, exists := expectations[asset.Name]
+	if !exists {
+		return fmt.Errorf("remote release contains unexpected asset %s", asset.Name)
+	}
+	if asset.State != "uploaded" {
+		return fmt.Errorf("remote release asset %s is not uploaded", asset.Name)
+	}
+	if expected.maximumSize > 0 && asset.Size > 0 && asset.Size <= expected.maximumSize {
+		expected.size = asset.Size
+		expectations[asset.Name] = expected
+	}
+	if asset.Size < 0 || asset.Size != expected.size || (expected.maximumSize > 0 && asset.Size == 0) {
+		return fmt.Errorf(
+			"remote release asset %s reports size %d, expected %d",
+			asset.Name,
+			asset.Size,
+			expected.size,
+		)
+	}
+	seenIDs[asset.ID] = struct{}{}
+	seenNames[asset.Name] = struct{}{}
+	return nil
 }
 
 func revalidateExpectedAssets(root string, expectations map[string]expectedRemoteAsset) error {
@@ -354,7 +406,7 @@ func createExclusiveOutputDirectory(output, expectedRoot string) (string, os.Fil
 		(relative == "." || (relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)))) {
 		return "", nil, errors.New("release asset output directory must be outside the expected asset root")
 	}
-	if _, err := os.Lstat(absolute); !errors.Is(err, os.ErrNotExist) {
+	if _, err := fileidentity.Lstat(absolute); !errors.Is(err, os.ErrNotExist) {
 		if err == nil {
 			return "", nil, errors.New("release asset output directory already exists")
 		}
@@ -363,10 +415,9 @@ func createExclusiveOutputDirectory(output, expectedRoot string) (string, os.Fil
 	if err := os.Mkdir(absolute, 0o700); err != nil {
 		return "", nil, fmt.Errorf("create release asset output directory: %w", err)
 	}
-	information, err := os.Lstat(absolute)
+	information, err := fileidentity.Lstat(absolute)
 	if err != nil || !information.IsDir() || information.Mode()&os.ModeSymlink != 0 {
-		_ = os.Remove(absolute)
-		return "", nil, errors.New("release asset output must be a real directory")
+		return "", nil, errors.Join(errors.New("release asset output must be a real directory"), os.Remove(absolute))
 	}
 	return absolute, information, nil
 }
@@ -377,17 +428,19 @@ func downloadReleaseAsset(
 	asset RemoteReleaseAsset,
 	expected expectedRemoteAsset,
 	client ReleaseAssetClient,
-) error {
+) (resultErr error) {
 	temporary, err := os.CreateTemp(outputRoot, ".20w-release-asset-")
 	if err != nil {
 		return fmt.Errorf("create temporary release asset %s: %w", asset.Name, err)
 	}
 	temporaryPath := temporary.Name()
-	keepTemporary := true
+	closed := false
 	defer func() {
-		_ = temporary.Close()
-		if keepTemporary {
-			_ = os.Remove(temporaryPath)
+		if !closed {
+			resultErr = errors.Join(resultErr, temporary.Close())
+		}
+		if err := os.Remove(temporaryPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			resultErr = errors.Join(resultErr, fmt.Errorf("remove temporary asset: %w", err))
 		}
 	}()
 	writer := &boundedAssetWriter{
@@ -412,6 +465,11 @@ func downloadReleaseAsset(
 	if expected.digest != "" && hex.EncodeToString(writer.hash.Sum(nil)) != expected.digest {
 		return fmt.Errorf("downloaded release asset %s does not match the expected local digest", asset.Name)
 	}
+	return publishDownloadedAsset(temporary, outputRoot, asset, expected, &closed)
+}
+
+func publishDownloadedAsset(temporary *os.File, outputRoot string, asset RemoteReleaseAsset, expected expectedRemoteAsset, closed *bool) error {
+	temporaryPath := temporary.Name()
 	if err := temporary.Sync(); err != nil {
 		return fmt.Errorf("synchronize release asset %s: %w", asset.Name, err)
 	}
@@ -419,6 +477,7 @@ func downloadReleaseAsset(
 	if err != nil || !information.Mode().IsRegular() || information.Size() != expected.size {
 		return fmt.Errorf("temporary release asset %s is not the expected regular file", asset.Name)
 	}
+	*closed = true
 	if err := temporary.Close(); err != nil {
 		return fmt.Errorf("close release asset %s: %w", asset.Name, err)
 	}
@@ -426,7 +485,7 @@ func downloadReleaseAsset(
 	if err := os.Link(temporaryPath, destination); err != nil {
 		return fmt.Errorf("publish downloaded release asset %s without replacement: %w", asset.Name, err)
 	}
-	destinationInformation, err := os.Lstat(destination)
+	destinationInformation, err := fileidentity.Lstat(destination)
 	if err != nil || !destinationInformation.Mode().IsRegular() || destinationInformation.Mode()&os.ModeSymlink != 0 ||
 		!os.SameFile(information, destinationInformation) || destinationInformation.Size() != expected.size {
 		return fmt.Errorf("published release asset %s is not the verified temporary file", asset.Name)
@@ -434,7 +493,6 @@ func downloadReleaseAsset(
 	if err := os.Remove(temporaryPath); err != nil {
 		return fmt.Errorf("remove temporary release asset %s: %w", asset.Name, err)
 	}
-	keepTemporary = false
 	return nil
 }
 
@@ -462,7 +520,9 @@ func (writer *boundedAssetWriter) Write(body []byte) (int, error) {
 	}
 	written, err := writer.file.Write(body)
 	if written > 0 {
-		_, _ = writer.hash.Write(body[:written])
+		if _, hashErr := writer.hash.Write(body[:written]); hashErr != nil {
+			return written, fmt.Errorf("hash downloaded release asset: %w", hashErr)
+		}
 		writer.written += int64(written)
 	}
 	if err != nil {

@@ -46,6 +46,7 @@
         "package-lock.json",
         "package.json",
         "requirements-ci.txt",
+        "research/ingest/owners.json",
         "scripts/AGENTS.md",
         "scripts/audit-code-shape.mjs",
         "scripts/audit-code-shape.test.mjs",
@@ -70,6 +71,10 @@
         "scripts/lib/strict-json.mjs",
         "scripts/lib/workstation-manifests.mjs",
         "scripts/npm-runtime-lock.json",
+        "scripts/research-watch-ingest.mjs",
+        "scripts/research-watch-ingest.test.mjs",
+        "scripts/research-watch-publish.mjs",
+        "scripts/research-watch-publish.test.mjs",
         "scripts/validate-engineering-policy.mjs",
         "scripts/validate-node-runtime.mjs",
         "scripts/validate-topics.mjs",
@@ -85,6 +90,15 @@
         "tooling/internal/strictjson/**",
         "tooling/internal/workstationrunner/**",
         "topics.json"
+      ],
+      "lanes": [
+        "full"
+      ]
+    },
+    {
+      "id": "global-file-identity",
+      "paths": [
+        "tooling/internal/fileidentity/**"
       ],
       "lanes": [
         "full"
@@ -135,6 +149,15 @@
       ]
     },
     {
+      "id": "global-subprocess",
+      "paths": [
+        "tooling/internal/boundedexec/**"
+      ],
+      "lanes": [
+        "full"
+      ]
+    },
+    {
       "id": "go-build",
       "paths": [
         "tooling/cmd/build-release/**"
@@ -165,6 +188,7 @@
         "tooling/internal/clrsinsertion/**",
         "tooling/internal/clrskmp/**",
         "tooling/internal/clrsmatrixchain/**",
+        "tooling/internal/clrsprompt/**",
         "tooling/internal/clrssegments/**",
         "tooling/internal/specialistcontrol/**"
       ],
@@ -224,6 +248,17 @@
       ],
       "lanes": [
         "go"
+      ]
+    },
+    {
+      "id": "go-path-validation",
+      "paths": [
+        "tooling/internal/relpath/**"
+      ],
+      "lanes": [
+        "container",
+        "go",
+        "release"
       ]
     },
     {
@@ -355,6 +390,17 @@
       ]
     },
     {
+      "id": "script-host-deadline-tests",
+      "paths": [
+        "scripts/lib/host-test-deadline.mjs",
+        "scripts/lib/host-test-deadline.test.mjs"
+      ],
+      "lanes": [
+        "site",
+        "workstation-fixture-026"
+      ]
+    },
+    {
       "id": "script-math",
       "paths": [
         "scripts/lib/math-markdown.mjs",
@@ -409,6 +455,8 @@
         "scripts/css-authority.test.mjs",
         "scripts/github-pages.test.mjs",
         "scripts/language-access.test.mjs",
+        "scripts/lib/browser-wait.mjs",
+        "scripts/lib/browser-wait.test.mjs",
         "scripts/mermaid-browser.test.mjs",
         "scripts/pages-base.test.mjs",
         "scripts/pages-seo.test.mjs",

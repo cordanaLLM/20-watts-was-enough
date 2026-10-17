@@ -5,6 +5,8 @@
 - **Audit date:** 2026-08-29
 - **Cross-project update:** 2026-08-30; exact public source snapshots from
   `VMAFx/vmafx` and `VMAFx/pelorus`
+- **Source-drift recheck:** 2026-09-04; exact public source snapshots from
+  `VMAFx/vmafx` and `VMAFx/pelorus`; no donor tests were rerun
 - **Status:** bounded research note; no architecture decision, result, or
   performance claim
 - **Trigger:** a maintainer-supplied image suggested using Howard Gardner's
@@ -102,7 +104,13 @@ boundary.
 | Capacity-matched general model | Tests whether explicit specialists are needed at all. It receives the same admissible tools, external state, examples, tuning allowance, and outcome information. |
 | Tuned sparse mixture of experts | Tests whether learned conditional routing inside one model explains the result without a separate task-level controller. Total stored capacity, active work, routing information, and hardware opportunity are matched. |
 | Typed specialists with an explicit controller | The held hypothesis. Expert boundaries come from task contracts and demonstrated causal contribution, not the eight category names. |
+| Static typed dispatcher over the same specialist pool | A future protocol null that separates the value of typed interfaces and specialist inventory from adaptive route selection. It receives the same specialists, requests, verifier, resource ceiling, and route information, but follows a frozen task-to-specialist table or cascade. |
+| Offline oracle route bound | A future protocol ceiling that selects the least-cost accepted route with outcome hindsight over the same specialist pool and accepted-task boundary. It is not deployable and receives no architecture credit; it bounds how much any learned or hand-written router could recover from that pool. |
 | Coverage-prompt ablation | Uses the same controller and resource ceiling, with and without Gardner's list during task-suite and gap-review design. This tests only whether the list reveals missed tasks; it receives no architectural credit. |
+
+The static dispatcher and oracle are requirements for a later claim-eligible
+protocol, not implemented arms or results. Neither creates a claim, candidate,
+or decision in this audit.
 
 The comparison charges controller and router work, serialization, repeated
 context, communication, memory traffic, cold starts, idle resident capacity,
@@ -180,21 +188,21 @@ specialist comparison wins.
 
 Two maintainer-related repositories make the proposed composition more
 concrete without validating it. They were inspected at exact public commits:
-[`VMAFx/vmafx@d6cb877`](https://github.com/VMAFx/vmafx/tree/d6cb87711b5883b55af07b9473db150ac8d4c6c0)
+[`VMAFx/vmafx@87de696`](https://github.com/VMAFx/vmafx/tree/87de696298945da7e19ecaf7ae4f22effb48160f)
 and
-[`VMAFx/pelorus@9724133`](https://github.com/VMAFx/pelorus/tree/9724133530561a71960b091ebbb29283472ab8d5).
+[`VMAFx/pelorus@93bef12`](https://github.com/VMAFx/pelorus/tree/93bef1206d68d9e09024c08a12732fb8e77b9b16).
 Both repositories state BSD-2-Clause-Patent for their own core code. Individual
 VMAFx model-registry entries retain model-specific licences, and no code,
 weights, data, or benchmark output is imported here.
 
 | Source observation | Engineering translation for this arm | Boundary retained here |
 | --- | --- | --- |
-| The VMAFx [Tiny-AI surface](https://github.com/VMAFx/vmafx/blob/d6cb87711b5883b55af07b9473db150ac8d4c6c0/README.md#tiny-ai) and [model registry](https://github.com/VMAFx/vmafx/blob/d6cb87711b5883b55af07b9473db150ac8d4c6c0/model/tiny/registry.json) expose typed full-reference regressors, no-reference metrics, learned filters, saliency models, scene detectors, and explicit smoke-only artifacts through one ONNX-backed runtime. Registry records distinguish kind, licence, digest, quantisation, and smoke status. | A specialist pool need not be a set of language models. Small estimators, filters, solvers, and conventional programs can share one typed invocation and provenance boundary while retaining task-specific semantics. | This is a domain implementation, not a controller comparison. A common runtime and registry do not show that routing among the registered components improves any complete system frontier. |
-| VMAFx's implemented Go [scheduler](https://github.com/VMAFx/vmafx/blob/d6cb87711b5883b55af07b9473db150ac8d4c6c0/cmd/vmafx-controller/scheduler/scheduler.go#L4-L69) selects queued work by worker capability and backend. Its separate Go [`pkg/ai` inference path](https://github.com/VMAFx/vmafx/blob/d6cb87711b5883b55af07b9473db150ac8d4c6c0/pkg/ai/infer.go#L92-L178) requires a `vmafx-ort-runner` that the repository does not build, while the direct CGO path remains a stub. | Resource and backend admission can be reused as one controller layer without being mistaken for semantic expert arbitration. Executable Go specialists need an independently built, tested, and identity-bound inference adapter before entering a comparison arm. | The repository does not currently provide a complete Go tiny-model execution and semantic-routing system. The C/C++ Tiny-AI surface, Go queue scheduler, and proposed Pelorus content router are distinct implementation states. |
-| The VMAFx [v3](https://github.com/VMAFx/vmafx/blob/d6cb87711b5883b55af07b9473db150ac8d4c6c0/docs/ai/models/vmaf_tiny_v3.md) and [v4](https://github.com/VMAFx/vmafx/blob/d6cb87711b5883b55af07b9473db150ac8d4c6c0/docs/ai/models/vmaf_tiny_v4.md) cards report a capacity ladder from 257 to 769 to 3,073 parameters. The repository keeps the smallest v2 model as its default and records v4 as an opt-in saturation point rather than promoting the largest model automatically. | Freeze a strong smallest-model null, measure marginal gain per added capacity and runtime cost, and stop expanding a specialist when the held-out gain saturates. | The values are repository-reported video-quality evaluations that were not reproduced for this audit. They approximate a teacher metric from pre-extracted features and do not establish general reasoning, energy, or controller performance. |
-| VMAFx [ADR-0660](https://github.com/VMAFx/vmafx/blob/d6cb87711b5883b55af07b9473db150ac8d4c6c0/docs/adr/0660-tiny-ai-disabled-runtime-gate.md) gives every Tiny-AI extractor one shared `-ENOSYS` result when the optional DNN runtime is unavailable, before probing a model path. | Availability, unsupported capability, invalid input, uncertainty, and task abstention should remain distinct typed outcomes. A controller can route or stop on those states without asking a language model to reinterpret an error string. | One C API failure-order contract is an implementation lead, not evidence that the proposed end-to-end abstention policy is calibrated or safe. |
-| Pelorus [ADR-0142](https://github.com/VMAFx/pelorus/blob/9724133530561a71960b091ebbb29283472ab8d5/docs/adr/0142-tune-auto-content-router.md) proposes a per-shot, hysteretic controller over measured video features. It would select a content-specific reductive filter configuration or a clean-content `NO-OP` route. Each route must be admitted on a held-out clip before entering the table. | This is a direct non-language-controller analogue: typed sensors feed an explicit route table; bounded executors perform specialized work; doing nothing is a first-class action; and route-specific evidence controls admission. | The ADR is still **Proposed**. At the inspected commit it says the first grain-sigma metadata enabler shipped while the remaining detectors, route legs, and router are follow-up work. It cannot be cited as a completed controller or measured whole-system win. |
-| Pelorus [ADR-0111](https://github.com/VMAFx/pelorus/blob/9724133530561a71960b091ebbb29283472ab8d5/docs/adr/0111-benchmark-methodology.md) requires the same encoder in both arms, clean-reference scoring for restoration, pinned inputs, bounded scoring, and a metric matched to the impairment. Its benchmark record also preserves negative and stand-in results. | Route admission must bind task intent, comparator, reference, metric, and implementation identity. A specialist is not retained because a convenient proxy improves or because a related algorithm class worked. | These rules are a useful experiment pattern, but the reported video results do not measure the proposed AI controller, total lifecycle energy, or generalize outside their codec, content, hardware, and reference assumptions. |
+| The VMAFx [Tiny-AI surface](https://github.com/VMAFx/vmafx/blob/87de696298945da7e19ecaf7ae4f22effb48160f/README.md#tiny-ai) and [model registry](https://github.com/VMAFx/vmafx/blob/87de696298945da7e19ecaf7ae4f22effb48160f/model/tiny/registry.json) expose typed full-reference regressors, no-reference metrics, learned filters, saliency models, scene detectors, and explicit smoke-only artifacts through one ONNX-backed runtime. Registry records distinguish kind, licence, digest, quantisation, and smoke status. | A specialist pool need not be a set of language models. Small estimators, filters, solvers, and conventional programs can share one typed invocation and provenance boundary while retaining task-specific semantics. | This is a domain implementation, not a controller comparison. A common runtime and registry do not show that routing among the registered components improves any complete system frontier. |
+| VMAFx's implemented Go [scheduler](https://github.com/VMAFx/vmafx/blob/87de696298945da7e19ecaf7ae4f22effb48160f/cmd/vmafx-controller/scheduler/scheduler.go#L4-L69) selects queued work by worker capability and backend. Its separate Go [`pkg/ai` inference path](https://github.com/VMAFx/vmafx/blob/87de696298945da7e19ecaf7ae4f22effb48160f/pkg/ai/infer.go#L93-L191) now invokes the in-tree [`vmafx-ort-runner`](https://github.com/VMAFx/vmafx/blob/87de696298945da7e19ecaf7ae4f22effb48160f/cmd/vmafx-ort-runner/main.go#L4-L167), a cgo shim over libvmaf's DNN session with a typed JSON process boundary. [ADR-1134](https://github.com/VMAFx/vmafx/blob/87de696298945da7e19ecaf7ae4f22effb48160f/docs/adr/1134-vmafx-ort-runner-in-tree.md#L55-L74) binds its Go, Make, development-container and CI build paths; caller context or a five-minute fallback deadline bounds each invocation. The direct CGO path remains a stub. | Resource and backend admission can be reused as one controller layer without being mistaken for semantic expert arbitration. The closed execution seam supplies an in-tree, identity-bound adapter pattern for executable Go specialists. | The source recheck did not rerun VMAFx's tests or containers. The runner repairs one execution boundary; it does not supply semantic expert routing, validate the whole specialist composition, or turn the proposed Pelorus router into implemented evidence. |
+| The VMAFx [v3](https://github.com/VMAFx/vmafx/blob/87de696298945da7e19ecaf7ae4f22effb48160f/docs/ai/models/vmaf_tiny_v3.md) and [v4](https://github.com/VMAFx/vmafx/blob/87de696298945da7e19ecaf7ae4f22effb48160f/docs/ai/models/vmaf_tiny_v4.md) cards report a capacity ladder from 257 to 769 to 3,073 parameters. The repository keeps the smallest v2 model as its default and records v4 as an opt-in saturation point rather than promoting the largest model automatically. | Freeze a strong smallest-model null, measure marginal gain per added capacity and runtime cost, and stop expanding a specialist when the held-out gain saturates. | The values are repository-reported video-quality evaluations that were not reproduced for this audit. They approximate a teacher metric from pre-extracted features and do not establish general reasoning, energy, or controller performance. |
+| VMAFx [ADR-0660](https://github.com/VMAFx/vmafx/blob/87de696298945da7e19ecaf7ae4f22effb48160f/docs/adr/0660-tiny-ai-disabled-runtime-gate.md) gives every Tiny-AI extractor one shared `-ENOSYS` result when the optional DNN runtime is unavailable, before probing a model path. | Availability, unsupported capability, invalid input, uncertainty, and task abstention should remain distinct typed outcomes. A controller can route or stop on those states without asking a language model to reinterpret an error string. | One C API failure-order contract is an implementation lead, not evidence that the proposed end-to-end abstention policy is calibrated or safe. |
+| Pelorus [ADR-0142](https://github.com/VMAFx/pelorus/blob/93bef1206d68d9e09024c08a12732fb8e77b9b16/docs/adr/0142-tune-auto-content-router.md) proposes a per-shot, hysteretic controller over measured video features. It would select a content-specific reductive filter configuration or a clean-content `NO-OP` route. Each route must be admitted on a held-out clip before entering the table. | This is a direct non-language-controller analogue: typed sensors feed an explicit route table; bounded executors perform specialized work; doing nothing is a first-class action; and route-specific evidence controls admission. | The ADR is still **Proposed**. Its bytes are unchanged from the 2026-08-30 snapshot: the first grain-sigma metadata enabler shipped while the remaining detectors, route legs, and router are follow-up work. It cannot be cited as a completed controller or measured whole-system win. |
+| Pelorus [ADR-0111](https://github.com/VMAFx/pelorus/blob/93bef1206d68d9e09024c08a12732fb8e77b9b16/docs/adr/0111-benchmark-methodology.md) requires the same encoder in both arms, clean-reference scoring for restoration, pinned inputs, bounded scoring, and a metric matched to the impairment. Its benchmark record also preserves negative and stand-in results. | Route admission must bind task intent, comparator, reference, metric, and implementation identity. A specialist is not retained because a convenient proxy improves or because a related algorithm class worked. | These rules are a useful experiment pattern, but the reported video results do not measure the proposed AI controller, total lifecycle energy, or generalize outside their codec, content, hardware, and reference assumptions. |
 
 The most useful applied follow-up is therefore not to relabel the VMAFx models
 as a complete artificial brain. It is a separate video-domain shakedown in
@@ -217,15 +225,18 @@ re-audited before an executable protocol imports anything.
 
 ### Process disclosure for the cross-project update
 
-`@lusoris` supplied the source lead, research direction, and owns or maintains
-the source repositories as well as this project. They are therefore
-related-party engineering sources, not independent confirmation. OpenAI Codex
-inspected the public repositories and drafted this update on 2026-08-30. No
-model, dataset, benchmark artifact, private repository state, or donated
-compute was used; the reported experiments were not rerun. No independent
-scientific, statistical, video-quality, energy, or code review is recorded.
-The update is limited to source-bound architecture and experiment leads and
-does not promote a claim.
+`@lusoris` supplied the source lead and research direction, owns or maintains
+the source repositories as well as this project, and is the accountable
+approver for any released update. They are therefore related-party engineering
+sources, not independent confirmation. OpenAI Codex inspected the public
+repositories and drafted the original update on 2026-08-30, then used the
+GitHub API to recheck the exact
+public source commits and draft the source-drift correction on 2026-09-04. No
+model, dataset, benchmark artifact, private repository state, donated compute,
+or live cluster access was used; the reported experiments were not rerun. No
+independent scientific, statistical, video-quality, energy, or code review is
+recorded. The update is limited to source-bound architecture and experiment
+leads and does not promote a claim.
 
 ## Decisions required before an experiment exists
 

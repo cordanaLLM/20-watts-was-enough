@@ -49,7 +49,7 @@ type installedDependencySnapshot struct {
 }
 
 func bindInstalledDependencies(ctx context.Context, configuration Configuration) (Configuration, error) {
-	digest, err := inspectInstalledDependencies(ctx, configuration.RepositoryRoot)
+	digest, err := inspectConfigurationDependencies(ctx, configuration)
 	if err != nil {
 		return Configuration{}, err
 	}
@@ -61,7 +61,7 @@ func checkInstalledDependencies(ctx context.Context, configuration Configuration
 	if configuration.installedDependenciesSHA256 == "" {
 		return errors.New("PDF installed dependencies were not bound before rendering")
 	}
-	digest, err := inspectInstalledDependencies(ctx, configuration.RepositoryRoot)
+	digest, err := inspectConfigurationDependencies(ctx, configuration)
 	if err != nil {
 		return err
 	}
@@ -220,21 +220,134 @@ func compareInstalledInventory(declared, installed dependencyLock, paths []strin
 			return fmt.Errorf("hidden lock names missing installed package %s", relative)
 		}
 	}
+	return requireRendererDependencies(declared, actual)
+}
+
+// npm names amd64 "x64" and Debian bookworm uses glibc. Keep this independent
+// of the host: the renderer lock admits only linux/amd64 bookworm images.
+const rendererDependencyPlatform = "linux/x64/glibc"
+
+const maximumMissingDependencyPaths = 5
+
+type dependencyPlatform struct {
+	OS   []string `json:"os"`
+	CPU  []string `json:"cpu"`
+	Libc []string `json:"libc"`
+}
+
+type missingRendererDependencies struct {
+	paths []string
+	count int
+}
+
+func (missing *missingRendererDependencies) Error() string {
+	return fmt.Sprintf("required installed package(s) missing for renderer %s: %s (%d total); host tree was installed for another platform or omitted renderer dependencies",
+		rendererDependencyPlatform, strings.Join(missing.paths, ", "), missing.count)
+}
+
+func requireRendererDependencies(declared dependencyLock, actual map[string]bool) error {
+	missing := &missingRendererDependencies{paths: make([]string, 0, maximumMissingDependencyPaths)}
+	// readLock bounds the inventory to maximumInstalledPackages+1 records.
 	for _, relative := range sortedDependencyKeys(declared.Packages) {
 		if relative == "" || actual[relative] {
 			continue
 		}
-		metadata, err := parseDependencyPackage(declared.Packages[relative])
+		required, err := rendererPackageRequired(declared, relative)
 		if err != nil {
 			return err
 		}
-		// npm propagates optional:true into omitted platform-package subtrees.
-		// Do not require the 52 other-platform records in this repository's lock.
-		if !metadata.Optional {
-			return fmt.Errorf("required installed package is missing: %s", relative)
+		if !required {
+			continue
+		}
+		missing.count++
+		if len(missing.paths) < maximumMissingDependencyPaths {
+			missing.paths = append(missing.paths, relative)
 		}
 	}
+	if missing.count > 0 {
+		return missing
+	}
 	return nil
+}
+
+// Bundled and nested children also inherit their containing package's platform
+// exclusions (for example the lock's wasm32-only oxide archive).
+func rendererPackageRequired(declared dependencyLock, relative string) (bool, error) {
+	target := strings.Split(rendererDependencyPlatform, "/")
+	for depth := 0; depth < maximumDependencyPathDepth; depth++ {
+		if body := declared.Packages[relative]; body != nil {
+			var platform dependencyPlatform
+			if err := json.Unmarshal(body, &platform); err != nil {
+				return false, fmt.Errorf("decode package-lock.json platform constraints for %s: %w", relative, err)
+			}
+			if !admitsDependencyTarget(platform.OS, target[0]) ||
+				!admitsDependencyTarget(platform.CPU, target[1]) ||
+				!admitsDependencyTarget(platform.Libc, target[2]) {
+				return false, nil
+			}
+		}
+		boundary := strings.LastIndex(relative, "/node_modules/")
+		if boundary < 0 {
+			return true, nil
+		}
+		relative = relative[:boundary]
+	}
+	return false, errors.New("renderer package ancestry exceeds dependency path depth bound")
+}
+
+func admitsDependencyTarget(constraints []string, target string) bool {
+	if len(constraints) == 1 && constraints[0] == "any" {
+		return true
+	}
+	positives, matched := 0, false
+	// Constraint entries are bounded by maximumDependencyLockBytes at readLock.
+	for _, value := range constraints {
+		if strings.HasPrefix(value, "!") {
+			if value[1:] == target {
+				return false
+			}
+		} else {
+			positives++
+			matched = matched || value == target
+		}
+	}
+	return positives == 0 || matched
+}
+
+func inspectConfigurationDependencies(ctx context.Context, configuration Configuration) (string, error) {
+	digest, err := inspectInstalledDependencies(ctx, configuration.RepositoryRoot)
+	var missing *missingRendererDependencies
+	if !errors.As(err, &missing) {
+		return digest, err
+	}
+	repair, repairError := rendererDependencyRepair(configuration)
+	if repairError != nil {
+		return "", errors.Join(err, repairError)
+	}
+	return "", fmt.Errorf("%w; %s", err, repair)
+}
+
+func rendererDependencyRepair(configuration Configuration) (string, error) {
+	const relative = "scripts/npm-runtime-lock.json"
+	body, err := readRegularBounded(configuration.RepositoryRoot,
+		filepath.Join(configuration.RepositoryRoot, relative), 1024, relative)
+	if err != nil {
+		return "", fmt.Errorf("read pinned npm repair version: %w", err)
+	}
+	if err := strictjson.Validate(body, 2); err != nil {
+		return "", fmt.Errorf("validate pinned npm repair version: %w", err)
+	}
+	var npm struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(body, &npm); err != nil {
+		return "", fmt.Errorf("decode pinned npm repair version: %w", err)
+	}
+	if npm.Version == "" {
+		return "", errors.New("pinned npm repair version is missing")
+	}
+	return fmt.Sprintf(`install a Linux tree with pinned npm %s from the repository root: docker run --rm --platform %s --mount "type=bind,source=$PWD,target=/workspace" --workdir /workspace %s sh -c 'node scripts/install-locked-npm.mjs && npm ci --no-audit'`,
+		npm.Version, configuration.Lock.Platform, configuration.Lock.Node.Image), nil
 }
 
 func (snapshot *installedDependencySnapshot) comparePackage(ctx context.Context, relative string, declared, installed json.RawMessage) error {
