@@ -28,7 +28,10 @@ publishes verified public leads into the repository.
      allow-listed files (`leads.json`, `.watermark`, `runs.jsonl`).
    - Uses GitHub GraphQL `createCommitOnBranch` to create a web-flow signed commit
      directly on branch `research-watch/ingest` without requiring local Git push
-     credentials.
+     credentials. The commit message ends in a `Signed-off-by:` trailer for
+     `user.name` and `user.email` from the checkout's Git configuration; a
+     missing or malformed identity fails closed with exit code `2` before the
+     ingester runs.
    - Creates a pull request against `main` if none exists, or updates the branch
      under an existing open pull request.
 
