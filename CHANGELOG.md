@@ -11,6 +11,10 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Renew the declared-verify npm skip in `scripts/declared-verify-npm.mjs` to
+  2026-10-21 (category B, three days): the engine fix for
+  cordanaLLM/praetor#1385 has not landed, and without the renewal every
+  pre-push gate would fail from 2026-10-19.
 - Citations of the `lusoris/k8s` cluster audit no longer link to that
   repository, which is now private; the audit and the v0.3.0 disclosure keep the
   full commit hashes as plain text and say the source cannot be inspected
