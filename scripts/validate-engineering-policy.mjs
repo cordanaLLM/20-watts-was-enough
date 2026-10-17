@@ -4429,10 +4429,13 @@ export function validateFullCiFanOutCoverageObject(
   ];
 
   for (const [jobName, scriptName] of laneJobs) {
-    const steps = workflow?.jobs?.[jobName]?.steps;
-    const stepRunsScript = Array.isArray(steps) && steps.some(
-      (step) => step?.run?.trim() === `npm run ${scriptName}`,
-    );
+    const job = workflow?.jobs?.[jobName];
+    const steps = Array.isArray(job?.steps) ? job.steps : [];
+    const stepRunsScript = continueOnErrorIsDisabled(job)
+      && unconditionalStepIndex(
+        steps,
+        (step) => step?.run?.trim() === `npm run ${scriptName}`,
+      ) >= 0;
     if (!stepRunsScript) {
       findings.push(`${workflowPath}: ${jobName} must run npm run ${scriptName}`);
     }
@@ -4445,10 +4448,13 @@ export function validateFullCiFanOutCoverageObject(
     }
   }
 
-  const goSteps = workflow?.jobs?.["lane-go"]?.steps;
-  const hasGoTestStep = Array.isArray(goSteps) && goSteps.some(
-    (step) => step?.run?.trim() === goRaceTestCommand,
-  );
+  const goJob = workflow?.jobs?.["lane-go"];
+  const goSteps = Array.isArray(goJob?.steps) ? goJob.steps : [];
+  const hasGoTestStep = continueOnErrorIsDisabled(goJob)
+    && unconditionalStepIndex(
+      goSteps,
+      (step) => step?.run?.trim() === goRaceTestCommand,
+    ) >= 0;
   if (hasGoTestStep) {
     coveredEntries.add("npm run test:go");
   }
@@ -4998,8 +5004,18 @@ function validateCiWorkflowPolicy(workflow, relativePath, lock, findings) {
     "workstation-artifacts",
     relativePath,
   ));
-  findings.push(...validateJavaScriptRuntimeWorkflowObject(workflow, "quality-full", relativePath));
-  findings.push(...validateGoRuntimeWorkflowObject(workflow, "lane-go", relativePath));
+  for (const jobName of [
+    "quality-full",
+    "impact-common",
+    "lane-release",
+    "lane-research",
+    "lane-site",
+  ]) {
+    findings.push(...validateJavaScriptRuntimeWorkflowObject(workflow, jobName, relativePath));
+  }
+  for (const jobName of ["lane-go", "lane-release", "lane-research"]) {
+    findings.push(...validateGoRuntimeWorkflowObject(workflow, jobName, relativePath));
+  }
   findings.push(...validatePDFRendererReproducibilityWorkflowObject(workflow, relativePath));
 }
 
