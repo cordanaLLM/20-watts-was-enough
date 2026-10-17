@@ -21,6 +21,10 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- Third-party notices take the expected Vite and Rolldown identity from
+  `package-lock.json`, and the candidate-010 runtime-identity test takes the
+  expected `es-module-lexer` version from the same lock. A dependency update
+  no longer fails on a hand-kept copy of the version it moves.
 - Segment-intersection orientation no longer fuses multiply-add on arm64, where an exactly collinear case came out as a rounding residue and changed the answer.
 - The CLRS shakedown resolves the running executable's path before its real-directory check, so a test binary below a symlinked temporary directory (macOS) is identified instead of refused.
 - Reject a rooted path without a drive letter and a drive-relative path in the shared relative-path validator, which accepted `/a` on Windows.
