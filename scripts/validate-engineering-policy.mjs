@@ -1001,6 +1001,73 @@ export function validatePagesPublicTransportWorkflowObject(
   return findings;
 }
 
+const pagesRestoreCondition = "${{ always() && needs.deploy.result == 'success' && needs.verify-public-transport.result == 'failure' }}";
+
+function pagesRestoreJobBoundaryIsExact(job) {
+  const permissions = job?.permissions ?? {};
+  return (
+    Array.isArray(job?.needs)
+    && job.needs.length === 2
+    && job.needs.includes("deploy")
+    && job.needs.includes("verify-public-transport")
+    && job?.if === pagesRestoreCondition
+    && job?.environment?.name === "github-pages"
+    && job?.["runs-on"] === "ubuntu-26.04"
+    && job?.["timeout-minutes"] === 10
+    && continueOnErrorIsDisabled(job)
+    && Object.keys(permissions).length === 3
+    && permissions.actions === "read"
+    && permissions.pages === "write"
+    && permissions["id-token"] === "write"
+  );
+}
+
+function pagesRestoreStepsAreExact(steps) {
+  const unbypassed = (step) => step?.if === undefined && continueOnErrorIsDisabled(step);
+  const findIndex = (predicate) => steps.findIndex((step) => unbypassed(step) && predicate(step));
+  const verified = findIndex((step) => step?.id === "verified" && step?.run?.includes("status=success"));
+  const download = findIndex((step) => (
+    step?.uses?.startsWith("actions/download-artifact@")
+    && step?.with?.name === "github-pages"
+    && step?.with?.["run-id"] === "${{ steps.verified.outputs.run-id }}"
+  ));
+  const stage = findIndex((step) => (
+    step?.uses?.startsWith("actions/upload-artifact@")
+    && step?.with?.name === "github-pages-verified"
+    && step?.with?.["if-no-files-found"] === "error"
+  ));
+  const deploy = findIndex((step) => (
+    step?.uses?.startsWith("actions/deploy-pages@")
+    && step?.with?.artifact_name === "github-pages-verified"
+  ));
+  return verified >= 0 && verified < download && download < stage && stage < deploy;
+}
+
+// A deployment that fails public verification must not stay live: the
+// restore job redeploys the artifact of the last verified run, so the build
+// artifact must outlive the gap between two Pages runs.
+export function validatePagesVerifiedRestoreWorkflowObject(
+  workflow,
+  relativePath = ".github/workflows/github-pages.yml",
+) {
+  const findings = [];
+  const upload = (workflow?.jobs?.build?.steps ?? []).find(
+    (step) => step?.uses?.startsWith("actions/upload-pages-artifact@"),
+  );
+  if (upload?.with?.["retention-days"] !== 90) {
+    findings.push(`${relativePath}: Pages must retain the published artifact for 90 days so a failed deployment can be restored`);
+  }
+  const job = workflow?.jobs?.["restore-verified-site"];
+  if (!pagesRestoreJobBoundaryIsExact(job) || !Array.isArray(job?.steps)) {
+    findings.push(`${relativePath}: Pages must restore the last verified site exactly when a deployment fails public verification`);
+    return findings;
+  }
+  if (!pagesRestoreStepsAreExact(job.steps)) {
+    findings.push(`${relativePath}: Pages restore must redeploy the artifact of the last verified run with no failure bypass`);
+  }
+  return findings;
+}
+
 export function validateCiFuzzingWorkflowObject(
   workflow,
   relativePath = ".github/workflows/ci.yml",
@@ -4988,6 +5055,7 @@ function validateWorkflowPolicy(workflow, relativePath, lock, findings) {
       relativePath,
     ));
     findings.push(...validatePagesPublicTransportWorkflowObject(workflow, relativePath));
+    findings.push(...validatePagesVerifiedRestoreWorkflowObject(workflow, relativePath));
   }
   if (relativePath === ".github/workflows/codeql.yml") {
     findings.push(...validateCodeQlImpactWorkflowObject(workflow, relativePath));

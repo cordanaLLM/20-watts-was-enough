@@ -56,6 +56,7 @@ import {
   validateNpmRuntimeLock,
   validatePublicRepositoryRunnerWorkflowObject,
   validatePagesPublicTransportWorkflowObject,
+  validatePagesVerifiedRestoreWorkflowObject,
   validatePDFRendererReproducibilityWorkflowObject,
   validatePullRequestTitleTypeAuthority,
   validatePullRequestMetadataWorkflowObject,
@@ -1180,6 +1181,55 @@ test("Pages verifies the Cloudflare public transport boundary after deployment",
   assert.deepEqual(validatePagesPublicTransportWorkflowObject(unretained), [
     ".github/workflows/github-pages.yml: Pages must retain the bounded public-transport observation for exactly 30 days",
   ]);
+});
+
+test("Pages restores the last verified site when public verification fails", () => {
+  const valid = workflow("github-pages");
+  assert.deepEqual(validatePagesVerifiedRestoreWorkflowObject(valid), []);
+
+  const retention = ".github/workflows/github-pages.yml: Pages must retain the published artifact for 90 days so a failed deployment can be restored";
+  const boundary = ".github/workflows/github-pages.yml: Pages must restore the last verified site exactly when a deployment fails public verification";
+  const steps = ".github/workflows/github-pages.yml: Pages restore must redeploy the artifact of the last verified run with no failure bypass";
+
+  const shortLived = structuredClone(valid);
+  delete shortLived.jobs.build.steps.find(
+    (step) => step.uses?.startsWith("actions/upload-pages-artifact@"),
+  ).with["retention-days"];
+  assert.deepEqual(validatePagesVerifiedRestoreWorkflowObject(shortLived), [retention]);
+
+  for (const mutate of [
+    (job) => { delete job.restore; },
+    (job) => { job.restore.needs = ["deploy"]; },
+    (job) => { job.restore.if = "${{ failure() }}"; },
+    (job) => { job.restore.permissions.contents = "write"; },
+    (job) => { delete job.restore.environment; },
+    (job) => { job.restore["continue-on-error"] = true; },
+  ]) {
+    const broken = structuredClone(valid);
+    const jobs = { restore: broken.jobs["restore-verified-site"] };
+    mutate(jobs);
+    if (jobs.restore) broken.jobs["restore-verified-site"] = jobs.restore;
+    else delete broken.jobs["restore-verified-site"];
+    assert.deepEqual(validatePagesVerifiedRestoreWorkflowObject(broken), [boundary]);
+  }
+
+  for (const mutate of [
+    (restoreSteps) => { restoreSteps.find((step) => step.id === "verified").run = "echo run-id=1"; },
+    (restoreSteps) => {
+      restoreSteps.find((step) => step.uses?.startsWith("actions/download-artifact@")).with["run-id"] = "${{ github.run_id }}";
+    },
+    (restoreSteps) => {
+      restoreSteps.find((step) => step.uses?.startsWith("actions/deploy-pages@")).with.artifact_name = "github-pages";
+    },
+    (restoreSteps) => {
+      restoreSteps.find((step) => step.uses?.startsWith("actions/deploy-pages@"))["continue-on-error"] = true;
+    },
+    (restoreSteps) => { restoreSteps.reverse(); },
+  ]) {
+    const broken = structuredClone(valid);
+    mutate(broken.jobs["restore-verified-site"].steps);
+    assert.deepEqual(validatePagesVerifiedRestoreWorkflowObject(broken), [steps]);
+  }
 });
 
 test("CI runs the strict-JSON fuzzer with explicit time and process bounds", () => {
