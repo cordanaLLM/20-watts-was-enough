@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsfixture"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
@@ -55,7 +56,7 @@ func openDirectory(path string) (*os.Root, error) {
 			continue
 		}
 		current = filepath.Join(current, component)
-		info, err := os.Lstat(current)
+		info, err := fileidentity.Lstat(current)
 		if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 			return nil, fmt.Errorf("shakedown requires a real directory: %s", current)
 		}
@@ -174,7 +175,7 @@ func checkBundleRoot(root *os.Root) error {
 	if err != nil {
 		return err
 	}
-	named, err := os.Lstat(root.Name())
+	named, err := fileidentity.Lstat(root.Name())
 	if err != nil || !named.IsDir() || named.Mode()&os.ModeSymlink != 0 || !os.SameFile(opened, named) {
 		return errors.New("shakedown output root changed during use")
 	}

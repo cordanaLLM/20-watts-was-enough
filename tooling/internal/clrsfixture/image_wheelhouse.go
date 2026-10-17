@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
@@ -613,11 +614,11 @@ func writeNewGeneratorWheelhouseManifestWithInterlock(
 	if err != nil || !unchangedGeneratorFile(confirmedState, rootInformation) {
 		return "", 0, errors.New("published CLRS generator wheelhouse manifest is not the expected regular file")
 	}
-	namedParentState, err = os.Lstat(parent)
+	namedParentState, err = fileidentity.Lstat(parent)
 	if err != nil || !sameGeneratorDirectoryIdentity(parentState, namedParentState) {
 		return "", 0, errors.New("CLRS generator wheelhouse manifest output parent changed during creation")
 	}
-	information, err := os.Lstat(absolute)
+	information, err := fileidentity.Lstat(absolute)
 	if err != nil || !information.Mode().IsRegular() || information.Mode()&os.ModeSymlink != 0 ||
 		!os.SameFile(rootInformation, information) || information.Size() != int64(len(body)) {
 		return "", 0, errors.New("published CLRS generator wheelhouse manifest is not the expected regular file")
@@ -787,7 +788,7 @@ func readGeneratorWheelhouseSnapshot(root string, expectedCount int) (generatorW
 	if err != nil || !opened.IsDir() {
 		return generatorWheelhouseSnapshot{}, errors.New("CLRS generator wheelhouse is not a stable directory")
 	}
-	named, err := os.Lstat(root)
+	named, err := fileidentity.Lstat(root)
 	if err != nil || !unchangedGeneratorDirectory(opened, named) {
 		return generatorWheelhouseSnapshot{}, errors.New("CLRS generator wheelhouse changed before it was opened")
 	}
@@ -818,12 +819,9 @@ func readGeneratorWheelhouseSnapshot(root string, expectedCount int) (generatorW
 		if entry.IsDir() || entry.Type()&os.ModeSymlink != 0 || !validGeneratorWheelFilename(entry.Name()) {
 			return generatorWheelhouseSnapshot{}, fmt.Errorf("CLRS generator wheelhouse entry %q is not one regular wheel", entry.Name())
 		}
-		information, inspectErr := os.Lstat(filepath.Join(root, entry.Name()))
-		// On Windows, Lstat keeps only the path and os.SameFile loads the file
-		// identity on first use; comparing the entry with itself pins it now, so
-		// a later delete and recreate cannot resolve to the replacement.
+		information, inspectErr := fileidentity.Lstat(filepath.Join(root, entry.Name()))
 		if inspectErr != nil || !information.Mode().IsRegular() || information.Mode()&os.ModeSymlink != 0 ||
-			information.Size() <= 0 || !os.SameFile(information, information) {
+			information.Size() <= 0 {
 			return generatorWheelhouseSnapshot{}, fmt.Errorf("CLRS generator wheelhouse entry %q changed before hashing", entry.Name())
 		}
 		snapshot.Entries = append(snapshot.Entries, generatorWheelhouseSnapshotEntry{
@@ -834,7 +832,7 @@ func readGeneratorWheelhouseSnapshot(root string, expectedCount int) (generatorW
 	if err != nil || !unchangedGeneratorDirectory(opened, closed) {
 		return generatorWheelhouseSnapshot{}, errors.New("CLRS generator wheelhouse changed while it was listed")
 	}
-	named, err = os.Lstat(root)
+	named, err = fileidentity.Lstat(root)
 	if err != nil || !unchangedGeneratorDirectory(closed, named) {
 		return generatorWheelhouseSnapshot{}, errors.New("CLRS generator wheelhouse changed while it was listed")
 	}
@@ -879,7 +877,7 @@ func digestGeneratorWheelWithInterlock(
 	expectedSize int64,
 	afterRead func() error,
 ) (string, error) {
-	namedBefore, err := os.Lstat(file)
+	namedBefore, err := fileidentity.Lstat(file)
 	if err != nil || !unchangedGeneratorFile(initial, namedBefore) {
 		return "", errors.New("CLRS generator wheel changed before it was opened")
 	}
@@ -892,7 +890,7 @@ func digestGeneratorWheelWithInterlock(
 	if err != nil || !unchangedGeneratorFile(initial, opened) {
 		return "", errors.New("CLRS generator wheel changed before it was opened")
 	}
-	namedOpened, err := os.Lstat(file)
+	namedOpened, err := fileidentity.Lstat(file)
 	if err != nil || !unchangedGeneratorFile(opened, namedOpened) {
 		return "", errors.New("CLRS generator wheel changed before it was hashed")
 	}
@@ -910,7 +908,7 @@ func digestGeneratorWheelWithInterlock(
 	if err != nil || !unchangedGeneratorFile(opened, final) {
 		return "", errors.New("CLRS generator wheel changed while it was hashed")
 	}
-	namedFinal, err := os.Lstat(file)
+	namedFinal, err := fileidentity.Lstat(file)
 	if err != nil || !unchangedGeneratorFile(final, namedFinal) {
 		return "", errors.New("CLRS generator wheel changed while it was hashed")
 	}

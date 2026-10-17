@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
@@ -187,7 +188,7 @@ func discoverWorkstationTests(root string) ([]string, error) {
 		if relativeToTree != "." && len(strings.Split(filepath.ToSlash(relativeToTree), "/")) > maximumWorkstationTreeDepth {
 			return fmt.Errorf("workstation tree exceeds %d levels", maximumWorkstationTreeDepth)
 		}
-		information, err := entry.Info()
+		information, err := fileidentity.Info(entry)
 		if err != nil {
 			return err
 		}
@@ -341,7 +342,7 @@ func requireRealPath(path string, directory bool) error {
 	if err != nil || !sameCanonicalPath(resolved, clean) {
 		return errors.New("path must not contain symbolic links")
 	}
-	information, err := os.Lstat(clean)
+	information, err := fileidentity.Lstat(clean)
 	if err != nil {
 		return err
 	}
@@ -359,7 +360,7 @@ func readStableBoundedFile(path string, maximumBytes int64) ([]byte, error) {
 	if err := requireRealPath(path, false); err != nil {
 		return nil, err
 	}
-	before, err := os.Lstat(path)
+	before, err := fileidentity.Lstat(path)
 	if err != nil {
 		return nil, err
 	}
@@ -386,7 +387,7 @@ func readStableBoundedFile(path string, maximumBytes int64) ([]byte, error) {
 	if err != nil || !bytes.Equal(body, confirmation) {
 		return nil, errors.New("file changed while it was read")
 	}
-	after, err := os.Lstat(path)
+	after, err := fileidentity.Lstat(path)
 	if err != nil || !after.Mode().IsRegular() || !os.SameFile(opened, after) ||
 		after.Size() != opened.Size() || !after.ModTime().Equal(opened.ModTime()) {
 		return nil, errors.New("file changed while it was read")

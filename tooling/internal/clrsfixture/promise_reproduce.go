@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
@@ -211,7 +212,7 @@ func checkPromiseRootName(root *os.Root) error {
 	if err != nil {
 		return err
 	}
-	named, err := os.Lstat(root.Name())
+	named, err := fileidentity.Lstat(root.Name())
 	if err != nil || !named.IsDir() || named.Mode()&os.ModeSymlink != 0 || !os.SameFile(held, named) {
 		return errors.New("Promise directory name no longer identifies the held root")
 	}

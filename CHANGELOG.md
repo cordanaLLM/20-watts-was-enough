@@ -28,6 +28,7 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- Files that compare file identity with `os.SameFile` read path-based file information through the new `internal/fileidentity` package, which reads the identity at capture. On Windows, `os.Lstat`, `os.Stat` and some directory entries kept only the path, so information taken before a delete and recreate named the replacement and a swapped file passed the check. A Go test refuses a direct capture in such a file.
 - Third-party notices take the expected Vite and Rolldown identity from
   `package-lock.json`, and the candidate-010 runtime-identity test takes the
   expected `es-module-lexer` version from the same lock. A dependency update
