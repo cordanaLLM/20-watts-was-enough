@@ -14,7 +14,8 @@ func TestUsageRetainsExactExperimentFragment(t *testing.T) {
 	Usage(&output)
 	if output.String() != expectedExperimentUsage+"  20w experiment inspect-clrs-image-archive --archive <oci.tar> --sha256 <hex> --bytes <count> [--root <repository>] [--json]\n"+
 		"  20w experiment prepare-clrs-loaded-image --archive <oci.tar> --sha256 <hex> --bytes <count> --output <new-directory> [--root <repository>] [--json]\n"+
-		"  20w experiment run-clrs-shakedown --dataset <directory> --expected-tree <sha256-hex> --output <directory> --run-id <id> (--execute | --check) [--root <repository>] [--json]\n" {
+		"  20w experiment run-clrs-shakedown --dataset <directory> --expected-tree <sha256-hex> --output <directory> --run-id <id> (--execute | --check) [--root <repository>] [--json]\n"+
+		"  20w experiment run-clrs-shakedown-container --execute --image-id <sha256:id> --dataset <directory> --expected-tree <sha256-hex> --output <new-parent> --run-id <id> [--root <repository>] [--json]\n" {
 		t.Fatalf("experiment help changed:\n%s", output.String())
 	}
 }
@@ -30,7 +31,7 @@ func TestRunLeavesUnknownCommandsToPublicCaller(t *testing.T) {
 }
 
 func TestEveryExperimentHelpCommandIsHandledWithoutExecution(t *testing.T) {
-	for _, command := range []string{"list", "validate", "package-node-image", "release-plan", "render-clrs-wheelhouse-manifest", "verify-clrs-wheelhouse", "check-clrs-sbom-bundle", "reproduce-clrs-promise-wheel", "fetch-clrs-retained-inputs", "materialize-clrs-context", "compare-clrs-fixtures", "render-clrs-generation-program", "generate-clrs-fixtures", "inspect-clrs-image-archive", "prepare-clrs-loaded-image", "run-clrs-shakedown"} {
+	for _, command := range []string{"list", "validate", "package-node-image", "release-plan", "render-clrs-wheelhouse-manifest", "verify-clrs-wheelhouse", "check-clrs-sbom-bundle", "reproduce-clrs-promise-wheel", "fetch-clrs-retained-inputs", "materialize-clrs-context", "compare-clrs-fixtures", "render-clrs-generation-program", "generate-clrs-fixtures", "inspect-clrs-image-archive", "prepare-clrs-loaded-image", "run-clrs-shakedown", "run-clrs-shakedown-container"} {
 		var stdout, stderr bytes.Buffer
 		code, handled := Run([]string{command, "--help"}, &stdout, &stderr)
 		if code != 2 || !handled || stdout.Len() != 0 || !strings.Contains(stderr.String(), "Usage of experiment "+command+":") {
