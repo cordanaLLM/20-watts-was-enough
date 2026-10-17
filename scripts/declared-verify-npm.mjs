@@ -14,11 +14,11 @@ import { fileURLToPath } from "node:url";
 
 export const DECLARED_VERIFY_EXCEPTION = Object.freeze({
   category: "B",
-  expires: "2026-10-18",
+  expires: "2026-10-21",
   issue: "cordanaLLM/praetor#1385",
   path: "Makefile",
   reason:
-    "the declared-verify gate stage runs make verify-all in a worktree without node_modules; removed in the engine pin bump that carries the fix",
+    "the declared-verify gate stage runs make verify-all in a worktree without node_modules; category B renewal while cordanaLLM/praetor#1385 stays open; removed in the engine pin bump that carries the fix",
   rule: "declared-verify-deps",
 });
 
