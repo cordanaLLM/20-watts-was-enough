@@ -4,6 +4,7 @@ description: "Autonomous agent for repository HISS invariant sweeps and praetorc
 mainAgent: true
 subagent: true
 commandExecutionPolicy: auto
+model: pro
 ---
 
 # Repository Governance Auditor Persona

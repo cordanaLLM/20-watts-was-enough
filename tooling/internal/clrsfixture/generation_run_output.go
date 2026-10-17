@@ -58,7 +58,7 @@ func (runner *generationRunner) extract(ctx context.Context, bundle *os.Root) (G
 	if err != nil || !unchangedGeneratorFile(before.info, after.info) || before.sha256 != after.sha256 {
 		return identity, errors.New("generation tar changed after extraction or inspection")
 	}
-	return identity, syncGenerationDirectory(bundle, ".")
+	return identity, SyncDirectory(bundle, ".")
 }
 
 // Fixed USTAR framing is deliberately narrower than a general archive parser.

@@ -377,7 +377,7 @@ func verifyCandidatePublicationBundleStream(
 	}
 	hasher := sha256.New()
 	limited := &io.LimitedReader{R: input, N: totalBytes + 1}
-	counted := &candidateBundleCountingReader{source: io.TeeReader(limited, hasher)}
+	counted := &countingReader{source: io.TeeReader(limited, hasher)}
 	reader := tar.NewReader(counted)
 	// archive/tar deliberately accepts nonzero padding and several encodings
 	// of the same header. Re-encode while streaming so canonical means exact
@@ -441,17 +441,6 @@ func verifyCandidatePublicationBundleStream(
 		return CandidateBundleVerification{}, err
 	}
 	return CandidateBundleVerification{Receipt: receipt, SHA256: sha256, Bytes: totalBytes}, nil
-}
-
-type candidateBundleCountingReader struct {
-	source io.Reader
-	count  int64
-}
-
-func (reader *candidateBundleCountingReader) Read(body []byte) (int, error) {
-	read, err := reader.source.Read(body)
-	reader.count += int64(read)
-	return read, err
 }
 
 func candidateBundleMemberMaximum(name string, limits Limits) int64 {

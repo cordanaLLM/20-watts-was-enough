@@ -65,8 +65,6 @@ flowchart LR
     operate --> plastic
 ```
 
-Editable source: [`../assets/diagrams/developmental-pipeline.mmd`](../assets/diagrams/developmental-pipeline.mmd).
-
 ## Efficiency mechanism
 
 The optimization target is constrained quality per unit of total system energy,

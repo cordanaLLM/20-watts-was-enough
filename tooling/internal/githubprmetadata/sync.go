@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/githubapi"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/githubissuelifecycle"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/githubissuemilestones"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/githublabels"
@@ -113,9 +114,7 @@ type remoteMilestone struct {
 	Number int `json:"number"`
 }
 
-type remoteLabel struct {
-	Name string `json:"name"`
-}
+type remoteLabel = githubapi.Label
 
 type remoteItem struct {
 	Number      int              `json:"number"`
@@ -172,7 +171,7 @@ func (guard *retentionGuard) observe(labels []remoteLabel) error {
 			return err
 		}
 	}
-	combined := foldedSet(guard.labels)
+	combined := githubapi.FoldedSet(guard.labels)
 	for _, label := range retained {
 		if _, exists := combined[strings.ToLower(label)]; !exists {
 			guard.labels = append(guard.labels, label)
@@ -702,7 +701,7 @@ func inspectMergeState(
 		return false, errors.New("inspect GitHub pull-request merge state: empty HTTP response")
 	}
 	defer response.Body.Close()
-	if err := drainBounded(response.Body); err != nil {
+	if err := githubapi.DrainBounded(response.Body, maximumResponseBytes, "GitHub pull-request response exceeds its byte limit"); err != nil {
 		return false, fmt.Errorf("inspect GitHub pull-request merge state: %w", err)
 	}
 	switch response.StatusCode {
@@ -797,7 +796,7 @@ func classifyStatusLabels(
 	labels []remoteLabel,
 	policy githubissuelifecycle.Policy,
 ) ([]string, []string, error) {
-	normalized, err := normalizedLabels(labels)
+	normalized, err := githubapi.NormalizedLabels(labels)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -847,7 +846,7 @@ func convergeClosedStatuses(
 	if err != nil {
 		return false, err
 	}
-	desiredSet := foldedSet(desired)
+	desiredSet := githubapi.FoldedSet(desired)
 	remove := make([]string, 0, len(statuses))
 	for _, status := range statuses {
 		if _, keep := desiredSet[strings.ToLower(status)]; !keep {
@@ -884,7 +883,7 @@ func convergeClosedStatuses(
 }
 
 func unownedClassificationLabels(labels []remoteLabel) []string {
-	normalized, _ := normalizedLabels(labels)
+	normalized, _ := githubapi.NormalizedLabels(labels)
 	retained := make([]string, 0, len(normalized))
 	for _, name := range normalized {
 		if !isClassification(name) {
@@ -895,11 +894,11 @@ func unownedClassificationLabels(labels []remoteLabel) []string {
 }
 
 func retainLabels(labels []remoteLabel, retained []string) error {
-	normalized, err := normalizedLabels(labels)
+	normalized, err := githubapi.NormalizedLabels(labels)
 	if err != nil {
 		return err
 	}
-	current := foldedSet(normalized)
+	current := githubapi.FoldedSet(normalized)
 	for _, label := range retained {
 		if _, exists := current[strings.ToLower(label)]; !exists {
 			return fmt.Errorf("retained label %q was lost", label)
@@ -908,17 +907,9 @@ func retainLabels(labels []remoteLabel, retained []string) error {
 	return nil
 }
 
-func foldedSet(values []string) map[string]struct{} {
-	result := make(map[string]struct{}, len(values))
-	for _, value := range values {
-		result[strings.ToLower(value)] = struct{}{}
-	}
-	return result
-}
-
 func equalFolded(left, right []string) bool {
-	leftSet := foldedSet(left)
-	rightSet := foldedSet(right)
+	leftSet := githubapi.FoldedSet(left)
+	rightSet := githubapi.FoldedSet(right)
 	if len(leftSet) != len(rightSet) {
 		return false
 	}
@@ -1036,7 +1027,7 @@ func newRequest(
 	target.Path = prefix
 	target.RawPath = ""
 	if len(suffix) > 0 {
-		target.RawPath = escapedPath(prefix)
+		target.RawPath = githubapi.EscapedPath(prefix)
 		for _, segment := range suffix {
 			target.Path += "/" + segment
 			target.RawPath += "/" + url.PathEscape(segment)
@@ -1054,14 +1045,6 @@ func newRequest(
 		request.Header.Set("Content-Type", "application/json")
 	}
 	return request, nil
-}
-
-func escapedPath(path string) string {
-	segments := strings.Split(path, "/")
-	for index, segment := range segments {
-		segments[index] = url.PathEscape(segment)
-	}
-	return strings.Join(segments, "/")
 }
 
 func decodeLabelMutation(response *http.Response, number int, operation string) ([]remoteLabel, error) {
@@ -1084,7 +1067,7 @@ func decodeLabelMutation(response *http.Response, number int, operation string) 
 	if err := json.Unmarshal(body, &labels); err != nil || labels == nil || len(labels) > maximumLabels {
 		return nil, fmt.Errorf("%s GitHub pull-request labels %d: malformed response", operation, number)
 	}
-	if _, err := normalizedLabels(labels); err != nil {
+	if _, err := githubapi.NormalizedLabels(labels); err != nil {
 		return nil, fmt.Errorf("%s GitHub pull-request labels %d: %w", operation, number, err)
 	}
 	return labels, nil
@@ -1116,7 +1099,7 @@ func decodeItem(response *http.Response, number int, wantPull bool, wantState, o
 		(item.Milestone != nil && item.Milestone.Number < 1) || (item.PullRequest != nil) != wantPull {
 		return remoteItem{}, fmt.Errorf("%s GitHub item %d: malformed, unexpected state, or wrong item kind", operation, number)
 	}
-	if _, err := normalizedLabels(item.Labels); err != nil {
+	if _, err := githubapi.NormalizedLabels(item.Labels); err != nil {
 		return remoteItem{}, fmt.Errorf("%s GitHub item %d: %w", operation, number, err)
 	}
 	return item, nil
@@ -1134,30 +1117,11 @@ func observe(item remoteItem) observation {
 	if item.Milestone != nil {
 		milestone = item.Milestone.Number
 	}
-	labels, _ := normalizedLabels(item.Labels)
+	labels, _ := githubapi.NormalizedLabels(item.Labels)
 	return observation{
 		nodeID: item.NodeID, state: item.State, title: item.Title, body: bodyText(item),
 		milestone: milestone, labels: strings.Join(labels, "\x00"),
 	}
-}
-
-func normalizedLabels(labels []remoteLabel) ([]string, error) {
-	names := make([]string, 0, len(labels))
-	seen := make(map[string]struct{}, len(labels))
-	for _, label := range labels {
-		name := strings.ToLower(label.Name)
-		if name == "" || len(label.Name) > 256 || strings.TrimSpace(label.Name) != label.Name ||
-			strings.ContainsRune(label.Name, '\x00') {
-			return nil, fmt.Errorf("label %q is invalid", label.Name)
-		}
-		if _, duplicate := seen[name]; duplicate {
-			return nil, fmt.Errorf("label %q is repeated", label.Name)
-		}
-		seen[name] = struct{}{}
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names, nil
 }
 
 func equalOwnedMetadata(item remoteItem, labels []string, milestone int) bool {
@@ -1204,15 +1168,4 @@ type itemIdentity struct {
 
 func observeIdentity(item remoteItem) itemIdentity {
 	return itemIdentity{nodeID: item.NodeID, state: item.State, title: item.Title, body: bodyText(item)}
-}
-
-func drainBounded(reader io.Reader) error {
-	written, err := io.Copy(io.Discard, io.LimitReader(reader, maximumResponseBytes+1))
-	if err != nil {
-		return err
-	}
-	if written > maximumResponseBytes {
-		return errors.New("GitHub pull-request response exceeds its byte limit")
-	}
-	return nil
 }

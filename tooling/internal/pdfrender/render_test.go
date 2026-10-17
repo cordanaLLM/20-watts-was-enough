@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/boundedexec"
 )
 
 const testImageID = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -149,7 +151,7 @@ func TestRenderPlanUsesTheExactImageAndHardenedContainer(t *testing.T) {
 			t.Fatalf("run arguments omit %q: %v", expected, run)
 		}
 	}
-	if !slices.Contains(run, dockerBind(configuration.RepositoryRoot, "/workspace", true)) ||
+	if !slices.Contains(run, boundedexec.DockerBind(configuration.RepositoryRoot, "/workspace", true)) ||
 		mountSource(run, "/workspace/public/downloads") == "" {
 		t.Fatalf("run bind mounts are incomplete: %v", run)
 	}
@@ -364,7 +366,7 @@ func (executor *recordingExecutor) run(_ context.Context, request commandRequest
 	if slices.Equal(request.arguments, []string{"buildx", "version"}) {
 		output := executor.buildxOutput
 		if output == "" {
-			output = "github.com/docker/buildx 0.37.2 2d379c0c3f22da0d2759d132a0ec81ca949098f0"
+			output = "github.com/docker/buildx 0.38.0 0dbe87f36ed472fe36b6796c3f70b4210a731fc5"
 		}
 		return []byte(output + "\n"), nil
 	}
@@ -439,7 +441,7 @@ func runRenderTestGit(t *testing.T, root string, arguments ...string) string {
 	commandContext, cancel := context.WithTimeout(context.Background(), sourceRevisionTimeout)
 	defer cancel()
 	command := exec.CommandContext(commandContext, "git", append([]string{"-C", root}, arguments...)...)
-	command.Env = boundedGitEnvironment()
+	command.Env = boundedexec.GitEnvironment()
 	command.WaitDelay = maximumWaitDelay
 	output, err := command.CombinedOutput()
 	if commandContext.Err() != nil {
@@ -524,4 +526,81 @@ func assertPublicationFixture(t *testing.T, root string, pdf, manifest []byte) {
 			t.Fatalf("%s = %q, want %q", name, observed, expected)
 		}
 	}
+}
+
+func TestReleaseTagGrammar(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		tag   string
+		valid bool
+	}{
+		{"v0.0.0", true},
+		{"v0.5.0", true},
+		{"v12.34.56", true},
+		{"v0.0.0-rc.0", true},
+		{"v0.5.0-rc.1", true},
+		{"v0.5.0-rc.10", true},
+		{"v999999999999999999999.0.0-rc.999999999999999999999", true},
+		{"", false},
+		{"0.5.0", false},
+		{"v0.5.0-rc", false},
+		{"v0.5.0-rc.01", false},
+		{"v0.5.0-rc.1.2", false},
+		{"v0.5.0-beta.1", false},
+		{"v0.5.0-RC.1", false},
+		{"v05.0.0", false},
+		{"v0.05.0", false},
+		{"v0.5.00", false},
+		{"v0.5.0+meta", false},
+		{"v0.5.0-rc.1-x", false},
+		{"v0.5.0-rc.-1", false},
+		{"v0.5.0-rc.", false},
+		{"v0.5.0\n", false},
+		{" v0.5.0", false},
+		{"v0.5.0 ", false},
+	} {
+		t.Run(test.tag, func(t *testing.T) {
+			t.Parallel()
+			err := ValidateSourceRevision(test.tag, "0123456789abcdef0123456789abcdef01234567")
+			if (err == nil) != test.valid {
+				t.Fatalf("tag %q: error = %v, want valid = %t", test.tag, err, test.valid)
+			}
+		})
+	}
+}
+
+type failedContainerCleanupExecutor struct {
+	*recordingExecutor
+	runError     error
+	cleanupError error
+}
+
+func (executor failedContainerCleanupExecutor) run(ctx context.Context, request commandRequest) ([]byte, error) {
+	if len(request.arguments) > 0 && request.arguments[0] == "run" {
+		return nil, executor.runError
+	}
+	if len(request.arguments) > 0 && request.arguments[0] == "rm" {
+		return nil, executor.cleanupError
+	}
+	return executor.recordingExecutor.run(ctx, request)
+}
+
+func TestRenderFailureRetainsContainerCleanupFailure(t *testing.T) {
+	t.Parallel()
+	configuration := renderConfiguration(t)
+	runError := errors.New("injected render failure")
+	cleanupError := errors.New("injected container cleanup failure")
+	executor := failedContainerCleanupExecutor{
+		recordingExecutor: &recordingExecutor{imageID: testImageID},
+		runError:          runError,
+		cleanupError:      cleanupError,
+	}
+	_, err := renderWithDependencies(context.Background(), configuration, "main", "", noOpPreparer{}, executor)
+	if !errors.Is(err, runError) || !errors.Is(err, cleanupError) {
+		t.Fatalf("render lost primary or cleanup error: %v", err)
+	}
+	if !strings.Contains(err.Error(), "remove failed PDF renderer container 20w-pdf-") {
+		t.Fatalf("cleanup error lacks container context: %v", err)
+	}
+	requestWithPrefix(t, executor.requests, "buildx", "rm")
 }

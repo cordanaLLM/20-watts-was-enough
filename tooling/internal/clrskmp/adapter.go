@@ -13,7 +13,6 @@ import (
 )
 
 const (
-	maximumIdentityBytes            = 128
 	maximumReferencesCeiling        = 4_096
 	maximumReferenceSetBytesCeiling = 64 << 20
 	// Four fixture identities, one prompt digest and the effective-size integer.
@@ -33,7 +32,7 @@ type Specialist struct {
 
 // NewSpecialist closes the candidate-visible solver identity and bounds.
 func NewSpecialist(id string, limits Limits) (Specialist, error) {
-	if !validIdentity(id) {
+	if !specialistcontrol.ValidIdentity(id) {
 		return Specialist{}, errors.New("KMP specialist identity is invalid")
 	}
 	if err := limits.Validate(); err != nil {
@@ -145,7 +144,7 @@ func BindDataset(
 	limits Limits,
 	verifierLimits VerifierLimits,
 ) (RequestSet, Verifier, error) {
-	if !validIdentity(runID) || !validIdentity(specialistID) {
+	if !specialistcontrol.ValidIdentity(runID) || !specialistcontrol.ValidIdentity(specialistID) {
 		return RequestSet{}, Verifier{}, errors.New("KMP run or specialist identity is invalid")
 	}
 	if err := limits.Validate(); err != nil {
@@ -195,7 +194,7 @@ func BindDataset(
 // Requests returns fresh candidate-only controller packets for one closed run
 // window. RequestID is the source-and-contract-bound CandidateID.
 func (set RequestSet) Requests(issuedAt, deadline time.Time) ([]specialistcontrol.Request, error) {
-	if !validIdentity(set.runID) || len(set.candidates) == 0 {
+	if !specialistcontrol.ValidIdentity(set.runID) || len(set.candidates) == 0 {
 		return nil, errors.New("KMP request set is unbound")
 	}
 	if issuedAt.IsZero() || deadline.IsZero() || !deadline.After(issuedAt) {
@@ -204,7 +203,7 @@ func (set RequestSet) Requests(issuedAt, deadline time.Time) ([]specialistcontro
 	requests := make([]specialistcontrol.Request, 0, len(set.candidates))
 	for _, candidate := range set.candidates {
 		requestID := candidate.id.String()
-		if !validIdentity(requestID) || len(candidate.prompt) == 0 {
+		if !specialistcontrol.ValidIdentity(requestID) || len(candidate.prompt) == 0 {
 			return nil, errors.New("KMP bound candidate is invalid")
 		}
 		requests = append(requests, specialistcontrol.Request{
@@ -324,19 +323,4 @@ func bindPair(pair clrsfixture.PairedExample, limits Limits) (boundCandidate, he
 		effectiveInputSize: candidate.EffectiveInputSize,
 		answer:             append([]byte(nil), answer...),
 	}, nil
-}
-
-func validIdentity(value string) bool {
-	if len(value) == 0 || len(value) > maximumIdentityBytes {
-		return false
-	}
-	for index := range len(value) {
-		character := value[index]
-		if (character < 'a' || character > 'z') && (character < 'A' || character > 'Z') &&
-			(character < '0' || character > '9') && character != '.' && character != '_' &&
-			character != ':' && character != '-' {
-			return false
-		}
-	}
-	return true
 }

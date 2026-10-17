@@ -67,6 +67,34 @@ test("release image records the caller-supplied exact digest", () => {
   assert.equal(actual.result_authority, "NO_RESULT");
 });
 
+test("image versions accept canonical candidates and retain development and final forms", () => {
+  for (const version of ["v0.5.0-rc.1", "v1.2.3-rc.0", "1.2.3-rc.10", "development", "v1.2.3", "1.2.3"]) {
+    const actual = receipt({ ...releaseEnvironment, EXPERIMENT_IMAGE_VERSION: version });
+    assert.equal(actual.image.version.value, version);
+    assert.equal(actual.execution_mode, version === "development" ? "development-image" : "release-image");
+    assert.equal(assertExperimentExecutionReceipt(actual), actual);
+  }
+});
+
+test("image versions reject malformed candidates in environment and stored receipts", () => {
+  for (const version of ["v1.2.3-rc.01", "v1.2.3-rc", "v1.2.3-beta.1", "v1.2.3-rc.1+x", "v1.2.3-rc.-1", "v01.2.3-rc.1"]) {
+    assert.throws(
+      () => receipt({ ...releaseEnvironment, EXPERIMENT_IMAGE_VERSION: version }),
+      /image version is invalid/u,
+      version,
+    );
+    const stored = structuredClone(receipt(releaseEnvironment));
+    stored.image.version.value = version;
+    assert.throws(() => assertExperimentExecutionReceipt(stored), /closed contract/u, version);
+    const local = structuredClone(receipt());
+    local.image.version.value = version;
+    assert.throws(() => assertExperimentExecutionReceipt(local), /closed contract/u, version);
+  }
+  const local = structuredClone(receipt());
+  local.image.version.value = "v0.5.0-rc.1";
+  assert.equal(assertExperimentExecutionReceipt(local), local);
+});
+
 test("release image fails closed without exact digest and source revision", () => {
   const withoutDigest = { ...releaseEnvironment };
   delete withoutDigest.EXPERIMENT_IMAGE_DIGEST;

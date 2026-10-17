@@ -20,12 +20,14 @@ caveman-sources:
 audit:
 	@$(PRAETORCTL) audit
 
+# Interim until cordanaLLM/praetor#1385: scripts/declared-verify-npm.mjs skips
+# these steps only inside the gate's declared-verify stage without node_modules.
 test: build
-	@exec 'npm' 'run' 'check'
-	@exec 'npm' 'run' 'test'
+	@exec 'node' 'scripts/declared-verify-npm.mjs' 'check'
+	@exec 'node' 'scripts/declared-verify-npm.mjs' 'test'
 
 build:
-	@exec 'npm' 'run' 'build'
+	@exec 'node' 'scripts/declared-verify-npm.mjs' 'build'
 
 # BEGIN praetor documentation gate
 .PHONY: docs-lint docs-figures

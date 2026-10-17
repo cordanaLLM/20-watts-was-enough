@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { waitForCondition } from "./lib/browser-wait.mjs";
 import { spawn } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer as createTcpServer } from "node:net";
@@ -86,14 +87,12 @@ async function evaluateInBrowser(cdp, expression) {
 }
 
 async function waitForBrowserState(cdp, expression, accepts, label, timeoutMs = 30_000) {
-  const deadline = Date.now() + timeoutMs;
-  let snapshot;
-  while (Date.now() < deadline) {
-    snapshot = await evaluateInBrowser(cdp, expression);
-    if (snapshot?.documentReady !== false && accepts(snapshot)) return snapshot;
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  assert.fail(`${label}: ${JSON.stringify(snapshot)}`);
+  return waitForCondition({
+    probe: () => evaluateInBrowser(cdp, expression),
+    accepts: (snapshot) => snapshot?.documentReady !== false && accepts(snapshot),
+    budgetMs: timeoutMs,
+    label,
+  });
 }
 
 const portalStateExpression = `(() => {
@@ -167,6 +166,48 @@ const portalStateExpression = `(() => {
 
 const portalPagesBasePath = "/20-watts-was-enough/";
 
+function startPortalDevServer(serverPort) {
+  return spawn(process.execPath, [
+    path.join(repositoryRoot, "node_modules", "vite", "bin", "vite.js"),
+    "--config",
+    path.join(repositoryRoot, "vite.pages.config.ts"),
+    "--host",
+    "127.0.0.1",
+    "--port",
+    String(serverPort),
+    "--strictPort",
+    "--force",
+    "--logLevel",
+    "silent",
+  ], {
+    cwd: repositoryRoot,
+    env: { ...process.env, PAGES_BASE_PATH: portalPagesBasePath },
+    stdio: "ignore",
+    windowsHide: true,
+  });
+}
+
+function portalChromiumArguments(debugPort, profile) {
+  return [
+    "--headless=new",
+    "--disable-gpu",
+    "--disable-extensions",
+    "--disable-background-networking",
+    "--disable-dev-shm-usage",
+    "--disable-features=NetworkServiceSandbox",
+    "--no-sandbox",
+    "--no-proxy-server",
+    "--allow-insecure-localhost",
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--hide-scrollbars",
+    "--window-size=1440,900",
+    `--remote-debugging-port=${debugPort}`,
+    `--user-data-dir=${profile}`,
+    "about:blank",
+  ];
+}
+
 async function withPortalBrowser(run) {
   const browser = await firstExistingChromium();
   const debugPort = await reserveLocalPort();
@@ -178,43 +219,12 @@ async function withPortalBrowser(run) {
 
   try {
     const portalUrl = `http://127.0.0.1:${serverPort}${portalPagesBasePath}`;
-    viteProcess = spawn(process.execPath, [
-      path.join(repositoryRoot, "node_modules", "vite", "bin", "vite.js"),
-      "--config",
-      path.join(repositoryRoot, "vite.pages.config.ts"),
-      "--host",
-      "127.0.0.1",
-      "--port",
-      String(serverPort),
-      "--strictPort",
-      "--force",
-      "--logLevel",
-      "silent",
-    ], {
-      cwd: repositoryRoot,
-      env: { ...process.env, PAGES_BASE_PATH: portalPagesBasePath },
+    viteProcess = startPortalDevServer(serverPort);
+    await waitForUrl(portalUrl, viteProcess);
+    browserProcess = spawn(browser, portalChromiumArguments(debugPort, profile), {
       stdio: "ignore",
       windowsHide: true,
     });
-    await waitForUrl(portalUrl, viteProcess);
-    browserProcess = spawn(browser, [
-      "--headless=new",
-      "--disable-gpu",
-      "--disable-extensions",
-      "--disable-background-networking",
-      "--disable-dev-shm-usage",
-      "--disable-features=NetworkServiceSandbox",
-      "--no-sandbox",
-      "--no-proxy-server",
-      "--allow-insecure-localhost",
-      "--no-first-run",
-      "--no-default-browser-check",
-      "--hide-scrollbars",
-      "--window-size=1440,900",
-      `--remote-debugging-port=${debugPort}`,
-      `--user-data-dir=${profile}`,
-      "about:blank",
-    ], { stdio: "ignore", windowsHide: true });
 
     cdp = await connectCdp(await devtoolsPage(browserProcess, debugPort));
     await cdp.send("Page.enable");
@@ -366,17 +376,43 @@ async function exerciseSearchEscape(cdp) {
   );
 }
 
+const corpusDrawerLayouts = [
+  { width: 1440, height: 900, outline: "block", mobileOutline: "none" },
+  { width: 768, height: 1024, outline: "none", mobileOutline: "block" },
+  { width: 720, height: 760, outline: "none", mobileOutline: "block" },
+  { width: 375, height: 844, outline: "none", mobileOutline: "block" },
+  { width: 320, height: 720, outline: "none", mobileOutline: "block" },
+  // Equivalent CSS viewport for a 1440 x 900 browser at 200% page zoom.
+  { width: 720, height: 450, outline: "none", mobileOutline: "block", zoomed: true },
+];
+
+async function exerciseCorpusDrawerFocus(cdp, layout) {
+  await openCorpusDrawer(cdp);
+  const tabCount = layout.zoomed ? 4 : 1;
+  for (let index = 0; index < tabCount; index += 1) {
+    await dispatchKeyboardKey(cdp, "Tab", "Tab", 9);
+  }
+  await waitForBrowserState(
+    cdp,
+    portalStateExpression,
+    (snapshot) => snapshot.drawerOpen
+      && snapshot.activeWithinDrawer
+      && snapshot.activeFocusVisible
+      && (!layout.zoomed || (
+        snapshot.activeIsFirstDocumentLink
+        && snapshot.activeFocusPaintFullyVisible
+        && snapshot.drawerScrollerOverflowY === "auto"
+        && snapshot.documentListOverflowY === "visible"
+        && snapshot.drawerScrollerScrollHeight > snapshot.drawerScrollerClientHeight
+      )),
+    layout.zoomed
+      ? "200% zoom clipped the focused corpus result"
+      : `keyboard focus escaped the drawer at ${layout.width}px`,
+  );
+}
+
 async function exerciseResponsiveCorpusDrawer(cdp) {
-  const layouts = [
-    { width: 1440, height: 900, outline: "block", mobileOutline: "none" },
-    { width: 768, height: 1024, outline: "none", mobileOutline: "block" },
-    { width: 720, height: 760, outline: "none", mobileOutline: "block" },
-    { width: 375, height: 844, outline: "none", mobileOutline: "block" },
-    { width: 320, height: 720, outline: "none", mobileOutline: "block" },
-    // Equivalent CSS viewport for a 1440 x 900 browser at 200% page zoom.
-    { width: 720, height: 450, outline: "none", mobileOutline: "block", zoomed: true },
-  ];
-  for (const layout of layouts) {
+  for (const layout of corpusDrawerLayouts) {
     await cdp.send("Emulation.setDeviceMetricsOverride", {
       width: layout.width,
       height: layout.height,
@@ -392,28 +428,7 @@ async function exerciseResponsiveCorpusDrawer(cdp) {
         && snapshot.pageScrollWidth <= snapshot.pageClientWidth,
       `reader layout did not reflow at ${layout.width}px`,
     );
-    await openCorpusDrawer(cdp);
-    const tabCount = layout.zoomed ? 4 : 1;
-    for (let index = 0; index < tabCount; index += 1) {
-      await dispatchKeyboardKey(cdp, "Tab", "Tab", 9);
-    }
-    await waitForBrowserState(
-      cdp,
-      portalStateExpression,
-      (snapshot) => snapshot.drawerOpen
-        && snapshot.activeWithinDrawer
-        && snapshot.activeFocusVisible
-        && (!layout.zoomed || (
-          snapshot.activeIsFirstDocumentLink
-          && snapshot.activeFocusPaintFullyVisible
-          && snapshot.drawerScrollerOverflowY === "auto"
-          && snapshot.documentListOverflowY === "visible"
-          && snapshot.drawerScrollerScrollHeight > snapshot.drawerScrollerClientHeight
-        )),
-      layout.zoomed
-        ? "200% zoom clipped the focused corpus result"
-        : `keyboard focus escaped the drawer at ${layout.width}px`,
-    );
+    await exerciseCorpusDrawerFocus(cdp, layout);
     await dispatchKeyboardKey(cdp, "Escape", "Escape", 27);
     await waitForBrowserState(
       cdp,
@@ -884,11 +899,18 @@ test("portal polling skips only explicit pending snapshots and propagates evalua
   assert.equal(requests, 2);
   assert.equal(acceptedSnapshots, 1);
 
+  let failingRequests = 0;
   await assert.rejects(waitForBrowserState({
     async send() {
+      failingRequests += 1;
       return { exceptionDetails: { text: "unexpected evaluation error" } };
     },
-  }, portalStateExpression, () => true, "unexpected evaluation failure"), /Browser evaluation failed/);
+  }, portalStateExpression, () => true, "unexpected evaluation failure"), (error) => {
+    assert.match(error.message, /^unexpected evaluation failure; /u);
+    assert.match(error.cause?.message ?? "", /Browser evaluation failed/u);
+    return true;
+  });
+  assert.equal(failingRequests, 1);
 });
 
 test("portal document routes preserve native links and focus their destination headings", {
@@ -1142,7 +1164,7 @@ test("the sole public reader names its Git source and release identity", async (
   assert.doesNotMatch(book, /Owner-only|chatgpt\.site/);
 });
 
-test("third-party notices include bundler runtimes and accept the project portal index", () => {
+test("third-party notices include bundler runtimes and accept the project portal index", async () => {
   const notices = renderThirdPartyNotices({
     moduleIds: new Set([
       "\0rolldown/runtime.js",
@@ -1153,8 +1175,9 @@ test("third-party notices include bundler runtimes and accept the project portal
     repositoryRoot,
   });
 
-  assert.match(notices, /- rolldown@1\.2\.12 — MIT/);
-  assert.match(notices, /- vite@8\.3\.2 — MIT/);
+  const locked = JSON.parse(await readFile(path.join(repositoryRoot, "package-lock.json"), "utf8")).packages;
+  assert.ok(notices.includes(`- rolldown@${locked["node_modules/rolldown"].version} — MIT`));
+  assert.ok(notices.includes(`- vite@${locked["node_modules/vite"].version} — MIT`));
   assert.match(notices, /Copyright \(c\) 2024-present VoidZero Inc\. & Contributors/);
   assert.match(notices, /Copyright \(c\) 2019-present, VoidZero Inc\. and Vite contributors/);
 });
@@ -1183,6 +1206,38 @@ test("third-party notices require a LICENSING.md source offer for each EPL packa
   assert.match(
     renderThirdPartyNotices({ moduleIds, repositoryRoot: root }),
     /- epl-fixture@1\.2\.3 — EPL-2\.0/,
+  );
+});
+
+test("third-party notices take the bundler identity from package-lock.json", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "notices-locked-identity-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const packagePath = path.join(root, "node_modules", "vite");
+  await mkdir(packagePath, { recursive: true });
+  await writeFile(
+    path.join(packagePath, "package.json"),
+    JSON.stringify({ name: "vite", version: "9.0.1", license: "MIT" }),
+  );
+  await writeFile(path.join(packagePath, "LICENSE.md"), "MIT License fixture\n");
+  await mkdir(path.join(root, "LICENSES"));
+  await writeFile(path.join(root, "LICENSES", "OFL-1.1.txt"), "SIL Open Font License fixture\n");
+  await writeFile(path.join(root, "LICENSING.md"), "Licensing fixture\n");
+  const moduleIds = new Set(["\0vite/preload-helper.js"]);
+  const lock = (packages) => writeFile(path.join(root, "package-lock.json"), JSON.stringify({ packages }));
+
+  await lock({ "node_modules/vite": { version: "9.0.1" } });
+  assert.match(renderThirdPartyNotices({ moduleIds, repositoryRoot: root }), /- vite@9\.0\.1 — MIT/);
+
+  await lock({ "node_modules/vite": { version: "9.0.0" } });
+  assert.throws(
+    () => renderThirdPartyNotices({ moduleIds, repositoryRoot: root }),
+    /Bundled package expected vite@9\.0\.0, found vite@9\.0\.1/,
+  );
+
+  await lock({ "node_modules/rolldown": { version: "1.2.12" } });
+  assert.throws(
+    () => renderThirdPartyNotices({ moduleIds, repositoryRoot: root }),
+    /package-lock\.json in .* lacks a version for node_modules\/vite/,
   );
 });
 

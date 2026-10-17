@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { waitForCondition } from "./lib/browser-wait.mjs";
 import { spawn } from "node:child_process";
 import { access, mkdtemp, rm } from "node:fs/promises";
 import { createServer as createTcpServer } from "node:net";
@@ -59,14 +60,12 @@ async function evaluateInBrowser(cdp, expression, awaitPromise = true) {
 }
 
 async function waitForBrowserState(cdp, expression, accepts, label, timeoutMs = 30_000) {
-  const deadline = Date.now() + timeoutMs;
-  let snapshot;
-  while (Date.now() < deadline) {
-    snapshot = await evaluateInBrowser(cdp, expression);
-    if (snapshot?.documentReady !== false && accepts(snapshot)) return snapshot;
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  assert.fail(`${label}: ${JSON.stringify(snapshot)}`);
+  return waitForCondition({
+    probe: () => evaluateInBrowser(cdp, expression),
+    accepts: (snapshot) => snapshot?.documentReady !== false && accepts(snapshot),
+    budgetMs: timeoutMs,
+    label,
+  });
 }
 
 // Vite preview serves the SPA shell for unknown paths, so a missing chunk

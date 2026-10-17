@@ -58,6 +58,7 @@ func TestRendererAuthorityPredicateCoversTheClosedExecutionBoundary(t *testing.T
 		".github/ci-impact.json",
 		".github/workflows/ci.yml",
 		".github/workflows/release.yml",
+		".github/workflows/release-build.yml",
 		"app/components/markdown-document.tsx",
 		"app/components/overflow-region.tsx",
 		"app/globals.css",

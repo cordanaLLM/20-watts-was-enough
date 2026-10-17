@@ -5,9 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -131,7 +133,7 @@ func selectChangedPaths(mapping Mapping, options Options, changedPaths []string)
 			rendererSelected,
 		)
 	}
-	selected := sortedKeys(lanes)
+	selected := slices.Sorted(maps.Keys(lanes))
 	if len(selected) == 0 {
 		return newFullPlan(options, "empty-lane-selection", paths, true)
 	}
@@ -206,6 +208,7 @@ func isRendererAuthority(changedPath string) bool {
 		".github/ci-impact.json",
 		".github/workflows/ci.yml",
 		".github/workflows/release.yml",
+		".github/workflows/release-build.yml",
 		"package-lock.json",
 		"package.json",
 		"scripts/book-source.mjs",
@@ -235,6 +238,7 @@ func isRendererAuthority(changedPath string) bool {
 	for _, prefix := range []string{
 		"tooling/cmd/ci-plan/",
 		"tooling/cmd/pdf-proof/",
+		"tooling/internal/boundedexec/",
 		"tooling/internal/ciplan/",
 		"tooling/internal/ciplancli/",
 		"tooling/internal/pdfrender/",
@@ -261,7 +265,7 @@ func normalizeChangedPaths(values []string) ([]string, bool) {
 		}
 		unique[value] = struct{}{}
 	}
-	return sortedKeys(unique), true
+	return slices.Sorted(maps.Keys(unique)), true
 }
 
 func validChangedPath(value string) bool {
@@ -305,15 +309,6 @@ func ruleMatches(rule Rule, changedPath string) bool {
 		}
 	}
 	return false
-}
-
-func sortedKeys(values map[string]struct{}) []string {
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
 }
 
 func resolveRepositoryRoot(root string) (string, error) {
