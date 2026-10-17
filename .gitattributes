@@ -1,3 +1,6 @@
+# Go tests on Windows runners hash and byte-compare checked-out files, so every
+# text file keeps LF bytes on every platform. Binary files are detected by Git.
+* text=auto eol=lf
 experiments/workstation/fixture-026/configs/rsd-t02-arm-bank.json text eol=lf
 experiments/workstation/fixture-026/rsd-t02-arm-bank.mjs text eol=lf
 experiments/workstation/fixture-026/rsd-t02-contract.mjs text eol=lf

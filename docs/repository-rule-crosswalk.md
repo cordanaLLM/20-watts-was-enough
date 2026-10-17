@@ -44,7 +44,7 @@ and integrated rather than replaced.
 | Nested per-module contracts | **adapted** to real trust boundaries only | `research/`, `experiments/`, `experiments/workstation/`, `app/`, `scripts/`, `.github/` |
 | NASA/JPL Power of Ten | **adapted** by preserved invariant | [`docs/principles.md`](principles.md), P10-1–P10-10 |
 | Zero-warning merge floor | **adopted** | `npm run check`, PR CI, Pages validation |
-| Go test, vet and race gates | **adapted** to the portable `20w` module | `tooling/go.mod`, `go test -race ./...`, `go vet ./...`, CodeQL |
+| Go test, vet and race gates | **adapted** to the portable `20w` module | `tooling/go.mod`, `go test -race ./...`, `go vet ./...`, Windows and macOS runner gates, CodeQL |
 | Global numerical coverage quota | **not adopted** | risk- and authority-based coverage; thresholds require a measured decision |
 | Conventional Commits | **adopted** | contribution contract and PR-title CI |
 | Semantic Versioning | **adopted for tagged snapshots** | release contract; no npm publication |

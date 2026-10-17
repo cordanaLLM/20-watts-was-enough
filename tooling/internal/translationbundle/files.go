@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
@@ -250,7 +251,7 @@ func resolveRepositoryRoot(root string) (string, error) {
 		return "", fmt.Errorf("resolve repository root: %w", err)
 	}
 	absolute = filepath.Clean(absolute)
-	information, err := os.Lstat(absolute)
+	information, err := fileidentity.Lstat(absolute)
 	if err != nil || !information.IsDir() || information.Mode()&os.ModeSymlink != 0 {
 		return "", errors.New("repository root must be a real directory")
 	}
@@ -295,7 +296,7 @@ func readStableRegularFile(path string, maximumBytes int64) ([]byte, error) {
 	if err != nil || filepath.Clean(resolved) != absolute {
 		return nil, errors.New("file path must not contain symlinks")
 	}
-	before, err := os.Lstat(absolute)
+	before, err := fileidentity.Lstat(absolute)
 	if err != nil || !before.Mode().IsRegular() {
 		return nil, errors.New("file must be a regular file")
 	}
@@ -329,7 +330,7 @@ func readStableOpenedFile(file *os.File, path string, before os.FileInfo, maximu
 	if err != nil || !bytes.Equal(body, confirmation) {
 		return nil, errors.New("file changed while it was read")
 	}
-	after, err := os.Lstat(path)
+	after, err := fileidentity.Lstat(path)
 	if err != nil || !sameRegularFile(opened, after) {
 		return nil, errors.New("file changed while it was read")
 	}
@@ -394,7 +395,7 @@ func nearestRealAncestor(path string) (string, []string, error) {
 	missing := make([]string, 0, 8)
 	current := path
 	for {
-		information, err := os.Lstat(current)
+		information, err := fileidentity.Lstat(current)
 		if err == nil {
 			if !information.IsDir() || information.Mode()&os.ModeSymlink != 0 {
 				return "", nil, errors.New("candidate output parent path must not contain links or non-directories")
@@ -417,7 +418,7 @@ func nearestRealAncestor(path string) (string, []string, error) {
 }
 
 func requireRealDirectory(path string) error {
-	information, err := os.Lstat(path)
+	information, err := fileidentity.Lstat(path)
 	if err != nil || !information.IsDir() || information.Mode()&os.ModeSymlink != 0 {
 		return errors.New("candidate output parent path must contain only real directories")
 	}
