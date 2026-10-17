@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer as createTcpServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
-import test from "node:test";
+import test, { after, before, describe } from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import {
@@ -18,8 +18,11 @@ import {
   devtoolsPage,
   firstExistingChromium,
   stopProcess,
-  waitForUrl,
 } from "./lib/chromium-cdp.mjs";
+import {
+  PAGES_DEV_SERVER_READY_BUDGET_MS,
+  startReadyPagesDevServer,
+} from "./lib/pages-dev-server.mjs";
 import {
   decodeBasicHtmlEntitiesOnce,
   stripHtmlTagSyntax,
@@ -166,27 +169,6 @@ const portalStateExpression = `(() => {
 
 const portalPagesBasePath = "/20-watts-was-enough/";
 
-function startPortalDevServer(serverPort) {
-  return spawn(process.execPath, [
-    path.join(repositoryRoot, "node_modules", "vite", "bin", "vite.js"),
-    "--config",
-    path.join(repositoryRoot, "vite.pages.config.ts"),
-    "--host",
-    "127.0.0.1",
-    "--port",
-    String(serverPort),
-    "--strictPort",
-    "--force",
-    "--logLevel",
-    "silent",
-  ], {
-    cwd: repositoryRoot,
-    env: { ...process.env, PAGES_BASE_PATH: portalPagesBasePath },
-    stdio: "ignore",
-    windowsHide: true,
-  });
-}
-
 function portalChromiumArguments(debugPort, profile) {
   return [
     "--headless=new",
@@ -208,19 +190,15 @@ function portalChromiumArguments(debugPort, profile) {
   ];
 }
 
-async function withPortalBrowser(run) {
+async function withPortalBrowser(origin, run) {
   const browser = await firstExistingChromium();
   const debugPort = await reserveLocalPort();
-  const serverPort = await reserveLocalPort();
   const profile = await mkdtemp(path.join(os.tmpdir(), "20w-portal-routing-"));
   let browserProcess;
   let cdp;
-  let viteProcess;
 
   try {
-    const portalUrl = `http://127.0.0.1:${serverPort}${portalPagesBasePath}`;
-    viteProcess = startPortalDevServer(serverPort);
-    await waitForUrl(portalUrl, viteProcess);
+    const portalUrl = `${origin}${portalPagesBasePath}`;
     browserProcess = spawn(browser, portalChromiumArguments(debugPort, profile), {
       stdio: "ignore",
       windowsHide: true,
@@ -239,7 +217,6 @@ async function withPortalBrowser(run) {
   } finally {
     cdp?.socket.close();
     await stopProcess(browserProcess);
-    await stopProcess(viteProcess);
     await rm(profile, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   }
 }
@@ -249,7 +226,8 @@ async function openThesisRoute(cdp, portalUrl) {
   assert.equal(navigation.errorText, undefined);
   await waitForBrowserState(
     cdp,
-    `document.readyState === "complete" && Boolean(document.querySelector(".portal-action-primary"))`,
+    `document.readyState === "complete" && Boolean(document.querySelector(".portal-action-primary"))
+      && ["portal-overview", "research-system", "library"].every((id) => document.getElementById(id))`,
     Boolean,
     "portal overview did not render",
   );
@@ -321,6 +299,12 @@ async function dispatchKeyboardKey(cdp, key, code, virtualKeyCode, modifiers = 0
 }
 
 async function openCorpusDrawer(cdp) {
+  await waitForBrowserState(
+    cdp,
+    portalStateExpression,
+    (snapshot) => snapshot.triggerExpanded === "false",
+    "corpus drawer trigger did not render closed",
+  );
   await evaluateInBrowser(cdp, `document.getElementById("portal-corpus-trigger").click()`);
   return waitForBrowserState(
     cdp,
@@ -913,100 +897,121 @@ test("portal polling skips only explicit pending snapshots and propagates evalua
   assert.equal(failingRequests, 1);
 });
 
-test("portal document routes preserve native links and focus their destination headings", {
-  timeout: 120_000,
-}, async () => {
-  await withPortalBrowser(async (cdp, portalUrl) => {
-    const { state: thesisState, thesis } = await openThesisRoute(cdp, portalUrl);
-    await exerciseResponsiveCorpusDrawer(cdp);
-    await exerciseSearchEscape(cdp);
-    const route = await openSidebarRoute(cdp);
-    await traverseDocumentHistory(cdp, thesis, thesisState, route);
-    const fragment = await openOutlineFragment(cdp);
-    await traverseFragmentHistory(cdp, thesis, route, fragment);
-    await exerciseSkipToDocumentClearance(cdp, portalUrl);
+// Both browser tests share one development server. Its cold compile finishes
+// inside the hook's own deadline, so the browser budgets below time a warm
+// server rather than host contention during the first request.
+describe("portal browser routes", () => {
+  let cacheRoot;
+  let portalServer;
+
+  before(async () => {
+    cacheRoot = await mkdtemp(path.join(os.tmpdir(), "20w-portal-vite-"));
+    portalServer = await startReadyPagesDevServer({
+      cacheDir: path.join(cacheRoot, "vite-cache"),
+      env: { PAGES_BASE_PATH: portalPagesBasePath },
+    });
+  }, { timeout: PAGES_DEV_SERVER_READY_BUDGET_MS + 60_000 });
+
+  after(async () => {
+    await portalServer?.close();
+    if (cacheRoot) await rm(cacheRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   });
-});
 
-test("rendered portal prose preserves list markers and outside positioning", {
-  timeout: 120_000,
-}, async () => {
-  await withPortalBrowser(async (cdp, portalUrl) => {
-    const route = new URL("concept/00-thesis-and-principles/", portalUrl);
-    const navigation = await cdp.send("Page.navigate", { url: route.href });
-    assert.equal(navigation.errorText, undefined);
-    await waitForBrowserState(
-      cdp,
-      portalStateExpression,
-      (snapshot) => snapshot.pathname === route.pathname && snapshot.readerPresent,
-      "thesis route did not render",
-      60_000,
-    );
-    await waitForBrowserState(
-      cdp,
-      `Boolean(document.querySelector(".portal-prose ul") && document.querySelector(".portal-prose ol"))`,
-      Boolean,
-      "rendered portal prose did not expose list elements",
-      60_000,
-    );
+  test("portal document routes preserve native links and focus their destination headings", {
+    timeout: 120_000,
+  }, async () => {
+    await withPortalBrowser(portalServer.origin, async (cdp, portalUrl) => {
+      const { state: thesisState, thesis } = await openThesisRoute(cdp, portalUrl);
+      await exerciseResponsiveCorpusDrawer(cdp);
+      await exerciseSearchEscape(cdp);
+      const route = await openSidebarRoute(cdp);
+      await traverseDocumentHistory(cdp, thesis, thesisState, route);
+      const fragment = await openOutlineFragment(cdp);
+      await traverseFragmentHistory(cdp, thesis, route, fragment);
+      await exerciseSkipToDocumentClearance(cdp, portalUrl);
+    });
+  });
 
-    // No canonical chapter holds a nested list, so the test appends one nested
-    // list of each kind inside the rendered prose to reach the descendant rules.
-    await evaluateInBrowser(cdp, `(() => {
-      const prose = document.querySelector(".portal-prose");
-      const parentUl = prose.querySelector("ul");
-      const parentOl = prose.querySelector("ol");
-      const ulItem = parentUl.querySelector("li");
-      const olItem = parentOl.querySelector("li");
+  test("rendered portal prose preserves list markers and outside positioning", {
+    timeout: 120_000,
+  }, async () => {
+    await withPortalBrowser(portalServer.origin, async (cdp, portalUrl) => {
+      const route = new URL("concept/00-thesis-and-principles/", portalUrl);
+      const navigation = await cdp.send("Page.navigate", { url: route.href });
+      assert.equal(navigation.errorText, undefined);
+      await waitForBrowserState(
+        cdp,
+        portalStateExpression,
+        (snapshot) => snapshot.pathname === route.pathname && snapshot.readerPresent,
+        "thesis route did not render",
+        60_000,
+      );
+      await waitForBrowserState(
+        cdp,
+        `Boolean(document.querySelector(".portal-prose ul") && document.querySelector(".portal-prose ol"))`,
+        Boolean,
+        "rendered portal prose did not expose list elements",
+        60_000,
+      );
 
-      const nestedUl = document.createElement("ul");
-      const nestedUlItem = document.createElement("li");
-      nestedUlItem.textContent = "nested unordered item";
-      nestedUl.appendChild(nestedUlItem);
-      ulItem.appendChild(nestedUl);
+      // No canonical chapter holds a nested list, so the test appends one nested
+      // list of each kind inside the rendered prose to reach the descendant rules.
+      await evaluateInBrowser(cdp, `(() => {
+        const prose = document.querySelector(".portal-prose");
+        const parentUl = prose.querySelector("ul");
+        const parentOl = prose.querySelector("ol");
+        const ulItem = parentUl.querySelector("li");
+        const olItem = parentOl.querySelector("li");
 
-      const nestedOl = document.createElement("ol");
-      const nestedOlItem = document.createElement("li");
-      nestedOlItem.textContent = "nested ordered item";
-      nestedOl.appendChild(nestedOlItem);
-      olItem.appendChild(nestedOl);
-    })()`);
+        const nestedUl = document.createElement("ul");
+        const nestedUlItem = document.createElement("li");
+        nestedUlItem.textContent = "nested unordered item";
+        nestedUl.appendChild(nestedUlItem);
+        ulItem.appendChild(nestedUl);
 
-    const listStyles = await evaluateInBrowser(cdp, `(() => {
-      const prose = document.querySelector(".portal-prose");
-      const ul = prose.querySelector("ul");
-      const ol = prose.querySelector("ol");
-      const nestedUl = prose.querySelector("ul ul");
-      const nestedOl = prose.querySelector("ol ol");
+        const nestedOl = document.createElement("ol");
+        const nestedOlItem = document.createElement("li");
+        nestedOlItem.textContent = "nested ordered item";
+        nestedOl.appendChild(nestedOlItem);
+        olItem.appendChild(nestedOl);
+      })()`);
 
-      return {
-        ul: {
-          listStyleType: getComputedStyle(ul).listStyleType,
-          listStylePosition: getComputedStyle(ul).listStylePosition,
-        },
-        ol: {
-          listStyleType: getComputedStyle(ol).listStyleType,
-          listStylePosition: getComputedStyle(ol).listStylePosition,
-        },
-        nestedUl: {
-          listStyleType: getComputedStyle(nestedUl).listStyleType,
-          listStylePosition: getComputedStyle(nestedUl).listStylePosition,
-        },
-        nestedOl: {
-          listStyleType: getComputedStyle(nestedOl).listStyleType,
-          listStylePosition: getComputedStyle(nestedOl).listStylePosition,
-        },
-      };
-    })()`);
+      const listStyles = await evaluateInBrowser(cdp, `(() => {
+        const prose = document.querySelector(".portal-prose");
+        const ul = prose.querySelector("ul");
+        const ol = prose.querySelector("ol");
+        const nestedUl = prose.querySelector("ul ul");
+        const nestedOl = prose.querySelector("ol ol");
 
-    assert.equal(listStyles.ul.listStyleType, "disc");
-    assert.equal(listStyles.ul.listStylePosition, "outside");
-    assert.equal(listStyles.ol.listStyleType, "decimal");
-    assert.equal(listStyles.ol.listStylePosition, "outside");
-    assert.equal(listStyles.nestedUl.listStyleType, "circle");
-    assert.equal(listStyles.nestedUl.listStylePosition, "outside");
-    assert.equal(listStyles.nestedOl.listStyleType, "lower-alpha");
-    assert.equal(listStyles.nestedOl.listStylePosition, "outside");
+        return {
+          ul: {
+            listStyleType: getComputedStyle(ul).listStyleType,
+            listStylePosition: getComputedStyle(ul).listStylePosition,
+          },
+          ol: {
+            listStyleType: getComputedStyle(ol).listStyleType,
+            listStylePosition: getComputedStyle(ol).listStylePosition,
+          },
+          nestedUl: {
+            listStyleType: getComputedStyle(nestedUl).listStyleType,
+            listStylePosition: getComputedStyle(nestedUl).listStylePosition,
+          },
+          nestedOl: {
+            listStyleType: getComputedStyle(nestedOl).listStyleType,
+            listStylePosition: getComputedStyle(nestedOl).listStylePosition,
+          },
+        };
+      })()`);
+
+      assert.equal(listStyles.ul.listStyleType, "disc");
+      assert.equal(listStyles.ul.listStylePosition, "outside");
+      assert.equal(listStyles.ol.listStyleType, "decimal");
+      assert.equal(listStyles.ol.listStylePosition, "outside");
+      assert.equal(listStyles.nestedUl.listStyleType, "circle");
+      assert.equal(listStyles.nestedUl.listStylePosition, "outside");
+      assert.equal(listStyles.nestedOl.listStyleType, "lower-alpha");
+      assert.equal(listStyles.nestedOl.listStylePosition, "outside");
+    });
   });
 });
 
