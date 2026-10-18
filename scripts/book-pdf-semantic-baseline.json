@@ -6,10 +6,10 @@
   "artifact": {
     "pdf": "public/downloads/20-watts-was-enough-full-concept-book.pdf",
     "manifest": "public/downloads/book-manifest.json",
-    "pdf_sha256": "e25f93e8d3dcd24763631747d9b3044f5598e1fb9af03a3bb13402218c926ca7",
-    "manifest_sha256": "52a05f55235282b348460f7396fea6239fc09d91523ae783e72eecb15f91308e",
-    "size_bytes": 14650437,
-    "pages": 421,
+    "pdf_sha256": "45e105126a7ba5890abf23d127281592d9b8b81729b6ddad5dc8558bea75c2a4",
+    "manifest_sha256": "b505b6adbb2b0ff32565cbff585e8ef54d9e4dae84880ae5af0044e2e6d69c1d",
+    "size_bytes": 13409360,
+    "pages": 412,
     "page_size_name": "A4",
     "page_size_points": {
       "width": 594.96,
@@ -18,7 +18,7 @@
     "pdf_version": "1.4",
     "tagged": true,
     "source_ref": "main",
-    "source_digest": "5030a4322de2e2de0546d28bd3e3163f764a270fbb7d221aa98708360c6fe255",
+    "source_digest": "5e41d78c6019304e31b74d61c79ca483efb589de9d7bcc36c7be37d4d6122bf1",
     "version": "0.5.0"
   },
   "tools": {
@@ -40,7 +40,7 @@
       },
       "stdout": {
         "bytes": 627,
-        "sha256": "b893879b6afaf25840820dccbe03ffdd255b12030da3c715e1606a372714ba6a"
+        "sha256": "04aae471e97fc9b6fdb0027b410bc8a866240045428e12795ff6f92d9ab1afbd"
       }
     },
     "structure": {
@@ -50,8 +50,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "stdout": {
-        "bytes": 1225573,
-        "sha256": "4c0b341bdd1efdd124c5dd9d9511f2eb39d263973d30d4443f7f4cb935baa77c"
+        "bytes": 1221195,
+        "sha256": "36db8456e4f00aaf6a381f128631e3eac062c438293a852ec7781700193df60c"
       }
     },
     "structure_text": {
@@ -61,8 +61,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "stdout": {
-        "bytes": 2615608,
-        "sha256": "54bdda524e53f219904895003c1322d47e77d1464ef9f3afc2cd36597e214401"
+        "bytes": 2608606,
+        "sha256": "5d20d7b60edc588238763990b46dd00696cc8ebd8211e2668b54b71a17a06161"
       }
     },
     "default_text": {
@@ -72,8 +72,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "stdout": {
-        "bytes": 1119689,
-        "sha256": "adabba25feaed8d040f9616683126e76eadb4f9df547be395e77d9d38201fcd1"
+        "bytes": 1102839,
+        "sha256": "a75698d39cead1f0c62ca7424b9fb5f1c10f10f9df479e9e1636afbb75f7a156"
       }
     },
     "raw_text": {
@@ -83,8 +83,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "stdout": {
-        "bytes": 1110819,
-        "sha256": "5f000fb001e0730c6271429e621431ca654753c4c29f575de6de1ada11a16e33"
+        "bytes": 1094280,
+        "sha256": "989be2537e292cccbf834a68c326a28715682ec7e8ddbf4ac14c80e8101d19e7"
       }
     }
   },
@@ -156,7 +156,7 @@
     {
       "id": "lifecycle-equation-late",
       "class": "table-displayed-equation",
-      "recorded_page": 36,
+      "recorded_page": 35,
       "default_anchor": "expected recovery are joules over the same observation",
       "default_fragments": [
         "expected recovery are joules over the same observation",
@@ -184,7 +184,7 @@
     {
       "id": "admissible-action-equation-late",
       "class": "table-displayed-equation",
-      "recorded_page": 132,
+      "recorded_page": 125,
       "default_anchor": "The held translation assigns controller i an admissible action set",
       "default_fragments": [
         "The held translation assigns controller i an admissible action set",
@@ -213,7 +213,7 @@
     {
       "id": "adiabatic-equation-fragmented",
       "class": "diagram-figure",
-      "recorded_page": 386,
+      "recorded_page": 377,
       "default_anchor": "Four normalized adiabatic energy curves form different U-shaped crossovers",
       "default_fragments": [
         "Four normalized adiabatic energy curves form different U-shaped crossovers",
@@ -241,12 +241,12 @@
     {
       "id": "field-coverage-heading-merged",
       "class": "diagram-figure",
-      "recorded_page": 395,
+      "recorded_page": 386,
       "default_anchor": "This is the repository's breadth control",
       "default_fragments": [
         "This is the repository's breadth control",
         "How global is the research search?",
-        "FIGURE 80"
+        "FIGURE 63"
       ],
       "struct_text_fragments": [
         "Global field coverage",
@@ -258,7 +258,7 @@
         "APPENDIX A1",
         "Global field coverage",
         "Census date: 2026-08-27",
-        "FIGURE 80"
+        "FIGURE 63"
       ],
       "state": "clean",
       "defect": "Resolved: content-stream extraction preserves the appendix heading as Global field coverage."

@@ -48,9 +48,6 @@ flowchart LR
     H --> O
 ```
 
-Editable source:
-[constitutional-control-plane.mmd](../../assets/diagrams/constitutional-control-plane.mmd).
-
 ## Comparison vector
 
 Report outcomes as

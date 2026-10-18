@@ -88,9 +88,6 @@ flowchart TB
     compare --> retire["Retire composition<br/>preserve acoustic contract"]
 ```
 
-Editable source:
-[operator-qualified-active-acoustic-inference.mmd](../../assets/diagrams/operator-qualified-active-acoustic-inference.mmd).
-
 ## Outcome firewall
 
 | Outcome | Required literal measurement | Forbidden substitution |

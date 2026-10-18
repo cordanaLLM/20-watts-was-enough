@@ -208,7 +208,7 @@ Reject or merge the residual when any of the following holds:
 5. apparent recovery omits displaced exposure, defects, reserve restoration,
    or the next disruption.
 
-The editable transition diagram is
-[occupancy-qualified-spatial-transition.mmd](../assets/diagrams/occupancy-qualified-spatial-transition.mmd).
+The candidate contract diagram is
+[Occupancy-qualified spatial transition diagram](../experiments/candidates/001-adaptive-topology.md#occupied-spatial-topology-track).
 The evidence boundary is developed in the
 [built-environment audit](../research/audits/2026-08-05-built-environment-urban-systems.md).

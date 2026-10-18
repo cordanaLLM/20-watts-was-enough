@@ -129,9 +129,6 @@ flowchart LR
     compare --> verdict["Retain only a cross-candidate residual<br/>otherwise retire the composition"]
 ```
 
-Editable source:
-[mission-profile-qualified-degradation-recovery.mmd](../../assets/diagrams/mission-profile-qualified-degradation-recovery.mmd).
-
 ## Ten adversarial tracks
 
 Track identities match E-SEMI-01 through E-SEMI-10 in the source audit. They

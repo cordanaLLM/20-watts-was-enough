@@ -18,6 +18,12 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Retire the last 17 exact-duplicate Mermaid groups. Each diagram is now
+  drawn once, in its candidate or fixture contract; the concept chapter that
+  repeated it links that contract section instead. Fifteen standalone sources
+  in the groups and three more that differed from their embedded owner only
+  by a trailing blank line are removed. The duplicate baseline is empty (#21).
+
 - Remove 23 exact-duplicate standalone Mermaid groups, retaining their
   Markdown owners and reducing the duplicate baseline from 40 groups to 17.
   Concept chapters that draw their own variant of a fixture diagram now

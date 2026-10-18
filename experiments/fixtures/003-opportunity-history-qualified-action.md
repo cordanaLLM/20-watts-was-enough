@@ -71,9 +71,6 @@ flowchart LR
     revision --> history
 ```
 
-Editable source:
-[opportunity-history-qualified-action.mmd](../../assets/diagrams/opportunity-history-qualified-action.mmd).
-
 ## Eight diagnostic tracks
 
 | ID | Held question | Required changes | Decisive ordinary nulls |

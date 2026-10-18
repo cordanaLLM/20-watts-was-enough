@@ -131,9 +131,6 @@ flowchart TB
     compare -->|"gain moves boundary or fails support"| retire["Hard retirement<br/>no principle or candidate promotion"]
 ```
 
-Editable source:
-[boundary-qualified-physical-computation.mmd](../../assets/diagrams/boundary-qualified-physical-computation.mmd).
-
 ## Twelve adversarial tracks
 
 Track identities preserve `E-THERMO-01` through `E-THERMO-12` in the source

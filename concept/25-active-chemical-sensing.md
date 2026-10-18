@@ -15,9 +15,8 @@ audit](../research/audits/2026-08-05-olfaction-chemical-sensing-plume-tracking.m
 into readable architecture. The detailed definitions live in
 [operator-qualified chemical-sensing mathematics](../math/operator-qualified-chemical-sensing.md),
 and [Fixture F-011](../experiments/fixtures/011-operator-qualified-active-chemical-sensing.md)
-tests the architecture across fourteen hostile tracks. The editable diagram is
-kept in
-[operator-qualified-active-chemical-sensing.mmd](../assets/diagrams/operator-qualified-active-chemical-sensing.mmd).
+tests the architecture across fourteen hostile tracks. The fixture contract diagram is
+[Operator-qualified active chemical sensing diagram](../experiments/fixtures/011-operator-qualified-active-chemical-sensing.md#identity-support-and-leakage-boundary).
 
 The chapter connects existing project components rather than adding another
 principle or candidate:
@@ -419,36 +418,8 @@ poisoning-investigation queries without future-label leakage.
 
 ### One closed sensing-and-action contract
 
-```mermaid
-flowchart TB
-    source["Source and release<br/>identity · mixture · rate · geometry · motion"] --> transport["Transport and transformation<br/>advection · turbulence · diffusion · reaction · sorption"]
-    environment["Environment state<br/>boundaries · wind · temperature · humidity · pressure"] --> transport
-    transport --> field["Intermittent chemical field<br/>whiffs · blanks · concentration · composition"]
-    action["Acquisition action<br/>sniff/pump · move · orient · heat · valve · purge"] --> receiver["Receiver and sampling path<br/>body · inlet · tubing · flow · chamber · aperture"]
-    field --> receiver
-    receiver --> operator["Versioned observation operator<br/>response/recovery · cross-sensitivity · saturation · support"]
-    condition["Operator condition<br/>calibration · adaptation · age · humidity · drift · poisoning"] --> operator
-    operator --> observation["Causally received trace/events<br/>values · timestamps · missingness · uncertainty"]
-    observation --> inference["Calibrated inference<br/>detect · identify · quantify · separate · localize · abstain"]
-    history["Causal history<br/>prior exposure · actions · learning · maintenance"] --> condition
-    history --> inference
-    inference --> firewall["Outcome firewall<br/>presence · identity · concentration · mixture<br/>source · valence · exposure · hazard"]
-    inference --> decision["Decision<br/>act · resample · move · confirm · stop · abstain"]
-    decision --> action
-    decision --> safety["Independent safety envelope<br/>exposure limits · authority · fail-safe action"]
-    safety --> action
-    analytical["Analytical confirmation nulls<br/>GC–MS · PTR/SIFT–MS · IMS/FAIMS · standards"] --> confirmation["Qualified confirmation<br/>blanks · recovery · retention/spectral evidence"]
-    decision --> confirmation
-    confirmation --> firewall
-    nulls["Mature null stack<br/>dynamic calibration · chemometrics · state estimation<br/>surge–cast · particle filter · infotaxis · POMDP/MPC/VOI"] --> compare{"Equal evidence · action · exposure · lifecycle budget"}
-    firewall --> compare
-    ledger["Complete ledger<br/>samples · standards · time · person-hours<br/>motion/pump/heater/analysis · operational + embodied joules"] --> compare
-    compare --> retain["Retain only literal track residual"]
-    compare --> retire["Retire composition<br/>preserve chemical observation contract"]
-```
-
-Editable source:
-[operator-qualified-active-chemical-sensing.mmd](../assets/diagrams/operator-qualified-active-chemical-sensing.mmd).
+Fixture contract diagram:
+[Operator-qualified active chemical sensing diagram](../experiments/fixtures/011-operator-qualified-active-chemical-sensing.md#identity-support-and-leakage-boundary).
 
 ## Efficiency mechanism
 

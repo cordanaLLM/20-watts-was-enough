@@ -451,5 +451,5 @@ protected vector; when a gain depends on hidden prior, operator, calibration,
 or query leakage; when it fails held-out devices or regimes; or when no
 preregistered ablation isolates value beyond the registered inverse,
 uncertainty, sensing, control, acceleration, optical, hybrid-design, and
-calibration baselines. The editable source for the system diagram is
-[operator-qualified-physical-inference.mmd](../assets/diagrams/operator-qualified-physical-inference.mmd).
+calibration baselines. The fixture contract diagram is
+[Operator-qualified physical inference diagram](../experiments/fixtures/007-operator-qualified-optical-inference.md#identity-evidence-and-leakage-boundary).

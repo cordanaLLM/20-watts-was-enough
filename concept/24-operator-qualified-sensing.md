@@ -179,36 +179,8 @@ propagation is credited only for work it actually displaces
 
 ### One closed contract
 
-```mermaid
-flowchart LR
-    world["Hidden physical state<br/>scene · phase · spectrum · dynamics"] --> operator["Versioned measurement operator<br/>aperture · illumination · optics · detector · calibration"]
-    action["Costed sensing action<br/>pattern · angle · wavelength · exposure"] --> operator
-    regime["Hidden regime<br/>photon flux · background · drift · temperature · saturation"] --> operator
-    operator --> raw["Raw observation + metadata<br/>counts · timestamps · masks · covariance · operator version"]
-    raw --> ambiguity["Physical limits<br/>diffraction · shot noise · null space · phase ambiguity"]
-    ambiguity --> reconstruct["Qualified inference<br/>inverse method · prior · uncertainty · abstention"]
-    reconstruct --> query{"More information worth its cost?"}
-    query -->|"yes, safe"| action
-    query -->|"no"| decide["Decision or retained artifact"]
-    monitor["Reference channel + residual monitor<br/>drift · alignment · gain · thermal state"] --> operator
-    monitor --> gate{"Inside validity envelope?"}
-    gate -->|"no"| recover["Recalibrate · reroute · digital fallback · reset"]
-    recover --> operator
-    route["Operator-qualified route<br/>passive optics · photonic core · digital accelerator"] --> transform["Physical or digital transform"]
-    raw --> route
-    transform --> reconstruct
-    compact["Query-registered compaction<br/>raw · calibrated sufficient state · task output"] --> decide
-    raw --> compact
-    nulls["Mature null stack<br/>inverse methods · uncertainty · phase retrieval · compressed sensing<br/>computational imaging · AO/control · digital accelerators · passive optics"] --> compare{"Matched information + hardware + lifecycle budget"}
-    decide --> firewall["Separate outcome firewall<br/>aperture · photons · phase · priors · drift · saturation · fusion<br/>transform · conversion · analog error · fabrication · safety · lifecycle"]
-    ledger["Complete ledger<br/>samples · photons · dose · bytes · seconds · person-hours · joules"] --> compare
-    fabrication["Device population<br/>yield · mismatch · trimming · thermal control · aging"] --> route
-    firewall --> compare
-    compare --> verdict["Retain measured residual<br/>or retire the composition"]
-```
-
-Editable source:
-[operator-qualified-physical-inference.mmd](../assets/diagrams/operator-qualified-physical-inference.mmd).
+Fixture contract diagram:
+[Operator-qualified physical inference diagram](../experiments/fixtures/007-operator-qualified-optical-inference.md#identity-evidence-and-leakage-boundary).
 
 ## Efficiency mechanism
 

@@ -39,8 +39,8 @@ The chapter joins four maintained artifacts:
 3. [Fixture F-008](../experiments/fixtures/008-mission-profile-qualified-device-reliability.md),
    which tests ten hostile experiment tracks against the complete conventional
    reliability stack; and
-4. the editable
-   [degradation-and-recovery diagram](../assets/diagrams/mission-profile-qualified-degradation-recovery.mmd).
+4. the fixture contract
+   [Mission-profile-qualified degradation recovery diagram](../experiments/fixtures/008-mission-profile-qualified-device-reliability.md#identity-population-and-leakage-boundary).
 
 The result composes existing candidates. It does not allocate a new principle or
 candidate ([C-1053](../research/claims.md#c-1053)). Its purpose is narrower and
@@ -479,34 +479,9 @@ remains plausible and case dependent
 
 ### Close the loop
 
-```mermaid
-flowchart LR
-    identity["Sealed physical identity<br/>lot · wafer · die · block · package · firmware"] --> mission["Actual mission profile<br/>workload · V/f · current · temperature · radiation · cooling · time"]
-    mission --> substrate["Variable aging substrate<br/>time-zero variation · latent damage · reversible drift · wear · faults"]
-    interactions["Coupled mechanisms<br/>electrical · thermal · mechanical · radiation · endurance"] --> substrate
-    substrate --> observation["Qualified observations<br/>monitors · syndromes · calibration · uncertainty · censoring · evidence age"]
-    calibration["Independent metrology<br/>tester lineage · failure analysis · reference structures"] --> observation
-    observation --> estimator["Mechanism- and support-qualified estimator<br/>margin · fault class · remaining service · extrapolation validity"]
-    estimator --> firewall{"Soft/hard error firewall<br/>correctable · replayable · contained · permanent · unsafe"}
-    firewall -->|"correctable or replayable"| authority["Bounded authority<br/>voltage/frequency/body bias · route · scrub · verify · fallback"]
-    firewall -->|"permanent but contained"| repair["Repair lifecycle<br/>remap · spare · derate · repurpose · replace"]
-    firewall -->|"unsafe or uncontained"| retire["Hard retirement<br/>isolate · stop acceptance · preserve evidence"]
-    authority --> execute["Protected execution<br/>exact control boundary · provisional effects · side-effect gate"]
-    execute --> service["Accepted service<br/>quality · calibration · latency · availability · tail risk"]
-    service --> telemetry["Outcome telemetry<br/>errors · replay · energy · temperature · degradation · work"]
-    telemetry --> recovery["State update<br/>wear · adaptation · recovery · compensation · reserve consumption"]
-    recovery --> substrate
-    repair --> population["Population state<br/>yield · bins · spares · repairs · retired units"]
-    population --> mission
-    service --> ledgers["Complete ledgers<br/>service · operational/embodied energy · material · labor · replacement"]
-    population --> ledgers
-    nulls["Mature null stack<br/>qualification · guardbands · ECC/scrub · sparing · AVFS/Razor<br/>thermal control · calibration · wear leveling · lifecycle policy"] --> compare{"Matched budgets + held-out missions<br/>hierarchical splits · ablations · sensitivity cases"}
-    ledgers --> compare
-    compare --> verdict["Retain only a cross-candidate residual<br/>otherwise retire the composition"]
-```
+Fixture contract diagram:
+[Mission-profile-qualified degradation recovery diagram](../experiments/fixtures/008-mission-profile-qualified-device-reliability.md#identity-population-and-leakage-boundary).
 
-Editable source:
-[mission-profile-qualified-degradation-recovery.mmd](../assets/diagrams/mission-profile-qualified-degradation-recovery.mmd).
 The [working architecture](01-working-architecture.md) supplies the runtime
 control plane; [system synthesis](70-system-synthesis.md) supplies execution and
 maintenance timescales; the [energy model](80-energy-model.md) supplies the

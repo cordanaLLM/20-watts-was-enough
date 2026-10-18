@@ -348,24 +348,8 @@ semantic consolidation ([C-334](../research/claims.md#c-334),
 $H$ with $Z=C_\phi(H)$ only under registered query, evidence, uncertainty,
 rollback, invalidation, deletion, and failure-degradation obligations.
 
-```mermaid
-flowchart LR
-    H["Versioned history + evidence"] --> C["Compactor + manifest"]
-    C --> Z["Compact state + retained fragments"]
-    Z --> Q["Registered query families"]
-    Z --> E["Evidence reachability"]
-    Z --> I["Invalidation + rollback"]
-    Q --> G{"Hidden future gates pass?"}
-    E --> G
-    I --> G
-    G -->|"yes"| P["Publish compact version"]
-    G -->|"no"| X["Retain history · narrow contract"]
-    P --> V["Version / schema / source change"]
-    V --> I
-```
-
-Editable source:
-[semantic-compaction-contract.mmd](../assets/diagrams/semantic-compaction-contract.mmd).
+Candidate contract diagram:
+[Semantic compaction contract diagram](../experiments/candidates/017-contract-preserving-semantic-compaction.md#lifecycle).
 
 [Candidate 017](../experiments/candidates/017-contract-preserving-semantic-compaction.md)
 freezes the compactor before generating hidden future queries and invalidation
@@ -383,25 +367,8 @@ derived view may be cheap to reconstruct. The placement controller therefore
 keeps access forecast, recomputation cost, task loss, evidence value, staleness,
 and correlated-failure reconstructability as separately calibrated quantities.
 
-```mermaid
-flowchart LR
-    A["Versioned artifact manifest"] --> F["Access + recompute forecast"]
-    A --> V["Task + evidence value"]
-    A --> R["Reconstructability + correlated failure"]
-    F --> P["Constraint-aware placement policy"]
-    V --> P
-    R --> P
-    P --> T["Hot · warm · cold · reconstructible"]
-    T --> O["Access · invalidation · failure outcome"]
-    O --> K["Calibrate cost, loss, and restore models"]
-    K --> P
-    O --> G{"Constraints still hold?"}
-    G -->|"no"| M["Migrate · replicate · retain"]
-    M --> T
-```
-
-Editable source:
-[value-aware-artifact-tiering.mmd](../assets/diagrams/value-aware-artifact-tiering.mmd).
+Candidate contract diagram:
+[Value-aware artifact tiering diagram](../experiments/candidates/018-value-reconstructability-aware-tiering.md#control-loop).
 
 [Candidate 018](../experiments/candidates/018-value-reconstructability-aware-tiering.md)
 must beat LRU/LFU, ARC, W-TinyLFU, size- and miss-cost-aware caching,

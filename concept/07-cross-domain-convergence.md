@@ -516,28 +516,8 @@ shared clock. Synchrony still requires common-input controls, edge
 interventions, and a protected functional endpoint before it can count as
 useful coordination ([C-1495](../research/claims.md#c-1495)).
 
-```mermaid
-flowchart LR
-    task["Score · cue · literal task constraints"] --> phrase["Phrase · motif · boundary state"]
-    partner["Partner action"] --> channel["Delay · jitter · loss · acoustic/physical path"]
-    channel --> observe["Timestamped local observation + uncertainty"]
-    observe --> phase["Local phase · tempo · drift estimate"]
-    memory["Partner · role · repertoire memory"] --> phrase
-    phase --> controller["Role-qualified local controller"]
-    phrase --> controller
-    controller --> action["Timed expressive action"]
-    action --> partner
-    action --> evaluate["Literal task · synchrony · response · quality · cost"]
-    evaluate --> repair["Correct · clarify · rehearse · update convention"]
-    repair --> phrase
-    repair --> memory
-    nulls["PLL · Kalman · MPC · retrieval · typed protocol · rehearsal"] --> evaluate
-    perturb["Tempo drift · role switch · leader loss · new motif · turnover"] --> channel
-    perturb --> controller
-```
-
-Editable source:
-[shared-clock-free-coadaptation.mmd](../assets/diagrams/shared-clock-free-coadaptation.mmd).
+Fixture contract diagram:
+[Shared clock-free coadaptation diagram](../experiments/fixtures/001-shared-clock-free-coadaptation.md#information-boundary).
 
 The fixture refuses several easy substitutions:
 

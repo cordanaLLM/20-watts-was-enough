@@ -268,27 +268,8 @@ challenge, and full recomputation. It refines existing assurance, verification,
 operational learning, observation, convention, and governance candidates; it
 does not add a new control primitive.
 
-```mermaid
-flowchart LR
-    O["Authorized objectives · protected invariants"] --> L["Scoped local authority"]
-    L --> D["Decision + evidence + affected scope"]
-    D --> G{"Within authority and risk envelope?"}
-    G -->|"yes"| X["Execute · observe · record"]
-    G -->|"spillover / conflict"| E["Escalate to overlapping review center"]
-    E --> V["Typed veto · appeal · deadline · override"]
-    V --> X
-    X --> A["Versioned outcome and decision lineage"]
-    A --> R{"Rule repair required?"}
-    R -->|"no"| L
-    R -->|"ordinary"| C["Propose · test · ratify · stage"]
-    R -->|"emergency"| M["Scoped temporary authority + expiry"]
-    C --> H["Compatibility · rollback · scheduled review"]
-    M --> H
-    H --> O
-```
-
-Editable source:
-[constitutional-control-plane.mmd](../assets/diagrams/constitutional-control-plane.mmd).
+Candidate contract diagram:
+[Constitutional control plane diagram](../experiments/candidates/020-constitutional-control-plane.md#control-lifecycle).
 
 The formal and empirical boundaries in
 [C-368](../research/claims.md#c-368)–[C-395](../research/claims.md#c-395)
@@ -509,31 +490,8 @@ verified physical state are separate records. Accessible use, egress,
 tenability, structure, utilities, environmental service, evidence validity,
 authority, and material commitment remain explicit through every work step.
 
-```mermaid
-flowchart LR
-    N["Need · target service · affected users"] --> P["Versioned transition plan"]
-    A["Verified as-built topology"] --> G{"Intermediate-state gate"}
-    O["Occupancy · ability · assistance"] --> G
-    R["Ordinary · accessible · emergency routes"] --> G
-    F["Fire · smoke · ASET/RSET · impairments"] --> G
-    S["Structure · utilities · controls · environment"] --> G
-    U["Authority · permits · stop-work power"] --> G
-    M["Material commitments · irreversible work"] --> G
-    P --> G
-    G -->|"evidence current + constraints pass"| W["Execute one bounded work step"]
-    G -->|"support expired or constraint fails"| X["Abstain · restrict · decant · safe-stop"]
-    W --> V["Inspect · test · reconcile physical state"]
-    V --> Q{"Postconditions accepted?"}
-    Q -->|"no"| X
-    Q -->|"yes"| T["Advance topology version"]
-    T --> G
-    T --> C["Commission · verify service · restore reserve"]
-    C --> E["Post-occupancy outcomes + lifecycle ledger"]
-    E --> N
-```
-
-Editable source:
-[occupancy-qualified-spatial-transition.mmd](../assets/diagrams/occupancy-qualified-spatial-transition.mmd).
+Candidate contract diagram:
+[Occupancy-qualified spatial transition diagram](../experiments/candidates/001-adaptive-topology.md#occupied-spatial-topology-track).
 
 This pattern is useful beyond buildings whenever reconfiguration has occupants,
 physical inventory, slow work, external authority, or irreversible steps. Its
@@ -609,25 +567,8 @@ depends on context and incentives; acknowledgement is not identical belief;
 channel capacity is not semantic value; and population convergence is not
 grounding, truth, or safety.
 
-```mermaid
-flowchart LR
-    W["World · task · private observation"] --> M["Typed literal message"]
-    M --> P["Defeasible pragmatic hypotheses"]
-    P --> U["Recipient uptake state"]
-    U --> Q{"Clear enough for this task?"}
-    Q -->|"no"| R["Clarify · repair · reject"]
-    R --> M
-    Q -->|"yes"| A["Bounded task action"]
-    A --> O["Observed outcome"]
-    O --> C["Sandboxed convention candidate"]
-    C --> G["Cross-play · newcomer · protected-meaning gates"]
-    G -->|"fail"| X["Expire · withdraw · roll back"]
-    G -->|"pass"| V["Publish version + migration"]
-    V --> M
-```
-
-Editable source:
-[versioned-repairable-conventions.mmd](../assets/diagrams/versioned-repairable-conventions.mmd).
+Candidate contract diagram:
+[Versioned repairable conventions diagram](../experiments/candidates/015-versioned-repairable-conventions.md#lifecycle).
 
 A local shorthand remains session-scoped until independent interpreters recover
 its declared denotation, older and newcomer agents pass cross-play, corrupted
@@ -656,24 +597,8 @@ inheritance. The system must expose six different operations:
 6. **Survive turnover:** repeat the cycle with a genuinely new learner and a
    protected test suite.
 
-```mermaid
-flowchart LR
-    G["Generate · imitate · reconstruct · recombine"] --> T["Versioned transmission channel"]
-    T --> L["Independent learner / newcomer"]
-    L --> E["Outcome + protected evaluation"]
-    E --> D{"Retain, revise, branch, or reject?"}
-    D -->|"retain"| A["External artifact + lineage"]
-    D -->|"revise"| G
-    D -->|"reject"| X["Negative result + retirement"]
-    A --> V["Governance · compatibility · appeal"]
-    V --> N["Turnover / next generation"]
-    N --> T
-    V --> R["Audit · invalidate · migrate"]
-    R --> A
-```
-
-Editable source:
-[audited-cumulative-inheritance.mmd](../assets/diagrams/audited-cumulative-inheritance.mmd).
+Candidate contract diagram:
+[Audited cumulative inheritance diagram](../experiments/candidates/019-audited-cumulative-inheritance.md#candidate-statement).
 
 For generation $g$, a deliberately simple capability ledger is
 

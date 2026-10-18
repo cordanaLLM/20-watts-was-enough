@@ -146,24 +146,8 @@ tests whether a measured conversion, transport, recurrence, or command path is
 actually removed and whether break-even occurs before the qualified substrate
 lifetime ends.
 
-```mermaid
-flowchart LR
-    M["Mature repeated local mapping"] --> Q{"Physical target qualified?"}
-    Q -->|"no"| D["Keep digital / analog / fixed mechanics"]
-    Q -->|"yes"| C["Classify passive · driven · feedback · adaptive"]
-    C --> P["Design · fabricate · program · calibrate"]
-    P --> F["Phase / interaction field executes mapping"]
-    F --> O["Readout + qualified task outcome"]
-    O --> H["Health probe + digital shadow"]
-    H --> R{"Drift, damage, or task change?"}
-    R -->|"no"| F
-    R -->|"repairable"| P
-    R -->|"unsafe / uneconomic"| B["Fallback · retire · recycle"]
-    B --> D
-```
-
-Editable source:
-[phase-field-compilation.mmd](../assets/diagrams/phase-field-compilation.mmd).
+Candidate contract diagram:
+[Phase-field compilation diagram](../experiments/candidates/006-reversible-physical-skill.md#track-e--reversible-phase-or-interaction-field-compilation).
 
 Candidate 006 now tests [C-480](../research/claims.md#c-480) as one physical-
 phase specialization. Particle-scale power cannot win the comparison; the
@@ -361,24 +345,8 @@ are seconds; and $P_{\mathrm{fragile}}$ is the dimensionless probability of
 failure under a named support-removal or shift test. These axes are not merged
 unless conversion weights are declared in advance.
 
-```mermaid
-flowchart LR
-    L["Declared lesion or failure"] --> R["Recovery intervention"]
-    R --> Y["Task outcome + calibration"]
-    Y --> N["Native-path distance"]
-    Y --> C["Compensation burden"]
-    C --> D["Remove / perturb compensator"]
-    N --> T["Shift + transfer tests"]
-    D --> T
-    T --> H["Recurrence + reserve horizon"]
-    H --> A["Adverse-effect audit"]
-    A --> Q{"Qualified recovery?"}
-    Q -->|"yes"| P["Publish recovery envelope"]
-    Q -->|"no"| X["Reclassify · repair · retain support"]
-```
-
-Editable source:
-[compensation-aware-recovery.mmd](../assets/diagrams/compensation-aware-recovery.mmd).
+Candidate contract diagram:
+[Compensation-aware recovery diagram](../experiments/candidates/005-severity-ordered-containment.md#compensation-aware-recovery-qualification).
 
 Compensation is not a failure when it is robust, affordable, and declared. The
 failure is to call it restoration, hide recurring support, or deploy outside

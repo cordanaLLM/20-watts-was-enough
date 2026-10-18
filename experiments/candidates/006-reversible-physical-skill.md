@@ -237,9 +237,6 @@ flowchart LR
     B --> D
 ```
 
-Editable source:
-[phase-field-compilation.mmd](../../assets/diagrams/phase-field-compilation.mmd).
-
 Retire the specialization if the digital shadow performs the real control
 continuously, reset is destructive, system-level drive dominates, or an
 ordinary hardware/control baseline ties the lifecycle frontier.

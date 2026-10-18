@@ -171,4 +171,4 @@ Reject the composed residual when any of the following holds:
    omitted.
 
 Editable system diagram:
-[shared-clock-free-coadaptation.mmd](../assets/diagrams/shared-clock-free-coadaptation.mmd).
+[Shared clock-free coadaptation diagram](../experiments/fixtures/001-shared-clock-free-coadaptation.md#information-boundary).
