@@ -71,3 +71,11 @@ func testRecordContextParentCancel(t *testing.T) {
 		t.Fatalf("record context canceled by parent: %v", err)
 	}
 }
+
+func TestPolicyLimitsShareTheCaseBudget(t *testing.T) {
+	for _, budget := range []time.Duration{requestTimeout, time.Minute} {
+		if got := policyLimits(budget).MaxDecisionRecord; got != budget {
+			t.Fatalf("decision record budget %v, want case budget %v", got, budget)
+		}
+	}
+}
