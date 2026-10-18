@@ -2,11 +2,13 @@ package experimentcli
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsfixture"
 )
@@ -84,3 +86,26 @@ func (sbomShortWriter) Write(body []byte) (int, error) { return len(body) - 1, n
 type sbomErrorWriter struct{}
 
 func (sbomErrorWriter) Write([]byte) (int, error) { return 0, errors.New("writer unavailable") }
+
+func TestCheckCLRSSBOMEnforcesDeadline(t *testing.T) {
+	called := false
+	check := func(ctx context.Context, _ clrsfixture.GeneratorSBOMOptions) (clrsfixture.GeneratorSBOMReport, error) {
+		called = true
+		deadline, ok := ctx.Deadline()
+		if !ok {
+			t.Fatal("expected SBOM check context to carry a deadline")
+		}
+		remaining := time.Until(deadline)
+		if remaining <= clrsfixture.SBOMCheckDeadline-5*time.Second || remaining > clrsfixture.SBOMCheckDeadline {
+			t.Fatalf("unexpected deadline remaining duration: %v", remaining)
+		}
+		return clrsfixture.GeneratorSBOMReport{Authority: "NO_RESULT", State: "bundle-consistent-unadmitted"}, nil
+	}
+	digest := "sha256:" + strings.Repeat("a", 64)
+	args := []string{"--bundle", "bundle", "--image-manifest", digest, "--image-config", digest}
+	var stdout, stderr bytes.Buffer
+	code := runExperimentCheckCLRSSBOMWith(args, &stdout, &stderr, check)
+	if code != 0 || !called {
+		t.Fatalf("exit code = %d, called = %v, stderr = %s", code, called, stderr.String())
+	}
+}
