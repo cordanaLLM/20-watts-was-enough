@@ -12,6 +12,8 @@ import (
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/ciplan"
 )
 
+const planDeadline = ciplan.MaximumBuildDuration
+
 // Run dispatches only the private plan, project and messages commands.
 func Run(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(arguments) > 0 {
@@ -66,7 +68,9 @@ func runPlan(arguments []string, stdout, stderr io.Writer, build func(context.Co
 		fmt.Fprintln(stderr, "ci plan requires --base and --head together")
 		return 2
 	}
-	plan, err := build(context.Background(), ciplan.Options{
+	ctx, cancel := context.WithTimeout(context.Background(), planDeadline)
+	defer cancel()
+	plan, err := build(ctx, ciplan.Options{
 		RepositoryRoot: *root,
 		BaseRevision:   *baseRevision,
 		HeadRevision:   *headRevision,
