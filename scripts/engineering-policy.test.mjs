@@ -452,7 +452,7 @@ test("full-book browser probes stay in one bounded process-isolated site-test gr
   const command = manifest.scripts?.["test:site"];
   const browserCommand = command?.split("&&").at(-1)?.trim() ?? "";
   const tokens = browserCommand.split(/\s+/u);
-  assert.deepEqual(tokens.slice(0, 2), ["node", "--test"]);
+  assert.deepEqual(tokens.slice(0, 4), ["node", "scripts/run-in-loopback-netns.mjs", "node", "--test"]);
   assert.deepEqual(
     tokens.filter((token) => token.startsWith("--test-concurrency=")),
     ["--test-concurrency=2"],

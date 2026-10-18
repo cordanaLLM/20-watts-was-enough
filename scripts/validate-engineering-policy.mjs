@@ -194,6 +194,8 @@ const requiredFiles = [
   "scripts/install-locked-npm.test.mjs",
   "scripts/npm-runtime-lock.json",
   "scripts/run-workstation-scripts.mjs",
+  "scripts/run-in-loopback-netns.mjs",
+  "scripts/run-in-loopback-netns.test.mjs",
   "scripts/run-workstation-scripts.test.mjs",
   "scripts/validate-node-runtime.mjs",
   "tooling/AGENTS.md",
