@@ -105,15 +105,27 @@ func (archive generatorOCIArchive) check(ctx context.Context, options GeneratorO
 	return errors.Join(archive.checkIdentity(), ctx.Err())
 }
 
-func scanGeneratorOCI(ctx context.Context, file *os.File, size int64, limits GeneratorOCILimits) (map[string]generatorOCIMember, error) {
-	if size < 1024 || size > limits.ArchiveBytes || size%512 != 0 {
-		return nil, errors.New("OCI outer tar size violates its framing boundary")
+func scanOCIRegularMember(reader *tar.Reader, header *tar.Header, name string, offset int64, archiveLimit int64) (generatorOCIMember, error) {
+	if header.Size < 1 || header.Size > archiveLimit {
+		return generatorOCIMember{}, errors.New("OCI regular member size violates its byte boundary")
 	}
-	stream := &io.LimitedReader{R: generatorOCIReader{ctx, io.NewSectionReader(file, 0, size+1)}, N: size + 1}
-	reader := tar.NewReader(stream)
+	item := generatorOCIMember{offset: offset, size: header.Size}
+	hasher := sha256.New()
+	if n, err := io.Copy(hasher, reader); err != nil || n != item.size {
+		return generatorOCIMember{}, errors.Join(err, errors.New("OCI member size differs from its header"))
+	}
+	item.digest = "sha256:" + hex.EncodeToString(hasher.Sum(nil))
+	if strings.HasPrefix(name, "blobs/") && item.digest != "sha256:"+strings.TrimPrefix(name, "blobs/sha256/") {
+		return generatorOCIMember{}, errors.New("OCI blob pathname differs from its content hash")
+	}
+	return item, nil
+}
+
+func scanOCITarMembers(stream *io.LimitedReader, reader *tar.Reader, size int64, limits GeneratorOCILimits) (map[string]generatorOCIMember, error) {
 	members := make(map[string]generatorOCIMember)
 	var padding int64
-	for {
+	maxHeaders := limits.Members + 1
+	for step := 0; step < maxHeaders; step++ {
 		before := stream.N
 		header, err := reader.Next()
 		consumed := before - stream.N
@@ -121,7 +133,7 @@ func scanGeneratorOCI(ctx context.Context, file *os.File, size int64, limits Gen
 			if consumed != padding+1024 {
 				return nil, errors.New("OCI tar requires its complete two-block terminator")
 			}
-			break
+			return members, nil
 		}
 		if err != nil {
 			return nil, err
@@ -143,34 +155,47 @@ func scanGeneratorOCI(ctx context.Context, file *os.File, size int64, limits Gen
 			members[name] = generatorOCIMember{}
 			continue
 		}
-		if header.Size < 1 || header.Size > limits.ArchiveBytes {
-			return nil, errors.New("OCI regular member size violates its byte boundary")
-		}
-		item := generatorOCIMember{offset: size + 1 - stream.N, size: header.Size}
-		hasher := sha256.New()
-		if n, err := io.Copy(hasher, reader); err != nil || n != item.size {
-			return nil, errors.Join(err, errors.New("OCI member size differs from its header"))
-		}
-		item.digest = "sha256:" + hex.EncodeToString(hasher.Sum(nil))
-		if strings.HasPrefix(name, "blobs/") && item.digest != "sha256:"+strings.TrimPrefix(name, "blobs/sha256/") {
-			return nil, errors.New("OCI blob pathname differs from its content hash")
-		}
-		members[name] = item
-	}
-	var buffer [4096]byte
-	for {
-		n, err := stream.Read(buffer[:])
-		for _, value := range buffer[:n] {
-			if value != 0 {
-				return nil, errors.New("OCI tar contains nonzero trailing framing")
-			}
-		}
-		if errors.Is(err, io.EOF) {
-			break
-		}
+		item, err := scanOCIRegularMember(reader, header, name, size+1-stream.N, limits.ArchiveBytes)
 		if err != nil {
 			return nil, err
 		}
+		members[name] = item
+	}
+	return nil, errors.New("OCI tar exceeds member iteration limit")
+}
+
+func checkOCITrailingFraming(stream *io.LimitedReader) error {
+	var buffer [4096]byte
+	maxReads := int(stream.N/int64(len(buffer))) + 2
+	for step := 0; step < maxReads; step++ {
+		n, err := stream.Read(buffer[:])
+		for _, value := range buffer[:n] {
+			if value != 0 {
+				return errors.New("OCI tar contains nonzero trailing framing")
+			}
+		}
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return errors.New("OCI tar trailing framing exceeds read bound")
+}
+
+func scanGeneratorOCI(ctx context.Context, file *os.File, size int64, limits GeneratorOCILimits) (map[string]generatorOCIMember, error) {
+	if size < 1024 || size > limits.ArchiveBytes || size%512 != 0 {
+		return nil, errors.New("OCI outer tar size violates its framing boundary")
+	}
+	stream := &io.LimitedReader{R: generatorOCIReader{ctx, io.NewSectionReader(file, 0, size+1)}, N: size + 1}
+	reader := tar.NewReader(stream)
+	members, err := scanOCITarMembers(stream, reader, size, limits)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkOCITrailingFraming(stream); err != nil {
+		return nil, err
 	}
 	if stream.N != 1 {
 		return nil, errors.New("OCI tar size changed during scanning")

@@ -98,6 +98,47 @@ func PrepareGeneratorLoadedImage(ctx context.Context, options GeneratorLoadedIma
 	return prepareGeneratorLoadedImage(ctx, options, newLoadedImageDocker(), nil)
 }
 
+func loadAndValidateLoadedImageInputs(ctx context.Context, options *GeneratorLoadedImageOptions) (invocationInputs, GeneratorOCIReport, error) {
+	inputs, err := loadInvocationInputs(ctx, options.Archive.RepositoryRoot)
+	if err != nil {
+		return invocationInputs{}, GeneratorOCIReport{}, err
+	}
+	options.Archive.RepositoryRoot = inputs.root
+	resolved, err := resolveLoadedImageOptions(*options)
+	if err != nil {
+		return invocationInputs{}, GeneratorOCIReport{}, err
+	}
+	*options = resolved
+	proof, err := InspectGeneratorOCIArchive(ctx, options.Archive)
+	if err != nil {
+		return invocationInputs{}, GeneratorOCIReport{}, err
+	}
+	if proof.SourceID != inputs.plan.SourceID.String() || proof.ContractID != inputs.plan.ContractID.String() || proof.ImageContractSHA256 != inputs.foundation.ImageContractSHA256 {
+		return invocationInputs{}, GeneratorOCIReport{}, errors.New("OCI proof differs from the current loaded-image authority")
+	}
+	return inputs, proof, nil
+}
+
+func inspectLoadedImageCandidate(ctx context.Context, observer *loadedImageObserver, archive generatorOCIArchive, options GeneratorLoadedImageOptions, proof GeneratorOCIReport, inputs invocationInputs, initialErr error) (string, error) {
+	workErr := initialErr
+	var loadedID string
+	if workErr == nil {
+		loadedID, workErr = observer.inspect(ctx, proof, inputs.image.Runtime)
+	}
+	if workErr == nil {
+		workErr = archive.check(ctx, options.Archive)
+	}
+	if workErr == nil {
+		current, err := loadInvocationInputs(ctx, inputs.root)
+		if err != nil {
+			workErr = err
+		} else if !reflect.DeepEqual(inputs, current) {
+			workErr = errors.New("loaded-image repository authority changed during preparation")
+		}
+	}
+	return loadedID, workErr
+}
+
 func prepareGeneratorLoadedImage(ctx context.Context, options GeneratorLoadedImageOptions, execute generationExecutor, afterPending func()) (report GeneratorLoadedImageReport, err error) {
 	report = newLoadedImageReport()
 	defer func() {
@@ -111,21 +152,9 @@ func prepareGeneratorLoadedImage(ctx context.Context, options GeneratorLoadedIma
 	ctx, cancel := context.WithTimeout(ctx, loadedImageTimeout)
 	defer cancel()
 	report.Started = time.Now().UTC().Format(time.RFC3339Nano)
-	inputs, err := loadInvocationInputs(ctx, options.Archive.RepositoryRoot)
+	inputs, proof, err := loadAndValidateLoadedImageInputs(ctx, &options)
 	if err != nil {
 		return report, err
-	}
-	options.Archive.RepositoryRoot = inputs.root
-	options, err = resolveLoadedImageOptions(options)
-	if err != nil {
-		return report, err
-	}
-	proof, err := InspectGeneratorOCIArchive(ctx, options.Archive)
-	if err != nil {
-		return report, err
-	}
-	if proof.SourceID != inputs.plan.SourceID.String() || proof.ContractID != inputs.plan.ContractID.String() || proof.ImageContractSHA256 != inputs.foundation.ImageContractSHA256 {
-		return report, errors.New("OCI proof differs from the current loaded-image authority")
 	}
 	archive, err := openGeneratorOCIArchive(options.Archive.ArchivePath, options.Archive.ExpectedArchiveBytes)
 	if err != nil {
@@ -151,20 +180,7 @@ func prepareGeneratorLoadedImage(ctx context.Context, options GeneratorLoadedIma
 	defer func() { err = errors.Join(err, bundle.Close()) }()
 	files, workErr := writeLoadedImageInputs(bundle, report, proof)
 	observer := loadedImageObserver{execute: execute}
-	var loadedID string
-	if workErr == nil {
-		loadedID, workErr = observer.inspect(ctx, proof, inputs.image.Runtime)
-	}
-	if workErr == nil {
-		workErr = archive.check(ctx, options.Archive)
-	}
-	if workErr == nil {
-		var current invocationInputs
-		current, workErr = loadInvocationInputs(ctx, inputs.root)
-		if workErr == nil && !reflect.DeepEqual(inputs, current) {
-			workErr = errors.New("loaded-image repository authority changed during preparation")
-		}
-	}
+	loadedID, workErr := inspectLoadedImageCandidate(ctx, &observer, archive, options, proof, inputs, workErr)
 	report.DockerCalls = len(observer.commands)
 	return finishLoadedImageBundle(ctx, bundle, report, files, observer.commands, loadedID, workErr, afterPending)
 }
