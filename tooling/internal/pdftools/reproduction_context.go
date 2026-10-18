@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"hash"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"time"
@@ -62,6 +63,12 @@ func prepareNoticeContext(ctx context.Context, root string, authority checkedAut
 	return inspectNoticeContext(ctx, root, authority.contract)
 }
 
+var (
+	removeContextFile = os.Remove
+	closeContextFile  = (*os.File).Close
+	syncContextFile   = (*os.File).Sync
+)
+
 func writeNormalizedContextFile(path string, body []byte, epoch time.Time) (returnError error) {
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
@@ -69,18 +76,22 @@ func writeNormalizedContextFile(path string, body []byte, epoch time.Time) (retu
 	}
 	complete := false
 	defer func() {
-		_ = file.Close()
 		if !complete {
-			_ = os.Remove(path)
+			if closeErr := closeContextFile(file); closeErr != nil && !errors.Is(closeErr, fs.ErrClosed) {
+				returnError = errors.Join(returnError, closeErr)
+			}
+			if removeErr := removeContextFile(path); removeErr != nil && !errors.Is(removeErr, fs.ErrNotExist) {
+				returnError = errors.Join(returnError, removeErr)
+			}
 		}
 	}()
 	if _, err := file.Write(body); err != nil {
 		return fmt.Errorf("write normalized notice context file: %w", err)
 	}
-	if err := file.Sync(); err != nil {
+	if err := syncContextFile(file); err != nil {
 		return fmt.Errorf("sync normalized notice context file: %w", err)
 	}
-	if err := file.Close(); err != nil {
+	if err := closeContextFile(file); err != nil {
 		return fmt.Errorf("close normalized notice context file: %w", err)
 	}
 	if err := os.Chmod(path, 0o644); err != nil {
@@ -93,46 +104,55 @@ func writeNormalizedContextFile(path string, body []byte, epoch time.Time) (retu
 	return nil
 }
 
-func inspectNoticeContext(ctx context.Context, root string, contract Contract) (noticeContextIdentity, error) {
+func validateNoticeContextInventories(root string, contract Contract) (map[string]NoticeEntry, error) {
 	epoch := time.Unix(contract.SourceDateEpoch, 0)
 	for _, directory := range []string{root, filepath.Join(root, "notices")} {
 		information, err := os.Lstat(directory)
 		if err != nil || !information.IsDir() || information.Mode()&os.ModeSymlink != 0 ||
 			information.Mode().Perm() != 0o755 || !information.ModTime().Equal(epoch) {
-			return noticeContextIdentity{}, errors.New("notice context directory is not normalized")
+			return nil, errors.New("notice context directory is not normalized")
 		}
 	}
 	rootEntries, err := os.ReadDir(root)
 	if err != nil || len(rootEntries) != 2 || rootEntries[0].Name() != "Dockerfile" ||
 		rootEntries[1].Name() != "notices" || !rootEntries[1].IsDir() {
-		return noticeContextIdentity{}, errors.New("notice context root inventory is not exact")
+		return nil, errors.New("notice context root inventory is not exact")
 	}
 	noticeEntries, err := os.ReadDir(filepath.Join(root, "notices"))
 	if err != nil || len(noticeEntries) != len(contract.NoticeLayer.Entries) {
-		return noticeContextIdentity{}, errors.New("notice context file inventory is not exact")
+		return nil, errors.New("notice context file inventory is not exact")
 	}
 	noticeBodies := make(map[string]NoticeEntry, len(contract.NoticeLayer.Entries))
 	for index, entry := range contract.NoticeLayer.Entries {
 		if noticeEntries[index].Name() != filepath.Base(entry.Source) || noticeEntries[index].IsDir() ||
 			noticeEntries[index].Type()&os.ModeSymlink != 0 {
-			return noticeContextIdentity{}, errors.New("notice context file inventory is not exact")
+			return nil, errors.New("notice context file inventory is not exact")
 		}
 		noticeBodies["notices/"+filepath.Base(entry.Source)] = entry
 	}
-	wanted := make([]struct {
-		path string
-		body []byte
-	}, 0, len(contract.NoticeLayer.Entries)+1)
-	wanted = append(wanted, struct {
-		path string
-		body []byte
-	}{path: "Dockerfile", body: []byte(finalImageDockerfile)})
+	return noticeBodies, nil
+}
+
+type noticeContextFile struct {
+	path string
+	body []byte
+}
+
+func expectedNoticeContextFiles(contract Contract) []noticeContextFile {
+	wanted := make([]noticeContextFile, 0, len(contract.NoticeLayer.Entries)+1)
+	wanted = append(wanted, noticeContextFile{path: "Dockerfile", body: []byte(finalImageDockerfile)})
 	for _, entry := range contract.NoticeLayer.Entries {
-		wanted = append(wanted, struct {
-			path string
-			body []byte
-		}{path: "notices/" + filepath.Base(entry.Source)})
+		wanted = append(wanted, noticeContextFile{path: "notices/" + filepath.Base(entry.Source)})
 	}
+	return wanted
+}
+
+func inspectNoticeContext(ctx context.Context, root string, contract Contract) (noticeContextIdentity, error) {
+	noticeBodies, err := validateNoticeContextInventories(root, contract)
+	if err != nil {
+		return noticeContextIdentity{}, err
+	}
+	wanted := expectedNoticeContextFiles(contract)
 	digest := sha256.New()
 	identity := noticeContextIdentity{Entries: len(wanted) + 2, Dockerfile: digestRaw([]byte(finalImageDockerfile))}
 	for _, expected := range wanted {
@@ -157,9 +177,15 @@ func inspectNoticeContext(ctx context.Context, root string, contract Contract) (
 			return noticeContextIdentity{}, fmt.Errorf("normalized context notice %s changed", expected.path)
 		}
 		identity.FileBytes += int64(len(body))
-		writeContextDigestField(digest, []byte(expected.path))
-		writeContextDigestField(digest, []byte("-rw-r--r--"))
-		writeContextDigestField(digest, body)
+		if err := writeContextDigestField(digest, []byte(expected.path)); err != nil {
+			return noticeContextIdentity{}, err
+		}
+		if err := writeContextDigestField(digest, []byte("-rw-r--r--")); err != nil {
+			return noticeContextIdentity{}, err
+		}
+		if err := writeContextDigestField(digest, body); err != nil {
+			return noticeContextIdentity{}, err
+		}
 	}
 	if identity.FileBytes > contract.Limits.NoticeBytes+int64(len(finalImageDockerfile)) {
 		return noticeContextIdentity{}, errors.New("notice context exceeds its byte boundary")
@@ -168,7 +194,12 @@ func inspectNoticeContext(ctx context.Context, root string, contract Contract) (
 	return identity, nil
 }
 
-func writeContextDigestField(digest hash.Hash, body []byte) {
-	_ = binary.Write(digest, binary.BigEndian, uint64(len(body)))
-	_, _ = digest.Write(body)
+func writeContextDigestField(digest hash.Hash, body []byte) error {
+	if err := binary.Write(digest, binary.BigEndian, uint64(len(body))); err != nil {
+		return fmt.Errorf("write context digest length: %w", err)
+	}
+	if _, err := digest.Write(body); err != nil {
+		return fmt.Errorf("write context digest body: %w", err)
+	}
+	return nil
 }

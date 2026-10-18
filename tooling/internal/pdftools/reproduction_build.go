@@ -174,6 +174,86 @@ func parseApkoBuilderIdentity(body []byte, expected Builder, platform string) (a
 	}, nil
 }
 
+func executeApkoContainer(
+	ctx context.Context,
+	executor dockerExecutor,
+	authority checkedAuthority,
+	root, sbomRoot string,
+) error {
+	for _, directory := range []string{root, sbomRoot} {
+		if err := os.MkdirAll(directory, 0o700); err != nil {
+			return fmt.Errorf("create apko build staging directory: %w", err)
+		}
+		// The private 0700 temporaryRoot contains this bind mount. Its mounted
+		// directories need write and search permission for the capability-free
+		// container root, including daemons that remap container identities.
+		if err := os.Chmod(directory, 0o733); err != nil {
+			return fmt.Errorf("prepare apko output directory permissions: %w", err)
+		}
+	}
+	containerName, err := reproductionName("apko")
+	if err != nil {
+		return err
+	}
+	if err := requireOwnedContainerNameAvailable(executor, authority, containerName); err != nil {
+		return err
+	}
+	request, err := apkoBuildRequest(authority, root, containerName)
+	if err != nil {
+		return err
+	}
+	if _, err := executor.run(ctx, request); err != nil {
+		return errors.Join(err, removeRuntimeContainer(executor, authority, containerName))
+	}
+	if err := removeRuntimeContainer(executor, authority, containerName); err != nil {
+		return err
+	}
+	for _, directory := range []string{root, sbomRoot} {
+		if err := os.Chmod(directory, 0o700); err != nil {
+			return fmt.Errorf("close apko output directory permissions: %w", err)
+		}
+	}
+	return nil
+}
+
+func readApkoSPDXArtifacts(sbomRoot string, authority checkedAuthority) (spdxIdentity, spdxIdentity, error) {
+	spdxBody, err := readTemporaryFile(filepath.Join(sbomRoot, "sbom-x86_64.spdx.json"), authority.contract.Limits.SPDXBytes, "apko platform SPDX")
+	if err != nil {
+		return spdxIdentity{}, spdxIdentity{}, err
+	}
+	spdx, err := canonicalizeSPDX(
+		spdxBody,
+		authority.contract.Limits.SPDXBytes,
+		authority.contract.Limits.SPDXPackages,
+		authority.contract.Limits.SPDXRelationships,
+	)
+	if err != nil {
+		return spdxIdentity{}, spdxIdentity{}, fmt.Errorf("canonicalize apko platform SPDX: %w", err)
+	}
+	if err := validatePlatformSPDXIdentity(spdx, authority.contract.BaseImage); err != nil {
+		return spdxIdentity{}, spdxIdentity{}, err
+	}
+	indexBody, err := readTemporaryFile(filepath.Join(sbomRoot, "sbom-index.spdx.json"), authority.contract.Limits.SPDXBytes, "apko index SPDX")
+	if err != nil {
+		return spdxIdentity{}, spdxIdentity{}, err
+	}
+	indexSPDX, err := canonicalizeSPDX(
+		indexBody,
+		authority.contract.Limits.SPDXBytes,
+		authority.contract.Limits.SPDXPackages,
+		authority.contract.Limits.SPDXRelationships,
+	)
+	if err != nil {
+		return spdxIdentity{}, spdxIdentity{}, fmt.Errorf("canonicalize apko index SPDX: %w", err)
+	}
+	if indexSPDX.Packages != 2 || indexSPDX.Relationships != 1 ||
+		indexSPDX.CanonicalSHA256 != authority.contract.BaseImage.SPDXIndexCanonicalSHA256 ||
+		indexSPDX.CanonicalSize != authority.contract.BaseImage.SPDXIndexCanonicalSize {
+		return spdxIdentity{}, spdxIdentity{}, errors.New("apko index SPDX differs from the committed canonical graph")
+	}
+	return spdx, indexSPDX, nil
+}
+
 func runApkoBuild(
 	ctx context.Context,
 	executor dockerExecutor,
@@ -184,38 +264,8 @@ func runApkoBuild(
 	root := filepath.Join(temporaryRoot, fmt.Sprintf("base-%d", sequence))
 	sbomRoot := filepath.Join(root, "sbom")
 	layoutRoot := filepath.Join(temporaryRoot, fmt.Sprintf("base-%d-oci", sequence))
-	for _, directory := range []string{root, sbomRoot} {
-		if err := os.MkdirAll(directory, 0o700); err != nil {
-			return baseBuild{}, fmt.Errorf("create apko build staging directory: %w", err)
-		}
-		// The private 0700 temporaryRoot contains this bind mount. Its mounted
-		// directories need write and search permission for the capability-free
-		// container root, including daemons that remap container identities.
-		if err := os.Chmod(directory, 0o733); err != nil {
-			return baseBuild{}, fmt.Errorf("prepare apko output directory permissions: %w", err)
-		}
-	}
-	containerName, err := reproductionName("apko")
-	if err != nil {
+	if err := executeApkoContainer(ctx, executor, authority, root, sbomRoot); err != nil {
 		return baseBuild{}, err
-	}
-	if err := requireOwnedContainerNameAvailable(executor, authority, containerName); err != nil {
-		return baseBuild{}, err
-	}
-	request, err := apkoBuildRequest(authority, root, containerName)
-	if err != nil {
-		return baseBuild{}, err
-	}
-	if _, err := executor.run(ctx, request); err != nil {
-		return baseBuild{}, errors.Join(err, removeRuntimeContainer(executor, authority, containerName))
-	}
-	if err := removeRuntimeContainer(executor, authority, containerName); err != nil {
-		return baseBuild{}, err
-	}
-	for _, directory := range []string{root, sbomRoot} {
-		if err := os.Chmod(directory, 0o700); err != nil {
-			return baseBuild{}, fmt.Errorf("close apko output directory permissions: %w", err)
-		}
 	}
 	if err := validateApkoOutputInventory(root); err != nil {
 		return baseBuild{}, err
@@ -225,39 +275,9 @@ func runApkoBuild(
 	if err != nil {
 		return baseBuild{}, err
 	}
-	spdxBody, err := readTemporaryFile(filepath.Join(sbomRoot, "sbom-x86_64.spdx.json"), authority.contract.Limits.SPDXBytes, "apko platform SPDX")
+	spdx, indexSPDX, err := readApkoSPDXArtifacts(sbomRoot, authority)
 	if err != nil {
 		return baseBuild{}, err
-	}
-	spdx, err := canonicalizeSPDX(
-		spdxBody,
-		authority.contract.Limits.SPDXBytes,
-		authority.contract.Limits.SPDXPackages,
-		authority.contract.Limits.SPDXRelationships,
-	)
-	if err != nil {
-		return baseBuild{}, fmt.Errorf("canonicalize apko platform SPDX: %w", err)
-	}
-	if err := validatePlatformSPDXIdentity(spdx, authority.contract.BaseImage); err != nil {
-		return baseBuild{}, err
-	}
-	indexBody, err := readTemporaryFile(filepath.Join(sbomRoot, "sbom-index.spdx.json"), authority.contract.Limits.SPDXBytes, "apko index SPDX")
-	if err != nil {
-		return baseBuild{}, err
-	}
-	indexSPDX, err := canonicalizeSPDX(
-		indexBody,
-		authority.contract.Limits.SPDXBytes,
-		authority.contract.Limits.SPDXPackages,
-		authority.contract.Limits.SPDXRelationships,
-	)
-	if err != nil {
-		return baseBuild{}, fmt.Errorf("canonicalize apko index SPDX: %w", err)
-	}
-	if indexSPDX.Packages != 2 || indexSPDX.Relationships != 1 ||
-		indexSPDX.CanonicalSHA256 != authority.contract.BaseImage.SPDXIndexCanonicalSHA256 ||
-		indexSPDX.CanonicalSize != authority.contract.BaseImage.SPDXIndexCanonicalSize {
-		return baseBuild{}, errors.New("apko index SPDX differs from the committed canonical graph")
 	}
 	return baseBuild{
 		Sequence: sequence, Archive: archivePath, Layout: layoutRoot, Image: image, SPDX: spdx, SPDXIndex: indexSPDX,
@@ -553,26 +573,11 @@ func expectedBuildKitDaemonFlags(contract Contract) []string {
 	}
 }
 
-func validateReproductionBuilder(
-	ctx context.Context,
-	executor dockerExecutor,
+func validateBuildKitContainerInspection(
+	inspection buildKitContainerInspection,
 	authority checkedAuthority,
 	builder reproductionBuilder,
 ) error {
-	result, err := executor.run(ctx, dockerRequest{
-		operation: "inspect bounded PDF-tools BuildKit daemon",
-		directory: authority.root,
-		timeout:   30 * time.Second,
-		output:    authority.contract.Limits.CapturedOutputBytes,
-		arguments: []string{"container", "inspect", "--format", "{{json .}}", builder.Container},
-	})
-	if err != nil {
-		return err
-	}
-	inspection, err := decodeDockerJSON[buildKitContainerInspection](result.stdout, "PDF-tools BuildKit daemon")
-	if err != nil {
-		return err
-	}
 	limits := authority.contract.Limits
 	mismatches := make([]string, 0, 20)
 	require := func(condition bool, field string) {
@@ -607,12 +612,21 @@ func validateReproductionBuilder(
 	if len(mismatches) != 0 {
 		return fmt.Errorf("Docker did not retain the exact PDF-tools BuildKit daemon boundary: %s", strings.Join(mismatches, ", "))
 	}
+	return nil
+}
+
+func verifyBuildKitDaemonVersion(
+	ctx context.Context,
+	executor dockerExecutor,
+	authority checkedAuthority,
+	container string,
+) error {
 	version, err := executor.run(ctx, dockerRequest{
 		operation: "verify pinned PDF-tools BuildKit daemon version",
 		directory: authority.root,
 		timeout:   30 * time.Second,
 		output:    authority.contract.Limits.CapturedOutputBytes,
-		arguments: []string{"container", "exec", builder.Container, "/usr/bin/buildkitd", "--version"},
+		arguments: []string{"container", "exec", container, "/usr/bin/buildkitd", "--version"},
 	})
 	if err != nil {
 		return err
@@ -624,6 +638,32 @@ func validateReproductionBuilder(
 		return errors.New("running BuildKit daemon differs from the pinned PDF renderer authority")
 	}
 	return nil
+}
+
+func validateReproductionBuilder(
+	ctx context.Context,
+	executor dockerExecutor,
+	authority checkedAuthority,
+	builder reproductionBuilder,
+) error {
+	result, err := executor.run(ctx, dockerRequest{
+		operation: "inspect bounded PDF-tools BuildKit daemon",
+		directory: authority.root,
+		timeout:   30 * time.Second,
+		output:    authority.contract.Limits.CapturedOutputBytes,
+		arguments: []string{"container", "inspect", "--format", "{{json .}}", builder.Container},
+	})
+	if err != nil {
+		return err
+	}
+	inspection, err := decodeDockerJSON[buildKitContainerInspection](result.stdout, "PDF-tools BuildKit daemon")
+	if err != nil {
+		return err
+	}
+	if err := validateBuildKitContainerInspection(inspection, authority, builder); err != nil {
+		return err
+	}
+	return verifyBuildKitDaemonVersion(ctx, executor, authority, builder.Container)
 }
 
 func validateFinalBuildMetadata(path string, identity imageIdentity, maximum int64) error {
