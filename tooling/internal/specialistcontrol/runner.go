@@ -112,6 +112,22 @@ func (runner Runner) Run(ctx context.Context, request Request) (RunResult, error
 		}
 		return run, nil
 	}
+	invocationAt, admitted, err := runner.revalidate(ctx, request, lease, &run)
+	if !admitted {
+		return run, err
+	}
+	return runner.invoke(ctx, request, decision, invocationAt, run)
+}
+
+// revalidate re-reads admission at the invocation instant. When the request may no
+// longer run it records the terminal decision and reports the request as not admitted.
+func (runner Runner) revalidate(
+	ctx context.Context,
+	request Request,
+	lease *AdmissionLease,
+	run *RunResult,
+) (time.Time, bool, error) {
+	decision, admission := run.Decision, run.Admission
 	revalidated := lease.Revalidate(ctx, request, runner.now)
 	invocationAt := revalidated.DecidedAt
 	invalidClock := invocationAt.IsZero() || invocationAt.Before(decision.DecidedAt)
@@ -124,33 +140,49 @@ func (runner Runner) Run(ctx context.Context, request Request) (RunResult, error
 	}
 	invocationPreflight, requestTerminal := runner.policy.preflight(invocationAt, request)
 	run.Admission = revalidated
-	if revalidated.State != AdmissionAdmitted || requestTerminal {
-		terminalDecision := runner.policy.Decide(invocationAt, request, revalidated)
-		if requestTerminal {
-			terminalDecision = invocationPreflight
-			terminalDecision.Admission = revalidated
-		}
-		if invalidClock {
-			terminalDecision = decision
-			terminalDecision.State = DecisionRefuse
-			terminalDecision.Reason = ReasonMalformedRequest
-			terminalDecision.Admission = revalidated
-			terminalDecision.SpecialistID = ""
-			terminalDecision.Binding = Binding{}
-			terminalDecision.DecidedAt = invocationAt
-		}
-		run.Decision = terminalDecision
-		run.Outcome = outcomeFromDecision(terminalDecision)
-		contextEnded := ctx != nil && ctx.Err() != nil
-		if err := runner.recordDecision(ctx, terminalDecision, true); err != nil {
-			return run, fmt.Errorf("record terminal specialist-control decision: %w", err)
-		}
-		if contextEnded {
-			err := ctx.Err()
-			return run, fmt.Errorf("specialist-control context ended before invocation: %w", err)
-		}
-		return run, nil
+	if revalidated.State == AdmissionAdmitted && !requestTerminal {
+		return invocationAt, true, nil
 	}
+	terminalDecision := runner.policy.Decide(invocationAt, request, revalidated)
+	if requestTerminal {
+		terminalDecision = invocationPreflight
+		terminalDecision.Admission = revalidated
+	}
+	if invalidClock {
+		terminalDecision = decision
+		terminalDecision.State = DecisionRefuse
+		terminalDecision.Reason = ReasonMalformedRequest
+		terminalDecision.Admission = revalidated
+		terminalDecision.SpecialistID = ""
+		terminalDecision.Binding = Binding{}
+		terminalDecision.DecidedAt = invocationAt
+	}
+	return invocationAt, false, runner.recordTerminalDecision(ctx, terminalDecision, run)
+}
+
+// recordTerminalDecision records a decision that ends the run before invocation.
+func (runner Runner) recordTerminalDecision(ctx context.Context, decision Decision, run *RunResult) error {
+	run.Decision = decision
+	run.Outcome = outcomeFromDecision(decision)
+	contextEnded := ctx != nil && ctx.Err() != nil
+	if err := runner.recordDecision(ctx, decision, true); err != nil {
+		return fmt.Errorf("record terminal specialist-control decision: %w", err)
+	}
+	if contextEnded {
+		err := ctx.Err()
+		return fmt.Errorf("specialist-control context ended before invocation: %w", err)
+	}
+	return nil
+}
+
+// invoke runs the admitted specialist inside the recorded deadline.
+func (runner Runner) invoke(
+	ctx context.Context,
+	request Request,
+	decision Decision,
+	invocationAt time.Time,
+	run RunResult,
+) (RunResult, error) {
 	remaining := decision.Deadline.Sub(invocationAt)
 	if remaining <= 0 {
 		run.Outcome = terminalOutcome(OutcomeAbstained, ReasonDeadlineElapsed, decision.Binding, nil)
@@ -178,7 +210,17 @@ func (runner Runner) Run(ctx context.Context, request Request) (RunResult, error
 		run.Outcome = terminalOutcome(OutcomeAbstained, specialistFailureReason(err), decision.Binding, nil)
 		return run, fmt.Errorf("specialist %s exceeded its execution context: %w", decision.SpecialistID, err)
 	}
+	return runner.verify(invokeContext, request, decision, result, run)
+}
 
+// verify scores the specialist's result independently and finalises the outcome.
+func (runner Runner) verify(
+	invokeContext context.Context,
+	request Request,
+	decision Decision,
+	result SpecialistResult,
+	run RunResult,
+) (RunResult, error) {
 	observedAt := runner.now()
 	resultDecision := runner.policy.InspectResult(observedAt, request, decision, result)
 	if resultDecision.State != ResultVerify {
