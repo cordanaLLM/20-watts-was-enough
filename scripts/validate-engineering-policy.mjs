@@ -1672,6 +1672,7 @@ function validateCiImpactLaneJobs(jobs, relativePath, findings) {
     ["lane-release", "release"],
     ["lane-research", "research"],
     ["lane-site", "site"],
+    ["lane-site-browser", "site"],
   ];
   for (const [jobName, selector] of impactLanes) {
     recordExpectation(
@@ -1797,6 +1798,7 @@ const ciImpactSuccessExpectedNeeds = [
   "pdf-renderer-reproducibility",
   "lane-research",
   "lane-site",
+  "lane-site-browser",
   "workstation-core",
   "workstation-artifacts",
   "container-smoke",
@@ -1825,6 +1827,7 @@ const ciImpactSuccessExpectedEnvironment = {
   RESULT_RENDERER: "${{ needs.pdf-renderer-reproducibility.result }}",
   RESULT_RESEARCH: "${{ needs.lane-research.result }}",
   RESULT_SITE: "${{ needs.lane-site.result }}",
+  RESULT_SITE_BROWSER: "${{ needs.lane-site-browser.result }}",
   RESULT_WORKSTATION_CORE: "${{ needs.workstation-core.result }}",
   RESULT_WORKSTATION_ARTIFACTS: "${{ needs.workstation-artifacts.result }}",
   RESULT_CONTAINER: "${{ needs.container-smoke.result }}",
@@ -1866,6 +1869,7 @@ const ciImpactSuccessLineCounts = Object.freeze([
   ['require_state lane-release "$RESULT_RELEASE" success', 1],
   ['require_state lane-research "$RESULT_RESEARCH" success', 1],
   ['require_state lane-site "$RESULT_SITE" success', 1],
+  ['require_state lane-site-browser "$RESULT_SITE_BROWSER" success', 1],
 ]);
 
 function validateCiImpactSuccessScript(successSource, relativePath, findings) {
@@ -1887,6 +1891,7 @@ function validateCiImpactSuccessScript(successSource, relativePath, findings) {
       'require_selection pdf-renderer-reproducibility "$RESULT_RENDERER" "$SELECT_RENDERER"',
       'require_selection lane-research "$RESULT_RESEARCH" "$SELECT_RESEARCH"',
       'require_selection lane-site "$RESULT_SITE" "$SELECT_SITE"',
+      'require_selection lane-site-browser "$RESULT_SITE_BROWSER" "$SELECT_SITE"',
       'require_selection workstation-core "$RESULT_WORKSTATION_CORE" "$SELECT_WORKSTATION"',
       'require_selection workstation-artifacts "$RESULT_WORKSTATION_ARTIFACTS" "$SELECT_WORKSTATION"',
       'require_selection container-smoke "$RESULT_CONTAINER" "$SELECT_CONTAINER"',
@@ -4086,7 +4091,7 @@ function workstationShardCommand(files) {
 const aggregateTestScripts = Object.freeze([
   "test:go", "validate:tooling", "validate:policy", "validate:topics", "validate:impact", "test:runtime", "test:policy",
   "test:release", "check:code-shape", "test:code-shape", "check:prose", "test:prose",
-  "typecheck", "lint", "test:site", "validate:translations", "test:translations",
+  "typecheck", "lint", "test:site-unit", "test:site-browser", "validate:translations", "test:translations",
   "validate:docs", "test:sources", "validate:coverage", "validate:plots", "validate:mechanism-index", "test:mechanism-index", "validate:taxonomies", "validate:math",
   "validate:workstation", "test:workstation", "check:test-coverage", "test:readiness", "test:research-gates",
   "build", "validate:site-build", "test:site-build",
@@ -4449,6 +4454,7 @@ export function validateFullCiFanOutCoverageObject(
     ["lane-release", "check:lane-release"],
     ["lane-research", "check:lane-research"],
     ["lane-site", "check:lane-site"],
+    ["lane-site-browser", "check:lane-site-browser"],
   ];
 
   for (const [jobName, scriptName] of laneJobs) {
@@ -5034,6 +5040,7 @@ function validateCiWorkflowPolicy(workflow, relativePath, lock, findings) {
     "lane-release",
     "lane-research",
     "lane-site",
+    "lane-site-browser",
   ]) {
     findings.push(...validateJavaScriptRuntimeWorkflowObject(workflow, jobName, relativePath));
   }
