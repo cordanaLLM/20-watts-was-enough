@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -39,6 +40,7 @@ type installedDriftExecutor struct {
 	root        string
 	delegate    commandExecutor
 	trigger     string
+	mu          sync.Mutex
 	triggered   bool
 	renderCount int
 }
@@ -46,9 +48,15 @@ type installedDriftExecutor struct {
 func (executor *installedDriftExecutor) run(ctx context.Context, request commandRequest) ([]byte, error) {
 	body, err := executor.delegate.run(ctx, request)
 	phase := request.operation
+	executor.mu.Lock()
+	defer executor.mu.Unlock()
 	if phase == "run pinned PDF renderer image" {
 		executor.renderCount++
-		phase = fmt.Sprintf("render-%d", executor.renderCount)
+		if request.renderSequence > 0 {
+			phase = fmt.Sprintf("render-%d", request.renderSequence)
+		} else {
+			phase = fmt.Sprintf("render-%d", executor.renderCount)
+		}
 	}
 	if err == nil && !executor.triggered && phase == executor.trigger {
 		executor.triggered = true

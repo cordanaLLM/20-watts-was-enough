@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/boundedexec"
@@ -351,6 +352,7 @@ type noOpPreparer struct{}
 func (noOpPreparer) prepare(context.Context, Configuration, string) error { return nil }
 
 type recordingExecutor struct {
+	mu                    sync.Mutex
 	requests              []commandRequest
 	imageID               string
 	failRun               bool
@@ -362,6 +364,8 @@ type recordingExecutor struct {
 }
 
 func (executor *recordingExecutor) run(_ context.Context, request commandRequest) ([]byte, error) {
+	executor.mu.Lock()
+	defer executor.mu.Unlock()
 	executor.requests = append(executor.requests, request)
 	if slices.Equal(request.arguments, []string{"buildx", "version"}) {
 		output := executor.buildxOutput
@@ -392,7 +396,8 @@ func (executor *recordingExecutor) run(_ context.Context, request commandRequest
 			return nil, errors.New("missing output mount")
 		}
 		manifest := []byte("{\"render\":\"stable\"}\n")
-		if executor.differentSecondRender && executor.renderCount == 2 {
+		isSecond := request.renderSequence == 2 || (request.renderSequence == 0 && executor.renderCount == 2)
+		if executor.differentSecondRender && isSecond {
 			manifest = []byte("{\"render\":\"different\"}\n")
 		}
 		if err := os.WriteFile(filepath.Join(outputDirectory, bookPDFName), []byte("%PDF-test\n"), 0o644); err != nil {
