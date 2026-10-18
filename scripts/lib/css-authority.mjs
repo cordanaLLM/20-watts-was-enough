@@ -31,9 +31,9 @@ const stylesheetEntryContracts = [
     sourceKey: "pagesEntry",
   },
   {
-    globalPattern: /^\s*@import\s+(["'])\.\.\/app\/globals\.css\1;?\s*$/gmu,
+    globalImport: "../app/globals.css",
     name: "github-pages/help.css",
-    portalPattern: /^\s*@import\s+(["'])\.\.\/app\/portal\.css\1;?\s*$/gmu,
+    portalImport: "../app/portal.css",
     sourceKey: "helpEntry",
   },
 ];
@@ -67,9 +67,34 @@ function parseStylesheet(source, from) {
   return postcss.parse(source, { from });
 }
 
+// Stylesheet entries are parsed, so comments and nested at-rules, which a
+// browser never loads as imports, do not count; script entries stay regex-matched.
+function stylesheetImportMatches(source, contract, path) {
+  const root = parseStylesheet(source, contract.name);
+  return root.nodes.flatMap((node, index) => {
+    if (node.type !== "atrule" || node.name !== "import") {
+      return [];
+    }
+    const quoted = /^(["'])(.*)\1$/u.exec(node.params.trim());
+    return quoted?.[2] === path ? [{ index }] : [];
+  });
+}
+
+function entryImportMatches(source, contract) {
+  if (contract.globalPattern) {
+    return [
+      [...source.matchAll(contract.globalPattern)],
+      [...source.matchAll(contract.portalPattern)],
+    ];
+  }
+  return [
+    stylesheetImportMatches(source, contract, contract.globalImport),
+    stylesheetImportMatches(source, contract, contract.portalImport),
+  ];
+}
+
 function entryImportErrors(source, contract) {
-  const globalMatches = [...source.matchAll(contract.globalPattern)];
-  const portalMatches = [...source.matchAll(contract.portalPattern)];
+  const [globalMatches, portalMatches] = entryImportMatches(source, contract);
   const errors = [];
 
   if (globalMatches.length !== 1) {
@@ -220,11 +245,7 @@ function requireMinimumLeading(errors, root, selector, minimum) {
   }
 }
 
-export function validateCssAuthority({ globalSource, portalSource }) {
-  const globalInventory = inventoryStylesheet(globalSource, "app/globals.css");
-  const portalInventory = inventoryStylesheet(portalSource, "app/portal.css");
-  const errors = [];
-
+function requireOwnerMarkers(errors, globalSource, portalSource) {
   const markerCount = portalSource.split(ownerMarker).length - 1;
   if (markerCount !== 1) {
     errors.push(`app/portal.css must contain exactly one publication owner marker; found ${markerCount}.`);
@@ -234,7 +255,9 @@ export function validateCssAuthority({ globalSource, portalSource }) {
       errors.push(`Obsolete CSS layer marker remains: ${marker}.`);
     }
   }
+}
 
+function requireSelectorOwnership(errors, globalInventory, portalInventory) {
   if (portalInventory.duplicates.length > 0) {
     for (const duplicate of portalInventory.duplicates.slice(0, 12)) {
       const lines = duplicate.locations.map(({ line }) => line).join(", ");
@@ -253,7 +276,9 @@ export function validateCssAuthority({ globalSource, portalSource }) {
       }
     }
   });
+}
 
+function requireMediaOwnership(errors, globalInventory, portalInventory) {
   for (const scope of expectedScreenScopes) {
     const count = portalInventory.mediaScopes[scope] ?? 0;
     if (count !== 1) {
@@ -282,7 +307,16 @@ export function validateCssAuthority({ globalSource, portalSource }) {
       `app/globals.css exceeds its 2,500-line ownership ceiling (${globalInventory.lineCount}).`,
     );
   }
+}
 
+export function validateCssAuthority({ globalSource, portalSource }) {
+  const globalInventory = inventoryStylesheet(globalSource, "app/globals.css");
+  const portalInventory = inventoryStylesheet(portalSource, "app/portal.css");
+  const errors = [];
+
+  requireOwnerMarkers(errors, globalSource, portalSource);
+  requireSelectorOwnership(errors, globalInventory, portalInventory);
+  requireMediaOwnership(errors, globalInventory, portalInventory);
   requireBoundedCh(errors, portalInventory.root, ".portal-reader", "--reading-measure", 80);
   requireBoundedCh(errors, portalInventory.root, ".help-intro > p:not(.portal-eyebrow)", "max-width", 80);
   requireBoundedCh(errors, portalInventory.root, ".help-page .help-prose > p", "max-width", 80);

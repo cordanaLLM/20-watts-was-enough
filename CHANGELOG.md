@@ -28,6 +28,7 @@ the exact diff; this file records why the project changed.
   its commitments are unchanged. Locally, `fixture-026` shard 1 drops from
   151 s to 118 s. The six arm-bank functions over the 60-line limit are split
   into helpers that keep each check, its order and its error message.
+- The CSS authority check reads the `@import` rules of `github-pages/help.css` through postcss, the parser it already uses for the stylesheets, instead of a line regex. An import inside a comment or a nested at-rule no longer counts, and imports on one line are found.
 - CI runs the four Chromium site browser tests in a new `lane-site-browser` job beside `lane-site`; `test:site` is now `test:site-unit` followed by `test:site-browser`, and `ci-success` requires both site jobs ([Decision 0109](decisions/0109-split-the-site-lane-browser-tests-into-their-own-job.md), #302).
 - The `image-build` PDF renderer proof runs its two builder-build-render chains concurrently instead of one after the other. Each chain keeps its own fresh builder, no-cache build and isolated render; the first failure cancels the other chain, and both builders are still removed ([Decision 0108](decisions/0108-run-the-two-image-build-chains-concurrently.md), #302).
 - `npm run validate:impact` loads `.github/ci-impact.json` through
