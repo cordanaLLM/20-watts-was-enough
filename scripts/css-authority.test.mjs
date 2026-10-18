@@ -116,6 +116,34 @@ test("publication entries require each stylesheet once and in authority order", 
   }
 });
 
+test("help stylesheet imports count only real top-level CSS at-rules", () => {
+  const portalImport = '@import "../app/portal.css";';
+  const pagesEntry = 'import "../app/globals.css";\nimport "../app/portal.css";\n';
+  const cases = [
+    {
+      expected: "github-pages/help.css must load app/globals.css exactly once; found 0.",
+      source: `/*\n@import "../app/globals.css";\n*/\n${portalImport}\n`,
+    },
+    {
+      expected: "github-pages/help.css must load app/globals.css exactly once; found 0.",
+      source: `@media print {\n@import "../app/globals.css";\n}\n${portalImport}\n`,
+    },
+    {
+      expected: "github-pages/help.css must load app/globals.css before app/portal.css.",
+      source: `${portalImport} @import '../app/globals.css';\n`,
+    },
+  ];
+
+  assert.deepEqual(validateCssEntryImports({
+    helpEntry: `@import '../app/globals.css'; ${portalImport}\n`,
+    pagesEntry,
+  }), []);
+  for (const fixture of cases) {
+    const errors = validateCssEntryImports({ helpEntry: fixture.source, pagesEntry });
+    assert.ok(errors.includes(fixture.expected), fixture.expected);
+  }
+});
+
 test("authority validation rejects selector leaks, duplication, and missing measures", () => {
   const duplicatePortal = `${portalSource}\n@media screen { .portal-shell { color: red; } }\n`;
   const duplicate = validateCssAuthority({ globalSource, portalSource: duplicatePortal });
