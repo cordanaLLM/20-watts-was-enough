@@ -3,11 +3,16 @@ package pdfrender
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 const installedTestPackage = "node_modules/katex"
@@ -34,15 +39,42 @@ func writeDependencyJSON(t *testing.T, root, relative string, value any) {
 	writeDependencyBytes(t, root, relative, body)
 }
 
+// writeDependencyBytes replaces the file through a sibling temporary file, so a
+// concurrent reproducibility build reads the old or the new bytes, never a
+// truncated file (#319). Windows readers open without FILE_SHARE_DELETE, so the
+// rename retries a bounded number of times while a reader holds the target.
 func writeDependencyBytes(t *testing.T, root, relative string, body []byte) {
 	t.Helper()
 	name := filepath.Join(root, filepath.FromSlash(relative))
-	if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil {
+	dir := filepath.Dir(name)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(name, body, 0o644); err != nil {
+	base := filepath.Base(name)
+	tempFile, err := os.CreateTemp(dir, base+".tmp-*")
+	if err != nil {
 		t.Fatal(err)
 	}
+	tempName := tempFile.Name()
+	if _, err := tempFile.Write(body); err != nil {
+		_ = tempFile.Close()
+		_ = os.Remove(tempName)
+		t.Fatal(err)
+	}
+	if err := tempFile.Close(); err != nil {
+		_ = os.Remove(tempName)
+		t.Fatal(err)
+	}
+	var renameErr error
+	for attempt := 0; attempt < 100; attempt++ {
+		renameErr = os.Rename(tempName, name)
+		if renameErr == nil {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	_ = os.Remove(tempName)
+	t.Fatalf("rename %s -> %s after retries: %v", tempName, name, renameErr)
 }
 
 func mutateDependencyFile(t *testing.T, root, relative, old, replacement string) {
@@ -205,5 +237,49 @@ func TestInstalledDependenciesBoundPathsCountsMetadataAndCancellation(t *testing
 	writeDependencyJSON(t, root, "package-lock.json", dependencyLock{LockfileVersion: 3, Packages: packages})
 	if _, err := inspectInstalledDependencies(context.Background(), root); err == nil || !strings.Contains(err.Error(), "package records") {
 		t.Fatalf("package inventory bound = %v", err)
+	}
+}
+
+func TestWriteDependencyBytesNeverExposesAnEmptyFile(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	relative := installedTestPackage + "/package.json"
+	target := filepath.Join(root, filepath.FromSlash(relative))
+	writeDependencyBytes(t, root, relative, []byte(`{"name":"katex","version":"0.18.5"}`))
+
+	const writes = 200
+	const maxStats = 500000
+	var done atomic.Bool
+	var empty, failed, observed atomic.Int64
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for attempt := 0; attempt < maxStats && !done.Load(); attempt++ {
+			info, err := os.Stat(target)
+			switch {
+			case err != nil && runtime.GOOS == "windows" && errors.Is(err, os.ErrNotExist):
+				// A Windows stat may race the replacing rename; it never sees a truncated file.
+			case err != nil:
+				failed.Add(1)
+			case info.Size() == 0:
+				empty.Add(1)
+			default:
+				observed.Add(1)
+			}
+		}
+	}()
+	// The writer stays on the test goroutine because writeDependencyBytes may call t.Fatal.
+	for iteration := 0; iteration < writes; iteration++ {
+		writeDependencyBytes(t, root, relative, []byte(fmt.Sprintf(`{"name":"katex","version":"0.18.%d"}`, iteration)))
+	}
+	done.Store(true)
+	wg.Wait()
+
+	if empty.Load() > 0 || failed.Load() > 0 {
+		t.Fatalf("reader saw %d empty files and %d stat errors", empty.Load(), failed.Load())
+	}
+	if observed.Load() == 0 {
+		t.Fatal("reader never observed the dependency file")
 	}
 }

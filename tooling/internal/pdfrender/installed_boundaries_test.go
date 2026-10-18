@@ -98,7 +98,7 @@ func TestInstalledDependencyDriftNeverWritesAPassingReproducibilityReceipt(t *te
 	executor := &installedDriftExecutor{t: t, root: configuration.RepositoryRoot, delegate: delegate, trigger: "render-2"}
 	relative := ".workingdir/evidence/publication/dependency-drift.json"
 	_, err := verifyReproducibilityWithDependencies(context.Background(), configuration, "main", "", relative, reproducibilityFixturePreparer{}, executor)
-	if !executor.triggered || err == nil || !strings.Contains(err.Error(), "metadata changed during rendering") {
+	if !executor.triggered || !isInstalledDependencyDrift(err) {
 		t.Fatalf("second-render drift: triggered=%t error=%v", executor.triggered, err)
 	}
 	if _, err := os.Stat(filepath.Join(configuration.RepositoryRoot, filepath.FromSlash(relative))); !os.IsNotExist(err) {
@@ -107,6 +107,21 @@ func TestInstalledDependencyDriftNeverWritesAPassingReproducibilityReceipt(t *te
 	if len(requestsWithPrefix(delegate.requests, "buildx", "rm")) != 2 || len(requestsWithPrefix(delegate.requests, "image", "rm", "--force")) != 2 {
 		t.Fatal("reproducibility failure did not clean both owned builders/images")
 	}
+}
+
+// isInstalledDependencyDrift accepts every refusal a drifted package.json can
+// produce. The two reproducibility builds run concurrently, so the edit can land
+// while the other build's preflight reads the file (#319).
+func isInstalledDependencyDrift(err error) bool {
+	if err == nil {
+		return false
+	}
+	for _, refusal := range []string{"metadata changed during rendering", "changed while it was read", "changed before it was opened"} {
+		if strings.Contains(err.Error(), refusal) {
+			return true
+		}
+	}
+	return false
 }
 
 func (executor *installedDriftExecutor) inspectImageArchive(ctx context.Context, configuration Configuration, imageID, manifestDigest string) (ImageConfigProof, error) {
