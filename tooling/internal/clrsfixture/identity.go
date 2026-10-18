@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
-	"hash"
 )
 
 // SourceID binds one validated upstream source record.
@@ -35,21 +34,21 @@ func (id VerifierID) String() string {
 	return "sha256:" + hex.EncodeToString(id[:])
 }
 
+// identityBuilder collects the length-prefixed encoding and hashes it once in
+// sum, so no fallible hash write sits between the fields and the identity.
 type identityBuilder struct {
-	hash    hash.Hash
-	scratch [8]byte
+	encoded []byte
 }
 
 func newIdentityBuilder(domain string) identityBuilder {
-	builder := identityBuilder{hash: sha256.New()}
+	builder := identityBuilder{}
 	builder.addString(domain)
 	return builder
 }
 
 func (builder *identityBuilder) addBytes(value []byte) {
-	binary.BigEndian.PutUint64(builder.scratch[:], uint64(len(value)))
-	_, _ = builder.hash.Write(builder.scratch[:])
-	_, _ = builder.hash.Write(value)
+	builder.encoded = binary.BigEndian.AppendUint64(builder.encoded, uint64(len(value)))
+	builder.encoded = append(builder.encoded, value...)
 }
 
 func (builder *identityBuilder) addString(value string) {
@@ -77,5 +76,5 @@ func (builder *identityBuilder) addBool(value bool) {
 }
 
 func (builder *identityBuilder) sum() [sha256.Size]byte {
-	return [sha256.Size]byte(builder.hash.Sum(nil))
+	return sha256.Sum256(builder.encoded)
 }
