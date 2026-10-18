@@ -35,6 +35,12 @@ const (
 	maximumPackageManifestBytes  = 1 << 20
 )
 
+// MaximumSuiteDuration bounds one Run: the largest catalogue runs in waves of
+// the default concurrency, and each job may use its duration ceiling plus the
+// wait delay.
+const MaximumSuiteDuration = ((maximumSuiteJobs + defaultConcurrency - 1) / defaultConcurrency) *
+	(maximumJobDuration + maximumCommandWaitDelay)
+
 var allowedEnvironmentNames = map[string]struct{}{
 	"APPDATA": {}, "CI": {}, "COMSPEC": {}, "FORCE_COLOR": {}, "HOME": {},
 	"LANG": {}, "LC_ALL": {}, "LC_CTYPE": {}, "LOCALAPPDATA": {},

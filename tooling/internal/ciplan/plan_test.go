@@ -336,3 +336,9 @@ func writePlanRepository(t *testing.T, mapping string) string {
 	}
 	return root
 }
+
+func TestMaximumBuildDurationCoversGitCommands(t *testing.T) {
+	if MaximumBuildDuration <= gitDiffTimeout+gitLogTimeout {
+		t.Fatalf("build bound %v does not cover Git diff %v plus Git log %v", MaximumBuildDuration, gitDiffTimeout, gitLogTimeout)
+	}
+}

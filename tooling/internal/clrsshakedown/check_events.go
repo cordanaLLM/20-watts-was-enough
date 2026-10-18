@@ -14,15 +14,48 @@ import (
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/specialistcontrol"
 )
 
-func checkEvents(ctx context.Context, root *os.Root, bound boundInputs, report Report) error {
-	expected := make(map[string]bool, len(report.Events))
-	for index, artifact := range report.Events {
+func expectedEventInventory(events []Artifact) (map[string]bool, error) {
+	expected := make(map[string]bool, len(events))
+	for index, artifact := range events {
 		kind := []string{"decision", "invocation", "verification", "terminal"}[index%4]
 		name := fmt.Sprintf("events/%03d-%s.json", index+1, kind)
 		if artifact.Path != name || artifact.Identity.SizeBytes <= 0 || artifact.Identity.SizeBytes > maximumEventBytes {
-			return errors.New("shakedown event order, path or byte bound differs")
+			return nil, errors.New("shakedown event order, path or byte bound differs")
 		}
 		expected[filepath.Base(name)] = false
+	}
+	return expected, nil
+}
+
+func readCaseEventRecords(ctx context.Context, root *os.Root, report Report, caseIndex int, previous *time.Time, total *int64) ([4]event, error) {
+	var records [4]event
+	for offset := range records {
+		index := caseIndex*4 + offset
+		artifact := report.Events[index]
+		body, err := readFile(ctx, root, artifact.Path, maximumEventBytes)
+		if err != nil || identify(body) != artifact.Identity {
+			return records, errors.New("shakedown event bytes differ from receipt")
+		}
+		*total += int64(len(body))
+		if *total > maximumJournalBytes {
+			return records, errors.New("shakedown journal exceeds its byte limit")
+		}
+		if err := decode(body, &records[offset]); err != nil {
+			return records, err
+		}
+		r := records[offset]
+		if r.Sequence != index+1 || r.Authority != clrsfixture.ResultAuthority || r.ObservedAt.Before(*previous) || r.ObservedAt.After(report.Finished) {
+			return records, errors.New("shakedown event sequence, authority or time differs")
+		}
+		*previous = r.ObservedAt
+	}
+	return records, nil
+}
+
+func checkEvents(ctx context.Context, root *os.Root, bound boundInputs, report Report) error {
+	expected, err := expectedEventInventory(report.Events)
+	if err != nil {
+		return err
 	}
 	if err := checkInventory(root, "events", expected); err != nil {
 		return err
@@ -36,26 +69,9 @@ func checkEvents(ctx context.Context, root *os.Root, bound boundInputs, report R
 			return err
 		}
 		for _, request := range requests {
-			var records [4]event
-			for offset := range records {
-				index := caseIndex*4 + offset
-				artifact := report.Events[index]
-				body, err := readFile(ctx, root, artifact.Path, maximumEventBytes)
-				if err != nil || identify(body) != artifact.Identity {
-					return errors.New("shakedown event bytes differ from receipt")
-				}
-				total += int64(len(body))
-				if total > maximumJournalBytes {
-					return errors.New("shakedown journal exceeds its byte limit")
-				}
-				if err := decode(body, &records[offset]); err != nil {
-					return err
-				}
-				r := records[offset]
-				if r.Sequence != index+1 || r.Authority != clrsfixture.ResultAuthority || r.ObservedAt.Before(previous) || r.ObservedAt.After(report.Finished) {
-					return errors.New("shakedown event sequence, authority or time differs")
-				}
-				previous = r.ObservedAt
+			records, err := readCaseEventRecords(ctx, root, report, caseIndex, &previous, &total)
+			if err != nil {
+				return err
 			}
 			if err := checkCase(ctx, bound, task, request, report.Cases[caseIndex], records); err != nil {
 				return fmt.Errorf("check case %s: %w", request.RequestID, err)
