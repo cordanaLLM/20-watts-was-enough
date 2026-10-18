@@ -112,7 +112,7 @@ func bindTask(runID, id string, tree clrsfixture.FixtureTree, dataset clrsfixtur
 
 func policyLimits(budget time.Duration) specialistcontrol.Limits {
 	return specialistcontrol.Limits{MaxRequestBytes: maximumExampleBytes, MaxResultBytes: maximumExampleBytes,
-		MaxRequestAge: budget, MaxExecution: budget, MaxDecisionRecord: recordTimeout}
+		MaxRequestAge: budget, MaxExecution: budget, MaxDecisionRecord: budget}
 }
 
 func admissionLimits() specialistcontrol.AdmissionLimits {

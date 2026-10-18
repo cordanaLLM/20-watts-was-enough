@@ -56,6 +56,17 @@ func (j *journal) RecordDecision(ctx context.Context, decision specialistcontrol
 	return nil
 }
 
+// recordContext derives a recording context that shares the case deadline.
+// recordTimeout is the floor so an overrun case still records its event
+// even when the case deadline has already expired.
+func recordContext(ctx context.Context, caseDeadline time.Time) (context.Context, context.CancelFunc) {
+	deadline := caseDeadline
+	if floor := time.Now().Add(recordTimeout); floor.After(deadline) {
+		deadline = floor
+	}
+	return context.WithDeadline(context.WithoutCancel(ctx), deadline)
+}
+
 type observedSpecialist struct {
 	inner   specialistcontrol.Specialist
 	journal *journal
@@ -72,7 +83,7 @@ func (s observedSpecialist) Invoke(ctx context.Context, in specialistcontrol.Inv
 		return specialistcontrol.SpecialistResult{}, errors.Join(err, errors.New("specialist output exceeds the shakedown limit"))
 	}
 	record := invocationEvent{in.RequestID, started, time.Now().UTC(), result, diagnostic(err)}
-	recordCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), recordTimeout)
+	recordCtx, cancel := recordContext(ctx, in.Deadline)
 	defer cancel()
 	return result, errors.Join(err, s.journal.append(recordCtx, event{Kind: "invocation", Invocation: &record}, maximumEventBytes))
 }
@@ -93,7 +104,7 @@ func (v observedVerifier) Verify(ctx context.Context, in specialistcontrol.Invoc
 		return verification, errors.Join(err, errors.New("verification output exceeds the shakedown limit"))
 	}
 	record := verificationEvent{in.RequestID, started, time.Now().UTC(), candidate, verification, diagnostic(err)}
-	recordCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), recordTimeout)
+	recordCtx, cancel := recordContext(ctx, in.Deadline)
 	defer cancel()
 	return verification, errors.Join(err, v.journal.append(recordCtx, event{Kind: "verification", Verification: &record}, maximumEventBytes))
 }
