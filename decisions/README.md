@@ -113,3 +113,4 @@ than silently changing its outcome.
 | [0106](0106-fan-out-full-ci-to-impact-lanes.md) | Fan out full CI to impact lanes | accepted |
 | [0107](0107-pack-short-workstation-fixtures.md) | Pack short workstation fixtures | accepted |
 | [0108](0108-run-the-two-image-build-chains-concurrently.md) | Run the two image-build chains concurrently | accepted |
+| [0109](0109-split-the-site-lane-browser-tests-into-their-own-job.md) | Split the site lane browser tests into their own job | accepted |

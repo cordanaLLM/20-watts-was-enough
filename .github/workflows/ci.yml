@@ -490,6 +490,34 @@ jobs:
       - name: Run site checks
         run: npm run check:lane-site
 
+  lane-site-browser:
+    name: Site browser lane
+    needs: impact-plan
+    if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.site == 'true')
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Check out canonical source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Use Node.js 26
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Install locked npm 12.2.0
+        run: node scripts/install-locked-npm.mjs
+      - name: Verify locked npm 12.2.0
+        run: test "$(npm --version)" = "12.2.0"
+      - name: Install locked dependencies
+        run: npm ci --no-audit
+      - name: Run site browser checks
+        run: npm run check:lane-site-browser
+
   workstation-core:
     name: Workstation core
     needs: impact-plan
@@ -800,6 +828,7 @@ jobs:
       - pdf-renderer-reproducibility
       - lane-research
       - lane-site
+      - lane-site-browser
       - workstation-core
       - workstation-artifacts
       - container-smoke
@@ -830,6 +859,7 @@ jobs:
           RESULT_RENDERER: ${{ needs.pdf-renderer-reproducibility.result }}
           RESULT_RESEARCH: ${{ needs.lane-research.result }}
           RESULT_SITE: ${{ needs.lane-site.result }}
+          RESULT_SITE_BROWSER: ${{ needs.lane-site-browser.result }}
           RESULT_WORKSTATION_CORE: ${{ needs.workstation-core.result }}
           RESULT_WORKSTATION_ARTIFACTS: ${{ needs.workstation-artifacts.result }}
           RESULT_CONTAINER: ${{ needs.container-smoke.result }}
@@ -884,6 +914,7 @@ jobs:
               require_selection pdf-renderer-reproducibility "$RESULT_RENDERER" "$SELECT_RENDERER"
               require_state lane-research "$RESULT_RESEARCH" success
               require_state lane-site "$RESULT_SITE" success
+              require_state lane-site-browser "$RESULT_SITE_BROWSER" success
               require_state workstation-core "$RESULT_WORKSTATION_CORE" success
               require_state workstation-artifacts "$RESULT_WORKSTATION_ARTIFACTS" success
               require_state container-smoke "$RESULT_CONTAINER" success
@@ -907,6 +938,7 @@ jobs:
               require_selection pdf-renderer-reproducibility "$RESULT_RENDERER" "$SELECT_RENDERER"
               require_selection lane-research "$RESULT_RESEARCH" "$SELECT_RESEARCH"
               require_selection lane-site "$RESULT_SITE" "$SELECT_SITE"
+              require_selection lane-site-browser "$RESULT_SITE_BROWSER" "$SELECT_SITE"
               require_selection workstation-core "$RESULT_WORKSTATION_CORE" "$SELECT_WORKSTATION"
               require_selection workstation-artifacts "$RESULT_WORKSTATION_ARTIFACTS" "$SELECT_WORKSTATION"
               require_selection container-smoke "$RESULT_CONTAINER" "$SELECT_CONTAINER"
