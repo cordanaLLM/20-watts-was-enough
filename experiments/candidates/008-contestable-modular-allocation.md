@@ -63,9 +63,6 @@ flowchart LR
     contest --> settle
 ```
 
-Editable source:
-[`../../assets/diagrams/contestable-allocation-loop.mmd`](../../assets/diagrams/contestable-allocation-loop.mmd).
-
 For module $i$, let hidden type $\theta_i$ contain current capability,
 uncertainty, and resource cost. It reports $\hat\theta_i$, receives allocation
 $x_i$, and produces outcome $y$. A system planner may optimize

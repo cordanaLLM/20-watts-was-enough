@@ -251,9 +251,6 @@ flowchart LR
     K -.-> F
 ```
 
-Editable source:
-[burden-qualified-decision.mmd](../assets/diagrams/burden-qualified-decision.mmd).
-
 The record binds claim/action, authority, affected interests, proponent,
 burden, evidence purpose and provenance, disclosure/access, objections,
 contrary evidence, findings, reasons, decision, protected outcomes, review
@@ -346,9 +343,6 @@ flowchart LR
     M --> I
 ```
 
-Editable source:
-[recoverable-initiative.mmd](../assets/diagrams/recoverable-initiative.mmd).
-
 Human time is part of lifecycle cost. For interruptions $j=1,\ldots,n$,
 
 $$
@@ -422,9 +416,6 @@ flowchart LR
     Q --> V["Removal + rebound surveillance"]
     V -.-> W
 ```
-
-Editable source:
-[state-qualified-intervention.mmd](../assets/diagrams/state-qualified-intervention.mmd).
 
 The held system record includes commanded schedule; realized state; mechanism
 engagement; benefit and protected-harm vectors; adaptation, dependence, and

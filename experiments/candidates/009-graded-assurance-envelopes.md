@@ -121,9 +121,6 @@ flowchart LR
     invalidate --> static
 ```
 
-Editable source:
-[`../../assets/diagrams/graded-assurance-envelope.mmd`](../../assets/diagrams/graded-assurance-envelope.mmd).
-
 For module $m$, grant only
 
 $$

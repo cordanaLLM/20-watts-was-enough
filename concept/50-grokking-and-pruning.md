@@ -247,9 +247,6 @@ flowchart LR
     N --> L
 ```
 
-Editable source:
-[residual-capacity-contract.mmd](../assets/diagrams/residual-capacity-contract.mmd).
-
 The mechanics and network evidence in
 [C-481](../research/claims.md#c-481)–[C-499](../research/claims.md#c-499)
 establish mature nulls and measurement boundaries, not an AI effect size.

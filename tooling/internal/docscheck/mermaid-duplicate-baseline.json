@@ -79,19 +79,6 @@
       ]
     },
     {
-      "sha256": "504d68deb4ff1bb4c68da4ac6013b78c46ad95205364e030f0f3cbc13f82a93f",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/horizon-qualified-learning.mmd",
-          "count": 1
-        },
-        {
-          "path": "concept/40-memory-and-consolidation.md",
-          "count": 1
-        }
-      ]
-    },
-    {
       "sha256": "518e1e5b4b764ed1433b6593bbdb62a54a91a313f28dababb91d8011949ac28c",
       "occurrences": [
         {
@@ -104,45 +91,6 @@
         },
         {
           "path": "experiments/fixtures/007-operator-qualified-optical-inference.md",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "sha256": "5e932aa40513e3304f1c8cd17e48de97860ae1cd8787a251cd1890b1af443ea2",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/burden-qualified-decision.mmd",
-          "count": 1
-        },
-        {
-          "path": "concept/70-system-synthesis.md",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "sha256": "5ff3921736bd2d27ac457afc5207bef8ac116f488fc7a6717ce02c7ddda41d1b",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/three-coupled-loops.mmd",
-          "count": 1
-        },
-        {
-          "path": "concept/01-working-architecture.md",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "sha256": "60c0ba4faf4d58f206a67a5d0a759b3a31d9c9d8e2e18f5f4cfd8288807edda3",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/typed-tolerance-lifecycle.mmd",
-          "count": 1
-        },
-        {
-          "path": "concept/07-cross-domain-convergence.md",
           "count": 1
         }
       ]
@@ -165,110 +113,6 @@
       ]
     },
     {
-      "sha256": "735f3256f20a9276f363589ca6460769ffb150945a0f7cdcb2f1beb49f858ba8",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/state-qualified-intervention.mmd",
-          "count": 1
-        },
-        {
-          "path": "concept/70-system-synthesis.md",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "sha256": "772d45f70e057fd72b9189ccc5c5d886792b3921da86254e667a24a5115bc9be",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/regime-qualified-flow-inference-control.mmd",
-          "count": 1
-        },
-        {
-          "path": "experiments/fixtures/005-regime-qualified-flow-inference-control.md",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "sha256": "7812cd26ad66c8a35ac17958ccd214109fe5a3cf55d7005db713d79d7c7e6fd5",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/structural-growth-routing.mmd",
-          "count": 1
-        },
-        {
-          "path": "concept/10-neurogenesis-and-routing.md",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "sha256": "88f1f5e11e34e2c12a179d68ec670c078a5bbfd282836ac5a34a9456b0be886b",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/residual-capacity-contract.mmd",
-          "count": 1
-        },
-        {
-          "path": "concept/50-grokking-and-pruning.md",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "sha256": "929a150e96e8f5d26c9fdfe032bad53475808ba23b65b50c06230a5a8c649750",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/generative-recombination.mmd",
-          "count": 1
-        },
-        {
-          "path": "concept/01-working-architecture.md",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "sha256": "934cf8c4dd69498d0fd5a43b83b4fd49fd3c9122b571144c55dee0aeb59c229b",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/contestable-allocation-loop.mmd",
-          "count": 1
-        },
-        {
-          "path": "experiments/candidates/008-contestable-modular-allocation.md",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "sha256": "951ee97ec1b602673acd814a88d010b9246275d50b8767f053426ab2485d7459",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/endogenous-curriculum-loop.mmd",
-          "count": 1
-        },
-        {
-          "path": "experiments/candidates/004-closed-endogenous-curriculum.md",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "sha256": "9f8f0821635aceb93d4132e6b74abfa649609c4ef48624051d7c249a0b503b7a",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/recoverable-initiative.mmd",
-          "count": 1
-        },
-        {
-          "path": "concept/70-system-synthesis.md",
-          "count": 1
-        }
-      ]
-    },
-    {
       "sha256": "a3da47fd38b658ba49c42f058cdb958b7c285c8592a14177ad13fd0eb19e5cea",
       "occurrences": [
         {
@@ -281,19 +125,6 @@
         },
         {
           "path": "experiments/fixtures/003-opportunity-history-qualified-action.md",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "sha256": "a3ddfe21df605bc0843d48fdbbcc96252ad6fa9285a79807a618099e7ba22eb2",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/grounded-learning-loop.mmd",
-          "count": 1
-        },
-        {
-          "path": "concept/20-sensorimotor-grounding.md",
           "count": 1
         }
       ]
@@ -316,45 +147,6 @@
       ]
     },
     {
-      "sha256": "ad262780e949fcaf1f0f432eccffd9f3a45c0d16e400baf689538b8f97d2b758",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/recurring-solution-families.mmd",
-          "count": 1
-        },
-        {
-          "path": "concept/07-cross-domain-convergence.md",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "sha256": "aeedce4717c4caeb0cea4824406f274337720906d5a4a4066d7792a5c791e2fb",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/physical-skill-compilation.mmd",
-          "count": 1
-        },
-        {
-          "path": "experiments/candidates/006-reversible-physical-skill.md",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "sha256": "afa3f91b498e3bbd6347dc2e65da8bccebb52a8961effbfcc92848ed30ed7eb4",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/severity-ordered-containment.mmd",
-          "count": 1
-        },
-        {
-          "path": "experiments/candidates/005-severity-ordered-containment.md",
-          "count": 1
-        }
-      ]
-    },
-    {
       "sha256": "b603fa79d204a7ae5f8df1560a13709864d7b7fc3569ecd8be7fc659942fc5b9",
       "occurrences": [
         {
@@ -367,45 +159,6 @@
         },
         {
           "path": "experiments/fixtures/010-boundary-qualified-physical-computation.md",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "sha256": "b8c2f8d67f951f1063592828f6e6d6d068e1e6f44b2e2fe4c0c483159aba0c43",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/hardening-memory-paths.mmd",
-          "count": 1
-        },
-        {
-          "path": "concept/60-hardening-and-factual-memory.md",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "sha256": "bc5666d4f8d93dd011223e54b878d8228836f6ee302f0e2c15eef632e27f34f4",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/latency-qualified-authority.mmd",
-          "count": 1
-        },
-        {
-          "path": "experiments/candidates/012-latency-qualified-authority.md",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "sha256": "bcf0180d621236568a5a7338dffdd4307b2fbc85afc5b226dd261c6c67e9d153",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/graded-assurance-envelope.mmd",
-          "count": 1
-        },
-        {
-          "path": "experiments/candidates/009-graded-assurance-envelopes.md",
           "count": 1
         }
       ]
@@ -428,19 +181,6 @@
       ]
     },
     {
-      "sha256": "c1218b28e4272b7a47bf3ff5cde105c314771ca6c73dba3acfa341a8246c2987",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/efficiency-evaluation-loop.mmd",
-          "count": 1
-        },
-        {
-          "path": "concept/80-energy-model.md",
-          "count": 1
-        }
-      ]
-    },
-    {
       "sha256": "c5af8b90361fe2d4821ac5cd0f850fdb156ba78b595774a8565722a6891893bf",
       "occurrences": [
         {
@@ -453,32 +193,6 @@
         },
         {
           "path": "experiments/fixtures/006-representative-adaptive-performance.md",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "sha256": "d7f0b988ad581cf3255b37aa9aded7a69d8423d28136e4a6d7c34425711e73ea",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/research-iteration-loop.mmd",
-          "count": 1
-        },
-        {
-          "path": "concept/90-research-roadmap.md",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "sha256": "e370ea44d71366b065543ecd5c311eefe9ef2f5f1c7813e0a83303f8ddd28973",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/versioned-proof-discovery-lifecycle.mmd",
-          "count": 1
-        },
-        {
-          "path": "experiments/fixtures/004-versioned-proof-discovery.md",
           "count": 1
         }
       ]
@@ -564,19 +278,6 @@
         },
         {
           "path": "experiments/candidates/018-value-reconstructability-aware-tiering.md",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "sha256": "fb893780b97ba326ff298b4ebe19bd7f757490694baf754344dc29d249020600",
-      "occurrences": [
-        {
-          "path": "assets/diagrams/deficit-capability-routing.mmd",
-          "count": 1
-        },
-        {
-          "path": "experiments/candidates/013-deficit-capability-routing.md",
           "count": 1
         }
       ]

@@ -569,9 +569,6 @@ flowchart TB
     result --> replicate["Replicate on another workload or hardware"]
 ```
 
-Editable source:
-[`../assets/diagrams/efficiency-evaluation-loop.mmd`](../assets/diagrams/efficiency-evaluation-loop.mmd).
-
 ### Uncertainty and missing costs
 
 The primary comparison is paired. Candidate and baseline run the same workload

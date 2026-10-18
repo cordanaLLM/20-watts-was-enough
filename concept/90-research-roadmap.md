@@ -72,9 +72,6 @@ flowchart LR
     update --> discover
 ```
 
-Editable source:
-[`../assets/diagrams/research-iteration-loop.mmd`](../assets/diagrams/research-iteration-loop.mmd).
-
 An iteration has three independently reviewable outputs:
 
 | Output | Minimum durable artifact | Meaningful completion |

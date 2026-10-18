@@ -28,37 +28,9 @@ scientific evidence.
   to `../public/plots/` for GitHub and the private reader.
 - `diagrams/evidence-to-principles.mmd` shows how domain findings are audited,
   bundled, translated, and tested without duplicating concepts.
-- `diagrams/recurring-solution-families.mmd` groups the current principle
-  registry into scarcity, locality, reversible-change, maintenance, and
-  structural-computation families without merging their mechanisms.
-- `diagrams/three-coupled-loops.mmd` shows the fast runtime, adaptation, and
-  slow maintenance loops under shared resource control.
-- `diagrams/generative-recombination.mmd` treats useful novelty as a maintained
-  copy–compress–vary–test–retain cycle rather than creation from nothing.
-- `diagrams/endogenous-curriculum-loop.mmd` makes proposal generation,
-  targeted evidence, independent evaluation, revision, promotion, rejection,
-  and lineage memory separately visible in Candidate 004.
-- `diagrams/severity-ordered-containment.mmd` separates immediate containment,
-  minimally destructive triage, verification, escalation, and replacement
-  capacity in Candidate 005.
-- `diagrams/physical-skill-compilation.mmd` keeps the frequent physical path,
-  health gate, digital fallback, recompilation, and shadow validation visible
-  for Candidate 006.
-- `diagrams/contestable-allocation-loop.mmd` separates private reports,
-  allocation, withheld audits, real future opportunity consequences, entrant
-  reserves, and replayable commitments for Candidate 008.
-- `diagrams/graded-assurance-envelope.mmd` keeps static guarantees, capability
-  authority, canary evidence, runtime verdicts, rollback or compensation, and
-  dependency invalidation distinct for Candidate 009.
-- `diagrams/latency-qualified-authority.mmd` derives bounded local action,
-  fallback, and validated handoff from evidence age, trust, headroom, and
-  coordination for Candidate 012.
 - `diagrams/compensation-aware-recovery.mmd` separates apparent task recovery,
   native-path distance, compensating resources, support removal, transfer,
   recurrence, reserve, and adverse adaptation.
-- `diagrams/deficit-capability-routing.mmd` separates upward unmet demand,
-  downward scarcity context, local feasibility, allocation, and outcome
-  calibration for Candidate 013.
 - `diagrams/versioned-repairable-conventions.mmd` separates typed literal
   content, pragmatic hypotheses, recipient uptake, bounded repair, task outcome,
   convention tests, publication, expiry, and rollback for Candidate 015.
@@ -75,9 +47,6 @@ scientific evidence.
   scoped local action, spillover escalation, typed veto and appeal, ordinary
   rule repair, expiring emergency authority, compatibility, and rollback for
   Candidate 020.
-- `diagrams/recoverable-initiative.mmd` keeps initiative, actual and pending
-  mode, effective authority, state change, acknowledgement, intervention,
-  checkpoint, recovery, resumption, and expiry in one inspectable loop.
 - `diagrams/cohort-observation-contract.mmd` follows entry cohort and lifecycle
   state through transition, migration, selected record survival, versioned
   observation, identification, scenario projection, and frozen holdout.
@@ -87,9 +56,6 @@ scientific evidence.
 - `diagrams/phase-field-compilation.mmd` follows a mature local mapping through
   physical classification, fabrication/programming, execution, readout,
   health/shadow checks, reprogramming, fallback, and retirement.
-- `diagrams/residual-capacity-contract.mmd` binds load/use history, damage,
-  observation support, present and contingency capacity, redistributed demand,
-  degraded service, intervention, verification, and next-event reserve.
 - `diagrams/conservation-qualified-reconfiguration.mmd` carries inventory,
   energy, contamination, authority, protection, maintenance, and reserve state
   through a gated topology transition and rollback.
@@ -105,23 +71,10 @@ scientific evidence.
 - `diagrams/controlled-observability-plant-binding.mmd` binds an active sensing
   policy and controller to the body, mechanics, calibration, and environment
   that determine what can be observed and what action can accomplish.
-- `diagrams/state-qualified-intervention.mmd` separates commanded intervention,
-  realized exposure, engagement, response, benefit, harm, adaptation,
-  withdrawal, and post-removal surveillance.
-- `diagrams/horizon-qualified-learning.mmd` follows a skill-local instructional
-  event through attempt, support, delayed retention, transfer, fluency,
-  calibration, motivation, and complete cost.
-- `diagrams/burden-qualified-decision.mmd` separates evidence purpose and
-  provenance, authority, admissibility, contestation, sufficiency, reasons,
-  remedy, review, and reopening.
 - `diagrams/occupancy-qualified-spatial-transition.mmd` carries verified
   as-built topology, occupants, accessible and emergency routes, life safety,
   physical dependencies, authority, and material commitment through a gated
   work step, acceptance, safe-stop, commissioning, and outcome review.
-- `diagrams/typed-tolerance-lifecycle.mmd` keeps candidate generation,
-  representation support, validation, ignorance, deletion, permission,
-  activation, monitoring, quarantine, suppression, impairment, contraction,
-  memory, revalidation, and recovery as separate state transitions.
 - `diagrams/shared-clock-free-coadaptation.mmd` connects locally timestamped
   delayed partner events to phase/tempo estimation, phrase and role state,
   action, literal and timing evaluation, repair, memory, ordinary control
@@ -130,15 +83,6 @@ scientific evidence.
   opportunity, feasible action, training and social history, intervention,
   realized plant action, first-trial transfer, ordinary nulls, and diagnostic
   attribution through Fixture F-003.
-- `diagrams/versioned-proof-discovery-lifecycle.mmd` keeps immutable problem
-  identity, dependency-safe proposal search, counterexamples, abstraction
-  obligations, proof decomposition, certificate checking, typed publication,
-  reverse-dependency invalidation, and mature solver nulls visible in Fixture
-  F-004.
-- `diagrams/regime-qualified-flow-inference-control.mmd` binds measurement,
-  filter and detector identity, scale flux, closures, reduced state, adaptive
-  resolution, assimilation, sensing, control, transition tails, and complete
-  lifecycle energy in Fixture F-005.
 - `diagrams/representative-resource-qualified-performance.mmd` carries actual
   cue and action opportunity, acquisition history, opponent/team state,
   feedback, fatigue/resource/damage state, action, retention/transfer,
@@ -164,18 +108,6 @@ scientific evidence.
   chemistry, transport, sampling action, receiver and sensor state, mixtures,
   calibration, drift, identification, localization, exposure, and complete
   lifecycle work in Fixture F-011.
-- `diagrams/structural-growth-routing.mmd` follows a measured capability gap
-  through bounded candidate birth, probation routing, specialization,
-  protection, merging, and retirement.
-- `diagrams/grounded-learning-loop.mmd` connects aligned multimodal events,
-  predictive state, language, uncertainty, action, and the observed world.
-- `diagrams/efficiency-evaluation-loop.mmd` turns an efficiency claim into an
-  equal-budget measurement, uncertainty, rejection, and replication cycle.
-- `diagrams/hardening-memory-paths.mmd` separates compiled reflexes, reusable
-  skills, versioned facts, escalation, provenance, invalidation, and rollback.
-- `diagrams/research-iteration-loop.mmd` keeps discovery, deduplication,
-  conventional nulls, decisive tests, promotion, merging, and retirement in
-  one recurring research workflow.
 - `rendered/` is reserved for other committed SVG or PNG outputs generated from
   editable sources.
 - Future data-driven figures must store plotting source, parameter status, and

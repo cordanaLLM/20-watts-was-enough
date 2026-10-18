@@ -67,9 +67,6 @@ flowchart LR
     compare --> decision["Retain measured residual<br/>or retire the composition"]
 ```
 
-Editable source:
-[regime-qualified-flow-inference-control.mmd](../../assets/diagrams/regime-qualified-flow-inference-control.mmd).
-
 ## Ten adversarial tracks
 
 | ID | Construct under pressure | Hidden changes | Decisive outcomes |

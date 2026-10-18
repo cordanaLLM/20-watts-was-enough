@@ -88,9 +88,6 @@ flowchart LR
     retire --> released["Released hot capacity"]
 ```
 
-Editable source:
-[`../assets/diagrams/structural-growth-routing.mmd`](../assets/diagrams/structural-growth-routing.mmd).
-
 The initial system contains modality encoders, predictive shared state,
 conditionally addressable experts, hierarchical routers, episodic and factual
 memory interfaces, and a declared reserve. Total addressable capacity may be
