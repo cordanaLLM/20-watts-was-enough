@@ -18,6 +18,13 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Validate the shape of `topics.json` and `translations/manifest.json` with
+  JSON Schemas under `scripts/schemas/`, compiled once through the shared
+  Ajv factory, instead of hand-written field, pattern and length checks.
+  Cross-field and file-system rules stay in code; tests bind the schema
+  limits to the exported limit constants and plant an extra field, a bad
+  slug and an all-zero source revision.
+
 - Retire the last 17 exact-duplicate Mermaid groups. Each diagram is now
   drawn once, in its candidate or fixture contract; the concept chapter that
   repeated it links that contract section instead. Fifteen standalone sources

@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cordanaLLM/20-watts-was-enough/blob/main/scripts/schemas/topics.schema.json",
+  "title": "20w topic registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "topics"
+  ],
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "topics": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "$ref": "#/$defs/topic"
+      }
+    }
+  },
+  "$defs": {
+    "topic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authorities",
+        "book",
+        "chapterSections",
+        "root",
+        "routePrefix",
+        "slug",
+        "status",
+        "title",
+        "unsupportedPhrases"
+      ],
+      "properties": {
+        "authorities": {
+          "$ref": "#/$defs/authorities"
+        },
+        "book": {
+          "$ref": "#/$defs/book"
+        },
+        "chapterSections": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^## [^\\s\\p{Cc}\\p{Zl}\\p{Zp}](?:[^\\p{Cc}\\p{Zl}\\p{Zp}]*[^\\s\\p{Cc}\\p{Zl}\\p{Zp}])?$"
+          }
+        },
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^(?:\\.|[A-Za-z0-9][A-Za-z0-9._-]*(?:/[A-Za-z0-9][A-Za-z0-9._-]*)*)$"
+        },
+        "routePrefix": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "slug": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{1,43}$"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "archived"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "pattern": "^[^\\s\\p{Cc}\\p{Zl}\\p{Zp}](?:[^\\p{Cc}\\p{Zl}\\p{Zp}]*[^\\s\\p{Cc}\\p{Zl}\\p{Zp}])?$"
+        },
+        "unsupportedPhrases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[^\\s\\p{Cc}\\p{Zl}\\p{Zp}](?:[^\\p{Cc}\\p{Zl}\\p{Zp}]*[^\\s\\p{Cc}\\p{Zl}\\p{Zp}])?$"
+          }
+        }
+      }
+    },
+    "authorities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidates",
+        "chapters",
+        "claims",
+        "fixtures",
+        "mathematics"
+      ],
+      "properties": {
+        "candidates": {
+          "$ref": "#/$defs/nullableRelativePath"
+        },
+        "chapters": {
+          "$ref": "#/$defs/nullableRelativePath"
+        },
+        "claims": {
+          "$ref": "#/$defs/nullableRelativePath"
+        },
+        "fixtures": {
+          "$ref": "#/$defs/nullableRelativePath"
+        },
+        "mathematics": {
+          "$ref": "#/$defs/nullableRelativePath"
+        }
+      }
+    },
+    "book": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "frontMatter",
+        "pdf",
+        "route"
+      ],
+      "properties": {
+        "frontMatter": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "pdf": {
+          "type": "string",
+          "maxLength": 256,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*\\.pdf$"
+        },
+        "route": {
+          "type": "string",
+          "maxLength": 256
+        }
+      }
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(?:/[A-Za-z0-9][A-Za-z0-9._-]*)*$"
+    },
+    "nullableRelativePath": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(?:/[A-Za-z0-9][A-Za-z0-9._-]*)*$"
+    }
+  }
+}
