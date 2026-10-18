@@ -237,6 +237,7 @@ test("the full-book source identity includes the locked renderer dependency grap
     "research/principle-registry.md",
     "scripts/lib/book-pdf-generation-options.mjs",
     "scripts/lib/book-pdf-integrity.mjs",
+    "scripts/lib/book-print-equation-tags.mjs",
     "scripts/lib/book-renderer-identity.mjs",
     "scripts/lib/pages-base.mjs",
     "scripts/lib/pages-seo.mjs",

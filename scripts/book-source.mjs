@@ -127,6 +127,7 @@ const bookSupportSourcePaths = [
   "scripts/lib/chromium-cdp.mjs",
   "scripts/lib/book-pdf-generation-options.mjs",
   "scripts/lib/book-pdf-integrity.mjs",
+  "scripts/lib/book-print-equation-tags.mjs",
   "scripts/lib/book-renderer-identity.mjs",
   "scripts/lib/opened-file.mjs",
   "scripts/lib/pages-base.mjs",

@@ -114,3 +114,4 @@ than silently changing its outcome.
 | [0107](0107-pack-short-workstation-fixtures.md) | Pack short workstation fixtures | accepted |
 | [0108](0108-run-the-two-image-build-chains-concurrently.md) | Run the two image-build chains concurrently | accepted |
 | [0109](0109-split-the-site-lane-browser-tests-into-their-own-job.md) | Split the site lane browser tests into their own job | accepted |
+| [0110](0110-tag-book-pdf-display-equations-as-figures.md) | Tag book PDF display equations as figures with TeX alternative text | accepted |

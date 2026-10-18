@@ -617,13 +617,28 @@ test("consumed PDF dictionary keys reject escaped aliases and duplicates", () =>
   }
 });
 
-test("the tracked semantic baseline is closed and records failing debt", async () => {
+test("the tracked semantic baseline is closed and records remaining debt", async () => {
   const baseline = parseBookPdfSemanticBaseline(await readFile(
     new URL("../book-pdf-semantic-baseline.json", import.meta.url),
   ));
   assert.equal(baseline.expected_outcome, "known-debt");
   assert.equal(baseline.sentinels.length, 6);
-  assert.equal(baseline.sentinels.filter(({ state }) => state === "known-debt").length, 4);
+  assert.deepEqual(
+    baseline.sentinels.filter(({ state }) => state === "known-debt").map(({ id }) => id),
+    ["adiabatic-equation-fragmented"],
+  );
+  for (const id of [
+    "candidate-frontier-equation-late",
+    "lifecycle-equation-late",
+    "admissible-action-equation-late",
+    "adiabatic-equation-fragmented",
+  ]) {
+    const sentinel = baseline.sentinels.find((entry) => entry.id === id);
+    assert.ok(
+      sentinel?.struct_text_fragments.some((fragment) => fragment.startsWith('Figure ["')),
+      `${id} expects its equation as a tagged Figure`,
+    );
+  }
   const readinessSentinel = baseline.sentinels.find(
     ({ id }) => id === "readiness-dashboard-late-values",
   );
@@ -666,7 +681,7 @@ test("the tracked semantic baseline is closed and records failing debt", async (
       id: "admissible-action-equation-late",
       class: "table-displayed-equation",
       recorded_page: 132,
-      state: "known-debt",
+      state: "clean",
     },
   );
   assert.equal(

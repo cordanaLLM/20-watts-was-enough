@@ -39,7 +39,7 @@
     "validate:impact": "go -C tooling run ./cmd/ci-plan plan --root .. --full",
     "test:policy": "node --test --experimental-test-isolation=none scripts/engineering-policy.test.mjs scripts/install-locked-npm.test.mjs scripts/validate-topics.test.mjs scripts/research-watch-ingest.test.mjs scripts/research-watch-publish.test.mjs scripts/run-workstation-scripts.test.mjs scripts/run-in-loopback-netns.test.mjs",
     "prepare:release": "node scripts/prepare-release-assets.mjs",
-    "test:release": "node --test --experimental-test-isolation=none scripts/prepare-release-assets.test.mjs scripts/lib/atomic-file-pair.test.mjs scripts/lib/chromium-cdp.test.mjs scripts/lib/opened-file.test.mjs scripts/lib/pdf-metadata.test.mjs scripts/lib/book-provenance-record.test.mjs scripts/lib/published-book-render.test.mjs",
+    "test:release": "node --test --experimental-test-isolation=none scripts/prepare-release-assets.test.mjs scripts/lib/atomic-file-pair.test.mjs scripts/lib/chromium-cdp.test.mjs scripts/lib/opened-file.test.mjs scripts/lib/pdf-metadata.test.mjs scripts/lib/book-print-equation-tags.test.mjs scripts/lib/book-provenance-record.test.mjs scripts/lib/published-book-render.test.mjs",
     "check:code-shape": "node scripts/audit-code-shape.mjs --check",
     "test:code-shape": "node --test --experimental-test-isolation=none scripts/audit-code-shape.test.mjs",
     "check:prose": "node scripts/audit-prose-style.mjs",

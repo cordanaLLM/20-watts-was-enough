@@ -20,6 +20,10 @@ import {
   replaceFilePair,
 } from "./lib/atomic-file-pair.mjs";
 import { inspectBookPdf } from "./lib/book-pdf-integrity.mjs";
+import {
+  assertDisplayEquationTags,
+  tagDisplayEquationsForPrint,
+} from "./lib/book-print-equation-tags.mjs";
 import { parseBookPdfGenerationOptions } from "./lib/book-pdf-generation-options.mjs";
 import {
   assertBookRendererLockIdentity,
@@ -284,6 +288,12 @@ try {
     throw new Error(`Book page did not become print-ready: ${JSON.stringify(readinessValue)}`);
   }
   observedRenderedDiagrams = readinessValue.renderedDiagrams;
+
+  const equationTags = await cdp.send("Runtime.evaluate", {
+    expression: `(${tagDisplayEquationsForPrint.toString()})(document)`,
+    returnByValue: true,
+  });
+  assertDisplayEquationTags(equationTags.result?.value);
 
   const printed = await printPageToPdf(
     cdp,
