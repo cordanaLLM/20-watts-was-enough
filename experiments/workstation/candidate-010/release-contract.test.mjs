@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { execFile as executeFileCallback } from "node:child_process";
-import {
+import fs, {
   cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile,
 } from "node:fs/promises";
 import os from "node:os";
@@ -17,6 +17,8 @@ import {
   createFrozenSeedReleaseContract,
   openFrozenSeedRelease,
 } from "./release-contract.mjs";
+import { acquireRunLock, runLockPath } from "./run-lock.mjs";
+import { observeFilesystemSnapshot } from "./retry-rollback-comparator.mjs";
 import { seedListCommitment } from "./seeds/seed-pack.mjs";
 import {
   CANDIDATE_010_MANIFEST_FILE,
@@ -29,6 +31,7 @@ import {
   sealSeedReleaseSet,
   validateSeedReleaseOperatorArtifacts,
 } from "./seed-release-operator.mjs";
+import { canonicalJson } from "../lib/canonical-json.mjs";
 
 const executeFile = promisify(executeFileCallback);
 
@@ -56,10 +59,7 @@ function sha256(value) {
 }
 
 function canonical(value) {
-  if (value === null || typeof value === "boolean" || typeof value === "string") return JSON.stringify(value);
-  if (typeof value === "number") return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
-  return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`;
+  return canonicalJson(value, { strict: false, label: "Test" });
 }
 
 function sourceInventoryDigest(files) {
@@ -167,45 +167,15 @@ async function writeJson(file, value) {
   await writeFile(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
-async function fixture({
-  partition = "confirmation",
-  seeds = [11, 22],
-  sourceTag = "source-a",
-  runtimeTag = "runtime-a",
-} = {}) {
-  const container = await mkdtemp(path.join(os.tmpdir(), "20w-c010-release-v3-"));
-  const bindingRoot = path.join(container, "bindings");
-  const sourceRoot = path.join(container, "capsule-source");
-  await mkdir(bindingRoot);
-  await mkdir(sourceRoot);
-  const files = {
-    sourceBundlePath: "freeze/source-bundle.json",
-    executionDescriptorPath: "freeze/execution-descriptor.json",
-    runtimeIdentityPath: "freeze/runtime-identity.json",
-    configPath: "freeze/config.json",
-    designPath: "freeze/design.json",
-    backendRegistryPath: "freeze/backend-registry.mjs",
-    preregistrationPath: "freeze/preregistration.json",
-    commitmentPath: "freeze/seeds.commit.json",
-    revealPath: "freeze/seeds.reveal.json",
-  };
-  const sourceBodies = {
-    "source-a.mjs": `export const value = ${JSON.stringify(sourceTag)};\n`,
-    "source-b.json": `${JSON.stringify({ schema: 1, sourceTag })}\n`,
-  };
-  for (const [relative, body] of Object.entries(sourceBodies)) {
-    await writeFile(path.join(sourceRoot, relative), body, "utf8");
-  }
-  const sourceBundle = await computeSourceBundle({
-    root: sourceRoot,
-    sourceFiles: Object.keys(sourceBodies).sort(),
-    vcs: {
-      source_commit: sha256(`commit-${sourceTag}`).slice(0, 40),
-      worktree_state: "frozen-fixture",
-    },
-  });
-  const runtimeIdentity = makeRuntimeIdentity(runtimeTag);
-  const executionDescriptor = makeExecutionDescriptor(sourceBundle, runtimeIdentity);
+async function writeFixtureBindingFiles({
+  bindingRoot,
+  files,
+  sourceBundle,
+  runtimeIdentity,
+  executionDescriptor,
+  partition,
+  seeds,
+}) {
   await writeJson(path.join(bindingRoot, files.sourceBundlePath), sourceBundle);
   await writeJson(path.join(bindingRoot, files.executionDescriptorPath), executionDescriptor);
   await writeJson(path.join(bindingRoot, files.runtimeIdentityPath), runtimeIdentity);
@@ -228,6 +198,60 @@ async function fixture({
     state: "frozen-reveal",
     algorithm: "sha256-json-array-v1",
     commitment,
+    seeds,
+  });
+}
+
+async function prepareFixtureSource(sourceRoot, sourceTag) {
+  const sourceBodies = {
+    "source-a.mjs": `export const value = ${JSON.stringify(sourceTag)};\n`,
+    "source-b.json": `${JSON.stringify({ schema: 1, sourceTag })}\n`,
+  };
+  for (const [relative, body] of Object.entries(sourceBodies)) {
+    await writeFile(path.join(sourceRoot, relative), body, "utf8");
+  }
+  return computeSourceBundle({
+    root: sourceRoot,
+    sourceFiles: Object.keys(sourceBodies).sort(),
+    vcs: {
+      source_commit: sha256(`commit-${sourceTag}`).slice(0, 40),
+      worktree_state: "frozen-fixture",
+    },
+  });
+}
+
+async function fixture({
+  partition = "confirmation",
+  seeds = [11, 22],
+  sourceTag = "source-a",
+  runtimeTag = "runtime-a",
+} = {}) {
+  const container = await mkdtemp(path.join(os.tmpdir(), "20w-c010-release-v3-"));
+  const bindingRoot = path.join(container, "bindings");
+  const sourceRoot = path.join(container, "capsule-source");
+  await mkdir(bindingRoot);
+  await mkdir(sourceRoot);
+  const files = {
+    sourceBundlePath: "freeze/source-bundle.json",
+    executionDescriptorPath: "freeze/execution-descriptor.json",
+    runtimeIdentityPath: "freeze/runtime-identity.json",
+    configPath: "freeze/config.json",
+    designPath: "freeze/design.json",
+    backendRegistryPath: "freeze/backend-registry.mjs",
+    preregistrationPath: "freeze/preregistration.json",
+    commitmentPath: "freeze/seeds.commit.json",
+    revealPath: "freeze/seeds.reveal.json",
+  };
+  const sourceBundle = await prepareFixtureSource(sourceRoot, sourceTag);
+  const runtimeIdentity = makeRuntimeIdentity(runtimeTag);
+  const executionDescriptor = makeExecutionDescriptor(sourceBundle, runtimeIdentity);
+  await writeFixtureBindingFiles({
+    bindingRoot,
+    files,
+    sourceBundle,
+    runtimeIdentity,
+    executionDescriptor,
+    partition,
     seeds,
   });
   const createArguments = {
@@ -470,6 +494,29 @@ function deterministicFixtureEntropy() {
   };
 }
 
+async function writeSeedOperatorInputs(repositoryRoot, inputsRoot) {
+  const developmentConfig = JSON.parse(await readFile(
+    path.join(repositoryRoot, "experiments", "workstation", "candidate-010", "configs", "development.json"),
+    "utf8",
+  ));
+  const inputPaths = {
+    configPath: path.join(inputsRoot, "confirmation-config.json"),
+    designPath: path.join(inputsRoot, "confirmation-design.json"),
+    backendRegistryPath: path.join(inputsRoot, "backend-registry.json"),
+    preregistrationPath: path.join(inputsRoot, "preregistration.json"),
+  };
+  await writeJson(inputPaths.configPath, { ...developmentConfig, profile: "confirmation" });
+  await writeJson(inputPaths.designPath, {
+    scenarios: buildFactorialDesign({ splits: ["confirmation"] }),
+  });
+  await writeJson(inputPaths.backendRegistryPath, { backends: BACKEND_METADATA });
+  await writeJson(inputPaths.preregistrationPath, createConfirmatoryPreregistration({
+    irreversible_violation_margin: 0,
+    false_commit_margin: 0,
+  }));
+  return inputPaths;
+}
+
 async function makeSeedOperatorFixture() {
   const repositoryRoot = process.cwd();
   const container = await mkdtemp(path.join(os.tmpdir(), "20w-c010-seed-operator-"));
@@ -501,25 +548,7 @@ async function makeSeedOperatorFixture() {
     path.join(repository, "node_modules", "es-module-lexer"),
     { recursive: true },
   );
-  const developmentConfig = JSON.parse(await readFile(
-    path.join(repositoryRoot, "experiments", "workstation", "candidate-010", "configs", "development.json"),
-    "utf8",
-  ));
-  const inputPaths = {
-    configPath: path.join(inputsRoot, "confirmation-config.json"),
-    designPath: path.join(inputsRoot, "confirmation-design.json"),
-    backendRegistryPath: path.join(inputsRoot, "backend-registry.json"),
-    preregistrationPath: path.join(inputsRoot, "preregistration.json"),
-  };
-  await writeJson(inputPaths.configPath, { ...developmentConfig, profile: "confirmation" });
-  await writeJson(inputPaths.designPath, {
-    scenarios: buildFactorialDesign({ splits: ["confirmation"] }),
-  });
-  await writeJson(inputPaths.backendRegistryPath, { backends: BACKEND_METADATA });
-  await writeJson(inputPaths.preregistrationPath, createConfirmatoryPreregistration({
-    irreversible_violation_margin: 0,
-    false_commit_margin: 0,
-  }));
+  const inputPaths = await writeSeedOperatorInputs(repositoryRoot, inputsRoot);
   await operatorGit(repository, "init");
   await operatorGit(repository, "config", "user.email", "seed-operator@example.invalid");
   await operatorGit(repository, "config", "user.name", "Seed Operator Fixture");
@@ -537,16 +566,24 @@ async function makeSeedOperatorFixture() {
   };
 }
 
-async function filesBelow(root) {
+async function filesBelow(root, maximumEntries = 10000) {
   const values = [];
-  async function visit(directory) {
-    for (const entry of await readdir(directory, { withFileTypes: true })) {
-      const absolute = path.join(directory, entry.name);
-      if (entry.isDirectory()) await visit(absolute);
-      else values.push(absolute);
+  const stack = [root];
+  let count = 0;
+  while (stack.length > 0) {
+    const current = stack.pop();
+    for (const entry of await readdir(current, { withFileTypes: true })) {
+      if (++count > maximumEntries) {
+        throw new RangeError(`filesBelow exceeded maximum entries limit of ${maximumEntries}.`);
+      }
+      const absolute = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(absolute);
+      } else {
+        values.push(absolute);
+      }
     }
   }
-  await visit(root);
   return values.sort();
 }
 
@@ -731,3 +768,147 @@ test("seed-release operator seals unseen disjoint packs and fixture provenance c
     await rm(value.container, { recursive: true, force: true });
   }
 });
+
+test("filesBelow enforces maximumEntries limit", async () => {
+  const container = await mkdtemp(path.join(os.tmpdir(), "20w-filesbelow-"));
+  try {
+    for (let i = 0; i < 5; i++) {
+      await writeFile(path.join(container, `file-${i}.txt`), "ok\n");
+    }
+    const found = await filesBelow(container, 10);
+    assert.equal(found.length, 5);
+    await assert.rejects(
+      filesBelow(container, 2),
+      (error) => error instanceof RangeError && /filesBelow exceeded maximum entries limit of 2/.test(error.message),
+    );
+  } finally {
+    await rm(container, { recursive: true, force: true });
+  }
+});
+
+test("observeFilesystemSnapshot enforces scalar maximumEntries bound", async () => {
+  const temporary = await mkdtemp(path.join(os.tmpdir(), "20w-c010-snapshot-bound-"));
+  try {
+    await writeFile(path.join(temporary, "a.txt"), "hello", "utf8");
+    await writeFile(path.join(temporary, "b.txt"), "world", "utf8");
+
+    const snapshot = await observeFilesystemSnapshot(temporary, 10);
+    assert.equal(snapshot.files, 2);
+
+    const atLimit = await observeFilesystemSnapshot(temporary, 2);
+    assert.equal(atLimit.files, 2);
+
+    await assert.rejects(
+      observeFilesystemSnapshot(temporary, 1),
+      (error) => error instanceof RangeError && /exceeded maximum entries limit/.test(error.message),
+    );
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
+});
+
+test("acquireRunLock propagates AggregateError if cleanup handle.close fails", async (t) => {
+  const temporary = await mkdtemp(path.join(os.tmpdir(), "20w-c010-lock-close-err-"));
+  const outputDirectory = path.join(temporary, "out");
+  const origOpen = fs.open.bind(fs);
+
+  t.mock.method(fs, "open", async (...args) => {
+    const handle = await origOpen(...args);
+    handle.writeFile = async () => {
+      throw new Error("simulated write failure");
+    };
+    handle.close = async () => {
+      throw new Error("simulated close failure");
+    };
+    return handle;
+  });
+
+  try {
+    await assert.rejects(
+      acquireRunLock({ outputDirectory, runnerId: "test-runner" }),
+      (error) => {
+        assert.ok(error instanceof AggregateError, "Expected AggregateError when cleanup fails");
+        assert.match(error.message, /Failed to acquire run lock/);
+        assert.equal(error.errors.length, 2);
+        assert.match(error.errors[0].message, /simulated write failure/);
+        assert.match(error.errors[1].message, /simulated close failure/);
+        return true;
+      },
+    );
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
+});
+
+test("run-lock release rejects with cause if handle.close fails on ownership change", async (t) => {
+  const temporary = await mkdtemp(path.join(os.tmpdir(), "20w-c010-lock-own-err-"));
+  const outputDirectory = path.join(temporary, "out");
+  const lockPath = runLockPath(outputDirectory);
+  const origOpen = fs.open.bind(fs);
+  let createdHandle = null;
+
+  t.mock.method(fs, "open", async (...args) => {
+    const handle = await origOpen(...args);
+    createdHandle = handle;
+    return handle;
+  });
+
+  const lease = await acquireRunLock({ outputDirectory, runnerId: "test-runner" });
+
+  try {
+    await writeFile(lockPath, `${JSON.stringify({ schema: 1, lock_id: "other" })}\n`, "utf8");
+    createdHandle.close = async () => {
+      throw new Error("simulated close failure on ownership mismatch");
+    };
+
+    await assert.rejects(
+      lease.release(),
+      (error) => {
+        assert.match(error.message, /refusing to remove a lock not owned/);
+        assert.ok(error.cause instanceof Error, "Expected cause to be attached");
+        assert.match(error.cause.message, /simulated close failure on ownership mismatch/);
+        return true;
+      },
+    );
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
+});
+
+test("run-lock release rejects with AggregateError if handle.close fails on unreadable lock", async (t) => {
+  const temporary = await mkdtemp(path.join(os.tmpdir(), "20w-c010-lock-unreadable-err-"));
+  const outputDirectory = path.join(temporary, "out");
+  const lockPath = runLockPath(outputDirectory);
+  const origOpen = fs.open.bind(fs);
+  let createdHandle = null;
+
+  t.mock.method(fs, "open", async (...args) => {
+    const handle = await origOpen(...args);
+    createdHandle = handle;
+    return handle;
+  });
+
+  const lease = await acquireRunLock({ outputDirectory, runnerId: "test-runner" });
+
+  try {
+    await writeFile(lockPath, "{ corrupt json", "utf8");
+    createdHandle.close = async () => {
+      throw new Error("simulated close failure on unreadable");
+    };
+
+    await assert.rejects(
+      lease.release(),
+      (error) => {
+        assert.ok(error instanceof AggregateError, "Expected AggregateError on unreadable lock with close failure");
+        assert.match(error.message, /Run lock disappeared or became unreadable/);
+        assert.equal(error.errors.length, 2);
+        assert.match(error.errors[1].message, /simulated close failure on unreadable/);
+        return true;
+      },
+    );
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
+});
+
+
