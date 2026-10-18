@@ -40,6 +40,8 @@ func runShakedownWithActions(arguments []string, stdout, stderr io.Writer, execu
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+	ctx, deadlineCancel := context.WithTimeout(ctx, clrsshakedown.ShakedownDeadline)
+	defer deadlineCancel()
 	action := execute
 	if *checkOnly {
 		action = check
