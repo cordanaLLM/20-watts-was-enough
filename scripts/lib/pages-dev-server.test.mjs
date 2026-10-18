@@ -83,3 +83,61 @@ test("the first browser that connects after readiness receives no stale full rel
     await rm(cacheRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   }
 });
+
+test("a server whose creation outlasts the readiness budget rejects promptly and closes once resolved", async () => {
+  let closeCalls = 0;
+  // listen never settles: a deadline armed after creation would fire only
+  // after the 300 ms creation and fail the elapsed assertion below.
+  const fakeServer = {
+    close() {
+      closeCalls += 1;
+    },
+    listen: () => new Promise(() => {}),
+  };
+  const createServer = () => new Promise((resolve) => {
+    setTimeout(() => resolve(fakeServer), 300);
+  });
+  const startedAt = performance.now();
+  await assert.rejects(
+    startReadyPagesDevServer({
+      createServer,
+      readyBudgetMs: 50,
+    }),
+    /did not finish its cold compile within 50 wall ms/u,
+  );
+  const elapsed = performance.now() - startedAt;
+  assert.ok(elapsed < 250, `expected rejection in well under 300 ms, took ${elapsed} ms`);
+  await waitForCondition({
+    probe: () => closeCalls === 1,
+    budgetMs: 5_000,
+    label: "fake server was not closed exactly once after resolving",
+  });
+  assert.equal(closeCalls, 1);
+});
+
+test("an environment change by a creation that outlasts the deadline is undone when it settles", async () => {
+  const previous = process.env.NODE_ENV;
+  delete process.env.NODE_ENV;
+  let closeCalls = 0;
+  const createServer = () => new Promise((resolve) => {
+    setTimeout(() => {
+      // createViteServer sets NODE_ENV when it is unset, after its config load.
+      process.env.NODE_ENV = "development";
+      resolve({ close() { closeCalls += 1; } });
+    }, 100);
+  });
+  try {
+    await assert.rejects(
+      startReadyPagesDevServer({ createServer, readyBudgetMs: 20 }),
+      /did not finish its cold compile within 20 wall ms/u,
+    );
+    assert.equal(process.env.NODE_ENV, undefined);
+    await waitForCondition({
+      probe: () => closeCalls === 1, budgetMs: 5_000, label: "abandoned server was not closed",
+    });
+    assert.equal(process.env.NODE_ENV, undefined);
+  } finally {
+    if (previous === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previous;
+  }
+});
