@@ -18,6 +18,11 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- `npm run validate:impact` loads `.github/ci-impact.json` through
+  `ci-plan`, which refuses unsorted, repeated or invalid impact rules. The
+  aggregate `npm test` gate and `check:impact-common` run it, so a defect in
+  the impact authority fails locally instead of first in the CI impact plan
+  job.
 - Local runs of the Chromium site tests (`test:site`, `test:site-build`,
   `test:github-pages`) execute in a network namespace that holds only
   loopback, through `scripts/run-in-loopback-netns.mjs`. Container network

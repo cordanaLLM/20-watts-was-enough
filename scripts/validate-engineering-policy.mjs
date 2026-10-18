@@ -4084,7 +4084,7 @@ function workstationShardCommand(files) {
 }
 
 const aggregateTestScripts = Object.freeze([
-  "test:go", "validate:tooling", "validate:policy", "validate:topics", "test:runtime", "test:policy",
+  "test:go", "validate:tooling", "validate:policy", "validate:topics", "validate:impact", "test:runtime", "test:policy",
   "test:release", "check:code-shape", "test:code-shape", "check:prose", "test:prose",
   "typecheck", "lint", "test:site", "validate:translations", "test:translations",
   "validate:docs", "test:sources", "validate:coverage", "validate:plots", "validate:mechanism-index", "test:mechanism-index", "validate:taxonomies", "validate:math",
@@ -4272,6 +4272,23 @@ export function validateWorkstationShardScriptsObject(
   const findings = [];
   findings.push(...validateWorkstationAggregateScripts(scripts, relativePath));
   findings.push(...validateWorkstationShardCommands(scripts, workstationManifests, relativePath));
+  return findings;
+}
+
+/**
+ * The CI impact authority is loaded and validated by ci-plan before any plan
+ * is built. Running it in the aggregate gate and every impact plan catches an
+ * invalid .github/ci-impact.json locally instead of in the CI impact plan job.
+ */
+export function validateImpactAuthorityScriptsObject(manifest, relativePath = "package.json") {
+  const scripts = manifest?.scripts ?? {};
+  const findings = [];
+  if (scripts["validate:impact"] !== "go -C tooling run ./cmd/ci-plan plan --root .. --full") {
+    findings.push(`${relativePath}: validate:impact must run go -C tooling run ./cmd/ci-plan plan --root .. --full`);
+  }
+  if (!String(scripts["check:impact-common"] ?? "").split(" && ").includes("npm run validate:impact")) {
+    findings.push(`${relativePath}: check:impact-common must run validate:impact for every impact plan`);
+  }
   return findings;
 }
 
@@ -4498,6 +4515,7 @@ function validatePackage(root, findings) {
     relativePath,
   ));
   findings.push(...validateTopicRegistryScriptsObject(manifest, relativePath));
+  findings.push(...validateImpactAuthorityScriptsObject(manifest, relativePath));
   findings.push(...validateTaxonomyImporterScriptObject(manifest, relativePath));
   findings.push(...validatePackageScripts(manifest, relativePath));
   findings.push(...validatePackageDependenciesAndMetadata(manifest, relativePath));
