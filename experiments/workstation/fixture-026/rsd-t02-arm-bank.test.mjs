@@ -11,8 +11,10 @@ import {
   assertFixture026RsdT02ArmCommitment,
   assertFixture026RsdT02ArmResponse,
   assertFixture026RsdT02SystemPacket,
+  attachFixture026RsdT02ArmResponse,
   buildFixture026RsdT02ArmCommitment,
   buildFixture026RsdT02SystemPacket,
+  evaluateFixture026RsdT02ArmBase,
   runFixture026RsdT02Arm,
   validateFixture026RsdT02ArmBankConfig,
 } from "./rsd-t02-arm-bank.mjs";
@@ -84,6 +86,55 @@ test("one whole-system packet is an exact 35-episode causal firewall", () => {
   ];
   assert.throws(
     () => assertFixture026RsdT02SystemPacket(reordered),
+    /projection 0 violates/u,
+  );
+});
+
+test("a built packet is a sealed copy whose checked identity arm responses reuse", async () => {
+  const provenance = await inputs();
+  const built = packetFor("M-I1-FFL");
+  const armId = FIXTURE_026_RSD_T02_ACTIVE_ARM_IDS[0];
+  const projections = structuredClone(built.packet.projections);
+  const rebuilt = buildFixture026RsdT02SystemPacket(projections);
+  projections[0].samples[0].reported_output += 1;
+  assert.equal(rebuilt.system_packet_sha256, built.system_packet_sha256);
+  assert.equal(sha256Hex(canonicalize(rebuilt.packet)), built.system_packet_sha256);
+  assert.throws(() => {
+    rebuilt.packet.projections[0].samples[0].reported_output += 1;
+  }, TypeError);
+  assert.throws(() => rebuilt.packet.projections.pop(), TypeError);
+
+  const sealed = runFixture026RsdT02Arm({ armId, packet: built.packet, ...provenance });
+  const unsealed = runFixture026RsdT02Arm({
+    armId, packet: structuredClone(built.packet), ...provenance,
+  });
+  assert.equal(canonicalize(sealed), canonicalize(unsealed));
+  assert.equal(sealed.system_packet_sha256, built.system_packet_sha256);
+  assert.equal(sealed.information_ledger.canonical_packet_bytes, built.system_packet_utf8_bytes);
+});
+
+test("an arm response over an unsealed packet still checks and hashes that packet", async () => {
+  const provenance = await inputs();
+  const built = packetFor("M-I1-FFL");
+  const armId = FIXTURE_026_RSD_T02_ACTIVE_ARM_IDS[0];
+  const baseResult = evaluateFixture026RsdT02ArmBase({
+    armId, packet: built.packet, config: provenance.config,
+  });
+  const reordered = structuredClone(built.packet);
+  assert.equal(
+    attachFixture026RsdT02ArmResponse({ armId, packet: reordered, ...provenance, baseResult })
+      .system_packet_sha256,
+    built.system_packet_sha256,
+  );
+  [reordered.projections[0], reordered.projections[1]] = [
+    reordered.projections[1], reordered.projections[0],
+  ];
+  assert.throws(
+    () => attachFixture026RsdT02ArmResponse({ armId, packet: reordered, ...provenance, baseResult }),
+    /projection 0 violates/u,
+  );
+  assert.throws(
+    () => evaluateFixture026RsdT02ArmBase({ armId, packet: reordered, config: provenance.config }),
     /projection 0 violates/u,
   );
 });

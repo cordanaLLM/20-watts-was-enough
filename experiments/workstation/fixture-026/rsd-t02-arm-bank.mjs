@@ -340,8 +340,45 @@ export function assertFixture026RsdT02SystemPacket(packet) {
   return packet;
 }
 
+// A built packet is a deep-frozen copy whose closed contract and canonical
+// bytes are checked once here; arm evaluation and responses over it reuse
+// that identity instead of re-checking and re-serialising the packet once per
+// arm. Any other packet object takes the full check.
+const SEALED_SYSTEM_PACKET_IDENTITIES = new WeakMap();
+const MAX_SEALED_PACKET_NODES = 4_000_000;
+
+function deepFreezePacket(packet) {
+  const pending = [packet];
+  for (let visited = 0; pending.length > 0; visited += 1) {
+    if (visited >= MAX_SEALED_PACKET_NODES) {
+      throw new RangeError("Fixture 026 RSD-T02 system packet exceeds its freeze bound.");
+    }
+    const value = pending.pop();
+    Object.freeze(value);
+    for (const child of Object.values(value)) {
+      if (child !== null && typeof child === "object") pending.push(child);
+    }
+  }
+  return packet;
+}
+
+function assertSystemPacketUnlessSealed(packet) {
+  if (!SEALED_SYSTEM_PACKET_IDENTITIES.has(packet)) assertFixture026RsdT02SystemPacket(packet);
+}
+
+function systemPacketIdentity(packet) {
+  const sealed = SEALED_SYSTEM_PACKET_IDENTITIES.get(packet);
+  if (sealed) return sealed;
+  assertFixture026RsdT02SystemPacket(packet);
+  const canonical = canonicalize(packet);
+  return Object.freeze({
+    sha256: sha256Hex(canonical),
+    bytes: Buffer.byteLength(canonical, "utf8"),
+  });
+}
+
 export function buildFixture026RsdT02SystemPacket(projections) {
-  const packet = {
+  const packet = deepFreezePacket(structuredClone({
     schema: 1,
     contract_version: FIXTURE_026_RSD_T02_ARM_BANK_VERSION,
     artifact: "fixture-026",
@@ -350,71 +387,82 @@ export function buildFixture026RsdT02SystemPacket(projections) {
     units: { input: "U", output: "1", time: "s" },
     order: "frozen-execution-descriptor-order-v1",
     projections,
-  };
-  assertFixture026RsdT02SystemPacket(packet);
-  const canonical = canonicalize(packet);
+  }));
+  const identity = systemPacketIdentity(packet);
+  SEALED_SYSTEM_PACKET_IDENTITIES.set(packet, identity);
   return Object.freeze({
-    packet: Object.freeze(packet),
-    system_packet_sha256: sha256Hex(canonical),
-    system_packet_utf8_bytes: Buffer.byteLength(canonical, "utf8"),
+    packet,
+    system_packet_sha256: identity.sha256,
+    system_packet_utf8_bytes: identity.bytes,
   });
 }
 
+const ARM_BANK_ROOT_KEYS = [
+  "schema", "contract_version", "artifact", "track", "authority",
+  "active_arm_ids", "inactive_arm_ids",
+  "packet", "information", "common_caps", "policies", "comparison_inference_permitted",
+  "claim_eligible", "result_label",
+];
+const ARM_BANK_PACKET_KEYS = [
+  "observation_regimes", "episodes", "o0_episodes", "o1_episodes", "rows_per_episode",
+  "sample_rows", "input_commands", "internal_resets", "internal_freezes",
+  "output_clamps", "channel_switches", "state_writes", "order",
+];
+const ARM_BANK_INFORMATION_KEYS = [
+  "training_labels", "tuning_trials", "future_samples_outside_packet", "evaluator_fields",
+  "numeric_model", "thread_cap",
+];
+const ARM_BANK_CAP_KEYS = [
+  "scalar_operations", "transcendental_evaluations", "retained_state_bytes",
+  "influential_parameter_bytes", "scratch_peak_bytes", "policy_artifact_bytes",
+  "fallback_invocations",
+];
+
+function armBankEnvelopeMatches(config) {
+  return exactKeys(config, ARM_BANK_ROOT_KEYS)
+    && exactKeys(config.packet, ARM_BANK_PACKET_KEYS)
+    && exactKeys(config.information, ARM_BANK_INFORMATION_KEYS)
+    && exactKeys(config.common_caps, ARM_BANK_CAP_KEYS)
+    && exactKeys(config.policies, FIXTURE_026_RSD_T02_ACTIVE_ARM_IDS)
+    && config.schema === 1
+    && config.contract_version === FIXTURE_026_RSD_T02_ARM_BANK_VERSION
+    && config.artifact === "fixture-026"
+    && config.track === "RSD-T02"
+    && config.authority === "bounded-public-development-policy-conformance-only"
+    && isDeepStrictEqual(config.active_arm_ids, FIXTURE_026_RSD_T02_ACTIVE_ARM_IDS)
+    && isDeepStrictEqual(config.inactive_arm_ids, FIXTURE_026_RSD_T02_INACTIVE_ARM_IDS);
+}
+
+function armBankPacketMatches(packet) {
+  return isDeepStrictEqual(packet.observation_regimes, ["O0-MATCHED-STEP", "O1-FULL-PANEL"])
+    && packet.episodes === 35
+    && packet.o0_episodes === 9
+    && packet.o1_episodes === 26
+    && packet.rows_per_episode === 1537
+    && packet.sample_rows === 53795
+    && packet.input_commands === 197
+    && packet.internal_resets === 2
+    && packet.internal_freezes === 2
+    && packet.output_clamps === 1
+    && packet.channel_switches === 1
+    && packet.state_writes === 2
+    && packet.order === "frozen-execution-descriptor-order-v1";
+}
+
+function armBankInformationMatches(information) {
+  return information.training_labels === 0
+    && information.tuning_trials === 0
+    && information.future_samples_outside_packet === false
+    && information.evaluator_fields === false
+    && information.numeric_model === "IEEE-754-binary64"
+    && information.thread_cap === 1;
+}
+
 function assertArmBankConfigShape(config) {
-  const rootKeys = [
-    "schema", "contract_version", "artifact", "track", "authority",
-    "active_arm_ids", "inactive_arm_ids",
-    "packet", "information", "common_caps", "policies", "comparison_inference_permitted",
-    "claim_eligible", "result_label",
-  ];
-  const packetKeys = [
-    "observation_regimes", "episodes", "o0_episodes", "o1_episodes", "rows_per_episode",
-    "sample_rows", "input_commands", "internal_resets", "internal_freezes",
-    "output_clamps", "channel_switches", "state_writes", "order",
-  ];
-  const informationKeys = [
-    "training_labels", "tuning_trials", "future_samples_outside_packet", "evaluator_fields",
-    "numeric_model", "thread_cap",
-  ];
-  const capKeys = [
-    "scalar_operations", "transcendental_evaluations", "retained_state_bytes",
-    "influential_parameter_bytes", "scratch_peak_bytes", "policy_artifact_bytes",
-    "fallback_invocations",
-  ];
   if (
-    !exactKeys(config, rootKeys)
-    || !exactKeys(config.packet, packetKeys)
-    || !exactKeys(config.information, informationKeys)
-    || !exactKeys(config.common_caps, capKeys)
-    || !exactKeys(config.policies, FIXTURE_026_RSD_T02_ACTIVE_ARM_IDS)
-    || config.schema !== 1
-    || config.contract_version !== FIXTURE_026_RSD_T02_ARM_BANK_VERSION
-    || config.artifact !== "fixture-026"
-    || config.track !== "RSD-T02"
-    || config.authority !== "bounded-public-development-policy-conformance-only"
-    || !isDeepStrictEqual(config.active_arm_ids, FIXTURE_026_RSD_T02_ACTIVE_ARM_IDS)
-    || !isDeepStrictEqual(config.inactive_arm_ids, FIXTURE_026_RSD_T02_INACTIVE_ARM_IDS)
-    || !isDeepStrictEqual(config.packet.observation_regimes, [
-      "O0-MATCHED-STEP", "O1-FULL-PANEL",
-    ])
-    || config.packet.episodes !== 35
-    || config.packet.o0_episodes !== 9
-    || config.packet.o1_episodes !== 26
-    || config.packet.rows_per_episode !== 1537
-    || config.packet.sample_rows !== 53795
-    || config.packet.input_commands !== 197
-    || config.packet.internal_resets !== 2
-    || config.packet.internal_freezes !== 2
-    || config.packet.output_clamps !== 1
-    || config.packet.channel_switches !== 1
-    || config.packet.state_writes !== 2
-    || config.packet.order !== "frozen-execution-descriptor-order-v1"
-    || config.information.training_labels !== 0
-    || config.information.tuning_trials !== 0
-    || config.information.future_samples_outside_packet !== false
-    || config.information.evaluator_fields !== false
-    || config.information.numeric_model !== "IEEE-754-binary64"
-    || config.information.thread_cap !== 1
+    !armBankEnvelopeMatches(config)
+    || !armBankPacketMatches(config.packet)
+    || !armBankInformationMatches(config.information)
     || !isDeepStrictEqual(config.common_caps, EXPECTED_COMMON_CAPS)
     || config.comparison_inference_permitted !== false
     || config.claim_eligible !== false
@@ -661,24 +709,13 @@ function sampleAt(projection, timeS) {
   )];
 }
 
-function mechanismPolicy(packet, policy) {
-  const counter = { scalar_operations: 0, transcendental_evaluations: 0, policy_sample_rows_read: 0 };
-  const ramp = projectionAt(packet, "RAMP-LIN-UP-0P5");
-  const driveEvidence = sampleAt(ramp, 0.25).reported_output;
-  counter.scalar_operations += 1;
-  counter.policy_sample_rows_read += 1;
-  let driveDecision = null;
-  if (driveEvidence >= policy.drive_log_floor) driveDecision = "log-fold";
-  else if (driveEvidence <= policy.drive_affine_ceiling) driveDecision = "affine-fold";
+function bandDecision(evidence, floor, ceiling, atFloor, atCeiling) {
+  if (evidence >= floor) return atFloor;
+  if (evidence <= ceiling) return atCeiling;
+  return null;
+}
 
-  const clamp = projectionAt(packet, "CLAMP-OUTPUT-01");
-  const feedbackEvidence = Math.abs(sampleAt(clamp, 1).reported_output);
-  counter.scalar_operations += 2;
-  counter.policy_sample_rows_read += 1;
-  let feedbackDecision = null;
-  if (feedbackEvidence >= policy.feedback_true_floor) feedbackDecision = true;
-  else if (feedbackEvidence <= policy.feedback_false_ceiling) feedbackDecision = false;
-
+function restimulationChannelEvidence(packet, counter) {
   const restimulation = projectionAt(packet, "RESTIM-CROSS-01");
   let channelEvidence = 0;
   for (const sample of restimulation.samples) {
@@ -688,10 +725,10 @@ function mechanismPolicy(packet, policy) {
       counter.policy_sample_rows_read += 1;
     }
   }
-  let channelDecision = null;
-  if (channelEvidence >= policy.channel_local_true_floor) channelDecision = true;
-  else if (channelEvidence <= policy.channel_local_false_ceiling) channelDecision = false;
+  return channelEvidence;
+}
 
+function opaqueStateEvidence(packet, counter) {
   const resetDistance = supDistance(
     projectionAt(packet, "RESET-H0"),
     projectionAt(packet, "RESET-H1"),
@@ -702,26 +739,54 @@ function mechanismPolicy(packet, policy) {
     projectionAt(packet, "FREEZE-H1"),
     counter,
   );
-  const memoryEvidence = Math.max(resetDistance, freezeDistance);
-  let memoryDecision = null;
-  if (memoryEvidence >= policy.memory_true_floor) memoryDecision = true;
-  else if (memoryEvidence <= policy.memory_false_ceiling) memoryDecision = false;
+  return Math.max(resetDistance, freezeDistance);
+}
+
+function mechanismProperty(key, decision, evidence, indeterminateReason, signatureReason) {
+  return propertyResult(key, decision, evidence, decision === null ? indeterminateReason : signatureReason);
+}
+
+function mechanismPolicy(packet, policy) {
+  const counter = { scalar_operations: 0, transcendental_evaluations: 0, policy_sample_rows_read: 0 };
+  const driveEvidence = sampleAt(projectionAt(packet, "RAMP-LIN-UP-0P5"), 0.25).reported_output;
+  counter.scalar_operations += 1;
+  counter.policy_sample_rows_read += 1;
+  const driveDecision = bandDecision(
+    driveEvidence, policy.drive_log_floor, policy.drive_affine_ceiling, "log-fold", "affine-fold",
+  );
+
+  const feedbackEvidence = Math.abs(sampleAt(projectionAt(packet, "CLAMP-OUTPUT-01"), 1).reported_output);
+  counter.scalar_operations += 2;
+  counter.policy_sample_rows_read += 1;
+  const feedbackDecision = bandDecision(
+    feedbackEvidence, policy.feedback_true_floor, policy.feedback_false_ceiling, true, false,
+  );
+
+  const channelEvidence = restimulationChannelEvidence(packet, counter);
+  const channelDecision = bandDecision(
+    channelEvidence, policy.channel_local_true_floor, policy.channel_local_false_ceiling, true, false,
+  );
+
+  const memoryEvidence = opaqueStateEvidence(packet, counter);
+  const memoryDecision = bandDecision(
+    memoryEvidence, policy.memory_true_floor, policy.memory_false_ceiling, true, false,
+  );
   const properties = {
-    drive_transform: propertyResult(
+    drive_transform: mechanismProperty(
       "drive_transform", driveDecision, driveEvidence,
-      driveDecision === null ? "mechanism-drive-band-indeterminate" : "mechanism-ramp-signature",
+      "mechanism-drive-band-indeterminate", "mechanism-ramp-signature",
     ),
-    reported_output_feedback_edge: propertyResult(
+    reported_output_feedback_edge: mechanismProperty(
       "reported_output_feedback_edge", feedbackDecision, feedbackEvidence,
-      feedbackDecision === null ? "mechanism-feedback-band-indeterminate" : "mechanism-clamp-signature",
+      "mechanism-feedback-band-indeterminate", "mechanism-clamp-signature",
     ),
-    channel_local_state: propertyResult(
+    channel_local_state: mechanismProperty(
       "channel_local_state", channelDecision, channelEvidence,
-      channelDecision === null ? "mechanism-channel-band-indeterminate" : "mechanism-restimulation-signature",
+      "mechanism-channel-band-indeterminate", "mechanism-restimulation-signature",
     ),
-    causal_memory: propertyResult(
+    causal_memory: mechanismProperty(
       "causal_memory", memoryDecision, memoryEvidence,
-      memoryDecision === null ? "mechanism-memory-band-indeterminate" : "mechanism-opaque-state-signature",
+      "mechanism-memory-band-indeterminate", "mechanism-opaque-state-signature",
     ),
   };
   return { properties, counter, retainedScalars: 4, parameterScalars: 10 };
@@ -740,7 +805,7 @@ function policyBaseResult(armId, evaluated) {
 }
 
 export function evaluateFixture026RsdT02ArmBase({ armId, packet, config }) {
-  assertFixture026RsdT02SystemPacket(packet);
+  assertSystemPacketUnlessSealed(packet);
   validateFixture026RsdT02ArmBankConfig(config);
   if (!FIXTURE_026_RSD_T02_ACTIVE_ARM_IDS.includes(armId)) {
     throw new RangeError(`Fixture 026 RSD-T02 arm is not active in the bounded bank: ${armId}`);
@@ -898,51 +963,61 @@ function assertPolicyConstruction(response, ledger, caps) {
   ) throw new Error("Fixture 026 RSD-T02 policy construction/prior ledger is false.");
 }
 
+function armResponseEnvelopeMatches(response) {
+  return exactKeys(response, ARM_RESPONSE_KEYS)
+    && response.schema === 1
+    && response.contract_version === FIXTURE_026_RSD_T02_ARM_BANK_VERSION
+    && response.artifact === "fixture-026"
+    && response.track === "RSD-T02"
+    && FIXTURE_026_RSD_T02_ACTIVE_ARM_IDS.includes(response.arm_id)
+    && typeof response.policy_id === "string"
+    && typeof response.policy_role === "string"
+    && /^[0-9a-f]{64}$/u.test(response.policy_artifact_sha256)
+    && /^[0-9a-f]{64}$/u.test(response.policy_config_sha256)
+    && /^[0-9a-f]{64}$/u.test(response.system_packet_sha256)
+    && exactKeys(response.support, SUPPORT_KEYS)
+    && response.support.status === "inside"
+    && Array.isArray(response.support.reason_codes)
+    && response.support.reason_codes.length === 0
+    && exactKeys(response.properties, FIXTURE_026_RSD_T02_PROPERTY_KEYS)
+    && Array.isArray(response.compatible_hypothesis_ids)
+    && response.compatible_hypothesis_ids.length >= 1
+    && new Set(response.compatible_hypothesis_ids).size
+      === response.compatible_hypothesis_ids.length
+    && response.compatible_hypothesis_ids.every((id) => (
+      FIXTURE_026_RSD_T02_RECIPES.some(({ recipe_id: recipeId }) => recipeId === id)
+    ));
+}
+
+function armResponseInformationMatches(ledger, systemPacketSha256) {
+  return exactKeys(ledger, INFORMATION_KEYS)
+    && ledger.system_packet_sha256 === systemPacketSha256
+    && ledger.episodes_available === 35
+    && ledger.sample_rows_available === 53795
+    && Number.isSafeInteger(ledger.canonical_packet_bytes)
+    && ledger.canonical_packet_bytes >= 1
+    && ledger.training_labels_seen === 0
+    && ledger.tuning_trials === 0
+    && ledger.future_samples_outside_packet_seen === false
+    && ledger.evaluator_fields_seen === false
+    && ledger.numeric_model === "IEEE-754-binary64"
+    && ledger.thread_cap === 1;
+}
+
+function armResponseResourceMatches(ledger) {
+  return exactKeys(ledger, RESOURCE_KEYS)
+    && ledger.scope === "declared-policy-mathematical-primitives-not-cpu-instructions-or-energy"
+    && /^[0-9a-f]{64}$/u.test(ledger.common_caps_sha256)
+    && ledger.common_caps_sha256 === sha256Hex(canonicalize(ledger.common_caps))
+    && isDeepStrictEqual(ledger.common_caps, EXPECTED_COMMON_CAPS)
+    && exactKeys(ledger.inference, INFERENCE_KEYS);
+}
+
 export function assertFixture026RsdT02ArmResponse(response) {
   if (
-    !exactKeys(response, ARM_RESPONSE_KEYS)
-    || response.schema !== 1
-    || response.contract_version !== FIXTURE_026_RSD_T02_ARM_BANK_VERSION
-    || response.artifact !== "fixture-026"
-    || response.track !== "RSD-T02"
-    || !FIXTURE_026_RSD_T02_ACTIVE_ARM_IDS.includes(response.arm_id)
-    || typeof response.policy_id !== "string"
-    || typeof response.policy_role !== "string"
-    || !/^[0-9a-f]{64}$/u.test(response.policy_artifact_sha256)
-    || !/^[0-9a-f]{64}$/u.test(response.policy_config_sha256)
-    || !/^[0-9a-f]{64}$/u.test(response.system_packet_sha256)
-    || !exactKeys(response.support, SUPPORT_KEYS)
-    || response.support.status !== "inside"
-    || !Array.isArray(response.support.reason_codes)
-    || response.support.reason_codes.length !== 0
-    || !exactKeys(response.properties, FIXTURE_026_RSD_T02_PROPERTY_KEYS)
-    || !Array.isArray(response.compatible_hypothesis_ids)
-    || response.compatible_hypothesis_ids.length < 1
-    || new Set(response.compatible_hypothesis_ids).size
-      !== response.compatible_hypothesis_ids.length
-    || response.compatible_hypothesis_ids.some((id) => (
-      !FIXTURE_026_RSD_T02_RECIPES.some(({ recipe_id: recipeId }) => recipeId === id)
-    ))
-    || !exactKeys(response.information_ledger, INFORMATION_KEYS)
-    || response.information_ledger.system_packet_sha256 !== response.system_packet_sha256
-    || response.information_ledger.episodes_available !== 35
-    || response.information_ledger.sample_rows_available !== 53795
-    || !Number.isSafeInteger(response.information_ledger.canonical_packet_bytes)
-    || response.information_ledger.canonical_packet_bytes < 1
-    || response.information_ledger.training_labels_seen !== 0
-    || response.information_ledger.tuning_trials !== 0
-    || response.information_ledger.future_samples_outside_packet_seen !== false
-    || response.information_ledger.evaluator_fields_seen !== false
-    || response.information_ledger.numeric_model !== "IEEE-754-binary64"
-    || response.information_ledger.thread_cap !== 1
-    || !exactKeys(response.resource_ledger, RESOURCE_KEYS)
-    || response.resource_ledger.scope
-      !== "declared-policy-mathematical-primitives-not-cpu-instructions-or-energy"
-    || !/^[0-9a-f]{64}$/u.test(response.resource_ledger.common_caps_sha256)
-    || response.resource_ledger.common_caps_sha256
-      !== sha256Hex(canonicalize(response.resource_ledger.common_caps))
-    || !isDeepStrictEqual(response.resource_ledger.common_caps, EXPECTED_COMMON_CAPS)
-    || !exactKeys(response.resource_ledger.inference, INFERENCE_KEYS)
+    !armResponseEnvelopeMatches(response)
+    || !armResponseInformationMatches(response.information_ledger, response.system_packet_sha256)
+    || !armResponseResourceMatches(response.resource_ledger)
     || response.authority !== "public-development-policy-conformance-only"
     || response.comparison_inference_permitted !== false
     || response.claim_eligible !== false
@@ -970,6 +1045,91 @@ export function assertFixture026RsdT02ArmResponse(response) {
   return response;
 }
 
+function assertArmPolicyProvenance({
+  policyArtifactSha256,
+  policyArtifactBytes,
+  policyConfigSha256,
+  policyConfigBytes,
+}) {
+  if (
+    !/^[0-9a-f]{64}$/u.test(policyArtifactSha256)
+    || !Number.isSafeInteger(policyArtifactBytes)
+    || policyArtifactBytes < 1
+    || !/^[0-9a-f]{64}$/u.test(policyConfigSha256)
+    || !Number.isSafeInteger(policyConfigBytes)
+    || policyConfigBytes < 1
+  ) throw new Error("Fixture 026 RSD-T02 arm policy provenance is invalid.");
+}
+
+function armInformationLedger(config, packetSha256, packetBytes) {
+  return {
+    system_packet_sha256: packetSha256,
+    episodes_available: config.packet.episodes,
+    sample_rows_available: config.packet.sample_rows,
+    canonical_packet_bytes: packetBytes,
+    training_labels_seen: config.information.training_labels,
+    tuning_trials: config.information.tuning_trials,
+    future_samples_outside_packet_seen: config.information.future_samples_outside_packet,
+    evaluator_fields_seen: config.information.evaluator_fields,
+    numeric_model: config.information.numeric_model,
+    thread_cap: config.information.thread_cap,
+  };
+}
+
+function armSharedAcquisition(config, packetBytes) {
+  return {
+    episodes_acquired: config.packet.episodes,
+    sample_rows_acquired: config.packet.sample_rows,
+    canonical_packet_bytes: packetBytes,
+    input_commands: config.packet.input_commands,
+    internal_resets: config.packet.internal_resets,
+    internal_freezes: config.packet.internal_freezes,
+    output_clamps: config.packet.output_clamps,
+    channel_switches: config.packet.channel_switches,
+    state_writes: config.packet.state_writes,
+  };
+}
+
+function armPolicyConstruction(armId, config, provenance) {
+  const mechanismBank = armId === "C-MECHANISM-BANK";
+  return {
+    policy_artifact_sha256: provenance.policyArtifactSha256,
+    policy_artifact_bytes: provenance.policyArtifactBytes,
+    policy_config_sha256: provenance.policyConfigSha256,
+    policy_config_bytes: provenance.policyConfigBytes,
+    total_policy_artifact_bytes: provenance.policyArtifactBytes + provenance.policyConfigBytes,
+    threshold_provenance: config.policies[armId].threshold_provenance,
+    threshold_rationale: config.policies[armId].threshold_rationale,
+    training_labels_seen: config.information.training_labels,
+    tuning_trials: config.information.tuning_trials,
+    embedded_candidate_equations: mechanismBank ? CANDIDATE_EQUATION_REGISTRY.length : 0,
+    embedded_candidate_equation_bytes: mechanismBank ? CANDIDATE_EQUATION_BYTES : 0,
+    embedded_property_prior_vectors: PROPERTY_PRIOR_VECTORS.length,
+    embedded_property_prior_bytes: PROPERTY_PRIOR_BYTES,
+  };
+}
+
+function armInferenceActual(config, baseResult, policyConstruction, packetBytes) {
+  const packetTraversalScalarOperations = config.packet.sample_rows
+    * PACKET_TRAVERSAL_SCALAR_OPERATIONS_PER_ROW;
+  return {
+    episodes_validated: config.packet.episodes,
+    sample_rows_validated: config.packet.sample_rows,
+    policy_sample_rows_read: baseResult.counter.policy_sample_rows_read,
+    packet_traversal_scalar_operations: packetTraversalScalarOperations,
+    scalar_operations: packetTraversalScalarOperations + baseResult.counter.scalar_operations,
+    transcendental_evaluations: baseResult.counter.transcendental_evaluations,
+    retained_state_bytes: baseResult.retained_scalars * 8,
+    influential_parameter_bytes: baseResult.parameter_scalars * 8
+      + PROPERTY_PRIOR_BYTES
+      + policyConstruction.embedded_candidate_equation_bytes,
+    scratch_peak_bytes: packetBytes,
+    fallback_invocations: 0,
+    wall_seconds: null,
+    later_joules: null,
+  };
+}
+
 export function attachFixture026RsdT02ArmResponse({
   armId,
   packet,
@@ -980,44 +1140,18 @@ export function attachFixture026RsdT02ArmResponse({
   policyConfigBytes,
   baseResult,
 }) {
-  assertFixture026RsdT02SystemPacket(packet);
+  const { sha256: packetSha256, bytes: packetBytes } = systemPacketIdentity(packet);
   validateFixture026RsdT02ArmBankConfig(config);
   if (!FIXTURE_026_RSD_T02_ACTIVE_ARM_IDS.includes(armId)) {
     throw new RangeError(`Fixture 026 RSD-T02 arm is not active in the bounded bank: ${armId}`);
   }
-  if (
-    !/^[0-9a-f]{64}$/u.test(policyArtifactSha256)
-    || !Number.isSafeInteger(policyArtifactBytes)
-    || policyArtifactBytes < 1
-    || !/^[0-9a-f]{64}$/u.test(policyConfigSha256)
-    || !Number.isSafeInteger(policyConfigBytes)
-    || policyConfigBytes < 1
-  ) throw new Error("Fixture 026 RSD-T02 arm policy provenance is invalid.");
+  const provenance = { policyArtifactSha256, policyArtifactBytes, policyConfigSha256, policyConfigBytes };
+  assertArmPolicyProvenance(provenance);
   assertFixture026RsdT02PolicyBaseResult(baseResult);
   if (baseResult.arm_id !== armId) {
     throw new Error("Fixture 026 RSD-T02 policy base result is bound to another arm.");
   }
-  const canonicalPacket = canonicalize(packet);
-  const packetSha256 = sha256Hex(canonicalPacket);
-  const packetBytes = Buffer.byteLength(canonicalPacket, "utf8");
-  const evaluated = {
-    properties: baseResult.properties,
-    counter: baseResult.counter,
-    retainedScalars: baseResult.retained_scalars,
-    parameterScalars: baseResult.parameter_scalars,
-  };
-  const commonCapsSha256 = sha256Hex(canonicalize(config.common_caps));
-  const packetTraversalScalarOperations = config.packet.sample_rows
-    * PACKET_TRAVERSAL_SCALAR_OPERATIONS_PER_ROW;
-  const embeddedCandidateEquationBytes = armId === "C-MECHANISM-BANK"
-    ? CANDIDATE_EQUATION_BYTES
-    : 0;
-  const embeddedCandidateEquations = armId === "C-MECHANISM-BANK"
-    ? CANDIDATE_EQUATION_REGISTRY.length
-    : 0;
-  const influentialParameterBytes = evaluated.parameterScalars * 8
-    + PROPERTY_PRIOR_BYTES
-    + embeddedCandidateEquationBytes;
+  const policyConstruction = armPolicyConstruction(armId, config, provenance);
   const response = {
     schema: 1,
     contract_version: FIXTURE_026_RSD_T02_ARM_BANK_VERSION,
@@ -1030,67 +1164,17 @@ export function attachFixture026RsdT02ArmResponse({
     policy_config_sha256: policyConfigSha256,
     system_packet_sha256: packetSha256,
     support: { status: "inside", reason_codes: [] },
-    properties: evaluated.properties,
-    compatible_hypothesis_ids: compatibleHypotheses(evaluated.properties),
-    compatible_property_vectors: compatiblePropertyVectors(evaluated.properties),
-    information_ledger: {
-      system_packet_sha256: packetSha256,
-      episodes_available: config.packet.episodes,
-      sample_rows_available: config.packet.sample_rows,
-      canonical_packet_bytes: packetBytes,
-      training_labels_seen: config.information.training_labels,
-      tuning_trials: config.information.tuning_trials,
-      future_samples_outside_packet_seen: config.information.future_samples_outside_packet,
-      evaluator_fields_seen: config.information.evaluator_fields,
-      numeric_model: config.information.numeric_model,
-      thread_cap: config.information.thread_cap,
-    },
+    properties: baseResult.properties,
+    compatible_hypothesis_ids: compatibleHypotheses(baseResult.properties),
+    compatible_property_vectors: compatiblePropertyVectors(baseResult.properties),
+    information_ledger: armInformationLedger(config, packetSha256, packetBytes),
     resource_ledger: {
       scope: "declared-policy-mathematical-primitives-not-cpu-instructions-or-energy",
-      common_caps_sha256: commonCapsSha256,
+      common_caps_sha256: sha256Hex(canonicalize(config.common_caps)),
       common_caps: config.common_caps,
-      shared_acquisition: {
-        episodes_acquired: config.packet.episodes,
-        sample_rows_acquired: config.packet.sample_rows,
-        canonical_packet_bytes: packetBytes,
-        input_commands: config.packet.input_commands,
-        internal_resets: config.packet.internal_resets,
-        internal_freezes: config.packet.internal_freezes,
-        output_clamps: config.packet.output_clamps,
-        channel_switches: config.packet.channel_switches,
-        state_writes: config.packet.state_writes,
-      },
-      policy_construction: {
-        policy_artifact_sha256: policyArtifactSha256,
-        policy_artifact_bytes: policyArtifactBytes,
-        policy_config_sha256: policyConfigSha256,
-        policy_config_bytes: policyConfigBytes,
-        total_policy_artifact_bytes: policyArtifactBytes + policyConfigBytes,
-        threshold_provenance: config.policies[armId].threshold_provenance,
-        threshold_rationale: config.policies[armId].threshold_rationale,
-        training_labels_seen: config.information.training_labels,
-        tuning_trials: config.information.tuning_trials,
-        embedded_candidate_equations: embeddedCandidateEquations,
-        embedded_candidate_equation_bytes: embeddedCandidateEquationBytes,
-        embedded_property_prior_vectors: PROPERTY_PRIOR_VECTORS.length,
-        embedded_property_prior_bytes: PROPERTY_PRIOR_BYTES,
-      },
-      inference: {
-        actual: {
-          episodes_validated: config.packet.episodes,
-          sample_rows_validated: config.packet.sample_rows,
-          policy_sample_rows_read: evaluated.counter.policy_sample_rows_read,
-          packet_traversal_scalar_operations: packetTraversalScalarOperations,
-          scalar_operations: packetTraversalScalarOperations + evaluated.counter.scalar_operations,
-          transcendental_evaluations: evaluated.counter.transcendental_evaluations,
-          retained_state_bytes: evaluated.retainedScalars * 8,
-          influential_parameter_bytes: influentialParameterBytes,
-          scratch_peak_bytes: packetBytes,
-          fallback_invocations: 0,
-          wall_seconds: null,
-          later_joules: null,
-        },
-      },
+      shared_acquisition: armSharedAcquisition(config, packetBytes),
+      policy_construction: policyConstruction,
+      inference: { actual: armInferenceActual(config, baseResult, policyConstruction, packetBytes) },
     },
     authority: "public-development-policy-conformance-only",
     comparison_inference_permitted: false,
@@ -1132,6 +1216,71 @@ function inactiveResponse(armId, systemPacketSha256) {
   });
 }
 
+function assertArmCommitmentInputs(profile, packetInputs, activeResponsesByPacket) {
+  if (
+    !["smoke", "development"].includes(profile)
+    || !Array.isArray(packetInputs)
+    || (activeResponsesByPacket !== null && (
+      !Array.isArray(activeResponsesByPacket)
+      || activeResponsesByPacket.length !== packetInputs.length
+    ))
+  ) {
+    throw new Error("Fixture 026 RSD-T02 arm commitment inputs are invalid.");
+  }
+}
+
+function assertArmPacketEnvelope(input) {
+  if (
+    !exactKeys(input, ["seed", "system_slot", "packet"])
+    || !canonicalUint64(input.seed)
+    || !Number.isSafeInteger(input.system_slot)
+    || input.system_slot < 0
+    || input.system_slot >= FIXTURE_026_RSD_T02_RECIPES.length
+  ) throw new Error("Fixture 026 RSD-T02 arm packet envelope is invalid.");
+}
+
+function assertSuppliedActiveResponses(activeResponses, built, provenance) {
+  if (
+    !Array.isArray(activeResponses)
+    || activeResponses.length !== FIXTURE_026_RSD_T02_ACTIVE_ARM_IDS.length
+  ) throw new Error("Fixture 026 RSD-T02 supplied active arm responses are incomplete.");
+  activeResponses.forEach((response, armIndex) => {
+    assertFixture026RsdT02ArmResponse(response);
+    if (
+      response.arm_id !== FIXTURE_026_RSD_T02_ACTIVE_ARM_IDS[armIndex]
+      || response.system_packet_sha256 !== built.system_packet_sha256
+      || response.policy_artifact_sha256 !== provenance.policyArtifactSha256
+      || response.policy_config_sha256 !== provenance.policyConfigSha256
+    ) throw new Error("Fixture 026 RSD-T02 supplied active arm response is not bound to its packet and policy inputs.");
+  });
+  const parityViews = activeResponses.map(({ information_ledger: ledger }) => canonicalize(ledger));
+  if (new Set(parityViews).size !== 1) {
+    throw new Error("Fixture 026 RSD-T02 active arms did not receive exact information parity.");
+  }
+}
+
+function buildArmPacketRecord(input, packetOrdinal, config, provenance, suppliedResponses) {
+  assertArmPacketEnvelope(input);
+  const built = buildFixture026RsdT02SystemPacket(input.packet.projections);
+  const activeResponses = suppliedResponses === null
+    ? FIXTURE_026_RSD_T02_ACTIVE_ARM_IDS.map((armId) => (
+      runFixture026RsdT02Arm({ armId, packet: built.packet, config, ...provenance })
+    ))
+    : suppliedResponses[packetOrdinal];
+  assertSuppliedActiveResponses(activeResponses, built, provenance);
+  return Object.freeze({
+    packet_ordinal: packetOrdinal,
+    seed: input.seed,
+    system_slot: input.system_slot,
+    system_packet_sha256: built.system_packet_sha256,
+    system_packet_utf8_bytes: built.system_packet_utf8_bytes,
+    active_arm_responses: Object.freeze(activeResponses),
+    inactive_arm_responses: Object.freeze(FIXTURE_026_RSD_T02_INACTIVE_ARM_IDS.map(
+      (armId) => inactiveResponse(armId, built.system_packet_sha256),
+    )),
+  });
+}
+
 export function buildFixture026RsdT02ArmCommitment({
   profile,
   packetInputs,
@@ -1143,68 +1292,11 @@ export function buildFixture026RsdT02ArmCommitment({
   activeResponsesByPacket = null,
 }) {
   validateFixture026RsdT02ArmBankConfig(config);
-  if (
-    !["smoke", "development"].includes(profile)
-    || !Array.isArray(packetInputs)
-    || (activeResponsesByPacket !== null && (
-      !Array.isArray(activeResponsesByPacket)
-      || activeResponsesByPacket.length !== packetInputs.length
-    ))
-  ) {
-    throw new Error("Fixture 026 RSD-T02 arm commitment inputs are invalid.");
-  }
-  const packetRecords = packetInputs.map((input, packetOrdinal) => {
-    if (
-      !exactKeys(input, ["seed", "system_slot", "packet"])
-      || !canonicalUint64(input.seed)
-      || !Number.isSafeInteger(input.system_slot)
-      || input.system_slot < 0
-      || input.system_slot >= FIXTURE_026_RSD_T02_RECIPES.length
-    ) throw new Error("Fixture 026 RSD-T02 arm packet envelope is invalid.");
-    const built = buildFixture026RsdT02SystemPacket(input.packet.projections);
-    const activeResponses = activeResponsesByPacket === null
-      ? FIXTURE_026_RSD_T02_ACTIVE_ARM_IDS.map((armId) => (
-        runFixture026RsdT02Arm({
-          armId,
-          packet: built.packet,
-          config,
-          policyArtifactSha256,
-          policyArtifactBytes,
-          policyConfigSha256,
-          policyConfigBytes,
-        })
-      ))
-      : activeResponsesByPacket[packetOrdinal];
-    if (
-      !Array.isArray(activeResponses)
-      || activeResponses.length !== FIXTURE_026_RSD_T02_ACTIVE_ARM_IDS.length
-    ) throw new Error("Fixture 026 RSD-T02 supplied active arm responses are incomplete.");
-    activeResponses.forEach((response, armIndex) => {
-      assertFixture026RsdT02ArmResponse(response);
-      if (
-        response.arm_id !== FIXTURE_026_RSD_T02_ACTIVE_ARM_IDS[armIndex]
-        || response.system_packet_sha256 !== built.system_packet_sha256
-        || response.policy_artifact_sha256 !== policyArtifactSha256
-        || response.policy_config_sha256 !== policyConfigSha256
-      ) throw new Error("Fixture 026 RSD-T02 supplied active arm response is not bound to its packet and policy inputs.");
-    });
-    const parityViews = activeResponses.map(({ information_ledger: ledger }) => canonicalize(ledger));
-    if (new Set(parityViews).size !== 1) {
-      throw new Error("Fixture 026 RSD-T02 active arms did not receive exact information parity.");
-    }
-    return Object.freeze({
-      packet_ordinal: packetOrdinal,
-      seed: input.seed,
-      system_slot: input.system_slot,
-      system_packet_sha256: built.system_packet_sha256,
-      system_packet_utf8_bytes: built.system_packet_utf8_bytes,
-      active_arm_responses: Object.freeze(activeResponses),
-      inactive_arm_responses: Object.freeze(FIXTURE_026_RSD_T02_INACTIVE_ARM_IDS.map(
-        (armId) => inactiveResponse(armId, built.system_packet_sha256),
-      )),
-    });
-  });
-  const commonCapsSha256 = sha256Hex(canonicalize(config.common_caps));
+  assertArmCommitmentInputs(profile, packetInputs, activeResponsesByPacket);
+  const provenance = { policyArtifactSha256, policyArtifactBytes, policyConfigSha256, policyConfigBytes };
+  const packetRecords = packetInputs.map((input, packetOrdinal) => (
+    buildArmPacketRecord(input, packetOrdinal, config, provenance, activeResponsesByPacket)
+  ));
   const body = {
     schema: 1,
     contract_version: FIXTURE_026_RSD_T02_ARM_BANK_VERSION,
@@ -1216,7 +1308,7 @@ export function buildFixture026RsdT02ArmCommitment({
     inactive_arm_ids: FIXTURE_026_RSD_T02_INACTIVE_ARM_IDS,
     policy_artifact_sha256: policyArtifactSha256,
     policy_config_sha256: policyConfigSha256,
-    common_caps_sha256: commonCapsSha256,
+    common_caps_sha256: sha256Hex(canonicalize(config.common_caps)),
     packet_records: packetRecords,
     authority: "pre-evaluator-public-development-policy-commitment-only",
     comparison_inference_permitted: false,
@@ -1235,6 +1327,52 @@ export function buildFixture026RsdT02ArmCommitmentFromResponses(options) {
     throw new Error("Fixture 026 RSD-T02 isolated commitment requires supplied arm responses.");
   }
   return buildFixture026RsdT02ArmCommitment(options);
+}
+
+function assertArmPacketRecordShape(record, index) {
+  if (
+    !exactKeys(record, PACKET_RECORD_KEYS)
+    || record.packet_ordinal !== index
+    || !canonicalUint64(record.seed)
+    || !Number.isSafeInteger(record.system_slot)
+    || record.system_slot < 0
+    || record.system_slot >= FIXTURE_026_RSD_T02_RECIPES.length
+    || !/^[0-9a-f]{64}$/u.test(record.system_packet_sha256)
+    || !Number.isSafeInteger(record.system_packet_utf8_bytes)
+    || record.system_packet_utf8_bytes < 1
+    || !Array.isArray(record.active_arm_responses)
+    || record.active_arm_responses.length !== FIXTURE_026_RSD_T02_ACTIVE_ARM_IDS.length
+    || !Array.isArray(record.inactive_arm_responses)
+    || record.inactive_arm_responses.length !== FIXTURE_026_RSD_T02_INACTIVE_ARM_IDS.length
+  ) throw new Error("Fixture 026 RSD-T02 arm packet record violates its closed contract.");
+}
+
+function assertCommittedArmResponses(record, commitment) {
+  record.active_arm_responses.forEach((response, armIndex) => {
+    assertFixture026RsdT02ArmResponse(response);
+    if (
+      response.arm_id !== FIXTURE_026_RSD_T02_ACTIVE_ARM_IDS[armIndex]
+      || response.system_packet_sha256 !== record.system_packet_sha256
+      || response.policy_artifact_sha256 !== commitment.policy_artifact_sha256
+      || response.policy_config_sha256 !== commitment.policy_config_sha256
+      || response.resource_ledger.common_caps_sha256 !== commitment.common_caps_sha256
+    ) throw new Error("Fixture 026 RSD-T02 arm response is not bound to its commitment envelope.");
+  });
+  const parityViews = record.active_arm_responses.map(
+    ({ information_ledger: ledger }) => canonicalize(ledger),
+  );
+  if (new Set(parityViews).size !== 1) {
+    throw new Error("Fixture 026 RSD-T02 committed arms lack exact information parity.");
+  }
+  record.inactive_arm_responses.forEach((response, armIndex) => {
+    if (
+      !exactKeys(response, INACTIVE_RESPONSE_KEYS)
+      || response.arm_id !== FIXTURE_026_RSD_T02_INACTIVE_ARM_IDS[armIndex]
+      || response.system_packet_sha256 !== record.system_packet_sha256
+      || response.action !== "abstain"
+      || !isDeepStrictEqual(response.reason_codes, ["not-in-bounded-primary-arm-bank"])
+    ) throw new Error("Fixture 026 RSD-T02 inactive arm failed its forced abstention contract.");
+  });
 }
 
 export function assertFixture026RsdT02ArmCommitment(commitment) {
@@ -1267,49 +1405,11 @@ export function assertFixture026RsdT02ArmCommitment(commitment) {
   }
   const packetKeys = new Set();
   for (const [index, record] of commitment.packet_records.entries()) {
-    if (
-      !exactKeys(record, PACKET_RECORD_KEYS)
-      || record.packet_ordinal !== index
-      || !canonicalUint64(record.seed)
-      || !Number.isSafeInteger(record.system_slot)
-      || record.system_slot < 0
-      || record.system_slot >= FIXTURE_026_RSD_T02_RECIPES.length
-      || !/^[0-9a-f]{64}$/u.test(record.system_packet_sha256)
-      || !Number.isSafeInteger(record.system_packet_utf8_bytes)
-      || record.system_packet_utf8_bytes < 1
-      || !Array.isArray(record.active_arm_responses)
-      || record.active_arm_responses.length !== FIXTURE_026_RSD_T02_ACTIVE_ARM_IDS.length
-      || !Array.isArray(record.inactive_arm_responses)
-      || record.inactive_arm_responses.length !== FIXTURE_026_RSD_T02_INACTIVE_ARM_IDS.length
-    ) throw new Error("Fixture 026 RSD-T02 arm packet record violates its closed contract.");
+    assertArmPacketRecordShape(record, index);
     const packetKey = `${record.seed}:${record.system_slot}`;
     if (packetKeys.has(packetKey)) throw new Error("Fixture 026 RSD-T02 arm commitment has a duplicate packet.");
     packetKeys.add(packetKey);
-    record.active_arm_responses.forEach((response, armIndex) => {
-      assertFixture026RsdT02ArmResponse(response);
-      if (
-        response.arm_id !== FIXTURE_026_RSD_T02_ACTIVE_ARM_IDS[armIndex]
-        || response.system_packet_sha256 !== record.system_packet_sha256
-        || response.policy_artifact_sha256 !== commitment.policy_artifact_sha256
-        || response.policy_config_sha256 !== commitment.policy_config_sha256
-        || response.resource_ledger.common_caps_sha256 !== commitment.common_caps_sha256
-      ) throw new Error("Fixture 026 RSD-T02 arm response is not bound to its commitment envelope.");
-    });
-    const parityViews = record.active_arm_responses.map(
-      ({ information_ledger: ledger }) => canonicalize(ledger),
-    );
-    if (new Set(parityViews).size !== 1) {
-      throw new Error("Fixture 026 RSD-T02 committed arms lack exact information parity.");
-    }
-    record.inactive_arm_responses.forEach((response, armIndex) => {
-      if (
-        !exactKeys(response, INACTIVE_RESPONSE_KEYS)
-        || response.arm_id !== FIXTURE_026_RSD_T02_INACTIVE_ARM_IDS[armIndex]
-        || response.system_packet_sha256 !== record.system_packet_sha256
-        || response.action !== "abstain"
-        || !isDeepStrictEqual(response.reason_codes, ["not-in-bounded-primary-arm-bank"])
-      ) throw new Error("Fixture 026 RSD-T02 inactive arm failed its forced abstention contract.");
-    });
+    assertCommittedArmResponses(record, commitment);
   }
   return commitment;
 }
