@@ -187,7 +187,7 @@ func executeCase(ctx context.Context, bound boundInputs, runner specialistcontro
 	}
 	c := Case{request.RequestID, task.task, identify(result.Outcome.Payload), runErr == nil, time.Since(started).Nanoseconds()}
 	terminal := terminalEvent{request, finished, result, c, diagnostic(runErr)}
-	recordCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), recordTimeout)
+	recordCtx, cancel := recordContext(ctx, request.Deadline)
 	recordErr := j.append(recordCtx, event{Kind: "terminal", Terminal: &terminal}, maximumEventBytes)
 	cancel()
 	if err := errors.Join(runErr, recordErr); err != nil {
