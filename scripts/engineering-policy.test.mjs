@@ -75,6 +75,7 @@ import {
   validateTypeCheckConfigObject,
   validateTaxonomyImporterScriptObject,
   validateTopicRegistryScriptsObject,
+  validateImpactAuthorityScriptsObject,
   validateUnpinnedImageSourceLabels,
   validateWorkstationShardScriptsObject,
   validateWorkflowObject,
@@ -345,6 +346,32 @@ test("the topic registry validator runs in the aggregate gate and every impact p
     assert.deepEqual(validateTopicRegistryScriptsObject(tampered), [finding]);
   }
   assert.equal(validateTopicRegistryScriptsObject({}).length, 3);
+});
+
+test("the CI impact authority check runs in the aggregate gate and every impact plan", () => {
+  const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert.deepEqual(validateImpactAuthorityScriptsObject(manifest), []);
+  assert.ok(manifest.scripts.test.split(" && ").includes("npm run validate:impact"));
+  assert.ok(manifest.scripts["check:full-without-workstation"].split(" && ").includes("npm run validate:impact"));
+
+  const skippedGate = structuredClone(manifest);
+  skippedGate.scripts.test = skippedGate.scripts.test.replace("npm run validate:impact && ", "");
+  assert.ok(validateWorkstationShardScriptsObject(skippedGate, {}).includes(
+    "package.json: the local aggregate gate must retain the complete workstation suite",
+  ));
+
+  const cases = [
+    ["validate:impact", "go -C tooling run ./cmd/ci-plan plan --root ..",
+      "package.json: validate:impact must run go -C tooling run ./cmd/ci-plan plan --root .. --full"],
+    ["check:impact-common", manifest.scripts["check:impact-common"].replace("npm run validate:impact && ", ""),
+      "package.json: check:impact-common must run validate:impact for every impact plan"],
+  ];
+  for (const [script, command, finding] of cases) {
+    const tampered = structuredClone(manifest);
+    tampered.scripts[script] = command;
+    assert.deepEqual(validateImpactAuthorityScriptsObject(tampered), [finding]);
+  }
+  assert.equal(validateImpactAuthorityScriptsObject({}).length, 2);
 });
 
 test("full-mode lanes cover every non-workstation check and lane-go satisfies Go tests and vet", () => {
