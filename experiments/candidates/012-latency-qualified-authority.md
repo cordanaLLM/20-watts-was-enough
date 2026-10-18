@@ -72,9 +72,6 @@ flowchart TD
     P --> C
 ```
 
-Editable source:
-[latency-qualified-authority.mmd](../../assets/diagrams/latency-qualified-authority.mmd).
-
 The certificate cannot be self-asserted solely by the learned policy seeking
 wider authority. Simple independent limits, trip paths, and fallbacks remain
 enforced.

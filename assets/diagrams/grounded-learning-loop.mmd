@@ -1,8 +1,0 @@
-flowchart LR
-    world["World and body"] --> events["Aligned multimodal<br/>events"]
-    events --> model["Grounded predictive<br/>state"]
-    language["Language and<br/>sourced knowledge"] <--> model
-    model --> assurance["Uncertainty and<br/>provenance"]
-    assurance --> decision{"Act, query,<br/>or wait?"}
-    decision --> action["Bounded action or<br/>sensor request"]
-    action --> world

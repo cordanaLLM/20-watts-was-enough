@@ -101,9 +101,6 @@ flowchart LR
     compare --> retain["Retain only measured residual<br/>otherwise retire composition"]
 ```
 
-Editable source:
-[versioned-proof-discovery-lifecycle.mmd](../../assets/diagrams/versioned-proof-discovery-lifecycle.mmd).
-
 ## Typed artifact states
 
 Every published artifact has exactly one current lifecycle state while retaining

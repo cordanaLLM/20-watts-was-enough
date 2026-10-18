@@ -691,8 +691,8 @@ flowchart LR
     compare --> decision["Retain measured residual<br/>or retire the composition"]
 ```
 
-Editable source:
-[regime-qualified-flow-inference-control.mmd](../assets/diagrams/regime-qualified-flow-inference-control.mmd).
+Fixture contract diagram:
+[Regime-qualified flow inference control diagram](../experiments/fixtures/005-regime-qualified-flow-inference-control.md#identity-and-leakage-boundary).
 
 [Fixture F-005](../experiments/fixtures/005-regime-qualified-flow-inference-control.md)
 crosses ten adversarial tracks: signed multiscale transfer, closure portability,

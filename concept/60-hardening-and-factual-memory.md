@@ -39,9 +39,6 @@ flowchart LR
     repair -.-> gate
 ```
 
-Editable source:
-[`../assets/diagrams/hardening-memory-paths.mmd`](../assets/diagrams/hardening-memory-paths.mmd).
-
 The gate selects authority, not merely compute. A reflex may execute but cannot
 silently update a fact. A retrieved record may inform an answer but cannot
 rewrite a skill. An escalated result enters durable state only through the

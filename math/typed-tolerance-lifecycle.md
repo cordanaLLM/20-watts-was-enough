@@ -200,4 +200,4 @@ stack reproduces its decisions and frontier at equal information,
 intervention, compute, storage, reserve, and maintenance budget.
 
 Editable lifecycle diagram:
-[typed-tolerance-lifecycle.mmd](../assets/diagrams/typed-tolerance-lifecycle.mmd).
+[Typed-tolerance lifecycle diagram](../concept/07-cross-domain-convergence.md#inactive-is-not-one-state).

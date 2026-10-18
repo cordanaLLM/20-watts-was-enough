@@ -438,9 +438,6 @@ flowchart LR
     C -.-> U
 ```
 
-Editable source:
-[horizon-qualified-learning.mmd](../assets/diagrams/horizon-qualified-learning.mmd).
-
 For each skill, retain current acquisition estimate, retention estimates at
 declared horizons, transfer by preregistered stratum, fluency/error frontier,
 calibration, support/scaffold state, confusability/context, intervention

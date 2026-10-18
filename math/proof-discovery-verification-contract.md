@@ -382,4 +382,4 @@ events cannot be reconstructed independently; or when omitted formalization,
 review, checking, storage, repair, human-hour, or joule costs explain the gain.
 
 Editable lifecycle diagram:
-[versioned-proof-discovery-lifecycle.mmd](../assets/diagrams/versioned-proof-discovery-lifecycle.mmd).
+[Versioned proof-discovery lifecycle diagram](../experiments/fixtures/004-versioned-proof-discovery.md#identity-and-acceptance-boundary).

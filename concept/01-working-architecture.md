@@ -35,9 +35,6 @@ flowchart TB
     result --> budget
 ```
 
-Editable source:
-[`../assets/diagrams/three-coupled-loops.mmd`](../assets/diagrams/three-coupled-loops.mmd).
-
 The three loops solve different problems:
 
 | Loop | Timescale | Primary decision | Normal output |
@@ -126,9 +123,6 @@ flowchart TB
     retain --> sources
     revise --> vary
 ```
-
-Editable source:
-[`../assets/diagrams/generative-recombination.mmd`](../assets/diagrams/generative-recombination.mmd).
 
 Stochasticity can alter which variants are tried. Usefulness comes from the
 entire cycle: decomposition, recombination, intervention, comparison, and

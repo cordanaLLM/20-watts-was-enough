@@ -41,9 +41,6 @@ flowchart TD
     O --> D
 ```
 
-Editable source:
-[deficit-capability-routing.mmd](../../assets/diagrams/deficit-capability-routing.mmd).
-
 ## State and units
 
 For module $i$ at time $t$, define:

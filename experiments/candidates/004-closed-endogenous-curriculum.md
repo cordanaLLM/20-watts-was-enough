@@ -72,9 +72,6 @@ flowchart LR
     failure --> context
 ```
 
-Editable source:
-[`../../assets/diagrams/endogenous-curriculum-loop.mmd`](../../assets/diagrams/endogenous-curriculum-loop.mmd).
-
 For task context $c_t$, accessible memory $m_t$, and stochastic input $\xi_t$,
 the shared generator proposes
 

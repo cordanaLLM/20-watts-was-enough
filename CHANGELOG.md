@@ -18,6 +18,11 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Remove 23 exact-duplicate standalone Mermaid groups, retaining their
+  Markdown owners and reducing the duplicate baseline from 40 groups to 17.
+  Concept chapters that draw their own variant of a fixture diagram now
+  label the fixture link as a contract diagram, not an editable source.
+
 - The Fixture 026 RSD-T02 arm bank checks and hashes a system packet once,
   when `buildFixture026RsdT02SystemPacket` builds it as a deep-frozen copy,
   and arm evaluation and responses reuse that identity instead of

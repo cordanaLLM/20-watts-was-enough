@@ -377,4 +377,4 @@ has an isolating ablation. Otherwise retain this contract and retire the
 architectural explanation.
 
 Editable system diagram:
-[regime-qualified-flow-inference-control.mmd](../assets/diagrams/regime-qualified-flow-inference-control.mmd).
+[Regime-qualified flow inference control diagram](../experiments/fixtures/005-regime-qualified-flow-inference-control.md#identity-and-leakage-boundary).

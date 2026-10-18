@@ -61,9 +61,6 @@ flowchart LR
     monitor -.-> event
 ```
 
-Editable source:
-[`../../assets/diagrams/severity-ordered-containment.mmd`](../../assets/diagrams/severity-ordered-containment.mmd).
-
 Containment revokes or narrows interfaces before diagnosis is complete. It does
 not prove corruption and does not authorize deletion. For component $i$, the
 controller receives observable evidence $z_i$ and chooses action

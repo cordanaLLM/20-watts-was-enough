@@ -68,9 +68,6 @@ flowchart LR
     validate -->|"no"| shadow
 ```
 
-Editable source:
-[`../../assets/diagrams/physical-skill-compilation.mmd`](../../assets/diagrams/physical-skill-compilation.mmd).
-
 The physical substrate has state rather than “free computation.” A general
 representation is
 

@@ -521,9 +521,6 @@ flowchart LR
     action --> world
 ```
 
-Editable source:
-[`../assets/diagrams/grounded-learning-loop.mmd`](../assets/diagrams/grounded-learning-loop.mmd).
-
 ### Language attaches to grounded state
 
 Language serves at least four different functions:

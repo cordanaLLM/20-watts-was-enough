@@ -182,9 +182,6 @@ flowchart TB
     primitive --> test["Null model · ablation · lifecycle measurement · rejection"]
 ```
 
-Editable source:
-[`../assets/diagrams/recurring-solution-families.mmd`](../assets/diagrams/recurring-solution-families.mmd).
-
 | Family | Included principles | Shared artificial primitive | Important separation inside the family |
 | --- | --- | --- | --- |
 | scarcity | [P-001](../research/principle-registry.md#p-001--selective-allocation), [P-007](../research/principle-registry.md#p-007--prediction-error-allocation) | budgeted selection plus the option to buy more evidence | selecting a candidate is different from deciding whether uncertainty warrants more work |
@@ -483,9 +480,6 @@ flowchart LR
     O -->|"harm or false permit"| D
 ```
 
-Editable source:
-[typed-tolerance-lifecycle.mmd](../assets/diagrams/typed-tolerance-lifecycle.mmd).
-
 An activation bit cannot distinguish an absent module from an unobserved one,
 a policy-suppressed module from a damaged one, or post-response contraction
 from retained memory. That ambiguity makes reactivation unsafe and makes
@@ -670,8 +664,8 @@ flowchart LR
     compare --> retain["Retain measured residual<br/>otherwise retire composition"]
 ```
 
-Editable source:
-[versioned-proof-discovery-lifecycle.mmd](../assets/diagrams/versioned-proof-discovery-lifecycle.mmd).
+Fixture contract diagram:
+[Versioned proof-discovery lifecycle diagram](../experiments/fixtures/004-versioned-proof-discovery.md#identity-and-acceptance-boundary).
 
 This lifecycle prevents five common substitutions:
 
