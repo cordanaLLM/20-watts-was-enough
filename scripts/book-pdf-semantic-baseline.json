@@ -6,9 +6,9 @@
   "artifact": {
     "pdf": "public/downloads/20-watts-was-enough-full-concept-book.pdf",
     "manifest": "public/downloads/book-manifest.json",
-    "pdf_sha256": "ca81203f4cb682b1d3da74c2719c3242489ef26568e42b7ec0920a4f67a76c49",
-    "manifest_sha256": "6bcc016daf0cb587744bf45eba08a4016b7d1e8aec03a73cd0f91b027cb8adee",
-    "size_bytes": 14347370,
+    "pdf_sha256": "ea1aa5967ec4d2bb003161619719680dcab6aeb7c10d3fc88d1de8d9b39853e1",
+    "manifest_sha256": "ef9bcb23202dc575de4ba778501a3fe01adca2e5a927570473c46a58be7139ec",
+    "size_bytes": 14452451,
     "pages": 421,
     "page_size_name": "A4",
     "page_size_points": {
@@ -18,7 +18,7 @@
     "pdf_version": "1.4",
     "tagged": true,
     "source_ref": "main",
-    "source_digest": "33310eb8e5feade347f82e3b373f1abfcc97e2c4d30807b18a3f4142a9c2afc9",
+    "source_digest": "e0e2f559ad19103e59980791598963d0f4488b1cf300258d9bce8726f1bacdfa",
     "version": "0.5.0"
   },
   "tools": {
@@ -40,7 +40,7 @@
       },
       "stdout": {
         "bytes": 627,
-        "sha256": "322151066ce3d21d41196364a7d1b264d559830b97e17724196d4a4fc2051ba7"
+        "sha256": "65e4e88b852631d47773f0174688de72eae0318d62763870a40aa0877d486aba"
       }
     },
     "structure": {
@@ -50,8 +50,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "stdout": {
-        "bytes": 1092229,
-        "sha256": "0c7c2152f530e48864f00f1c7da62adb72a8a0acb4888c1168c5e20cd501d15a"
+        "bytes": 1128357,
+        "sha256": "a4ea85f952652eba4a796bcae226d86ce6689ec7024f99e7fde381bad7d3dd4e"
       }
     },
     "structure_text": {
@@ -61,8 +61,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "stdout": {
-        "bytes": 2457842,
-        "sha256": "3ba9afcf60da066fc6d71a394df48b7bae3128183664d7a4ca264a6083ecb02e"
+        "bytes": 2506466,
+        "sha256": "c2ceaa89b46d09117f67a41657f359d23e8ef2543bb3e5157b8447ad025b0530"
       }
     },
     "default_text": {
@@ -83,8 +83,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "stdout": {
-        "bytes": 1110222,
-        "sha256": "91f144f4affa727454d25118dced9c97b0bf4e087c9b11234817a4a8062262f3"
+        "bytes": 1110819,
+        "sha256": "5f000fb001e0730c6271429e621431ca654753c4c29f575de6de1ada11a16e33"
       }
     }
   },
@@ -144,13 +144,13 @@
         "The decision geometry below is illustrative"
       ],
       "raw_fragments": [
-        "For a biological candidate",
+        "candidate is interesting only if improves the quality–risk–energy frontier:",
+        "(Q,R,E,L)",
         "where is task quality",
-        "The decision geometry below is illustrative",
-        "(Q,R,E,L)"
+        "The decision geometry below is illustrative"
       ],
       "state": "known-debt",
-      "defect": "The displayed frontier equation moves behind its explanation in content-stream extraction and is absent from tagged structure text."
+      "defect": "Raw content-stream extraction keeps the frontier equation between its introduction and explanation; the equation remains absent from tagged structure text."
     },
     {
       "id": "lifecycle-equation-late",
@@ -171,12 +171,13 @@
         "Failure modes"
       ],
       "raw_fragments": [
+        "lifecycle acceptance uses the energy contract from chapter 80:",
+        "ΔE",
         "where is a dimensionless count",
-        "Evidence status",
-        "ΔE"
+        "Evidence status"
       ],
       "state": "known-debt",
-      "defect": "The lifecycle equation moves behind the beginning of Evidence status in raw content-stream extraction and is absent from tagged structure text."
+      "defect": "Raw content-stream extraction keeps the lifecycle equation before its explanation and Evidence status; the equation remains absent from tagged structure text."
     },
     {
       "id": "admissible-action-equation-late",
@@ -199,13 +200,12 @@
       ],
       "raw_fragments": [
         "The held translation assigns controller an admissible action set",
+        "(t) ∈ i( i i i i i ) i U ​ (t), i",
         "where is observation age in seconds",
-        "the notation does not make them interchangeable.",
-        "i\nU ​ (t) = i E",
-        "(t) ∈ i( i i i i i ) i U ​ (t), i"
+        "the notation does not make them interchangeable."
       ],
       "state": "known-debt",
-      "defect": "The admissible-action equation moves behind its explanation in raw content-stream extraction and is absent from tagged structure text."
+      "defect": "Raw content-stream extraction keeps the admissible-action equation before its explanation; the equation remains absent from tagged structure text."
     },
     {
       "id": "adiabatic-equation-fragmented",
@@ -227,12 +227,12 @@
       ],
       "raw_fragments": [
         "The normalized diagnostic model is",
+        "CV 2",
         "Slowing a transition",
-        "device-boundary model.",
-        "CV 2"
+        "device-boundary model."
       ],
       "state": "known-debt",
-      "defect": "The adiabatic equation fragments after its explanatory paragraph and is absent from tagged structure text."
+      "defect": "Raw content-stream extraction keeps the adiabatic equation between its introduction and explanation, still glyph-fragmented; the equation remains absent from tagged structure text."
     },
     {
       "id": "field-coverage-heading-merged",
