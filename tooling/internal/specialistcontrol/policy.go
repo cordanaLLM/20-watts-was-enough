@@ -543,49 +543,47 @@ func ValidIdentity(value string) bool {
 }
 
 func bindRequest(request Request, specialistID string, decidedAt time.Time, admission AdmissionDecision) Binding {
-	hash := sha256.New()
+	var buffer []byte
 	for _, value := range []string{request.RunID, request.RequestID, string(request.Task), specialistID} {
-		_ = binary.Write(hash, binary.BigEndian, uint64(len(value)))
-		_, _ = hash.Write([]byte(value))
+		buffer = appendLengthPrefixed(buffer, []byte(value))
 	}
 	for _, value := range []int64{
 		request.IssuedAt.UnixNano(), decidedAt.UnixNano(), request.Deadline.UnixNano(), int64(len(request.Payload)),
 	} {
-		_ = binary.Write(hash, binary.BigEndian, value)
+		buffer = binary.BigEndian.AppendUint64(buffer, uint64(value))
 	}
-	_, _ = hash.Write(request.Payload)
+	buffer = append(buffer, request.Payload...)
 	for _, value := range []string{
 		string(admission.State), string(admission.Reason), admission.Authority, admission.SpecialistID,
 		string(admission.Fit), admission.FitMeasurementBasis, string(admission.Readiness),
 	} {
-		_ = binary.Write(hash, binary.BigEndian, uint64(len(value)))
-		_, _ = hash.Write([]byte(value))
+		buffer = appendLengthPrefixed(buffer, []byte(value))
 	}
 	for _, value := range []int64{
 		admission.FitMeasuredAt.UnixNano(), admission.FitValidUntil.UnixNano(), admission.ObservedAt.UnixNano(),
 		admission.ValidUntil.UnixNano(), admission.QueuedAt.UnixNano(), admission.DecidedAt.UnixNano(),
 		int64(admission.Attempts),
 	} {
-		_ = binary.Write(hash, binary.BigEndian, value)
+		buffer = binary.BigEndian.AppendUint64(buffer, uint64(value))
 	}
-	_ = binary.Write(hash, binary.BigEndian, admission.DeclaredCost)
-	var binding Binding
-	copy(binding[:], hash.Sum(nil))
-	return binding
+	buffer = binary.BigEndian.AppendUint64(buffer, admission.DeclaredCost)
+	return Binding(sha256.Sum256(buffer))
 }
 
 func bindCandidate(binding Binding, specialistID string, state ResultState, payload []byte) CandidateBinding {
-	hash := sha256.New()
-	_, _ = hash.Write(binding[:])
+	buffer := append([]byte(nil), binding[:]...)
 	for _, value := range []string{specialistID, string(state)} {
-		_ = binary.Write(hash, binary.BigEndian, uint64(len(value)))
-		_, _ = hash.Write([]byte(value))
+		buffer = appendLengthPrefixed(buffer, []byte(value))
 	}
-	_ = binary.Write(hash, binary.BigEndian, uint64(len(payload)))
-	_, _ = hash.Write(payload)
-	var candidateBinding CandidateBinding
-	copy(candidateBinding[:], hash.Sum(nil))
-	return candidateBinding
+	buffer = appendLengthPrefixed(buffer, payload)
+	return CandidateBinding(sha256.Sum256(buffer))
+}
+
+// appendLengthPrefixed appends a big-endian uint64 length and the bytes, so
+// adjacent fields cannot exchange bytes without changing the digest.
+func appendLengthPrefixed(buffer, value []byte) []byte {
+	buffer = binary.BigEndian.AppendUint64(buffer, uint64(len(value)))
+	return append(buffer, value...)
 }
 
 func terminalOutcome(state OutcomeState, reason Reason, binding Binding, payload []byte) Outcome {
