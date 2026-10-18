@@ -53,7 +53,7 @@
     {
       "role": "current-conformance-reference-bank",
       "path": "rsd-t02-arm-bank.mjs",
-      "sha256_exact_bytes": "a3b2d356692b347e3078d56d0e4fff0e59858bc21ba595bab4abc10780ce4e19"
+      "sha256_exact_bytes": "c21602760063db28750c71ac5eaaac48e3428926e8c18e55627438a4032bcab3"
     },
     {
       "role": "level-two-null-prototype-implementation",
