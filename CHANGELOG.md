@@ -140,6 +140,12 @@ the exact diff; this file records why the project changed.
 
 ### Security
 
+- Raise `github.com/klauspost/compress` in the tools module from 1.17.11 to
+  1.20.3, which closes GO-2026-5841, an out-of-bounds read in `s2` that
+  gitleaks pulled in. Ignore GO-2026-5932 until 2027-02-15 in
+  `tooling/tools/osv-scanner.toml`: the advisory covers `x/crypto/openpgp`
+  in every release, and govulncheck finds the package never called.
+
 - Build and attest releases inside the local reusable builder required by the
   declared SLSA Build L3 policy. Sign fresh image digests and final checksums
   with keyless Cosign, publish a reusable checksum signature bundle, and

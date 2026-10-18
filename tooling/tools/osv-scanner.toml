@@ -1,0 +1,8 @@
+# OpenSSF Scorecard reads this file next to the manifest it scans.
+
+[[IgnoredVulns]]
+id = "GO-2026-5932"
+# Category D exception, 120 days from 2026-10-18; osv-scanner reports the
+# advisory again once the date passes.
+ignoreUntil = 2027-02-15
+reason = "The advisory covers golang.org/x/crypto/openpgp in every module version and has no fixed release. The tools module reaches x/crypto only through gitleaks (Masterminds/sprig imports x/crypto/bcrypt); govulncheck in source mode on the gitleaks and govulncheck binaries reports the module as required but the package as never called."
