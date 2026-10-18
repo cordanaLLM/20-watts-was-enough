@@ -96,6 +96,16 @@
       ]
     },
     {
+      "id": "global-book-print-equation-tags",
+      "paths": [
+        "scripts/lib/book-print-equation-tags.mjs",
+        "scripts/lib/book-print-equation-tags.test.mjs"
+      ],
+      "lanes": [
+        "full"
+      ]
+    },
+    {
       "id": "global-file-identity",
       "paths": [
         "tooling/internal/fileidentity/**"
