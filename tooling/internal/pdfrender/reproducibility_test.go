@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -297,8 +298,8 @@ func TestVerifyReproducibilityRejectsMalformedMetadataAndCleansOwnedResources(t 
 	t.Parallel()
 	configuration := renderConfiguration(t)
 	executor := &reproducibilityExecutor{
-		imageIDs:        []string{testProofConfigDigest},
-		manifestDigests: []string{"malformed"},
+		imageIDs:        []string{testProofConfigDigest, testProofConfigDigest},
+		manifestDigests: []string{"malformed", "malformed"},
 	}
 
 	_, err := verifyReproducibilityWithDependencies(
@@ -308,8 +309,12 @@ func TestVerifyReproducibilityRejectsMalformedMetadataAndCleansOwnedResources(t 
 	if err == nil || !strings.Contains(err.Error(), "containerimage.digest") {
 		t.Fatalf("verifyReproducibilityWithDependencies() error = %v", err)
 	}
-	if len(requestsWithPrefix(executor.requests, "buildx", "rm")) != 1 ||
-		len(requestsWithPrefix(executor.requests, "image", "rm", "--force")) != 1 {
+	creates := len(requestsWithPrefix(executor.requests, "buildx", "create"))
+	removals := len(requestsWithPrefix(executor.requests, "buildx", "rm"))
+	if creates == 0 || creates != removals {
+		t.Fatalf("builder cleanup count mismatch: creates=%d removals=%d", creates, removals)
+	}
+	if len(requestsWithPrefix(executor.requests, "image", "rm", "--force")) != 2 {
 		t.Fatalf("malformed metadata cleanup requests = %v", executor.requests)
 	}
 }
@@ -405,6 +410,7 @@ func (reproducibilityFixturePreparer) prepare(
 }
 
 type reproducibilityExecutor struct {
+	mu                      sync.Mutex
 	requests                []commandRequest
 	imageIDs                []string
 	manifestDigests         []string
@@ -417,12 +423,20 @@ type reproducibilityExecutor struct {
 }
 
 func (executor *reproducibilityExecutor) run(_ context.Context, request commandRequest) ([]byte, error) {
+	executor.mu.Lock()
+	defer executor.mu.Unlock()
 	executor.requests = append(executor.requests, request)
 	if slices.Equal(request.arguments, []string{"buildx", "version"}) {
 		return []byte("github.com/docker/buildx 0.38.0 0dbe87f36ed472fe36b6796c3f70b4210a731fc5\n"), nil
 	}
 	if len(request.arguments) > 1 && slices.Equal(request.arguments[:2], []string{"buildx", "build"}) {
+		tag := argumentAfterValue(request.arguments, "--tag")
 		index := executor.buildCount
+		if strings.HasSuffix(tag, "-1") {
+			index = 0
+		} else if strings.HasSuffix(tag, "-2") {
+			index = 1
+		}
 		executor.buildCount++
 		if index >= len(executor.imageIDs) || index >= len(executor.manifestDigests) {
 			return nil, errors.New("missing injected reproducibility build identity")
@@ -435,7 +449,7 @@ func (executor *reproducibilityExecutor) run(_ context.Context, request commandR
 		if executor.loadedTags == nil {
 			executor.loadedTags = make(map[string]string)
 		}
-		executor.loadedTags[argumentAfterValue(request.arguments, "--tag")] = executor.imageIDs[index]
+		executor.loadedTags[tag] = executor.imageIDs[index]
 		metadata := fmt.Sprintf(
 			"{\"containerimage.digest\":%q}\n",
 			executor.manifestDigests[index],
@@ -474,7 +488,8 @@ func (executor *reproducibilityExecutor) run(_ context.Context, request commandR
 			return nil, errors.New("missing reproducibility output mount")
 		}
 		manifest := []byte("{\"render\":\"stable\"}\n")
-		if executor.differentSecondManifest && executor.renderCount == 2 {
+		isSecond := request.renderSequence == 2 || (request.renderSequence == 0 && executor.renderCount == 2)
+		if executor.differentSecondManifest && isSecond {
 			manifest = []byte("{\"render\":\"change\"}\n")
 		}
 		if err := os.WriteFile(filepath.Join(outputDirectory, bookPDFName), []byte("%PDF-stable\n"), 0o644); err != nil {

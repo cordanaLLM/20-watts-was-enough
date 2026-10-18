@@ -42,7 +42,7 @@ func TestRetryDiagnosticsSurviveProofMismatchAndSinkFailure(t *testing.T) {
 						differentSecondManifest: mismatch,
 					}}
 					inner.beforeRender = func(sequence int) {
-						if sequence == 2 && !sinkFails && diagnostic.String() != "PDF renderer render-1: "+testRetryWarning+"\n" {
+						if pairOnly && sequence == 2 && !sinkFails && diagnostic.String() != "PDF renderer render-1: "+testRetryWarning+"\n" {
 							t.Fatalf("first warning was not delivered before render 2: %q", diagnostic.String())
 						}
 					}
@@ -83,8 +83,15 @@ func TestRetryDiagnosticsSurviveProofMismatchAndSinkFailure(t *testing.T) {
 					if inner.buildCount != wantBuilds || len(requestsWithPrefix(inner.requests, "image", "rm", "--force")) != wantBuilds || len(requestsWithPrefix(inner.requests, "buildx", "rm")) != wantBuilds {
 						t.Fatal("diagnostic delivery interrupted owned cleanup")
 					}
-					if !sinkFails && diagnostic.String() != "PDF renderer render-1: "+testRetryWarning+"\nPDF renderer render-2: "+testRetryWarning+"\n" {
-						t.Fatalf("warning identity/order changed: %q", diagnostic.String())
+					if !sinkFails {
+						got := diagnostic.String()
+						want1 := "PDF renderer render-1: " + testRetryWarning + "\n" + "PDF renderer render-2: " + testRetryWarning + "\n"
+						want2 := "PDF renderer render-2: " + testRetryWarning + "\n" + "PDF renderer render-1: " + testRetryWarning + "\n"
+						if pairOnly && got != want1 {
+							t.Fatalf("warning identity/order changed: %q", got)
+						} else if !pairOnly && got != want1 && got != want2 {
+							t.Fatalf("warning identity/order changed: %q", got)
+						}
 					}
 				})
 			}
