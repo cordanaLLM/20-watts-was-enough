@@ -2158,6 +2158,20 @@ button {
     font-size: 0.76em;
   }
 
+  /*
+   * KaTeX positions its glyph boxes relatively. Chromium paints positioned
+   * boxes after all in-flow content of their stacking context, so a display
+   * equation reached the PDF content stream after the prose that follows it.
+   * Positioning the flow blocks too keeps paint, and extraction, in source
+   * order. No offsets are set, so layout does not move (#17).
+   */
+  .book-prose > *,
+  .book-prose li,
+  .book-prose li > *,
+  .book-prose blockquote > * {
+    position: relative;
+  }
+
   .book-prose .diagram {
     max-width: 100%;
     min-height: 0;
