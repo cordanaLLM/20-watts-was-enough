@@ -115,3 +115,4 @@ than silently changing its outcome.
 | [0108](0108-run-the-two-image-build-chains-concurrently.md) | Run the two image-build chains concurrently | accepted |
 | [0109](0109-split-the-site-lane-browser-tests-into-their-own-job.md) | Split the site lane browser tests into their own job | accepted |
 | [0110](0110-tag-book-pdf-display-equations-as-figures.md) | Tag book PDF display equations as figures with TeX alternative text | accepted |
+| [0112](0112-keep-the-20w-cli-and-release-module-graph-without-kong-or-spdx-tools-golang.md) | Keep the 20w command line and release module graph without kong or spdx/tools-golang | accepted |
