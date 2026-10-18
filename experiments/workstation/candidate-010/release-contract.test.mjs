@@ -811,9 +811,11 @@ test("acquireRunLock propagates AggregateError if cleanup handle.close fails", a
   const temporary = await mkdtemp(path.join(os.tmpdir(), "20w-c010-lock-close-err-"));
   const outputDirectory = path.join(temporary, "out");
   const origOpen = fs.open.bind(fs);
+  const realCloses = [];
 
   t.mock.method(fs, "open", async (...args) => {
     const handle = await origOpen(...args);
+    realCloses.push(handle.close.bind(handle));
     handle.writeFile = async () => {
       throw new Error("simulated write failure");
     };
@@ -836,6 +838,7 @@ test("acquireRunLock propagates AggregateError if cleanup handle.close fails", a
       },
     );
   } finally {
+    await Promise.all(realCloses.map((close) => close()));
     await rm(temporary, { recursive: true, force: true });
   }
 });
@@ -846,6 +849,7 @@ test("run-lock release rejects with cause if handle.close fails on ownership cha
   const lockPath = runLockPath(outputDirectory);
   const origOpen = fs.open.bind(fs);
   let createdHandle = null;
+  let realClose = null;
 
   t.mock.method(fs, "open", async (...args) => {
     const handle = await origOpen(...args);
@@ -857,6 +861,7 @@ test("run-lock release rejects with cause if handle.close fails on ownership cha
 
   try {
     await writeFile(lockPath, `${JSON.stringify({ schema: 1, lock_id: "other" })}\n`, "utf8");
+    realClose = createdHandle.close.bind(createdHandle);
     createdHandle.close = async () => {
       throw new Error("simulated close failure on ownership mismatch");
     };
@@ -871,6 +876,7 @@ test("run-lock release rejects with cause if handle.close fails on ownership cha
       },
     );
   } finally {
+    await realClose?.();
     await rm(temporary, { recursive: true, force: true });
   }
 });
@@ -881,6 +887,7 @@ test("run-lock release rejects with AggregateError if handle.close fails on unre
   const lockPath = runLockPath(outputDirectory);
   const origOpen = fs.open.bind(fs);
   let createdHandle = null;
+  let realClose = null;
 
   t.mock.method(fs, "open", async (...args) => {
     const handle = await origOpen(...args);
@@ -892,6 +899,7 @@ test("run-lock release rejects with AggregateError if handle.close fails on unre
 
   try {
     await writeFile(lockPath, "{ corrupt json", "utf8");
+    realClose = createdHandle.close.bind(createdHandle);
     createdHandle.close = async () => {
       throw new Error("simulated close failure on unreadable");
     };
@@ -907,6 +915,7 @@ test("run-lock release rejects with AggregateError if handle.close fails on unre
       },
     );
   } finally {
+    await realClose?.();
     await rm(temporary, { recursive: true, force: true });
   }
 });
