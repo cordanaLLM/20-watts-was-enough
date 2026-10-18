@@ -276,8 +276,6 @@ flowchart LR
     E --> N
 ```
 
-Editable source:
-[occupancy-qualified-spatial-transition.mmd](../../assets/diagrams/occupancy-qualified-spatial-transition.mmd).
 The [mathematical contract](../../math/occupied-spatial-transition.md) defines
 the typed transition state, evidence-age and authority gates, scenario-specific
 egress margin, group-visible service loss, irreversibility, and recovery with

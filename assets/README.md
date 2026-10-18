@@ -28,34 +28,6 @@ scientific evidence.
   to `../public/plots/` for GitHub and the private reader.
 - `diagrams/evidence-to-principles.mmd` shows how domain findings are audited,
   bundled, translated, and tested without duplicating concepts.
-- `diagrams/compensation-aware-recovery.mmd` separates apparent task recovery,
-  native-path distance, compensating resources, support removal, transfer,
-  recurrence, reserve, and adverse adaptation.
-- `diagrams/versioned-repairable-conventions.mmd` separates typed literal
-  content, pragmatic hypotheses, recipient uptake, bounded repair, task outcome,
-  convention tests, publication, expiry, and rollback for Candidate 015.
-- `diagrams/semantic-compaction-contract.mmd` makes registered query,
-  evidence, invalidation, rollback, hidden-future, and corruption gates explicit
-  for Candidate 017.
-- `diagrams/value-aware-artifact-tiering.mmd` separates access/recompute cost,
-  task/evidence value, reconstructability, constraints, placement, and outcome
-  calibration for Candidate 018.
-- `diagrams/audited-cumulative-inheritance.mmd` keeps generation, transmission,
-  newcomer reconstruction, evaluation, external lineage, governance, turnover,
-  invalidation, and retirement separate for Candidate 019.
-- `diagrams/constitutional-control-plane.mmd` separates authorized invariants,
-  scoped local action, spillover escalation, typed veto and appeal, ordinary
-  rule repair, expiring emergency authority, compatibility, and rollback for
-  Candidate 020.
-- `diagrams/cohort-observation-contract.mmd` follows entry cohort and lifecycle
-  state through transition, migration, selected record survival, versioned
-  observation, identification, scenario projection, and frozen holdout.
-- `diagrams/asynchronous-authority-transfer.mmd` keeps effect scope, epoch,
-  readiness, fallback reachability, atomic owner change, timeout, rejection,
-  recovery, and postcondition verification in one state machine.
-- `diagrams/phase-field-compilation.mmd` follows a mature local mapping through
-  physical classification, fabrication/programming, execution, readout,
-  health/shadow checks, reprogramming, fallback, and retirement.
 - `diagrams/conservation-qualified-reconfiguration.mmd` carries inventory,
   energy, contamination, authority, protection, maintenance, and reserve state
   through a gated topology transition and rollback.
@@ -71,43 +43,6 @@ scientific evidence.
 - `diagrams/controlled-observability-plant-binding.mmd` binds an active sensing
   policy and controller to the body, mechanics, calibration, and environment
   that determine what can be observed and what action can accomplish.
-- `diagrams/occupancy-qualified-spatial-transition.mmd` carries verified
-  as-built topology, occupants, accessible and emergency routes, life safety,
-  physical dependencies, authority, and material commitment through a gated
-  work step, acceptance, safe-stop, commissioning, and outcome review.
-- `diagrams/shared-clock-free-coadaptation.mmd` connects locally timestamped
-  delayed partner events to phase/tempo estimation, phrase and role state,
-  action, literal and timing evaluation, repair, memory, ordinary control
-  nulls, and partner or regime perturbations.
-- `diagrams/opportunity-history-qualified-action.mmd` carries actual sensory
-  opportunity, feasible action, training and social history, intervention,
-  realized plant action, first-trial transfer, ordinary nulls, and diagnostic
-  attribution through Fixture F-003.
-- `diagrams/representative-resource-qualified-performance.mmd` carries actual
-  cue and action opportunity, acquisition history, opponent/team state,
-  feedback, fatigue/resource/damage state, action, retention/transfer,
-  reversible return, selection, and complete cost through Fixture F-006.
-- `diagrams/operator-qualified-physical-inference.mmd` binds the versioned
-  optical operator, acquisition action, calibration and drift envelope,
-  physical ambiguity, reconstruction, active evidence, heterogeneous routing,
-  fabrication population, future-query retention, and complete lifecycle
-  ledger in Fixture F-007.
-- `diagrams/mission-profile-qualified-degradation-recovery.mmd` carries a
-  fabricated device population through measured mission history, typed
-  variation and degradation, evidence-age-qualified operation, detection,
-  containment, correction, repair, repurposing, and retirement in Fixture
-  F-008.
-- `diagrams/operator-qualified-active-acoustic-inference.mmd` binds calibrated
-  emission, propagation, receiver geometry, masking, reverberation, motion,
-  grouping, localization, separation, active evidence, safety, and complete
-  cost in Fixture F-009.
-- `diagrams/boundary-qualified-physical-computation.mmd` keeps fundamental,
-  device, circuit, workload/data-movement, facility, and embodied-lifecycle
-  energy boundaries separate through Fixture F-010.
-- `diagrams/operator-qualified-active-chemical-sensing.mmd` binds source
-  chemistry, transport, sampling action, receiver and sensor state, mixtures,
-  calibration, drift, identification, localization, exposure, and complete
-  lifecycle work in Fixture F-011.
 - `rendered/` is reserved for other committed SVG or PNG outputs generated from
   editable sources.
 - Future data-driven figures must store plotting source, parameter status, and

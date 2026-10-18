@@ -109,9 +109,6 @@ stateDiagram-v2
     Fallback --> StableOwner: recovery + explicit reassignment
 ```
 
-Editable source:
-[asynchronous-authority-transfer.mmd](../../assets/diagrams/asynchronous-authority-transfer.mmd).
-
 The record may produce only validated transfer, continued current authority,
 or qualified fallback. It does not widen the available actions. Retire its
 name if explicit mode annunciation, an independent runtime-assurance monitor,

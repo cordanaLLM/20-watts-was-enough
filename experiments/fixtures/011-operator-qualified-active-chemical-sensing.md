@@ -128,9 +128,6 @@ flowchart TB
     compare --> retire["Retire composition<br/>preserve chemical observation contract"]
 ```
 
-Editable source:
-[operator-qualified-active-chemical-sensing.mmd](../../assets/diagrams/operator-qualified-active-chemical-sensing.mmd).
-
 ## Outcome firewall
 
 | Outcome | Required literal measurement | Forbidden substitution |

@@ -470,28 +470,8 @@ This record prevents several category errors:
    group, site, rearing or training cohort, and population remain distinct
    sampling levels.
 
-```mermaid
-flowchart LR
-    task["Task · apparatus · hidden regime"] --> channel["Actual sensory channel + receipt time"]
-    body["Body · tool · feasible action set"] --> channel
-    history["Training · reward · social exposure · handler cues"] --> state["Opportunity/history-qualified state"]
-    channel --> state
-    controls["Intervention · ghost · cue reversal · history swap"] --> task
-    state --> policy["Act · inspect · abstain · retrieve · communicate"]
-    policy --> plant["Realized action through compliant plant"]
-    plant --> outcome["Outcome + first-trial transfer + safety + cost"]
-    outcome --> diagnosis{"Which relation transferred?"}
-    diagnosis --> affordance["Affordance · causal model · search"]
-    diagnosis --> memory["Event · semantic · prospective memory"]
-    diagnosis --> social["Action form · result · location · convention"]
-    diagnosis --> control["Central · local · mechanical contribution"]
-    nulls["RL · POMDP/MPC · retrieval · VOI · imitation · hierarchical control"] --> diagnosis
-    diagnosis --> revision["Retain · narrow · reject · revise"]
-    revision --> history
-```
-
-Editable source:
-[opportunity-history-qualified-action.mmd](../assets/diagrams/opportunity-history-qualified-action.mmd).
+Fixture contract diagram:
+[Opportunity-history-qualified action diagram](../experiments/fixtures/003-opportunity-history-qualified-action.md#information-and-opportunity-boundary).
 
 [Fixture F-003](../experiments/fixtures/003-opportunity-history-qualified-action.md)
 turns the contract into eight separable tracks: manufacture transfer, causal
@@ -693,22 +673,8 @@ outgoing and incoming controller, actual and pending mode, observation basis,
 headroom, time-to-boundary, faults, outstanding commands, fallback reachable
 set, expiry, acknowledgement, atomic activation, and observed postcondition.
 
-```mermaid
-stateDiagram-v2
-    [*] --> StableOwner
-    StableOwner --> TransferProposed: effect + epoch + observation
-    TransferProposed --> TransferRejected: stale / unsupported / not ready
-    TransferProposed --> Armed: receiver ready + fallback reachable
-    Armed --> NewOwner: atomic activation + old authority revoked
-    Armed --> Fallback: timeout / fault / margin exhausted
-    NewOwner --> StableOwner: postcondition verified
-    NewOwner --> Fallback: postcondition fails
-    TransferRejected --> StableOwner
-    Fallback --> StableOwner: recovery + explicit reassignment
-```
-
-Editable source:
-[asynchronous-authority-transfer.mmd](../assets/diagrams/asynchronous-authority-transfer.mmd).
+Candidate contract diagram:
+[Asynchronous authority transfer diagram](../experiments/candidates/012-latency-qualified-authority.md#validated-asynchronous-authority-transfer).
 
 This is a refinement of Candidate 012, not a new autonomy layer. It must beat
 mode annunciation, interlocks, epoch leases, runtime assurance, explicit

@@ -122,6 +122,3 @@ flowchart LR
     F --> O["Observed outcome + calibration"]
     O --> T
 ```
-
-Editable source:
-[cohort-observation-contract.mmd](../assets/diagrams/cohort-observation-contract.mmd).

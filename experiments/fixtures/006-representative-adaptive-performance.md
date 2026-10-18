@@ -77,9 +77,6 @@ flowchart TB
     history --> contract
 ```
 
-Editable source:
-[representative-resource-qualified-performance.mmd](../../assets/diagrams/representative-resource-qualified-performance.mmd).
-
 ## Outcome firewall
 
 These outcomes are analyzed separately; success on one cannot stand in for an

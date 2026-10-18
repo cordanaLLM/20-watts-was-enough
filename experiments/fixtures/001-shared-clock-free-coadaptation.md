@@ -58,9 +58,6 @@ flowchart LR
     perturb --> controller
 ```
 
-Editable source:
-[shared-clock-free-coadaptation.mmd](../../assets/diagrams/shared-clock-free-coadaptation.mmd).
-
 ## Scenario generator
 
 Use duets and quartets with event-level acoustic or symbolic interfaces. The

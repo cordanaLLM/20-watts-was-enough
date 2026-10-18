@@ -63,9 +63,6 @@ flowchart LR
     V --> M
 ```
 
-Editable source:
-[versioned-repairable-conventions.mmd](../../assets/diagrams/versioned-repairable-conventions.mmd).
-
 ## Promotion gates
 
 1. **Denotation:** independent interpreters recover the declared referent,

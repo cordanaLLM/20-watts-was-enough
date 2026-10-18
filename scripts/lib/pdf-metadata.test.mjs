@@ -659,12 +659,12 @@ test("the tracked semantic baseline is closed and records remaining debt", async
     ({ id }) => id === "field-coverage-heading-merged",
   );
   assert.equal(headingSentinel?.state, "clean", "the repaired heading remains a positive sentinel");
-  assert.equal(headingSentinel.recorded_page, 395);
+  assert.equal(headingSentinel.recorded_page, 386);
   assert.deepEqual(headingSentinel.raw_fragments, [
     "APPENDIX A1",
     "Global field coverage",
     "Census date: 2026-08-27",
-    "FIGURE 80",
+    "FIGURE 63",
   ]);
   assert.equal(headingSentinel.struct_text_fragments[0], "Global field coverage");
   const addedSentinel = baseline.sentinels.find(
@@ -680,7 +680,7 @@ test("the tracked semantic baseline is closed and records remaining debt", async
     {
       id: "admissible-action-equation-late",
       class: "table-displayed-equation",
-      recorded_page: 132,
+      recorded_page: 125,
       state: "clean",
     },
   );

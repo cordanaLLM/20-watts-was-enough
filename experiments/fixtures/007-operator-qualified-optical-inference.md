@@ -96,9 +96,6 @@ flowchart LR
     compare --> verdict["Retain measured residual<br/>or retire the composition"]
 ```
 
-Editable source:
-[operator-qualified-physical-inference.mmd](../../assets/diagrams/operator-qualified-physical-inference.mmd).
-
 ## Eight adversarial tracks
 
 The track identities match E-OPTIC-01 through E-OPTIC-08 in the source audit.

@@ -55,9 +55,6 @@ flowchart LR
     V --> I
 ```
 
-Editable source:
-[semantic-compaction-contract.mmd](../../assets/diagrams/semantic-compaction-contract.mmd).
-
 ## Strongest nulls
 
 1. full version/event history with ordinary indexes;

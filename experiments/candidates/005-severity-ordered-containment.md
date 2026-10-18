@@ -264,9 +264,6 @@ flowchart LR
     Q -->|"no"| X["Reclassify · repair · retain support"]
 ```
 
-Editable source:
-[compensation-aware-recovery.mmd](../../assets/diagrams/compensation-aware-recovery.mmd).
-
 The method is rejected as redundant if ordinary multi-objective robustness,
 resource accounting, and fault injection predict the same removal, transfer,
 recurrence, or reserve failures with lower measurement overhead.

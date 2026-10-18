@@ -39,9 +39,6 @@ flowchart LR
     R --> A
 ```
 
-Editable source:
-[audited-cumulative-inheritance.mmd](../../assets/diagrams/audited-cumulative-inheritance.mmd).
-
 ## Accumulation ledger
 
 For learner generation $g$,

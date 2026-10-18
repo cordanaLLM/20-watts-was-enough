@@ -254,4 +254,4 @@ human effort, and energy. Otherwise retain the observation contract and retire
 the architectural story.
 
 Editable system diagram:
-[opportunity-history-qualified-action.mmd](../assets/diagrams/opportunity-history-qualified-action.mmd).
+[Opportunity-history-qualified action diagram](../experiments/fixtures/003-opportunity-history-qualified-action.md#information-and-opportunity-boundary).

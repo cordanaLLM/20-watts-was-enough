@@ -48,9 +48,6 @@ flowchart LR
     M --> T
 ```
 
-Editable source:
-[value-aware-artifact-tiering.mmd](../../assets/diagrams/value-aware-artifact-tiering.mmd).
-
 ## Strongest nulls
 
 1. LRU and LFU;
