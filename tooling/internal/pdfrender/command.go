@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/boundedexec"
@@ -36,12 +37,14 @@ type commandExecutor interface {
 
 type localCommandExecutor struct{}
 
-// The serial renderer pipeline has two executions. Diagnostics are observations,
-// never receipt fields or an alternative proof result. Keep write errors until
-// the pipeline has retained its evidence and finished cleanup.
+// rendererDiagnosticExecutor is concurrent-safe across renderer executions.
+// Diagnostics are observations, never receipt fields or an alternative proof
+// result. Keep write errors until the pipeline has retained its evidence and
+// finished cleanup.
 type rendererDiagnosticExecutor struct {
 	commandExecutor
 	writer   io.Writer
+	mu       sync.Mutex
 	seen     [2]bool
 	failures [2]error
 }
@@ -55,37 +58,55 @@ func (executor *rendererDiagnosticExecutor) run(ctx context.Context, request com
 		return body, nil
 	}
 	index := request.renderSequence - 1
+	executor.mu.Lock()
+	defer executor.mu.Unlock()
 	if index < 0 || index >= len(executor.seen) || request.operation != "run pinned PDF renderer image" {
-		executor.rememberFailure(0, errors.New("invalid PDF renderer diagnostic identity"))
+		executor.rememberFailureLocked(0, errors.New("invalid PDF renderer diagnostic identity"))
 		return body, nil
 	}
 	if executor.seen[index] {
-		executor.rememberFailure(index, errors.New("repeated PDF renderer diagnostic identity"))
+		executor.rememberFailureLocked(index, errors.New("repeated PDF renderer diagnostic identity"))
 		return body, nil
 	}
 	executor.seen[index] = true
 	warning, diagnosticErr := rendererRetryWarning(body, request.outputSize)
 	if diagnosticErr == nil && warning != "" {
-		line := fmt.Sprintf("PDF renderer render-%d: %s\n", request.renderSequence, warning)
-		written, writeErr := io.WriteString(executor.writer, line)
-		if writeErr == nil && written != len(line) {
-			writeErr = io.ErrShortWrite
-		}
-		if writeErr != nil {
-			diagnosticErr = fmt.Errorf("write PDF renderer retry diagnostic: %w", writeErr)
-		}
+		diagnosticErr = writeDiagnosticLine(executor.writer, request.renderSequence, warning)
 	}
-	executor.rememberFailure(index, diagnosticErr)
+	executor.rememberFailureLocked(index, diagnosticErr)
 	return body, nil
 }
 
+func writeDiagnosticLine(writer io.Writer, renderSequence int, warning string) error {
+	line := fmt.Sprintf("PDF renderer render-%d: %s\n", renderSequence, warning)
+	written, writeErr := io.WriteString(writer, line)
+	if writeErr == nil && written != len(line) {
+		writeErr = io.ErrShortWrite
+	}
+	if writeErr != nil {
+		return fmt.Errorf("write PDF renderer retry diagnostic: %w", writeErr)
+	}
+	return nil
+}
+
 func (executor *rendererDiagnosticExecutor) rememberFailure(index int, err error) {
-	if err != nil && executor.failures[index] == nil {
+	if err == nil {
+		return
+	}
+	executor.mu.Lock()
+	defer executor.mu.Unlock()
+	executor.rememberFailureLocked(index, err)
+}
+
+func (executor *rendererDiagnosticExecutor) rememberFailureLocked(index int, err error) {
+	if err != nil && index >= 0 && index < len(executor.failures) && executor.failures[index] == nil {
 		executor.failures[index] = err
 	}
 }
 
 func (executor *rendererDiagnosticExecutor) diagnosticError() error {
+	executor.mu.Lock()
+	defer executor.mu.Unlock()
 	return errors.Join(executor.failures[0], executor.failures[1])
 }
 

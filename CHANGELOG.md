@@ -18,6 +18,7 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- The `image-build` PDF renderer proof runs its two builder-build-render chains concurrently instead of one after the other. Each chain keeps its own fresh builder, no-cache build and isolated render; the first failure cancels the other chain, and both builders are still removed ([Decision 0108](decisions/0108-run-the-two-image-build-chains-concurrently.md), #302).
 - `npm run validate:impact` loads `.github/ci-impact.json` through
   `ci-plan`, which refuses unsorted, repeated or invalid impact rules. The
   aggregate `npm test` gate and `check:impact-common` run it, so a defect in

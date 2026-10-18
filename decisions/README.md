@@ -112,3 +112,4 @@ than silently changing its outcome.
 | [0105](0105-move-the-renderer-lock-to-buildx-0-38-0.md) | Move the renderer lock to Buildx 0.38.0 | accepted |
 | [0106](0106-fan-out-full-ci-to-impact-lanes.md) | Fan out full CI to impact lanes | accepted |
 | [0107](0107-pack-short-workstation-fixtures.md) | Pack short workstation fixtures | accepted |
+| [0108](0108-run-the-two-image-build-chains-concurrently.md) | Run the two image-build chains concurrently | accepted |
