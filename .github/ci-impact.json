@@ -168,6 +168,16 @@
       ]
     },
     {
+      "id": "global-loopback-netns-runner",
+      "paths": [
+        "scripts/run-in-loopback-netns.mjs",
+        "scripts/run-in-loopback-netns.test.mjs"
+      ],
+      "lanes": [
+        "full"
+      ]
+    },
+    {
       "id": "go-build",
       "paths": [
         "tooling/cmd/build-release/**"
