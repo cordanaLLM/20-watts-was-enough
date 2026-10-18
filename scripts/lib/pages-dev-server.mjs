@@ -114,18 +114,12 @@ function applyEnvironment(overrides) {
   };
 }
 
-// vite.pages.config.ts reads PAGES_BASE_PATH and GITHUB_SHA when it loads,
-// so the overrides apply only while createViteServer loads the config.
-export async function startReadyPagesDevServer({
-  cacheDir,
-  env = {},
-  entries = PAGES_DEV_SERVER_ENTRIES,
-  readyBudgetMs = PAGES_DEV_SERVER_READY_BUDGET_MS,
-}) {
-  const restoreEnvironment = applyEnvironment(env);
-  let server;
+// A rejection after the deadline settles reaches Promise.race, which already
+// subscribed, so a late failure is never unhandled.
+async function initServer(createServer, cacheDir, entries, state) {
+  let created;
   try {
-    server = await createViteServer({
+    created = await createServer({
       configFile: path.join(repositoryRoot, "vite.pages.config.ts"),
       configLoader: "runner",
       cacheDir,
@@ -133,38 +127,69 @@ export async function startReadyPagesDevServer({
       server: { host: "127.0.0.1", port: 0, strictPort: true },
     });
   } finally {
-    restoreEnvironment();
+    state.restoreEnvironment();
   }
-  const close = () => server.close();
+  if (state.timedOut) {
+    // The caller already received the deadline error and never saw this server.
+    await created.close();
+    return;
+  }
+  state.server = created;
+  await created.listen();
+  await awaitReadiness(created, entries);
+}
+
+// One deadline covers config load, listen and readiness. Under host load the
+// cold config load alone took over 120 s; outside the budget it let the
+// caller's hook timeout fire first and hide the starvation diagnosis.
+// vite.pages.config.ts reads PAGES_BASE_PATH and GITHUB_SHA when it loads,
+// so the overrides apply only while createViteServer loads the config.
+export async function startReadyPagesDevServer({
+  cacheDir,
+  createServer = createViteServer,
+  env = {},
+  entries = PAGES_DEV_SERVER_ENTRIES,
+  readyBudgetMs = PAGES_DEV_SERVER_READY_BUDGET_MS,
+}) {
+  // The deadline restores the environment for the caller at once; the
+  // abandoned createViteServer may still set NODE_ENV, so the restore runs
+  // again when it settles.
+  const state = {
+    restoreEnvironment: applyEnvironment(env),
+    server: undefined,
+    timedOut: false,
+  };
+  const close = () => state.server?.close();
   let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      state.timedOut = true;
+      state.restoreEnvironment();
+      reject(pagesDevServerNotReady(
+        readyBudgetMs,
+        os.loadavg()[0] / os.availableParallelism(),
+      ));
+    }, readyBudgetMs);
+  });
   try {
-    await server.listen();
-    await Promise.race([
-      awaitReadiness(server, entries),
-      new Promise((_, reject) => {
-        timer = setTimeout(() => reject(pagesDevServerNotReady(
-          readyBudgetMs,
-          os.loadavg()[0] / os.availableParallelism(),
-        )), readyBudgetMs);
-      }),
-    ]);
+    await Promise.race([initServer(createServer, cacheDir, entries, state), deadline]);
   } catch (error) {
-    await close();
+    if (state.server) await close();
     throw error;
   } finally {
     clearTimeout(timer);
   }
-  const address = server.httpServer?.address();
+  const address = state.server?.httpServer?.address();
   if (!address || typeof address !== "object") {
     await close();
     throw new Error("Pages development server exposed no TCP address");
   }
   const origin = `http://127.0.0.1:${address.port}`;
   try {
-    await drainBufferedReload(server, origin);
+    await drainBufferedReload(state.server, origin);
   } catch (error) {
     await close();
     throw error;
   }
-  return { server, origin, close };
+  return { server: state.server, origin, close };
 }
