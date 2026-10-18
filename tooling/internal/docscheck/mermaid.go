@@ -67,24 +67,32 @@ func validateMermaid(root string, report *collector) (int, []mermaidSource, bool
 		report.addError("Inspect Mermaid source directory: %v", err)
 		return 0, nil, false
 	}
+	entries, count, scanComplete := scanMermaidEntries(diagramRoot, report)
+	sources, loadComplete := loadMermaidSources(diagramRoot, entries, report)
+	return count, sources, scanComplete && loadComplete
+}
+
+func scanMermaidEntries(diagramRoot string, report *collector) ([]os.DirEntry, int, bool) {
 	directory, err := os.Open(diagramRoot)
 	if err != nil {
 		report.addError("Open Mermaid source directory: %v", err)
-		return 0, nil, false
+		return nil, 0, false
 	}
 	entries := make([]os.DirEntry, 0, 128)
 	count := 0
 	complete := true
 	directoryEntries := 0
-scan:
-	for {
+	readComplete := false
+	maxChunks := maximumMermaidDirectoryEntries/256 + 2
+	for chunkIndex := 0; chunkIndex < maxChunks; chunkIndex++ {
 		chunk, readErr := directory.ReadDir(256)
 		for _, entry := range chunk {
 			directoryEntries++
 			if directoryEntries > maximumMermaidDirectoryEntries {
 				report.addError("Mermaid source directory exceeds %d entries", maximumMermaidDirectoryEntries)
 				complete = false
-				break scan
+				readComplete = true
+				break
 			}
 			if entry.IsDir() || filepath.Ext(entry.Name()) != ".mmd" {
 				continue
@@ -93,17 +101,26 @@ scan:
 			if count > maximumMermaidSources {
 				report.addError("Mermaid source count exceeds %d", maximumMermaidSources)
 				complete = false
-				break scan
+				readComplete = true
+				break
 			}
 			entries = append(entries, entry)
+		}
+		if readComplete {
+			break
 		}
 		if readErr != nil {
 			if !errors.Is(readErr, io.EOF) {
 				report.addError("Read Mermaid source directory: %v", readErr)
 				complete = false
 			}
+			readComplete = true
 			break
 		}
+	}
+	if !readComplete {
+		report.addError("Mermaid source directory exceeds %d entries", maximumMermaidDirectoryEntries)
+		complete = false
 	}
 	if closeErr := directory.Close(); closeErr != nil {
 		report.addError("Close Mermaid source directory: %v", closeErr)
@@ -112,6 +129,11 @@ scan:
 	sort.Slice(entries, func(left, right int) bool {
 		return entries[left].Name() < entries[right].Name()
 	})
+	return entries, count, complete
+}
+
+func loadMermaidSources(diagramRoot string, entries []os.DirEntry, report *collector) ([]mermaidSource, bool) {
+	complete := true
 	sources := make([]mermaidSource, 0, len(entries))
 	var totalBytes int64
 	for _, entry := range entries {
@@ -153,7 +175,7 @@ scan:
 		}
 		sources = append(sources, newMermaidSource(relative, content))
 	}
-	return count, sources, complete
+	return sources, complete
 }
 
 func validateMermaidDuplicateDebt(

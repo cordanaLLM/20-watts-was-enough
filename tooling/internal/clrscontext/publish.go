@@ -11,84 +11,127 @@ import (
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 )
 
-// A private, owned staging directory keeps partial bytes away from the requested
-// output name. Link publishes a complete file without replacing another writer.
-func publishContext(ctx context.Context, output string, p plan, recheck func() error) (result Result, returnErr error) {
+type publishedRoot struct {
+	root       *os.Root
+	parent     string
+	name       string
+	absolute   string
+	parentInfo os.FileInfo
+}
+
+func openPublishRoot(output string) (publishedRoot, error) {
 	absolute, err := filepath.Abs(output)
 	if err != nil {
-		return result, err
+		return publishedRoot{}, err
 	}
 	parent, err := realDirectory(filepath.Dir(absolute))
 	if err != nil {
-		return result, err
+		return publishedRoot{}, err
 	}
 	root, err := os.OpenRoot(parent)
 	if err != nil {
-		return result, err
+		return publishedRoot{}, err
 	}
-	defer root.Close()
 	parentInfo, err := root.Stat(".")
 	if err != nil {
-		return result, err
+		root.Close()
+		return publishedRoot{}, err
 	}
 	name := filepath.Base(absolute)
 	if _, err := root.Lstat(name); !errors.Is(err, os.ErrNotExist) {
-		return result, errors.New("CLRS context output must not already exist")
+		root.Close()
+		return publishedRoot{}, errors.New("CLRS context output must not already exist")
 	}
+	return publishedRoot{root: root, parent: parent, name: name, absolute: absolute, parentInfo: parentInfo}, nil
+}
+
+type stagedContextFile struct {
+	stage      string
+	stagedName string
+	file       *os.File
+	owned      os.FileInfo
+}
+
+func createStagedContextFile(root *os.Root) (stagedContextFile, error) {
 	stage := ".clrs-context-" + rand.Text()
 	if err := root.Mkdir(stage, 0o700); err != nil {
-		return result, err
+		return stagedContextFile{}, err
 	}
 	stagedName := filepath.Join(stage, "candidate.tar")
 	file, err := root.OpenFile(stagedName, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
-		return result, errors.Join(err, root.Remove(stage))
+		return stagedContextFile{}, errors.Join(err, root.Remove(stage))
 	}
 	owned, err := file.Stat()
 	if err != nil {
 		file.Close()
-		return result, fmt.Errorf("inspect owned CLRS staging file; retained %s: %w", stage, err)
+		return stagedContextFile{}, fmt.Errorf("inspect owned CLRS staging file; retained %s: %w", stage, err)
 	}
-	defer func() {
-		file.Close()
-		current, err := root.Lstat(stagedName)
-		if err == nil && current.Mode().IsRegular() && os.SameFile(owned, current) {
-			err = root.Remove(stagedName)
-		}
-		if errors.Is(err, os.ErrNotExist) {
-			err = nil
-		}
-		returnErr = errors.Join(returnErr, err, root.Remove(stage))
-	}()
-	result, err = writeContext(ctx, file, p)
+	return stagedContextFile{stage: stage, stagedName: stagedName, file: file, owned: owned}, nil
+}
+
+func writeAndVerifyStagedContext(ctx context.Context, s stagedContextFile, parent string, p plan, recheck func() error) (Result, error) {
+	result, err := writeContext(ctx, s.file, p)
 	if err != nil {
 		return Result{}, err
 	}
-	if err := file.Sync(); err != nil {
+	if err := s.file.Sync(); err != nil {
 		return Result{}, err
 	}
-	if err := file.Chmod(0o644); err != nil {
+	if err := s.file.Chmod(0o644); err != nil {
 		return Result{}, err
 	}
-	if err := file.Close(); err != nil {
+	if err := s.file.Close(); err != nil {
 		return Result{}, err
 	}
-	if _, err := verifyContextFile(ctx, filepath.Join(parent, stagedName), result); err != nil {
+	if _, err := verifyContextFile(ctx, filepath.Join(parent, s.stagedName), result); err != nil {
 		return Result{}, err
 	}
 	if err := recheck(); err != nil {
 		return Result{}, err
 	}
-	if err := ctx.Err(); err != nil {
+	return result, ctx.Err()
+}
+
+func commitPublishedContext(ctx context.Context, pub publishedRoot, s stagedContextFile, result Result) error {
+	if err := pub.root.Link(s.stagedName, pub.name); err != nil {
+		return fmt.Errorf("publish CLRS context without replacement: %w", err)
+	}
+	if err := confirmPublication(pub.root, pub.parent, pub.parentInfo, pub.name, s.owned, result.SizeBytes); err != nil {
+		return err
+	}
+	_, err := verifyContextFile(ctx, pub.absolute, result)
+	return err
+}
+
+// A private, owned staging directory keeps partial bytes away from the requested
+// output name. Link publishes a complete file without replacing another writer.
+func publishContext(ctx context.Context, output string, p plan, recheck func() error) (result Result, returnErr error) {
+	pub, err := openPublishRoot(output)
+	if err != nil {
+		return result, err
+	}
+	defer pub.root.Close()
+	s, err := createStagedContextFile(pub.root)
+	if err != nil {
+		return result, err
+	}
+	defer func() {
+		s.file.Close()
+		current, err := pub.root.Lstat(s.stagedName)
+		if err == nil && current.Mode().IsRegular() && os.SameFile(s.owned, current) {
+			err = pub.root.Remove(s.stagedName)
+		}
+		if errors.Is(err, os.ErrNotExist) {
+			err = nil
+		}
+		returnErr = errors.Join(returnErr, err, pub.root.Remove(s.stage))
+	}()
+	result, err = writeAndVerifyStagedContext(ctx, s, pub.parent, p, recheck)
+	if err != nil {
 		return Result{}, err
 	}
-	if err := root.Link(stagedName, name); err != nil {
-		return Result{}, fmt.Errorf("publish CLRS context without replacement: %w", err)
-	}
-	if err := confirmPublication(root, parent, parentInfo, name, owned, result.SizeBytes); err != nil {
-		return Result{}, err
-	}
-	if _, err := verifyContextFile(ctx, absolute, result); err != nil {
+	if err := commitPublishedContext(ctx, pub, s, result); err != nil {
 		return Result{}, err
 	}
 	return result, nil

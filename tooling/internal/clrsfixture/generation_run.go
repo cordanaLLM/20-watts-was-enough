@@ -96,6 +96,38 @@ func RunGeneratorFixtures(ctx context.Context, options GeneratorFixtureRunOption
 	return runGeneratorFixtures(ctx, options, localGenerationDocker)
 }
 
+func executeGenerationWork(ctx context.Context, runner *generationRunner, bundle *os.Root, inputs generationRunInputs, report *GeneratorFixtureRun) (generationBundleSnapshot, error) {
+	if err := writeGenerationInputs(bundle, inputs, *report); err != nil {
+		return generationBundleSnapshot{}, err
+	}
+	if err := checkGenerationRoot(bundle); err != nil {
+		return generationBundleSnapshot{}, err
+	}
+	if err := runner.generate(ctx, bundle, report); err != nil {
+		return generationBundleSnapshot{}, err
+	}
+	return snapshotGenerationRun(ctx, inputs, *report)
+}
+
+func finalizeGenerationRun(ctx context.Context, bundle *os.Root, runner *generationRunner, report *GeneratorFixtureRun, runErr error) (GeneratorFixtureRun, error) {
+	report.Finished = time.Now().UTC().Format(time.RFC3339Nano)
+	log, encodeErr := marshalGenerationJSON(runner.commands, generationRunMaximumLog)
+	if encodeErr == nil {
+		encodeErr = writeGenerationFile(bundle, "commands.json", log)
+	}
+	err := errors.Join(runErr, encodeErr, ctx.Err())
+	if encodeErr == nil {
+		report.CommandLog = generationFileIdentity("commands.json", log)
+	}
+	if err == nil {
+		report.State = "fixtures-generated-unadmitted"
+	} else {
+		clearGenerationRunSuccess(report, err)
+	}
+	res, receiptErr := publishGenerationReceipt(ctx, bundle, *report, nil)
+	return res, errors.Join(err, receiptErr)
+}
+
 func runGeneratorFixtures(ctx context.Context, options GeneratorFixtureRunOptions, execute generationExecutor) (report GeneratorFixtureRun, err error) {
 	report = newGenerationRunReport()
 	defer func() {
@@ -127,17 +159,7 @@ func runGeneratorFixtures(ctx context.Context, options GeneratorFixtureRunOption
 		return report, err
 	}
 	defer bundle.Close()
-	workErr := writeGenerationInputs(bundle, inputs, report)
-	if workErr == nil {
-		workErr = checkGenerationRoot(bundle)
-	}
-	if workErr == nil {
-		workErr = runner.generate(ctx, bundle, &report)
-	}
-	var retained generationBundleSnapshot
-	if workErr == nil {
-		retained, workErr = snapshotGenerationRun(ctx, inputs, report)
-	}
+	retained, workErr := executeGenerationWork(ctx, runner, bundle, inputs, &report)
 	cleanupErr := runner.cleanup()
 	report.CleanupVerified = cleanupErr == nil
 	report.ContainerID = runner.id
@@ -149,22 +171,7 @@ func runGeneratorFixtures(ctx context.Context, options GeneratorFixtureRunOption
 		err = recheckGenerationBundle(ctx, retained, inputs)
 	}
 	err = errors.Join(err, checkGenerationRoot(bundle))
-	report.Finished = time.Now().UTC().Format(time.RFC3339Nano)
-	log, encodeErr := marshalGenerationJSON(runner.commands, generationRunMaximumLog)
-	if encodeErr == nil {
-		encodeErr = writeGenerationFile(bundle, "commands.json", log)
-	}
-	err = errors.Join(err, encodeErr, ctx.Err())
-	if encodeErr == nil {
-		report.CommandLog = generationFileIdentity("commands.json", log)
-	}
-	if err == nil {
-		report.State = "fixtures-generated-unadmitted"
-	} else {
-		clearGenerationRunSuccess(&report, err)
-	}
-	report, encodeErr = publishGenerationReceipt(ctx, bundle, report, nil)
-	return report, errors.Join(err, encodeErr)
+	return finalizeGenerationRun(ctx, bundle, runner, &report, err)
 }
 
 func (runner *generationRunner) generate(ctx context.Context, bundle *os.Root, report *GeneratorFixtureRun) error {

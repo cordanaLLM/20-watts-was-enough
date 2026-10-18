@@ -108,36 +108,15 @@ func LoadCatalog(repositoryRoot string) ([]Entry, error) {
 		if directoryEntry.IsDir() || filepath.Ext(directoryEntry.Name()) != ".json" {
 			continue
 		}
-		if directoryEntry.Type()&os.ModeSymlink != 0 {
-			return nil, fmt.Errorf("experiment manifest must not be a symlink: %s", directoryEntry.Name())
-		}
-		parsed, err := readManifest(filepath.Join(manifestRoot, directoryEntry.Name()))
+		entry, err := parseCatalogEntry(root, manifestRoot, directoryEntry)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", directoryEntry.Name(), err)
+			return nil, err
 		}
-		if parsed.Schema != 1 || !artifactPattern.MatchString(parsed.Artifact) || !readinessLevels[parsed.Readiness] || parsed.Environment.Runtime == "" {
-			return nil, fmt.Errorf("%s has an invalid catalogue projection", directoryEntry.Name())
+		if _, duplicate := seen[entry.Artifact]; duplicate {
+			return nil, fmt.Errorf("duplicate experiment artifact: %s", entry.Artifact)
 		}
-		if err := validateLockfiles(root, parsed.Environment.Lockfiles); err != nil {
-			return nil, fmt.Errorf("%s: %w", directoryEntry.Name(), err)
-		}
-		if err := validateDistribution(root, parsed.Artifact, parsed.Distribution); err != nil {
-			return nil, fmt.Errorf("%s: %w", directoryEntry.Name(), err)
-		}
-		if parsed.Artifact+".json" != directoryEntry.Name() {
-			return nil, fmt.Errorf("%s does not match artifact %s", directoryEntry.Name(), parsed.Artifact)
-		}
-		if _, duplicate := seen[parsed.Artifact]; duplicate {
-			return nil, fmt.Errorf("duplicate experiment artifact: %s", parsed.Artifact)
-		}
-		seen[parsed.Artifact] = struct{}{}
-		catalog = append(catalog, Entry{
-			Artifact:     parsed.Artifact,
-			Readiness:    parsed.Readiness,
-			Runtime:      parsed.Environment.Runtime,
-			Lockfiles:    append([]string(nil), parsed.Environment.Lockfiles...),
-			Distribution: copyDistribution(parsed.Distribution),
-		})
+		seen[entry.Artifact] = struct{}{}
+		catalog = append(catalog, entry)
 	}
 	if len(catalog) == 0 {
 		return nil, errors.New("no experiment manifests found")
@@ -146,6 +125,35 @@ func LoadCatalog(repositoryRoot string) ([]Entry, error) {
 		return catalog[left].Artifact < catalog[right].Artifact
 	})
 	return catalog, nil
+}
+
+func parseCatalogEntry(root, manifestRoot string, directoryEntry os.DirEntry) (Entry, error) {
+	if directoryEntry.Type()&os.ModeSymlink != 0 {
+		return Entry{}, fmt.Errorf("experiment manifest must not be a symlink: %s", directoryEntry.Name())
+	}
+	parsed, err := readManifest(filepath.Join(manifestRoot, directoryEntry.Name()))
+	if err != nil {
+		return Entry{}, fmt.Errorf("%s: %w", directoryEntry.Name(), err)
+	}
+	if parsed.Schema != 1 || !artifactPattern.MatchString(parsed.Artifact) || !readinessLevels[parsed.Readiness] || parsed.Environment.Runtime == "" {
+		return Entry{}, fmt.Errorf("%s has an invalid catalogue projection", directoryEntry.Name())
+	}
+	if err := validateLockfiles(root, parsed.Environment.Lockfiles); err != nil {
+		return Entry{}, fmt.Errorf("%s: %w", directoryEntry.Name(), err)
+	}
+	if err := validateDistribution(root, parsed.Artifact, parsed.Distribution); err != nil {
+		return Entry{}, fmt.Errorf("%s: %w", directoryEntry.Name(), err)
+	}
+	if parsed.Artifact+".json" != directoryEntry.Name() {
+		return Entry{}, fmt.Errorf("%s does not match artifact %s", directoryEntry.Name(), parsed.Artifact)
+	}
+	return Entry{
+		Artifact:     parsed.Artifact,
+		Readiness:    parsed.Readiness,
+		Runtime:      parsed.Environment.Runtime,
+		Lockfiles:    append([]string(nil), parsed.Environment.Lockfiles...),
+		Distribution: copyDistribution(parsed.Distribution),
+	}, nil
 }
 
 func copyDistribution(distribution Distribution) Distribution {
