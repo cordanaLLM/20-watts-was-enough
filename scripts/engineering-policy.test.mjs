@@ -231,6 +231,7 @@ function runCiSuccessGate(source, overrides = {}) {
     RESULT_RENDERER: "skipped",
     RESULT_RESEARCH: "success",
     RESULT_SITE: "success",
+    RESULT_SITE_BROWSER: "success",
     RESULT_WORKSTATION_CORE: "success",
     RESULT_WORKSTATION_ARTIFACTS: "success",
     RESULT_CONTAINER: "success",
@@ -404,6 +405,20 @@ test("full-mode lanes cover every non-workstation check and lane-go satisfies Go
     ".github/workflows/ci.yml: lane-site must run npm run check:lane-site",
   ]);
 
+  const detachedBrowserLane = structuredClone(validCi);
+  detachedBrowserLane.jobs["lane-site-browser"].steps = detachedBrowserLane.jobs["lane-site-browser"].steps.filter(
+    (step) => step.run?.trim() !== "npm run check:lane-site-browser",
+  );
+  assert.deepEqual(validateFullCiFanOutCoverageObject(manifest, detachedBrowserLane), [
+    ".github/workflows/ci.yml: lane-site-browser must run npm run check:lane-site-browser",
+  ]);
+
+  const droppedBrowserGroup = structuredClone(manifest);
+  droppedBrowserGroup.scripts["check:lane-site-browser"] = "npm run validate:math";
+  assert.deepEqual(validateFullCiFanOutCoverageObject(droppedBrowserGroup, validCi), [
+    "package.json: full-mode lanes drop npm run test:site-browser from check:full-without-workstation",
+  ]);
+
   const conditionalLaneSite = structuredClone(validCi);
   conditionalLaneSite.jobs["lane-site"].steps.find(
     (step) => step.run?.trim() === "npm run check:lane-site",
@@ -476,8 +491,8 @@ test("the taxonomy gate rebuilds the taxonomy JSON from its sources in every lan
 
 test("full-book browser probes stay in one bounded process-isolated site-test group", () => {
   const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
-  const command = manifest.scripts?.["test:site"];
-  const browserCommand = command?.split("&&").at(-1)?.trim() ?? "";
+  assert.equal(manifest.scripts?.["test:site"], "npm run test:site-unit && npm run test:site-browser");
+  const browserCommand = manifest.scripts?.["test:site-browser"]?.trim() ?? "";
   const tokens = browserCommand.split(/\s+/u);
   assert.deepEqual(tokens.slice(0, 4), ["node", "scripts/run-in-loopback-netns.mjs", "node", "--test"]);
   assert.deepEqual(
@@ -2276,6 +2291,7 @@ function impactStateVector() {
     RESULT_RELEASE: "skipped",
     RESULT_RESEARCH: "skipped",
     RESULT_SITE: "success",
+    RESULT_SITE_BROWSER: "success",
     RESULT_WORKSTATION_CORE: "success",
     RESULT_WORKSTATION_ARTIFACTS: "success",
     RESULT_CONTAINER: "skipped",
@@ -2385,6 +2401,10 @@ test("CI success accepts only the exact full or selected impact state vector", (
   }).status, 0, "a selected lane may not be cancelled");
   assert.notEqual(runCiSuccessGate(source, {
     ...impact,
+    RESULT_SITE_BROWSER: "skipped",
+  }).status, 0, "a selected site browser lane may not skip");
+  assert.notEqual(runCiSuccessGate(source, {
+    ...impact,
     SELECT_DEPENDENCY: "false",
     RESULT_DEPENDENCY_REVIEW: "success",
   }).status, 0, "an unselected dependency review may not run unexpectedly");
@@ -2403,6 +2423,9 @@ test("CI success accepts only the exact full or selected impact state vector", (
   assert.notEqual(runCiSuccessGate(source, {
     RESULT_SITE: "skipped",
   }).status, 0, "full mode must reject a skipped site lane");
+  assert.notEqual(runCiSuccessGate(source, {
+    RESULT_SITE_BROWSER: "skipped",
+  }).status, 0, "full mode must reject a skipped site browser lane");
   for (const state of ["failure", "skipped", "cancelled", ""]) {
     assert.notEqual(runCiSuccessGate(source, {
       RESULT_SECRET_SCAN: state,
