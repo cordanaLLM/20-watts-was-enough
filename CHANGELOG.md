@@ -24,7 +24,9 @@ the exact diff; this file records why the project changed.
   Cross-field and file-system rules stay in code; tests bind the schema
   limits to the exported limit constants and plant an extra field, a bad
   slug and an all-zero source revision.
-
+- The `20w` command line keeps its `flag` parsing and the release module graph
+  keeps Goldmark as its only dependency; kong and spdx/tools-golang are not
+  adopted ([Decision 0112](decisions/0112-keep-the-20w-cli-and-release-module-graph-without-kong-or-spdx-tools-golang.md)).
 - Retire the last 17 exact-duplicate Mermaid groups. Each diagram is now
   drawn once, in its candidate or fixture contract; the concept chapter that
   repeated it links that contract section instead. Fifteen standalone sources
