@@ -89,13 +89,26 @@ func freezeWorkstationInventory(root string, jobs []job) ([]job, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := validateFullTestScheduling(fullTests, discovered, patternsByArtifact); err != nil {
+		return nil, err
+	}
+	return frozenJobs, nil
+}
+
+// validateFullTestScheduling requires every manifest full_tests path to be a discovered
+// workstation test that exactly one catalogue job of its artifact schedules.
+func validateFullTestScheduling(
+	fullTests []manifestFullTest,
+	discovered []string,
+	patternsByArtifact map[string][]string,
+) error {
 	discoveredSet := make(map[string]struct{}, len(discovered))
 	for _, testPath := range discovered {
 		discoveredSet[testPath] = struct{}{}
 	}
 	for _, declared := range fullTests {
 		if _, present := discoveredSet[declared.path]; !present {
-			return nil, fmt.Errorf("manifest full_tests path is not a discovered workstation test: %s", declared.path)
+			return fmt.Errorf("manifest full_tests path is not a discovered workstation test: %s", declared.path)
 		}
 		coverage := 0
 		for _, pattern := range patternsByArtifact[declared.artifact] {
@@ -104,7 +117,7 @@ func freezeWorkstationInventory(root string, jobs []job) ([]job, error) {
 			}
 		}
 		if coverage != 1 {
-			return nil, fmt.Errorf(
+			return fmt.Errorf(
 				"manifest %s full_tests path %s is scheduled %d times by its catalogue jobs, want exactly once",
 				declared.artifact,
 				declared.path,
@@ -112,7 +125,7 @@ func freezeWorkstationInventory(root string, jobs []job) ([]job, error) {
 			)
 		}
 	}
-	return frozenJobs, nil
+	return nil
 }
 
 func loadPackageDocument(root string) (packageDocument, error) {
@@ -283,38 +296,14 @@ func loadManifestFullTests(root string, jobs []job) ([]manifestFullTest, error) 
 	seenTests := make(map[string]struct{})
 	fullTests := make([]manifestFullTest, 0)
 	for _, entry := range entries {
-		if entry.Type()&os.ModeSymlink != 0 || !entry.Type().IsRegular() || !strings.HasSuffix(entry.Name(), ".json") {
-			return nil, fmt.Errorf("workstation manifest root contains an unsupported entry: %s", entry.Name())
-		}
-		artifact := strings.TrimSuffix(entry.Name(), ".json")
-		if _, known := expected[artifact]; !known {
-			return nil, fmt.Errorf("workstation manifest has no catalogue job: %s", artifact)
-		}
-		body, err := readStableBoundedFile(filepath.Join(directory, entry.Name()), maximumWorkstationManifestBytes)
+		artifact, paths, err := readWorkstationManifest(directory, entry, expected)
 		if err != nil {
-			return nil, fmt.Errorf("read workstation manifest %s: %w", artifact, err)
-		}
-		if err := strictjson.Validate(body, 64); err != nil {
-			return nil, fmt.Errorf("validate unambiguous workstation manifest %s: %w", artifact, err)
-		}
-		var document workstationManifestDocument
-		if err := json.Unmarshal(body, &document); err != nil {
-			return nil, fmt.Errorf("decode workstation manifest %s: %w", artifact, err)
-		}
-		if document.Artifact != artifact || len(document.Implementation.FullTests) == 0 {
-			return nil, fmt.Errorf("workstation manifest %s has an invalid artifact or empty full_tests", artifact)
+			return nil, err
 		}
 		seenManifests[artifact] = struct{}{}
-		for _, testPath := range document.Implementation.FullTests {
-			if !workstationTestPathPattern.MatchString(testPath) || strings.Contains(testPath, "*") ||
-				strings.Contains(testPath, "\\") || pathpkg.Clean(testPath) != testPath || strings.Contains(testPath, "..") {
-				return nil, fmt.Errorf("workstation manifest %s has an invalid full_tests path %q", artifact, testPath)
-			}
-			if _, duplicate := seenTests[testPath]; duplicate {
-				return nil, fmt.Errorf("workstation manifests repeat full_tests path: %s", testPath)
-			}
-			seenTests[testPath] = struct{}{}
-			fullTests = append(fullTests, manifestFullTest{artifact: artifact, path: testPath})
+		fullTests, err = appendManifestFullTests(fullTests, seenTests, artifact, paths)
+		if err != nil {
+			return nil, err
 		}
 	}
 	for artifact := range expected {
@@ -326,6 +315,59 @@ func loadManifestFullTests(root string, jobs []job) ([]manifestFullTest, error) 
 		return fullTests[left].artifact < fullTests[right].artifact ||
 			(fullTests[left].artifact == fullTests[right].artifact && fullTests[left].path < fullTests[right].path)
 	})
+	return fullTests, nil
+}
+
+// readWorkstationManifest reads one manifest of an expected catalogue artifact and returns
+// its artifact name and its non-empty full_tests paths.
+func readWorkstationManifest(
+	directory string,
+	entry os.DirEntry,
+	expected map[string]struct{},
+) (string, []string, error) {
+	if entry.Type()&os.ModeSymlink != 0 || !entry.Type().IsRegular() || !strings.HasSuffix(entry.Name(), ".json") {
+		return "", nil, fmt.Errorf("workstation manifest root contains an unsupported entry: %s", entry.Name())
+	}
+	artifact := strings.TrimSuffix(entry.Name(), ".json")
+	if _, known := expected[artifact]; !known {
+		return "", nil, fmt.Errorf("workstation manifest has no catalogue job: %s", artifact)
+	}
+	body, err := readStableBoundedFile(filepath.Join(directory, entry.Name()), maximumWorkstationManifestBytes)
+	if err != nil {
+		return "", nil, fmt.Errorf("read workstation manifest %s: %w", artifact, err)
+	}
+	if err := strictjson.Validate(body, 64); err != nil {
+		return "", nil, fmt.Errorf("validate unambiguous workstation manifest %s: %w", artifact, err)
+	}
+	var document workstationManifestDocument
+	if err := json.Unmarshal(body, &document); err != nil {
+		return "", nil, fmt.Errorf("decode workstation manifest %s: %w", artifact, err)
+	}
+	if document.Artifact != artifact || len(document.Implementation.FullTests) == 0 {
+		return "", nil, fmt.Errorf("workstation manifest %s has an invalid artifact or empty full_tests", artifact)
+	}
+	return artifact, document.Implementation.FullTests, nil
+}
+
+// appendManifestFullTests admits one manifest's full_tests paths, refusing a malformed
+// path or one that another manifest already declared.
+func appendManifestFullTests(
+	fullTests []manifestFullTest,
+	seenTests map[string]struct{},
+	artifact string,
+	paths []string,
+) ([]manifestFullTest, error) {
+	for _, testPath := range paths {
+		if !workstationTestPathPattern.MatchString(testPath) || strings.Contains(testPath, "*") ||
+			strings.Contains(testPath, "\\") || pathpkg.Clean(testPath) != testPath || strings.Contains(testPath, "..") {
+			return nil, fmt.Errorf("workstation manifest %s has an invalid full_tests path %q", artifact, testPath)
+		}
+		if _, duplicate := seenTests[testPath]; duplicate {
+			return nil, fmt.Errorf("workstation manifests repeat full_tests path: %s", testPath)
+		}
+		seenTests[testPath] = struct{}{}
+		fullTests = append(fullTests, manifestFullTest{artifact: artifact, path: testPath})
+	}
 	return fullTests, nil
 }
 
