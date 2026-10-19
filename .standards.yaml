@@ -110,9 +110,5 @@ overrides:
 exceptions:
   - rule: "declared-linters"
     tool: "semgrep"
-    reason: "codeql.yml runs the security-extended and security-and-quality queries on the JavaScript, TypeScript and Go code; a semgrep job needs a pinned rule set and a planted-finding proof, which is a unit of its own"
-    expires: "2027-01-11"
-  - rule: "declared-linters"
-    tool: "trivy"
-    reason: "dependency review on pull requests and govulncheck with a planted advisory cover the dependency graph, but no job scans the container images; a trivy job needs a pinned vulnerability database source and a planted-finding proof, which is a unit of its own"
+    reason: "codeql.yml runs the security-extended and security-and-quality queries on the JavaScript, TypeScript and Go code; a semgrep job needs a pinned rule set and a planted-finding proof, which is a unit of its own; category A, interval 90 days from the 2026-10-13 entry"
     expires: "2027-01-11"

@@ -12,6 +12,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
 
@@ -40,6 +41,11 @@ type Plan struct {
 	ChangedPaths []string `json:"changed_paths"`
 	Lanes        []string `json:"lanes"`
 }
+
+// MaximumBuildDuration bounds one Build: its Git diff and Git log commands run
+// in sequence under their own limits, and the margin covers the bounded
+// mapping and repository reads around them.
+const MaximumBuildDuration = gitDiffTimeout + gitLogTimeout + 30*time.Second
 
 // Build reads one bounded Git diff and returns either an impact or full plan.
 func Build(ctx context.Context, options Options) (Plan, error) {
