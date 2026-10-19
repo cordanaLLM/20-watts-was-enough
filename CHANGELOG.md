@@ -5,6 +5,15 @@ the exact diff; this file records why the project changed.
 
 ## [Unreleased]
 
+### Security
+
+- Container smoke CI scans the four images it builds with a pinned Trivy
+  0.76.0 and fails on any HIGH or CRITICAL advisory that has a fixed version;
+  a planted lodash 4.17.15 proves the scanner and its database work first.
+  The Fixture 007 image drops npm and the Fixture 019 image drops pip after
+  installing numpy, which removes the seven advisories those bundled package
+  managers carried ([Decision 0111](decisions/0111-scan-the-ci-container-images-with-trivy.md)).
+
 ### Added
 
 - `run-clrs-shakedown-container` runs and checks the frozen development tree
@@ -18,6 +27,12 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Validate the shape of `topics.json` and `translations/manifest.json` with
+  JSON Schemas under `scripts/schemas/`, compiled once through the shared
+  Ajv factory, instead of hand-written field, pattern and length checks.
+  Cross-field and file-system rules stay in code; tests bind the schema
+  limits to the exported limit constants and plant an extra field, a bad
+  slug and an all-zero source revision.
 - The `20w` command line keeps its `flag` parsing and the release module graph
   keeps Goldmark as its only dependency; kong and spdx/tools-golang are not
   adopted ([Decision 0112](decisions/0112-keep-the-20w-cli-and-release-module-graph-without-kong-or-spdx-tools-golang.md)).

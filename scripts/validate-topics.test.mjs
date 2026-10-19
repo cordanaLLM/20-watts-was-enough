@@ -7,7 +7,9 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { publication } from "../app/lib/publication.mjs";
+import { createAjv } from "../experiments/workstation/lib/ajv.mjs";
 import { bookPdfName } from "./book-source.mjs";
+import topicsSchema from "./schemas/topics.schema.json" with { type: "json" };
 import {
   repositoryName,
   topicRegistryFindings,
@@ -162,20 +164,20 @@ test("the registry holds the founding topic and at most 32 entries", () => {
   const topics = [foundingTopic()];
   for (let index = 1; index < limit; index += 1) topics.push(hypothesisTopic(`hypothesis-${index}`));
   assert.deepEqual(topicRegistryFindings(registry(...topics)), []);
-  const bound = /^topics must hold the founding topic and at most 32 entries in all$/u;
+  const bound = /^\/topics must NOT have more than 32 items$/u;
   assertFinding(topicRegistryFindings(registry(...topics, hypothesisTopic("hypothesis-32"))), bound);
-  assertFinding(topicRegistryFindings(registry()), bound);
-  assertFinding(topicRegistryFindings({ schema: 2, topics: [foundingTopic()] }), /^schema must be 1$/u);
-  assertFinding(topicRegistryFindings([]), /^registry must be an object$/u);
+  assertFinding(topicRegistryFindings(registry()), /^\/topics must NOT have fewer than 1 items$/u);
+  assertFinding(topicRegistryFindings({ schema: 2, topics: [foundingTopic()] }), /^\/schema must be equal to constant$/u);
+  assertFinding(topicRegistryFindings([]), /^\/ must be object$/u);
 });
 
 test("slugs outside the record's rules are rejected", () => {
   const cases = [
-    ["a", /slug must be 2 to 44 lowercase/u],
-    ["a".repeat(45), /slug must be 2 to 44 lowercase/u],
-    ["Topic", /slug must be 2 to 44 lowercase/u],
-    ["topic_one", /slug must be 2 to 44 lowercase/u],
-    ["-topic", /slug must be 2 to 44 lowercase letters, digits or hyphens, starting with a letter or digit/u],
+    ["a", /\/topics\/1\/slug must match pattern/u],
+    ["a".repeat(45), /\/topics\/1\/slug must match pattern/u],
+    ["Topic", /\/topics\/1\/slug must match pattern/u],
+    ["topic_one", /\/topics\/1\/slug must match pattern/u],
+    ["-topic", /\/topics\/1\/slug must match pattern/u],
     ["de", /slug "de" is an EU language code/u],
     ["en", /slug "en" is an EU language code/u],
     [repositoryName, /must not be the repository name "20-watts-was-enough"/u],
@@ -183,27 +185,27 @@ test("slugs outside the record's rules are rejected", () => {
   for (const [slug, pattern] of cases) {
     assertFinding(topicRegistryFindings(registry(foundingTopic(), hypothesisTopic(slug))), pattern);
   }
-  assertFinding(topicRegistryFindings(registry(foundingTopic({ slug: 7 }))), /topics\[0\]\.slug must be/u);
+  assertFinding(topicRegistryFindings(registry(foundingTopic({ slug: 7 }))), /\/topics\/0\/slug must be string/u);
 });
 
 test("closed fields and topic placement are enforced", () => {
   const cases = [
-    [[foundingTopic({ extra: true })], /topics\[0\] fields are not closed: unknown=\[extra\]/u],
-    [[foundingTopic({ status: "draft" })], /topics\[0\]\.status must be "active" or "archived"/u],
+    [[foundingTopic({ extra: true })], /\/topics\/0 must NOT have additional properties/u],
+    [[foundingTopic({ status: "draft" })], /\/topics\/0\/status must be equal to one of the allowed values/u],
     [[foundingTopic({ root: "topics/20w" })], /topics\[0\]\.root must be "\." because the first entry/u],
     [[foundingTopic({ routePrefix: "topics/20w/" })], /topics\[0\]\.routePrefix must be ""/u],
     [[foundingTopic(), hypothesisTopic("second", { root: "." })], /topics\[1\]\.root must be "topics\/second"/u],
     [[foundingTopic(), hypothesisTopic("second", { routePrefix: "" })], /routePrefix must be "topics\/second\/"/u],
-    [[foundingTopic({ title: "Line\u2028break" })], /title must be single-line text/u],
-    [[foundingTopic({ title: "Tab\tseparated" })], /title must be single-line text/u],
-    [[foundingTopic({ title: "C1\u0085control" })], /title must be single-line text/u],
-    [[foundingTopic({ title: " Padded" })], /title must be single-line text/u],
-    [[foundingTopic({ title: "x".repeat(161) })], /title must be single-line text of 1 to 160/u],
+    [[foundingTopic({ title: "Line\u2028break" })], /\/topics\/0\/title must match pattern/u],
+    [[foundingTopic({ title: "Tab\tseparated" })], /\/topics\/0\/title must match pattern/u],
+    [[foundingTopic({ title: "C1\u0085control" })], /\/topics\/0\/title must match pattern/u],
+    [[foundingTopic({ title: " Padded" })], /\/topics\/0\/title must match pattern/u],
+    [[foundingTopic({ title: "x".repeat(161) })], /\/topics\/0\/title must NOT have more than 160 characters/u],
   ];
   for (const [topics, pattern] of cases) assertFinding(topicRegistryFindings(registry(...topics)), pattern);
   const missing = foundingTopic();
   delete missing.status;
-  assertFinding(topicRegistryFindings(registry(missing)), /fields are not closed: unknown=\[\], missing=\[status\]/u);
+  assertFinding(topicRegistryFindings(registry(missing)), /\/topics\/0 must have required property 'status'/u);
 });
 
 test("authority paths stay relative, distinct and outside the topics directory", () => {
@@ -213,12 +215,12 @@ test("authority paths stay relative, distinct and outside the topics directory",
   const cases = [
     [authorities({ claims: "research/other-claims.md" }), /authorities\.claims must be "research\/claims\.md"/u],
     [authorities({ claims: null }), /authorities\.claims must be "research\/claims\.md"/u],
-    [authorities({ chapters: "../concept" }), /authorities\.chapters must be a relative path/u],
-    [authorities({ chapters: "/concept" }), /authorities\.chapters must be a relative path/u],
-    [authorities({ chapters: "concept\\part" }), /authorities\.chapters must be a relative path/u],
+    [authorities({ chapters: "../concept" }), /\/topics\/0\/authorities\/chapters must match pattern/u],
+    [authorities({ chapters: "/concept" }), /\/topics\/0\/authorities\/chapters must match pattern/u],
+    [authorities({ chapters: "concept\\part" }), /\/topics\/0\/authorities\/chapters must match pattern/u],
     [authorities({ chapters: "topics/other/concept" }), /must not lie under topics\//u],
     [authorities({ mathematics: "concept" }), /authorities\.mathematics repeats the path concept/u],
-    [authorities({ audits: "research/audits" }), /authorities fields are not closed: unknown=\[audits\]/u],
+    [authorities({ audits: "research/audits" }), /\/topics\/0\/authorities must NOT have additional properties/u],
   ];
   for (const [topic, pattern] of cases) assertFinding(topicRegistryFindings(registry(topic)), pattern);
   const nested = hypothesisTopic("second", {
@@ -230,15 +232,15 @@ test("authority paths stay relative, distinct and outside the topics directory",
 
 test("chapter sections, unsupported phrases and book entries are checked", () => {
   const cases = [
-    [foundingTopic({ chapterSections: ["# Scope"] }), /chapterSections\[0\] must be one H2 heading line/u],
+    [foundingTopic({ chapterSections: ["# Scope"] }), /\/topics\/0\/chapterSections\/0 must match pattern/u],
     [foundingTopic({ chapterSections: ["## Scope", "## Scope"] }), /chapterSections repeats "## Scope"/u],
-    [foundingTopic({ chapterSections: "## Scope" }), /chapterSections must be an array of at most 64/u],
+    [foundingTopic({ chapterSections: "## Scope" }), /\/topics\/0\/chapterSections must be array/u],
     [foundingTopic({ unsupportedPhrases: ["Upwards of 70%", "upwards of 70%"] }), /unsupportedPhrases repeats/u],
-    [foundingTopic({ unsupportedPhrases: [""] }), /unsupportedPhrases\[0\] must be single-line text/u],
-    [foundingTopic({ book: { pdf: "Book.pdf", route: "book/", frontMatter: "README.md" } }), /book\.pdf must be a lowercase hyphenated/u],
+    [foundingTopic({ unsupportedPhrases: [""] }), /\/topics\/0\/unsupportedPhrases\/0 must NOT have fewer than 1 characters/u],
+    [foundingTopic({ book: { pdf: "Book.pdf", route: "book/", frontMatter: "README.md" } }), /\/topics\/0\/book\/pdf must match pattern/u],
     [foundingTopic({ book: { pdf: "book.pdf", route: "books/", frontMatter: "README.md" } }), /book\.route must be "book\/"/u],
     [foundingTopic({ book: { pdf: "book.pdf", route: "book/", frontMatter: "README.txt" } }), /frontMatter must name a Markdown file/u],
-    [foundingTopic({ book: { pdf: "book.pdf", route: "book/" } }), /book fields are not closed: unknown=\[\], missing=\[frontMatter\]/u],
+    [foundingTopic({ book: { pdf: "book.pdf", route: "book/" } }), /\/topics\/0\/book must have required property 'frontMatter'/u],
   ];
   for (const [topic, pattern] of cases) assertFinding(topicRegistryFindings(registry(topic)), pattern);
   const withoutChapters = hypothesisTopic("second", { chapterSections: ["## Scope"] });
@@ -431,7 +433,45 @@ test("the command exits non-zero with file-level findings", async () => {
     assert.equal(
       failing.stderr,
       "Topic registry validation failed with 1 finding(s):\n"
-        + '- topics.json: topics[0].status must be "active" or "archived"\n',
+        + "- topics.json: /topics/0/status must be equal to one of the allowed values\n",
     );
   });
 });
+
+test("topic registry schema limits equal exported topicRegistryLimits", () => {
+  assert.equal(topicsSchema.properties.topics.maxItems, topicRegistryLimits.topics);
+  assert.equal(topicsSchema.$defs.topic.properties.chapterSections.maxItems, topicRegistryLimits.listEntries);
+  assert.equal(topicsSchema.$defs.topic.properties.unsupportedPhrases.maxItems, topicRegistryLimits.listEntries);
+  assert.equal(topicsSchema.$defs.topic.properties.title.maxLength, topicRegistryLimits.textCharacters);
+  assert.equal(topicsSchema.$defs.topic.properties.chapterSections.items.maxLength, topicRegistryLimits.textCharacters);
+  assert.equal(topicsSchema.$defs.topic.properties.unsupportedPhrases.items.maxLength, topicRegistryLimits.textCharacters);
+  assert.equal(topicsSchema.$defs.topic.properties.root.maxLength, topicRegistryLimits.pathCharacters);
+  assert.equal(topicsSchema.$defs.topic.properties.routePrefix.maxLength, topicRegistryLimits.pathCharacters);
+  assert.equal(topicsSchema.$defs.relativePath.maxLength, topicRegistryLimits.pathCharacters);
+  assert.equal(topicsSchema.$defs.nullableRelativePath.maxLength, topicRegistryLimits.pathCharacters);
+  assert.equal(topicsSchema.$defs.book.properties.pdf.maxLength, topicRegistryLimits.pathCharacters);
+  assert.equal(topicsSchema.$defs.book.properties.route.maxLength, topicRegistryLimits.pathCharacters);
+});
+
+test("planted cases: extra property and invalid slugs rejected by validator and schema directly", () => {
+  const ajv = createAjv({ allErrors: true });
+  const contract = { ...topicsSchema };
+  delete contract.$schema;
+  const validateSchema = ajv.compile(contract);
+
+  // Planted case (1): topics.json topic with extra property "unexpected": true -> rejected
+  const docExtra = registry(foundingTopic({ unexpected: true }));
+  assert.equal(validateSchema(docExtra), false);
+  assertFinding(topicRegistryFindings(docExtra), /\/topics\/0 must NOT have additional properties/u);
+
+  // Planted case (2a): slug "-bad" -> rejected
+  const docSlugDash = registry(foundingTopic(), hypothesisTopic("-bad"));
+  assert.equal(validateSchema(docSlugDash), false);
+  assertFinding(topicRegistryFindings(docSlugDash), /\/topics\/1\/slug must match pattern/u);
+
+  // Planted case (2b): slug 45 chars -> rejected
+  const docSlug45 = registry(foundingTopic(), hypothesisTopic("a".repeat(45)));
+  assert.equal(validateSchema(docSlug45), false);
+  assertFinding(topicRegistryFindings(docSlug45), /\/topics\/1\/slug must match pattern/u);
+});
+

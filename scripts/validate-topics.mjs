@@ -4,8 +4,10 @@ import { fileURLToPath } from "node:url";
 
 import { isOfficialEuLanguageCode } from "../app/lib/eu-languages.mjs";
 import { publication } from "../app/lib/publication.mjs";
+import { createAjv } from "../experiments/workstation/lib/ajv.mjs";
 import { readStableOpenedFile } from "./lib/opened-file.mjs";
 import { parseStrictJson } from "./lib/strict-json.mjs";
+import topicsSchema from "./schemas/topics.schema.json" with { type: "json" };
 
 // Decision 0084 defines this registry. No generator reads it yet; this
 // validator keeps it well-formed until the consumers of migration step 3 do.
@@ -34,25 +36,7 @@ const reservedTopicDirectory = "topics";
 // The first character follows the reader's route-segment grammar
 // `[a-z0-9][a-z0-9-]*` (app/lib/language-access.mjs), and a slug cannot
 // start with a hyphen that command-line tools would read as an option.
-const slugPattern = /^[a-z0-9][a-z0-9-]{1,43}$/u;
-const pathSegmentPattern = /^[A-Za-z0-9][A-Za-z0-9._-]*$/u;
-const chapterSectionPattern = /^## \S(?:.*\S)?$/u;
-const foundingPdfPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*\.pdf$/u;
 const contractNamePattern = /^([0-9]{3})-[a-z0-9]+(?:-[a-z0-9]+)*\.md$/u;
-// C0 and C1 controls plus the Unicode line and paragraph separators.
-const controlOrSeparatorPattern = /[\p{Cc}\p{Zl}\p{Zp}]/u;
-const registryFields = Object.freeze(["schema", "topics"]);
-const topicFields = Object.freeze([
-  "authorities",
-  "book",
-  "chapterSections",
-  "root",
-  "routePrefix",
-  "slug",
-  "status",
-  "title",
-  "unsupportedPhrases",
-]);
 const authorityKinds = Object.freeze({
   candidates: "directory",
   chapters: "directory",
@@ -61,59 +45,27 @@ const authorityKinds = Object.freeze({
   mathematics: "directory",
 });
 const authorityFields = Object.freeze(Object.keys(authorityKinds));
-const bookFields = Object.freeze(["frontMatter", "pdf", "route"]);
-const statuses = new Set(["active", "archived"]);
 const contractKinds = Object.freeze([["candidates", "candidate"], ["fixtures", "fixture"]]);
+
+const ajv = createAjv({ allErrors: true });
+// Ajv's default class carries no 2020-12 meta-schema; the schema uses only
+// keywords both drafts share, so it compiles without its $schema marker.
+const topicsContract = { ...topicsSchema };
+delete topicsContract.$schema;
+const validateTopicRegistrySchema = ajv.compile(topicsContract);
+
+function formatAjvFindings(errors) {
+  const sorted = [...errors].sort((left, right) => {
+    const pathComparison = left.instancePath.localeCompare(right.instancePath);
+    if (pathComparison !== 0) return pathComparison;
+    return left.keyword.localeCompare(right.keyword);
+  });
+  return sorted.map((error) => `${error.instancePath || "/"} ${error.message}`);
+}
 
 function compareText(left, right) {
   if (left === right) return 0;
   return left < right ? -1 : 1;
-}
-
-function isPlainObject(value) {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function fieldFindings(value, fields, label) {
-  if (!isPlainObject(value)) return [`${label} must be an object`];
-  const unknown = Object.keys(value).filter((field) => !fields.includes(field));
-  const missing = fields.filter((field) => !Object.hasOwn(value, field));
-  if (unknown.length === 0 && missing.length === 0) return [];
-  return [
-    `${label} fields are not closed: unknown=[${unknown.join(", ")}], missing=[${missing.join(", ")}]`,
-  ];
-}
-
-function listFindings(value, label) {
-  if (!Array.isArray(value) || value.length > limits.listEntries) {
-    return [`${label} must be an array of at most ${limits.listEntries} entries`];
-  }
-  return [];
-}
-
-function textFinding(value, label) {
-  if (
-    typeof value !== "string"
-    || value.length === 0
-    || value.length > limits.textCharacters
-    || value.trim() !== value
-    || controlOrSeparatorPattern.test(value)
-  ) {
-    return `${label} must be single-line text of 1 to ${limits.textCharacters} characters without surrounding space`;
-  }
-  return null;
-}
-
-function relativePathFinding(value, label) {
-  if (
-    typeof value !== "string"
-    || value.length === 0
-    || value.length > limits.pathCharacters
-    || !value.split("/").every((segment) => pathSegmentPattern.test(segment))
-  ) {
-    return `${label} must be a relative path of letter, digit, ".", "_" or "-" segments joined by "/", without "." or ".." segments`;
-  }
-  return null;
 }
 
 function reservedPathFinding(topic, relative, label) {
@@ -141,10 +93,7 @@ function duplicateFindings(values, label, identity) {
   return findings;
 }
 
-function slugFindings(slug, label) {
-  if (typeof slug !== "string" || !slugPattern.test(slug)) {
-    return [`${label}.slug must be 2 to 44 lowercase letters, digits or hyphens, starting with a letter or digit`];
-  }
+function slugSemanticFindings(slug, label) {
   const findings = [];
   if (isOfficialEuLanguageCode(slug)) {
     findings.push(`${label}.slug "${slug}" is an EU language code; the reader serves /${slug}/ as a translation route`);
@@ -172,8 +121,7 @@ function placementFindings(topic, index, label) {
 }
 
 function authorityFindings(topic, label) {
-  const findings = fieldFindings(topic.authorities, authorityFields, `${label}.authorities`);
-  if (findings.length > 0) return findings;
+  const findings = [];
   if (topic.authorities.claims !== claimLedger) {
     findings.push(`${label}.authorities.claims must be "${claimLedger}", the ledger location of every topic`);
   }
@@ -182,9 +130,8 @@ function authorityFindings(topic, label) {
     const value = topic.authorities[field];
     if (value === null) continue;
     const fieldLabel = `${label}.authorities.${field}`;
-    const finding = relativePathFinding(value, fieldLabel)
-      ?? reservedPathFinding(topic, value, fieldLabel);
-    if (finding !== null) findings.push(finding);
+    const reserved = reservedPathFinding(topic, value, fieldLabel);
+    if (reserved !== null) findings.push(reserved);
     else if (seen.has(value)) findings.push(`${fieldLabel} repeats the path ${value}`);
     seen.add(value);
   }
@@ -193,35 +140,20 @@ function authorityFindings(topic, label) {
 
 function sectionFindings(topic, label) {
   const sections = topic.chapterSections;
-  const findings = listFindings(sections, `${label}.chapterSections`);
-  if (findings.length > 0) return findings;
+  const findings = [];
   if (topic.authorities?.chapters === null && sections.length > 0) {
     findings.push(`${label}.chapterSections must be empty while authorities.chapters is null`);
-  }
-  for (const [position, section] of sections.entries()) {
-    const positionLabel = `${label}.chapterSections[${position}]`;
-    if (textFinding(section, positionLabel) !== null || !chapterSectionPattern.test(section)) {
-      findings.push(`${positionLabel} must be one H2 heading line such as "## Scope"`);
-    }
   }
   findings.push(...duplicateFindings(sections, `${label}.chapterSections`, (value) => value));
   return findings;
 }
 
 function phraseFindings(topic, label) {
-  const phrases = topic.unsupportedPhrases;
-  const findings = listFindings(phrases, `${label}.unsupportedPhrases`);
-  if (findings.length > 0) return findings;
-  for (const [position, phrase] of phrases.entries()) {
-    const finding = textFinding(phrase, `${label}.unsupportedPhrases[${position}]`);
-    if (finding !== null) findings.push(finding);
-  }
-  findings.push(...duplicateFindings(
-    phrases,
+  return duplicateFindings(
+    topic.unsupportedPhrases,
     `${label}.unsupportedPhrases`,
     (value) => value.toLowerCase(),
-  ));
-  return findings;
+  );
 }
 
 // The founding topic keeps its published PDF name and `book/` route; a later
@@ -231,9 +163,6 @@ function bookPublicationFindings(topic, index, label) {
   const findings = [];
   if (index === 0) {
     if (route !== "book/") findings.push(`${label}.book.route must be "book/"`);
-    if (typeof pdf !== "string" || !foundingPdfPattern.test(pdf)) {
-      findings.push(`${label}.book.pdf must be a lowercase hyphenated .pdf file name`);
-    }
     return findings;
   }
   const expectedRoute = `${reservedTopicDirectory}/${topic.slug}/book/`;
@@ -245,31 +174,24 @@ function bookPublicationFindings(topic, index, label) {
 function frontMatterFinding(topic, label) {
   const { frontMatter } = topic.book;
   const fieldLabel = `${label}.book.frontMatter`;
-  const pathFinding = relativePathFinding(frontMatter, fieldLabel)
-    ?? reservedPathFinding(topic, frontMatter, fieldLabel);
-  if (pathFinding !== null) return pathFinding;
+  const reserved = reservedPathFinding(topic, frontMatter, fieldLabel);
+  if (reserved !== null) return reserved;
   return frontMatter.endsWith(".md") ? null : `${fieldLabel} must name a Markdown file`;
 }
 
 function bookFindings(topic, index, label) {
   if (topic.book === null) return [];
-  const findings = fieldFindings(topic.book, bookFields, `${label}.book`);
-  if (findings.length > 0) return findings;
+  const findings = [];
   findings.push(...bookPublicationFindings(topic, index, label));
   const frontMatter = frontMatterFinding(topic, label);
   if (frontMatter !== null) findings.push(frontMatter);
   return findings;
 }
 
-function topicFindings(topic, index) {
+function topicSemanticFindings(topic, index) {
   const label = `topics[${index}]`;
-  const fields = fieldFindings(topic, topicFields, label);
-  if (fields.length > 0) return fields;
-  const title = textFinding(topic.title, `${label}.title`);
   return [
-    ...slugFindings(topic.slug, label),
-    ...(title === null ? [] : [title]),
-    ...(statuses.has(topic.status) ? [] : [`${label}.status must be "active" or "archived"`]),
+    ...slugSemanticFindings(topic.slug, label),
     ...placementFindings(topic, index, label),
     ...authorityFindings(topic, label),
     ...sectionFindings(topic, label),
@@ -305,15 +227,14 @@ function uniquenessFindings(topics) {
  * file system. The first entry is the founding topic at root ".".
  */
 export function topicRegistryFindings(registry) {
-  const findings = fieldFindings(registry, registryFields, "registry");
-  if (findings.length > 0) return findings;
-  if (registry.schema !== 1) findings.push("schema must be 1");
-  const { topics } = registry;
-  if (!Array.isArray(topics) || topics.length < 1 || topics.length > limits.topics) {
-    findings.push(`topics must hold the founding topic and at most ${limits.topics} entries in all`);
-    return findings;
+  if (!validateTopicRegistrySchema(registry)) {
+    return formatAjvFindings(validateTopicRegistrySchema.errors);
   }
-  findings.push(...topics.flatMap((topic, index) => topicFindings(topic, index)));
+  const { topics } = registry;
+  const findings = [];
+  for (const [index, topic] of topics.entries()) {
+    findings.push(...topicSemanticFindings(topic, index));
+  }
   findings.push(...uniquenessFindings(topics));
   return findings;
 }

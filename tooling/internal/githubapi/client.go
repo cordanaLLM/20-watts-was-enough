@@ -4,6 +4,8 @@ package githubapi
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -35,37 +37,43 @@ func NewReadRetryClient(client HTTPClient) HTTPClient {
 }
 
 func newReadRetryClient(client HTTPClient, wait waitFunc) HTTPClient {
-	if client == nil {
-		panic("githubapi: nil HTTP client")
-	}
-	if wait == nil {
-		panic("githubapi: nil retry waiter")
-	}
 	return &readRetryClient{client: client, wait: wait}
 }
 
 func (client *readRetryClient) Do(request *http.Request) (*http.Response, error) {
+	if client == nil || client.client == nil {
+		return nil, errors.New("githubapi: nil HTTP client")
+	}
+	if client.wait == nil {
+		return nil, errors.New("githubapi: nil retry waiter")
+	}
 	if !isRetryableRead(request) {
 		return client.client.Do(request)
 	}
 
+	// A failed drain does not stop the retry; it joins the error if no
+	// later attempt answers.
+	var drainErr error
 	for attempt := 0; attempt < maximumAttempts; attempt++ {
 		if err := request.Context().Err(); err != nil {
-			return nil, err
+			return nil, errors.Join(err, drainErr)
 		}
 
 		response, err := client.client.Do(request)
 		if !isRetryable(response, err) || attempt == maximumAttempts-1 {
+			if err != nil {
+				err = errors.Join(err, drainErr)
+			}
 			return response, err
 		}
 
-		discardIntermediateResponse(response)
+		drainErr = errors.Join(drainErr, discardIntermediateResponse(response))
 		if err := client.wait(request.Context(), retryDelay(attempt)); err != nil {
-			return nil, err
+			return nil, errors.Join(err, drainErr)
 		}
 	}
 
-	panic("unreachable")
+	return nil, errors.Join(errors.New("githubapi: retry attempts exhausted"), drainErr)
 }
 
 func isRetryableRead(request *http.Request) bool {
@@ -102,12 +110,18 @@ func retryDelay(attempt int) time.Duration {
 	return secondRetryDelay
 }
 
-func discardIntermediateResponse(response *http.Response) {
+func discardIntermediateResponse(response *http.Response) error {
 	if response == nil || response.Body == nil {
-		return
+		return nil
 	}
-	_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, maximumRetryDrainSize))
-	_ = response.Body.Close()
+	var drainErr error
+	if _, err := io.Copy(io.Discard, io.LimitReader(response.Body, maximumRetryDrainSize)); err != nil {
+		drainErr = fmt.Errorf("drain intermediate response: %w", err)
+	}
+	if err := response.Body.Close(); err != nil {
+		drainErr = errors.Join(drainErr, fmt.Errorf("close intermediate response: %w", err))
+	}
+	return drainErr
 }
 
 func waitForRetry(ctx context.Context, delay time.Duration) error {

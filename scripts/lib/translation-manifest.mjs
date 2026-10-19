@@ -4,26 +4,13 @@ import path from "node:path";
 
 import { isOfficialEuLanguageCode } from "../../app/lib/eu-languages.mjs";
 import { publication } from "../../app/lib/publication.mjs";
+import { createAjv } from "../../experiments/workstation/lib/ajv.mjs";
+import translationManifestSchema from "../schemas/translation-manifest.schema.json" with { type: "json" };
 import { readStableOpenedFileSync } from "./opened-file.mjs";
 import { parseStrictJson } from "./strict-json.mjs";
 
-const SOURCE = /^(?:concept|math)\/(?:[a-z0-9][a-z0-9-]*\/)*[a-z0-9][a-z0-9-]*\.md$/u;
-const SHA256 = /^[a-f0-9]{64}$/u;
 const SOURCE_REVISION = /^(?!0{40}$)[a-f0-9]{40}$/u;
 const REVIEWED_AT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/u;
-const topLevelFields = Object.freeze(["documents", "schema", "sourceLanguage"]);
-const documentFields = Object.freeze([
-  "language",
-  "reviewedAt",
-  "reviewers",
-  "route",
-  "source",
-  "sourceRevision",
-  "sourceRoute",
-  "sourceSha256",
-  "target",
-  "targetSha256",
-]);
 
 export const translationManifestLimits = Object.freeze({
   manifestBytes: 1024 * 1024,
@@ -38,25 +25,25 @@ const gitValidationLimits = Object.freeze({
   timeoutMilliseconds: 10_000,
 });
 
+const ajv = createAjv({ allErrors: true });
+// Ajv's default class carries no 2020-12 meta-schema; the schema uses only
+// keywords both drafts share, so it compiles without its $schema marker.
+const translationManifestContract = { ...translationManifestSchema };
+delete translationManifestContract.$schema;
+const validateTranslationManifestSchema = ajv.compile(translationManifestContract);
+
+function formatAjvFindings(errors) {
+  const sorted = [...errors].sort((left, right) => {
+    const pathComparison = left.instancePath.localeCompare(right.instancePath);
+    if (pathComparison !== 0) return pathComparison;
+    return left.keyword.localeCompare(right.keyword);
+  });
+  return sorted.map((error) => `${error.instancePath || "/"} ${error.message}`);
+}
+
 function inside(root, candidate) {
   const relative = path.relative(root, candidate);
   return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
-}
-
-function exactObject(value, expectedFields, label) {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${label} must be an object.`);
-  }
-  const actualFields = Object.keys(value);
-  const expected = new Set(expectedFields);
-  const actual = new Set(actualFields);
-  const unknown = actualFields.filter((field) => !expected.has(field));
-  const missing = expectedFields.filter((field) => !actual.has(field));
-  if (unknown.length > 0 || missing.length > 0) {
-    throw new Error(
-      `${label} fields are not closed: unknown=[${unknown.join(", ")}], missing=[${missing.join(", ")}].`,
-    );
-  }
 }
 
 function readTranslationFile(root, file, label, maximumBytes) {
@@ -225,8 +212,7 @@ export function validateTranslationReviewMetadata(entry, target) {
   });
 }
 
-function validateEntryShape(entry, index) {
-  exactObject(entry, documentFields, `Translation manifest document ${index}`);
+function validateEntryShape(entry) {
   if (
     typeof entry.language !== "string"
     || entry.language === "en"
@@ -236,7 +222,6 @@ function validateEntryShape(entry, index) {
   }
   if (
     typeof entry.source !== "string"
-    || !SOURCE.test(entry.source)
     || path.posix.normalize(entry.source) !== entry.source
   ) {
     throw new Error(`Unsafe translation source path: ${entry.source}`);
@@ -249,12 +234,6 @@ function validateEntryShape(entry, index) {
   const route = `/${entry.language}/${entry.source.replace(/\.md$/u, "/")}`;
   if (entry.sourceRoute !== sourceRoute || entry.route !== route) {
     throw new Error(`Translation routes do not match the mirrored source: ${entry.target}`);
-  }
-  if (typeof entry.sourceSha256 !== "string" || !SHA256.test(entry.sourceSha256)) {
-    throw new Error(`Translation source digest is not SHA-256: ${entry.target}`);
-  }
-  if (typeof entry.targetSha256 !== "string" || !SHA256.test(entry.targetSha256)) {
-    throw new Error(`Translation target digest is not SHA-256: ${entry.target}`);
   }
   return Object.freeze({
     ...validateTranslationReviewMetadata(entry, entry.target),
@@ -296,8 +275,8 @@ function validatedDocuments(root, documents) {
   const identities = new Set();
   const routes = new Set();
   const bindings = [];
-  const validated = documents.map((entry, index) => {
-    const review = validateEntryShape(entry, index);
+  const validated = documents.map((entry) => {
+    const review = validateEntryShape(entry);
     const identity = `${entry.language}:${entry.source}`;
     if (identities.has(identity) || routes.has(entry.route)) {
       throw new Error(`Duplicate translation identity or route: ${identity}`);
@@ -341,8 +320,11 @@ export function validateTranslationManifest(repositoryRoot) {
     maximumDepth: 4,
     maximumContainerEntries: translationManifestLimits.documents,
   });
-  exactObject(manifest, topLevelFields, "Translation manifest");
-  if (manifest.schema !== 2 || manifest.sourceLanguage !== publication.locale) {
+  if (!validateTranslationManifestSchema(manifest)) {
+    const findings = formatAjvFindings(validateTranslationManifestSchema.errors);
+    throw new Error(findings.join("\n"));
+  }
+  if (manifest.sourceLanguage !== publication.locale) {
     throw new Error("Translation manifest has an unsupported schema or source language.");
   }
   return Object.freeze({
