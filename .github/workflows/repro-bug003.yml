@@ -1,0 +1,36 @@
+name: Repro BUG-003
+
+on:
+  push:
+    branches: [repro/bug003-darwin-eperm]
+
+permissions: {}
+
+jobs:
+  repro:
+    name: Repro BUG-003 (macOS)
+    runs-on: macos-26
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Check out canonical source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use Go 1.27
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: tooling/go.mod
+          cache-dependency-path: tooling/go.sum
+      - name: Group kill after the leader is reaped
+        env:
+          REPRO_BUG003: "1"
+        run: go -C tooling test ./internal/workstationrunner -run TestReproBug003 -v -count=1
+      - name: Failure rate of the cancellation test
+        run: |
+          status=0
+          go -C tooling test ./internal/workstationrunner -run 'TestRunSuiteCancellationTerminatesTheDescendantProcessTree$' -count=40 -v > cancellation.log 2>&1 || status=$?
+          echo "go test exit status: $status"
+          awk '/^--- FAIL/{failed++} /^--- PASS/{passed++} END{print "passed:", passed+0, "failed:", failed+0}' cancellation.log
+          grep -m 3 -A 2 -- '--- FAIL' cancellation.log || echo "no failure lines"
