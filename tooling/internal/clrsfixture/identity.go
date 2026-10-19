@@ -58,7 +58,7 @@ func (builder *identityBuilder) addString(value string) {
 
 func (builder *identityBuilder) addInt64(value int64) {
 	var encoded [8]byte
-	binary.BigEndian.PutUint64(encoded[:], uint64(value))
+	binary.BigEndian.PutUint64(encoded[:], uint64(value)) //#nosec G115 -- two's complement bitcast of int64 to 8 big-endian bytes for hashing
 	builder.addBytes(encoded[:])
 }
 

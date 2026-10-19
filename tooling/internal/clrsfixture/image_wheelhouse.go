@@ -779,7 +779,7 @@ func readGeneratorWheelhouseSnapshot(root string, expectedCount int) (generatorW
 	if expectedCount < 1 || expectedCount > generatorRuntimePackageCount {
 		return generatorWheelhouseSnapshot{}, errors.New("CLRS generator wheelhouse expected count is outside the bounded runtime set")
 	}
-	directory, err := os.Open(root)
+	directory, err := os.Open(root) //#nosec G304 -- generator wheelhouse root validated as directory within repository
 	if err != nil {
 		return generatorWheelhouseSnapshot{}, fmt.Errorf("open CLRS generator wheelhouse: %w", err)
 	}
@@ -881,7 +881,7 @@ func digestGeneratorWheelWithInterlock(
 	if err != nil || !unchangedGeneratorFile(initial, namedBefore) {
 		return "", errors.New("CLRS generator wheel changed before it was opened")
 	}
-	input, err := os.Open(file)
+	input, err := os.Open(file) //#nosec G304 -- wheelhouse file path validated by unchangedGeneratorFile checks
 	if err != nil {
 		return "", fmt.Errorf("open CLRS generator wheel: %w", err)
 	}

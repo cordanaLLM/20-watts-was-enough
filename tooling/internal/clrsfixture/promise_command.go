@@ -77,7 +77,7 @@ func (localPromiseDocker) run(ctx context.Context, request promiseDockerRequest)
 	if err != nil {
 		return promiseDockerResult{}, errors.New("Promise reproduction needs the local Docker CLI and preloaded pinned runtime")
 	}
-	command := exec.CommandContext(commandContext, binary, append([]string{"--context", "default"}, request.arguments...)...)
+	command := exec.CommandContext(commandContext, binary, append([]string{"--context", "default"}, request.arguments...)...) //#nosec G204 -- fixed docker binary from LookPath and bounded arguments validated by caller
 	command.Env = promiseHostEnvironment()
 	command.Stdin = bytes.NewReader(request.stdin)
 	command.WaitDelay = 2 * time.Second

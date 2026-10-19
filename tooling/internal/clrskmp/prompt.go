@@ -258,8 +258,11 @@ func parseAnswer(reference []byte, limits Limits, haystackLength int) (int, erro
 			return 0, errors.New("reference is not one canonical non-negative index")
 		}
 	}
+	if haystackLength < 0 {
+		return 0, errors.New("haystack length must be non-negative")
+	}
 	parsed, err := strconv.ParseUint(body, 10, 31)
-	if err != nil || parsed > uint64(haystackLength) {
+	if err != nil || parsed > uint64(haystackLength) { //#nosec G115 -- haystackLength bounded >= 0 by preceding check
 		return 0, fmt.Errorf("reference index is outside 0..%d", haystackLength)
 	}
 	return int(parsed), nil

@@ -7,6 +7,13 @@ the exact diff; this file records why the project changed.
 
 ### Security
 
+- The Go tooling module passes gosec with the engine's default rules and
+  no baseline. Ignored `Close` errors are now joined into the returned
+  error, the CLRS prompt parsers refuse a negative size before converting
+  it, and one event-order loop no longer indexes the previous element.
+  The remaining 123 findings carry a `#nosec` mark at their line that
+  names the check or fixed source that makes the value safe; no file
+  mode changed.
 - Container smoke CI scans the four images it builds with a pinned Trivy
   0.76.0 and fails on any HIGH or CRITICAL advisory that has a fixed version;
   a planted lodash 4.17.15 proves the scanner and its database work first.

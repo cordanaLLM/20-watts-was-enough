@@ -107,7 +107,7 @@ func extractFinalOCITar(
 				header.Size != 0 || header.Mode != 0o755 || header.Uid != 0 || header.Gid != 0 || header.Linkname != "" {
 				return nil, fmt.Errorf("final OCI archive directory %q is not admitted", name)
 			}
-			if err := os.MkdirAll(destination, 0o755); err != nil {
+			if err := os.MkdirAll(destination, 0o755); err != nil { //#nosec G301 -- OCI directory layout must be world-readable per OCI image specification
 				return nil, fmt.Errorf("create final OCI directory: %w", err)
 			}
 		case tar.TypeReg:
@@ -123,7 +123,7 @@ func extractFinalOCITar(
 			if regularBytes > maximumBytes {
 				return nil, errors.New("final OCI archive regular bytes exceed their aggregate boundary")
 			}
-			if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil { //#nosec G301 -- OCI directory layout must be world-readable per OCI image specification
 				return nil, fmt.Errorf("create final OCI blob directory: %w", err)
 			}
 			if err := extractExactTarFile(destination, reader, header.Size); err != nil {
@@ -194,7 +194,7 @@ func validFinalOCIPath(name string) bool {
 }
 
 func extractExactTarFile(path string, reader io.Reader, size int64) (returnError error) {
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //#nosec G304,G302 -- OCI blob file must be world-readable per OCI image specification
 	if err != nil {
 		return fmt.Errorf("create extracted OCI file: %w", err)
 	}
