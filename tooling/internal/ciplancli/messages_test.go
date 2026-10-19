@@ -53,6 +53,16 @@ func TestMessagesRejectsArgumentsBeforeChecking(t *testing.T) {
 	}
 }
 
+func TestMessagesRejectsStrayPositionalArguments(t *testing.T) {
+	t.Parallel()
+	var stdout, stderr bytes.Buffer
+	code := RunMessages([]string{"stray"}, &stdout, &stderr)
+	wantStderr := "ci messages accepts no positional arguments: stray\n"
+	if code != 2 || stdout.Len() != 0 || stderr.String() != wantStderr {
+		t.Fatalf("exit=%d stdout=%q stderr=%q, want exit=2 and stderr=%q", code, stdout.String(), stderr.String(), wantStderr)
+	}
+}
+
 func TestMessagesFailsClosedOnUnreadableInput(t *testing.T) {
 	for name, args := range map[string][]string{
 		"absent file":    {"--message-file", filepath.Join(t.TempDir(), "absent.txt")},
