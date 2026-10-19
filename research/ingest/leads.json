@@ -898,7 +898,7 @@
           ],
           "milestone_title": "Ongoing — Research and upstream watch",
           "created_at": "2026-10-15T19:52:39Z",
-          "updated_at": "2026-10-16T16:10:40Z",
+          "updated_at": "2026-10-18T16:12:53Z",
           "closed_at": null,
           "author_type": "User",
           "tier": "untiered",
@@ -916,15 +916,16 @@
               "https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/25109",
               "https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/25110",
               "https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/25111",
-              "https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/25112"
+              "https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/25112",
+              "https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/25189"
             ],
             "dois": [],
             "arxiv_ids": [],
             "release_tags": []
           },
-          "content_hash": "72c4e75c592de100298e4ed45b1cdffadff24d1ab8e49305a4fb12199ed0d80c",
-          "fetched_at": "2026-10-17T02:07:01.951Z",
-          "watermark": ""
+          "content_hash": "cd37df33a87b7db396085ece1cf73d7eeec6c46c8bf61a98c84cee64543eb952",
+          "fetched_at": "2026-10-19T02:06:16.979Z",
+          "watermark": "2026-10-18T02:10:19.665Z"
         }
       ],
       "private_origin_count": 0,
