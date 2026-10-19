@@ -16,6 +16,8 @@ import {
   translationManifestLimits,
   validateTranslationManifest,
 } from "./lib/translation-manifest.mjs";
+import { createAjv } from "../experiments/workstation/lib/ajv.mjs";
+import translationManifestSchema from "./schemas/translation-manifest.schema.json" with { type: "json" };
 import {
   commitFixturePaths,
   createUnrelatedFixtureCommit,
@@ -160,7 +162,7 @@ test("review provenance requires an exact commit and canonical UTC instant", asy
     await writeManifest(root, manifest);
     assert.throws(
       () => validateTranslationManifest(root),
-      new RegExp(`fields are not closed: .*missing=\\[${field}\\]`, "u"),
+      new RegExp(`/documents/0 must have required property '${field}'`, "u"),
       `missing ${field}`,
     );
   }
@@ -176,7 +178,7 @@ test("review provenance requires an exact commit and canonical UTC instant", asy
     await writeManifest(root, manifest);
     assert.throws(
       () => validateTranslationManifest(root),
-      /source revision is not an exact Git commit/u,
+      /\/documents\/0\/sourceRevision must match pattern/u,
       sourceRevision,
     );
   }
@@ -193,7 +195,7 @@ test("review provenance requires an exact commit and canonical UTC instant", asy
     await writeManifest(root, manifest);
     assert.throws(
       () => validateTranslationManifest(root),
-      /review time is not canonical UTC/u,
+      /\/documents\/0\/reviewedAt must match pattern|review time is not canonical UTC/u,
       reviewedAt,
     );
   }
@@ -205,7 +207,7 @@ test("the pre-target-digest manifest schema is rejected", async (t) => {
   await writeManifest(root, manifest);
   assert.throws(
     () => validateTranslationManifest(root),
-    /unsupported schema or source language/,
+    /\/schema must be equal to constant/u,
   );
 });
 
@@ -239,7 +241,7 @@ test("filesystem-aliasing source paths are rejected", async (t) => {
   await writeManifest(root, manifest);
   assert.throws(
     () => validateTranslationManifest(root),
-    /Unsafe translation source path/,
+    /\/documents\/0\/source must match pattern|Unsafe translation source path/u,
   );
 });
 
@@ -282,7 +284,7 @@ test("unknown manifest and document fields are rejected", async (t) => {
     await writeManifest(root, manifest);
     assert.throws(
       () => validateTranslationManifest(root),
-      /fields are not closed: unknown=\[unreviewed\]/,
+      /must NOT have additional properties/u,
       level,
     );
   }
@@ -311,7 +313,7 @@ test("only declared non-English official EU language codes are accepted", async 
     await writeManifest(root, manifest);
     assert.throws(
       () => validateTranslationManifest(root),
-      /non-English official EU language code/,
+      /non-English official EU language code|\/documents\/0\/language must match pattern/u,
       language,
     );
   }
@@ -325,7 +327,10 @@ test("manifest collections and reviewer lists are bounded", async (t) => {
       (_, index) => `reviewer-${index}`,
     );
     await writeManifest(root, manifest);
-    assert.throws(() => validateTranslationManifest(root), /named reviewers/);
+    assert.throws(
+      () => validateTranslationManifest(root),
+      /\/documents\/0\/reviewers must NOT have more than 16 items/u,
+    );
   }
   {
     const { root, manifest } = await fixture(t);
@@ -363,3 +368,41 @@ test("manifest, source, and target byte limits fail closed", async (t) => {
     );
   }
 });
+
+test("translation manifest schema limits equal exported translationManifestLimits", () => {
+  assert.equal(translationManifestSchema.properties.documents.maxItems, translationManifestLimits.documents);
+  assert.equal(translationManifestSchema.$defs.document.properties.reviewers.maxItems, translationManifestLimits.reviewersPerDocument);
+  assert.equal(translationManifestSchema.$defs.document.properties.reviewers.items.maxLength, translationManifestLimits.reviewerCharacters);
+});
+
+test("planted cases: extra document field and zeroed source revision rejected by validator and schema directly", async (t) => {
+  const ajv = createAjv({ allErrors: true });
+  const contract = { ...translationManifestSchema };
+  delete contract.$schema;
+  const validateSchema = ajv.compile(contract);
+
+  // Planted case (3): translation manifest document with extra field -> rejected
+  {
+    const { root, entry, manifest } = await fixture(t);
+    entry.unexpected = true;
+    assert.equal(validateSchema(manifest), false);
+    await writeManifest(root, manifest);
+    assert.throws(
+      () => validateTranslationManifest(root),
+      /\/documents\/0 must NOT have additional properties/u,
+    );
+  }
+
+  // Planted case (4): sourceRevision of 40 zeros -> rejected
+  {
+    const { root, entry, manifest } = await fixture(t);
+    entry.sourceRevision = "0".repeat(40);
+    assert.equal(validateSchema(manifest), false);
+    await writeManifest(root, manifest);
+    assert.throws(
+      () => validateTranslationManifest(root),
+      /\/documents\/0\/sourceRevision must match pattern/u,
+    );
+  }
+});
+
