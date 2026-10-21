@@ -7,6 +7,16 @@ the exact diff; this file records why the project changed.
 
 ### Security
 
+- The Go toolchain moves from 1.27.2 to 1.27.3 for CVE-2026-111943 in
+  `crypto/x509`, which the container smoke Trivy scan reports in the static
+  `20w` image. The builder image `golang:1.27.3-trixie` is pinned by digest
+  `604106102d33` in `tooling/Dockerfile` and
+  `tooling/clrs-specialist/Dockerfile`, and the version moves everywhere it
+  is bound: both Go module files, the release identity checks in `ci.yml`
+  and `release-build.yml`, `tooling/internal/releasebuild/build.go`, the
+  engineering policy and its test, and the contributor guides. The Go module
+  file is a render-free book source, so the book provenance is re-recorded
+  without a render (Decision 0090).
 - Container smoke CI scans the four images it builds with a pinned Trivy
   0.76.0 and fails on any HIGH or CRITICAL advisory that has a fixed version;
   a planted lodash 4.17.15 proves the scanner and its database work first.
