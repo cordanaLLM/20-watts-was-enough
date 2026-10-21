@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { lstat, readdir } from "node:fs/promises";
 import path from "node:path";
 import { readStableOpenedFile } from "./opened-file.mjs";
+import { canonicalJson } from "../lib/canonical-json.mjs";
 
 export const RETRY_ROLLBACK_IMPLEMENTATION_ID = "candidate-010-two-lifecycle-retry-rollback-v1";
 
@@ -10,11 +11,7 @@ function sha256(value) {
 }
 
 function canonical(value) {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
-  if (value && typeof value === "object") {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`;
-  }
-  return JSON.stringify(value);
+  return canonicalJson(value, { strict: false, label: "Retry/rollback" });
 }
 
 function finite(value, field) {
@@ -22,31 +19,44 @@ function finite(value, field) {
   return value;
 }
 
-export async function observeFilesystemSnapshot(root) {
+export async function observeFilesystemSnapshot(root, maximumEntries = 10000) {
   const entries = [];
-  async function visit(directory, relativeDirectory = "") {
-    const names = await readdir(directory);
-    names.sort();
-    for (const name of names) {
-      const absolute = path.join(directory, name);
-      const relative = path.posix.join(relativeDirectory, name);
-      const information = await lstat(absolute);
+  const stack = [{ type: "explore_dir", directory: root, relativeDirectory: "" }];
+  // Each entry is checked once and each directory explored once, so the walk
+  // takes at most 2 * maximumEntries + 1 steps before the entry limit trips.
+  for (let steps = 0; stack.length > 0 && steps <= 2 * maximumEntries + 1; steps += 1) {
+    if (entries.length > maximumEntries) {
+      throw new RangeError(`Retry/rollback snapshot exceeded maximum entries limit of ${maximumEntries}.`);
+    }
+    const item = stack.pop();
+    if (item.type === "explore_dir") {
+      const names = (await readdir(item.directory)).sort();
+      for (let i = names.length - 1; i >= 0; i--) {
+        const name = names[i];
+        const absolute = path.join(item.directory, name);
+        const relative = path.posix.join(item.relativeDirectory, name);
+        stack.push({ type: "check_entry", absolute, relative });
+      }
+    } else if (item.type === "check_entry") {
+      const information = await lstat(item.absolute);
       if (information.isSymbolicLink()) throw new Error("Retry/rollback snapshot refuses symbolic links.");
       if (information.isDirectory()) {
-        entries.push({ path: relative, type: "directory" });
-        await visit(absolute, relative);
+        entries.push({ path: item.relative, type: "directory" });
+        stack.push({ type: "explore_dir", directory: item.absolute, relativeDirectory: item.relative });
       } else if (information.isFile()) {
-        const body = await readStableOpenedFile(absolute, {
-          label: `retry/rollback snapshot file ${relative}`,
+        const body = await readStableOpenedFile(item.absolute, {
+          label: `retry/rollback snapshot file ${item.relative}`,
           containedBy: root,
         });
-        entries.push({ path: relative, type: "file", bytes: body.length, sha256: sha256(body) });
+        entries.push({ path: item.relative, type: "file", bytes: body.length, sha256: sha256(body) });
       } else {
-        throw new Error(`Retry/rollback snapshot refuses unsupported entry: ${relative}`);
+        throw new Error(`Retry/rollback snapshot refuses unsupported entry: ${item.relative}`);
       }
     }
   }
-  await visit(root);
+  if (stack.length > 0 || entries.length > maximumEntries) {
+    throw new RangeError(`Retry/rollback snapshot exceeded maximum entries limit of ${maximumEntries}.`);
+  }
   const body = { schema: 1, entries };
   return Object.freeze({
     ...body,
@@ -128,9 +138,7 @@ function logicalBoundaryId(ownership, attemptRole) {
   }));
 }
 
-export function validateRetryRollbackResult(result, expectedOwnership = null, observedSnapshots = null) {
-  const lineage = result?.comparator_lineage;
-  const attempts = lineage?.attempts;
+function validateLineageAndOwnership(lineage, expectedOwnership) {
   if (
     lineage?.schema !== 1
     || lineage.comparator !== "retry-rollback"
@@ -139,8 +147,8 @@ export function validateRetryRollbackResult(result, expectedOwnership = null, ob
     || lineage.first_rollback_validated !== true
     || lineage.retry_action_executed !== true
     || lineage.state_isolated !== true
-    || !Array.isArray(attempts)
-    || attempts.length !== 2
+    || !Array.isArray(lineage.attempts)
+    || lineage.attempts.length !== 2
   ) throw new Error("Retry/rollback skipped a required lifecycle action.");
   const ownership = lineage.ownership;
   if (
@@ -150,7 +158,10 @@ export function validateRetryRollbackResult(result, expectedOwnership = null, ob
     || typeof ownership.opportunity_id !== "string"
     || (expectedOwnership && Object.entries(expectedOwnership).some(([key, value]) => ownership[key] !== value))
   ) throw new Error("Retry/rollback lineage ownership is absent or mismatched.");
-  const [first, second] = attempts;
+  return ownership;
+}
+
+function validateFirstAttempt(first, second, ownership, observedSnapshots) {
   if (
     first.attempt_role !== "first-action"
     || second.attempt_role !== "retry-action"
@@ -173,6 +184,9 @@ export function validateRetryRollbackResult(result, expectedOwnership = null, ob
     || first.irreversible_violation !== false
     || first.trace_output_sha256 !== second.trace_output_sha256
   ) throw new Error("Retry/rollback first action leaked state or did not complete rollback.");
+}
+
+function validateSecondAttempt(second, result) {
   if (
     second.stage !== true
     || second.commit === second.reset
@@ -198,6 +212,14 @@ export function validateRetryRollbackResult(result, expectedOwnership = null, ob
       || second.durable_bytes_written !== 0
     ))
   ) throw new Error("Retry/rollback retry action lifecycle evidence is inconsistent.");
+}
+
+export function validateRetryRollbackResult(result, expectedOwnership = null, observedSnapshots = null) {
+  const lineage = result?.comparator_lineage;
+  const ownership = validateLineageAndOwnership(lineage, expectedOwnership);
+  const [first, second] = lineage.attempts;
+  validateFirstAttempt(first, second, ownership, observedSnapshots);
+  validateSecondAttempt(second, result);
   const expectedStaged = first.staged_bytes_written + second.staged_bytes_written;
   const expectedBoundary = first.boundary_elapsed_ms + second.boundary_elapsed_ms;
   if (
@@ -217,23 +239,7 @@ export function validateRetryRollbackResult(result, expectedOwnership = null, ob
   return true;
 }
 
-export async function executeRetryRollbackComparatorTrial({
-  executeTrial,
-  root,
-  task_family: taskFamily,
-  backend_id: backendId,
-  opportunity,
-  config,
-  decideRetry,
-}) {
-  if (typeof executeTrial !== "function" || typeof decideRetry !== "function") {
-    throw new Error("Retry/rollback requires an executable backend and retry decision.");
-  }
-  const firstRoot = path.join(root, "first-action");
-  const retryRoot = path.join(root, "retry-action");
-  if (path.resolve(firstRoot) === path.resolve(retryRoot)) {
-    throw new Error("Retry/rollback requires physically isolated lifecycle roots.");
-  }
+async function executeFirstActionTrial({ executeTrial, firstRoot, taskFamily, backendId, opportunity, config }) {
   const first = await executeTrial({
     task_family: taskFamily,
     backend_id: backendId,
@@ -270,25 +276,10 @@ export async function executeRetryRollbackComparatorTrial({
     || firstSummary.durable_exists !== false
     || firstSummary.irreversible_violation
   ) throw new Error("Retry/rollback first staged action did not roll back cleanly.");
+  return { first, firstSnapshot, firstSummary };
+}
 
-  const retry = await executeTrial({
-    task_family: taskFamily,
-    backend_id: backendId,
-    root: retryRoot,
-    opportunity,
-    arm: "retry-rollback",
-    config,
-    revealTrace: false,
-    decideWithTrace: () => decideRetry(),
-  });
-  const retrySnapshot = await observeFilesystemSnapshot(retryRoot);
-  const retrySummary = attemptSummary(retry, retrySnapshot, {
-    index: 2,
-    attemptRole: "retry-action",
-    taskFamily,
-    backendId,
-    opportunityId: opportunity.id,
-  });
+function assembleRetryRollbackResult({ first, firstSummary, retry, retrySummary, config, taskFamily, backendId, opportunity }) {
   const comparatorLineage = Object.freeze({
     schema: 1,
     comparator: "retry-rollback",
@@ -322,7 +313,7 @@ export async function executeRetryRollbackComparatorTrial({
   };
   const additionalModeledEnergyJ = ["temporary_execution", "stage", "reset"]
     .reduce((sum, field) => sum + finite(config.modeled_energy_j?.[field], `modeled ${field} energy`), 0);
-  const result = {
+  return {
     ...retry,
     decision,
     filesystem,
@@ -330,6 +321,49 @@ export async function executeRetryRollbackComparatorTrial({
     additional_modeled_energy_j: additionalModeledEnergyJ,
     comparator_lineage: comparatorLineage,
   };
+}
+
+export async function executeRetryRollbackComparatorTrial({
+  executeTrial,
+  root,
+  task_family: taskFamily,
+  backend_id: backendId,
+  opportunity,
+  config,
+  decideRetry,
+}) {
+  if (typeof executeTrial !== "function" || typeof decideRetry !== "function") {
+    throw new Error("Retry/rollback requires an executable backend and retry decision.");
+  }
+  const firstRoot = path.join(root, "first-action");
+  const retryRoot = path.join(root, "retry-action");
+  if (path.resolve(firstRoot) === path.resolve(retryRoot)) {
+    throw new Error("Retry/rollback requires physically isolated lifecycle roots.");
+  }
+  const { first, firstSnapshot, firstSummary } = await executeFirstActionTrial({
+    executeTrial, firstRoot, taskFamily, backendId, opportunity, config,
+  });
+  const retry = await executeTrial({
+    task_family: taskFamily,
+    backend_id: backendId,
+    root: retryRoot,
+    opportunity,
+    arm: "retry-rollback",
+    config,
+    revealTrace: false,
+    decideWithTrace: () => decideRetry(),
+  });
+  const retrySnapshot = await observeFilesystemSnapshot(retryRoot);
+  const retrySummary = attemptSummary(retry, retrySnapshot, {
+    index: 2,
+    attemptRole: "retry-action",
+    taskFamily,
+    backendId,
+    opportunityId: opportunity.id,
+  });
+  const result = assembleRetryRollbackResult({
+    first, firstSummary, retry, retrySummary, config, taskFamily, backendId, opportunity,
+  });
   validateRetryRollbackResult(result, {
     task_family: taskFamily,
     backend_id: backendId,
