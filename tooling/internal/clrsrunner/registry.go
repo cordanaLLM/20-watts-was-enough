@@ -162,36 +162,43 @@ func (registry Registry) Invoke(ctx context.Context, request Request) (Response,
 		response.Reason = specialistcontrol.ReasonStaleResult
 		return response, errors.New("specialist returned a foreign binding or identity")
 	}
+	if err := applySpecialistResult(result, request.MaxResultBytes, &response); err != nil {
+		return response, err
+	}
+	return response, nil
+}
+
+func applySpecialistResult(result specialistcontrol.SpecialistResult, maxResultBytes int, response *Response) error {
 	response.Binding = formatBinding(result.Binding)
 	response.State = result.State
 	switch result.State {
 	case specialistcontrol.ResultCompleted:
-		if len(result.Payload) == 0 || len(result.Payload) > request.MaxResultBytes {
+		if len(result.Payload) == 0 || len(result.Payload) > maxResultBytes {
 			response.State = specialistcontrol.ResultRefused
 			response.Reason = specialistcontrol.ReasonMalformedResult
-			return response, errors.New("specialist returned an empty or oversized completed payload")
+			return errors.New("specialist returned an empty or oversized completed payload")
 		}
 		response.Reason = specialistcontrol.ReasonReady
 		response.Payload = string(result.Payload)
 	case specialistcontrol.ResultRefused:
 		if len(result.Payload) != 0 {
 			response.Reason = specialistcontrol.ReasonMalformedResult
-			return response, errors.New("specialist returned a payload with a refused result")
+			return errors.New("specialist returned a payload with a refused result")
 		}
 		response.Reason = specialistcontrol.ReasonSpecialistRefused
 	case specialistcontrol.ResultAbstained:
 		if len(result.Payload) != 0 {
 			response.State = specialistcontrol.ResultRefused
 			response.Reason = specialistcontrol.ReasonMalformedResult
-			return response, errors.New("specialist returned a payload with an abstained result")
+			return errors.New("specialist returned a payload with an abstained result")
 		}
 		response.Reason = specialistcontrol.ReasonSpecialistAbstained
 	default:
 		response.State = specialistcontrol.ResultRefused
 		response.Reason = specialistcontrol.ReasonMalformedResult
-		return response, errors.New("specialist returned an unknown state")
+		return errors.New("specialist returned an unknown state")
 	}
-	return response, nil
+	return nil
 }
 
 func responseFor(request Request) Response {
