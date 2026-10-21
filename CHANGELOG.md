@@ -11,6 +11,9 @@ the exact diff; this file records why the project changed.
   PYSEC-2026-4320 through a certifi-only package cutoff; every other package
   stays as locked
   ([Decision 0113](decisions/0113-lift-the-certifi-cutoff-in-the-clrs-generator.md)).
+  The retained SBOM bundle that CI checks moves to the
+  `clrs-sbom-bundle-2026-10-21` prerelease, scanned from the image rebuilt
+  with the new lock.
 - Container smoke CI scans the four images it builds with a pinned Trivy
   0.76.0 and fails on any HIGH or CRITICAL advisory that has a fixed version;
   a planted lodash 4.17.15 proves the scanner and its database work first.

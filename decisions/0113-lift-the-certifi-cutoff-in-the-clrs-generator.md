@@ -53,6 +53,13 @@ decision 0092 excludes the folder from those proposals in any case.
   boundary.
 - Dependency validation stays offline. Resolution and the single wheel
   download do not establish generator execution or image admission.
+- The retained SBOM bundle that CI checks against the lock moves to the
+  `clrs-sbom-bundle-2026-10-21` prerelease. The candidate image was rebuilt
+  from the new lock, and its pinned scan reports the installed certifi
+  2026.10.19. pip 26.2.1 still vendors certifi 2026.6.17 under
+  `pip/_vendor`; the scanner lists that copy from pip's bundled CycloneDX
+  file, not as an installed package. The `clrs-sbom-bundle-2026-10-16`
+  prerelease stays published.
 
 ## Alternatives considered
 
@@ -78,5 +85,11 @@ go vet ./...
 go test ./internal/clrsfixture/...
 ```
 
-`TestGeneratorSBOMBundleActualRetainedInput` fails with the 2026-10-16
-bundle on certifi, which shows that the test reads the installed version.
+Two image builds from the rebuilt context produce identical OCI archives
+(869,248,512 bytes, SHA-256
+`a69bdcd96b1a8ec548eee046e541e130a55092cfd09db0a5f1bf70a48065142e`).
+`TestGeneratorSBOMBundleActualRetainedInput` passes with the new bundle and
+fails with the 2026-10-16 bundle on the certifi mismatch, which shows that
+the test reads the installed version. A rescan of the 2026-10-16 image with
+the same scanner reproduces its published SBOM except for the creation time
+and the random document namespace.
