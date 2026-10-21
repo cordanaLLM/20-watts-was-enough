@@ -168,48 +168,44 @@ func snapshotGenerationRun(ctx context.Context, inputs generationRunInputs, repo
 	return bundle, recheckGenerationBundle(ctx, bundle, inputs)
 }
 
-// Replay validates only supplied command records through the same state machine.
-// The executor below never resolves Docker or starts a process.
-func checkGenerationCommands(ctx context.Context, report GeneratorFixtureRun, bundle generationBundleSnapshot, inputs generationRunInputs) error {
-	var records []generationCommandEvidence
-	if err := decodeCanonicalGeneratorJSON(bundle.bodies["commands.json"], 20, &records); err != nil {
-		return err
+type generationCommandReplayer struct {
+	records []generationCommandEvidence
+	bundle  generationBundleSnapshot
+	index   int
+	binary  string
+}
+
+func (r *generationCommandReplayer) replay(child context.Context, args []string, sink io.Writer, maximum int64) (generationCommandEvidence, error) {
+	if r.index >= len(r.records) {
+		return generationCommandEvidence{}, errors.New("generation command log ended early")
 	}
-	if len(records) == 0 || len(records) > 24 {
-		return errors.New("generation command inventory violates its finite boundary")
+	record := r.records[r.index]
+	r.index++
+	if len(record.Arguments) < 4 || !filepath.IsAbs(record.Arguments[0]) || filepath.Base(record.Arguments[0]) != "docker" ||
+		len(record.Arguments[0]) > 4096 || strings.ContainsAny(record.Arguments[0], "\r\n\x00") {
+		return record, errors.New("generation command lacks its explicit local Docker executable")
 	}
-	index := 0
-	binary := ""
-	replay := func(child context.Context, args []string, sink io.Writer, maximum int64) (generationCommandEvidence, error) {
-		if index >= len(records) {
-			return generationCommandEvidence{}, errors.New("generation command log ended early")
-		}
-		record := records[index]
-		index++
-		if len(record.Arguments) < 4 || !filepath.IsAbs(record.Arguments[0]) || filepath.Base(record.Arguments[0]) != "docker" ||
-			len(record.Arguments[0]) > 4096 || strings.ContainsAny(record.Arguments[0], "\r\n\x00") {
-			return record, errors.New("generation command lacks its explicit local Docker executable")
-		}
-		if binary == "" {
-			binary = record.Arguments[0]
-		}
-		expected := append([]string{binary, "--host", generationDockerEndpoint}, args...)
-		if !slices.Equal(record.Arguments, expected) || record.ExitCode != 0 || record.Error != "" ||
-			len(record.Stderr) > 1<<20 || int64(len(record.Stdout)) > maximum || sink == nil && len(record.Stdout)+len(record.Stderr) > 1<<20 {
-			return record, errors.New("generation command arguments, bounds or recorded status differ")
-		}
-		if sink != nil {
-			body := bundle.bodies["output.tar"]
-			if len(record.Stdout) != 0 || int64(len(body)) > maximum {
-				return record, errors.New("streamed command has conflicting or excess output")
-			}
-			if _, err := sink.Write(body); err != nil {
-				return record, err
-			}
-		}
-		return record, child.Err()
+	if r.binary == "" {
+		r.binary = record.Arguments[0]
 	}
-	runner := &generationRunner{execute: replay, name: report.ContainerName, inputs: inputs}
+	expected := append([]string{r.binary, "--host", generationDockerEndpoint}, args...)
+	if !slices.Equal(record.Arguments, expected) || record.ExitCode != 0 || record.Error != "" ||
+		len(record.Stderr) > 1<<20 || int64(len(record.Stdout)) > maximum || sink == nil && len(record.Stdout)+len(record.Stderr) > 1<<20 {
+		return record, errors.New("generation command arguments, bounds or recorded status differ")
+	}
+	if sink != nil {
+		body := r.bundle.bodies["output.tar"]
+		if len(record.Stdout) != 0 || int64(len(body)) > maximum {
+			return record, errors.New("streamed command has conflicting or excess output")
+		}
+		if _, err := sink.Write(body); err != nil {
+			return record, err
+		}
+	}
+	return record, child.Err()
+}
+
+func replayGenerationLifecycle(ctx context.Context, runner *generationRunner, inputs generationRunInputs) error {
 	if err := runner.preflight(ctx); err != nil {
 		return err
 	}
@@ -229,10 +225,25 @@ func checkGenerationCommands(ctx context.Context, report GeneratorFixtureRun, bu
 	if _, err := runner.inspect(ctx, true, true, false); err != nil {
 		return err
 	}
-	if err := runner.cleanup(); err != nil {
+	return runner.cleanup()
+}
+
+// Replay validates only supplied command records through the same state machine.
+// The executor below never resolves Docker or starts a process.
+func checkGenerationCommands(ctx context.Context, report GeneratorFixtureRun, bundle generationBundleSnapshot, inputs generationRunInputs) error {
+	var records []generationCommandEvidence
+	if err := decodeCanonicalGeneratorJSON(bundle.bodies["commands.json"], 20, &records); err != nil {
 		return err
 	}
-	if index != len(records) || runner.id != report.ContainerID {
+	if len(records) == 0 || len(records) > 24 {
+		return errors.New("generation command inventory violates its finite boundary")
+	}
+	replayer := &generationCommandReplayer{records: records, bundle: bundle}
+	runner := &generationRunner{execute: replayer.replay, name: report.ContainerName, inputs: inputs}
+	if err := replayGenerationLifecycle(ctx, runner, inputs); err != nil {
+		return err
+	}
+	if replayer.index != len(records) || runner.id != report.ContainerID {
 		return errors.New("generation command log has excess entries or another container identity")
 	}
 	return ctx.Err()

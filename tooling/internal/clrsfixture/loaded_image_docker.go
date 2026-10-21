@@ -122,26 +122,34 @@ func loadedImageOnlyExitError(err error) bool {
 }
 
 func loadedImageExitCauses(err error, remaining *int) bool {
-	*remaining = *remaining - 1
-	if *remaining < 0 {
+	if err == nil || remaining == nil || *remaining <= 0 {
 		return false
 	}
-	if value, ok := err.(*exec.ExitError); ok {
-		return value.ProcessState != nil && value.ExitCode() == 1
-	}
-	if value, ok := err.(interface{ Unwrap() []error }); ok {
-		causes := value.Unwrap()
-		if len(causes) == 0 {
-			return false
-		}
-		for _, cause := range causes {
-			if !loadedImageExitCauses(cause, remaining) {
+	stack := []error{err}
+	limit := *remaining
+	for step := 0; step < limit && len(stack) > 0; step++ {
+		*remaining--
+		current := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if value, ok := current.(*exec.ExitError); ok {
+			if value.ProcessState == nil || value.ExitCode() != 1 {
 				return false
 			}
+			continue
 		}
-		return true
+		if value, ok := current.(interface{ Unwrap() []error }); ok {
+			causes := value.Unwrap()
+			if len(causes) == 0 {
+				return false
+			}
+			for i := len(causes) - 1; i >= 0; i-- {
+				stack = append(stack, causes[i])
+			}
+			continue
+		}
+		return false
 	}
-	return false
+	return len(stack) == 0
 }
 
 func bindLoadedImageInspection(body []byte, proof GeneratorOCIReport, runtime GeneratorRuntime) (string, error) {

@@ -1213,11 +1213,17 @@ func TestAdmissionReservationNeverOversubscribesUnderRace(t *testing.T) {
 			}
 			admitted.Add(1)
 			current := active.Add(1)
-			for {
+			const maximumCasAttempts = 1000
+			var recorded bool
+			for attempt := 0; attempt < maximumCasAttempts; attempt++ {
 				observed := maximum.Load()
 				if current <= observed || maximum.CompareAndSwap(observed, current) {
+					recorded = true
 					break
 				}
+			}
+			if !recorded {
+				t.Errorf("CAS active maximum exceeded %d attempts", maximumCasAttempts)
 			}
 			time.Sleep(time.Millisecond)
 			active.Add(-1)

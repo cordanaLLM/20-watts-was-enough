@@ -6,13 +6,13 @@
   "python_version": "3.13.15",
   "base_image": "docker.io/library/python:3.13.15-slim-bookworm@sha256:c45a22ea000adfd9cda29364bbe7edd23001ce5cc2ad15857cfbf7766943b9ca",
   "glibc_version": "2.36",
-  "dependency_lock_sha256": "b65e3bc81c1590055b75d8cbfb8e27c97649b6e1bfd960072e81e475bb7de0a2",
+  "dependency_lock_sha256": "1f2a837d35260fb4bf095032a016c0ea9543b573b8ad83def7ae5378972ff7e4",
   "source_date_epoch": 1787658740,
   "package_count": 61,
   "artifact_count": 61,
   "downloaded_wheel_count": 60,
   "source_built_wheel_count": 1,
-  "total_size_bytes": 823936696,
+  "total_size_bytes": 823936177,
   "artifacts": [
     {
       "package": "absl-py",
@@ -52,12 +52,12 @@
     },
     {
       "package": "certifi",
-      "version": "2026.7.22",
+      "version": "2026.10.19",
       "kind": "downloaded-wheel",
-      "filename": "certifi-2026.7.22-py3-none-any.whl",
-      "url": "https://files.pythonhosted.org/packages/0b/a7/71ac2cff56fec219ed242bb11b8efb69fcc4bec75db06fb7bfe35de520e6/certifi-2026.7.22-py3-none-any.whl",
-      "sha256": "62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775",
-      "size_bytes": 136983
+      "filename": "certifi-2026.10.19-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/c4/51/29046e48f693c54e5b7412216d447a1d8362c9653148d98c02cdf65fa733/certifi-2026.10.19-py3-none-any.whl",
+      "sha256": "42d35340cc5b9ba78e818ddbff0c5b1c2b779de448a340fd1b989f5fa8670e1b",
+      "size_bytes": 136464
     },
     {
       "package": "charset-normalizer",
