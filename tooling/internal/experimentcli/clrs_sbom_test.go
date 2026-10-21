@@ -44,10 +44,10 @@ func TestCLRSSBOMCLIMissingAuthorityReportsFailureJSON(t *testing.T) {
 }
 
 func TestCLRSSBOMReportOutputContract(t *testing.T) {
-	report := clrsfixture.GeneratorSBOMReport{Schema: 1, Authority: "NO_RESULT", State: "bundle-consistent-unadmitted", PackageCount: 217,
+	report := clrsfixture.GeneratorSBOMReport{Schema: 1, Authority: "NO_RESULT", State: "bundle-consistent-unadmitted", PackageCount: 218,
 		LockedPackages: make([]clrsfixture.GeneratorSBOMPackage, 62), ExtraTopLevelPython: nil}
 	var stdout, stderr bytes.Buffer
-	if code := writeCLRSSBOMReport(report, nil, false, &stdout, &stderr); code != 0 || stderr.Len() != 0 || !strings.Contains(stdout.String(), "217 package records, 62 locked runtime packages, 0 extra") || !strings.Contains(stdout.String(), "NO_RESULT") {
+	if code := writeCLRSSBOMReport(report, nil, false, &stdout, &stderr); code != 0 || stderr.Len() != 0 || !strings.Contains(stdout.String(), "218 package records, 62 locked runtime packages, 0 extra") || !strings.Contains(stdout.String(), "NO_RESULT") {
 		t.Fatalf("human output: %d %q %q", code, stdout.String(), stderr.String())
 	}
 	stdout.Reset()

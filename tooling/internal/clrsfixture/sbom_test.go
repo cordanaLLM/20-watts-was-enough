@@ -242,7 +242,7 @@ func TestGeneratorSBOMBundleActualRetainedInput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.PackageCount != 217 || len(report.LockedPackages) != 62 || len(report.ExtraTopLevelPython) != 0 || report.OtherPackageCount != 155 {
+	if report.PackageCount != 218 || len(report.LockedPackages) != 62 || len(report.ExtraTopLevelPython) != 0 || report.OtherPackageCount != 156 {
 		t.Fatalf("retained observation differs: %+v", report)
 	}
 	body, err := MarshalGeneratorSBOMReport(report)
