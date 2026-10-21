@@ -26,8 +26,8 @@ func TestGeneratorSBOMBundleDeterministicReadOnly(t *testing.T) {
 	}
 	if first.State != "bundle-consistent-unadmitted" || first.Authority != ResultAuthority ||
 		first.StatementSubject != "null" || first.ExecutionAuthenticated || first.ImageAdmitted || first.LicensesApproved ||
-		len(first.LockedPackages) != 61 || len(first.ExtraTopLevelPython) != 1 || first.ExtraTopLevelPython[0].Name != "pip" ||
-		first.ExtraTopLevelPython[0].Version != "26.2.1" || first.PackageCount != 64 || first.OtherPackageCount != 2 || len(first.Files) != 5 {
+		len(first.LockedPackages) != 62 || len(first.ExtraTopLevelPython) != 0 ||
+		first.PackageCount != 64 || first.OtherPackageCount != 2 || len(first.Files) != 5 {
 		t.Fatalf("incorrect scope/result: %+v", first)
 	}
 	a, err := MarshalGeneratorSBOMReport(first)
@@ -242,8 +242,7 @@ func TestGeneratorSBOMBundleActualRetainedInput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.PackageCount != 217 || len(report.LockedPackages) != 61 || len(report.ExtraTopLevelPython) != 1 ||
-		report.ExtraTopLevelPython[0].Name != "pip" || report.ExtraTopLevelPython[0].Version != "26.2.1" || report.OtherPackageCount != 155 {
+	if report.PackageCount != 217 || len(report.LockedPackages) != 62 || len(report.ExtraTopLevelPython) != 0 || report.OtherPackageCount != 155 {
 		t.Fatalf("retained observation differs: %+v", report)
 	}
 	body, err := MarshalGeneratorSBOMReport(report)

@@ -15,8 +15,8 @@ import (
 const (
 	maximumGeneratorProjectBytes        = 64 << 10
 	maximumGeneratorDependencyLockBytes = 16 << 20
-	lockedGeneratorPackageCount         = 62
-	lockedGeneratorArtifactCount        = 135
+	lockedGeneratorPackageCount         = 63
+	lockedGeneratorArtifactCount        = 137
 	generatorResolutionMarker           = "implementation_name == 'cpython' and platform_machine == 'x86_64' and sys_platform == 'linux'"
 )
 

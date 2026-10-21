@@ -41,7 +41,7 @@ func TestGeneratorSBOMInstalledMetadataPathTraps(t *testing.T) {
 		"other distribution": func(s string) string { return strings.ReplaceAll(s, "absl_py", "wrong") },
 		"only RECORD":        func(s string) string { return strings.ReplaceAll(s, "METADATA", "RECORD") },
 		"different RECORD directory": func(s string) string {
-			return strings.Replace(s, "absl_py-2.5.0.dist-info/RECORD", "pip-26.2.1.dist-info/RECORD", 1)
+			return strings.Replace(s, "absl_py-2.5.0.dist-info/RECORD", "pip-26.2.2.dist-info/RECORD", 1)
 		},
 		"duplicate METADATA":      func(s string) string { return strings.Replace(s, "RECORD", "METADATA", 1) },
 		"backslash":               func(s string) string { return strings.ReplaceAll(s, ".dist-info/", ".dist-info\\") },
