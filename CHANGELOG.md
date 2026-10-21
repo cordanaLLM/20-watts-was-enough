@@ -7,6 +7,10 @@ the exact diff; this file records why the project changed.
 
 ### Security
 
+- The CLRS generator lock moves certifi from 2026.7.22 to 2026.10.19 for
+  PYSEC-2026-4320 through a certifi-only package cutoff; every other package
+  stays as locked
+  ([Decision 0113](decisions/0113-lift-the-certifi-cutoff-in-the-clrs-generator.md)).
 - Container smoke CI scans the four images it builds with a pinned Trivy
   0.76.0 and fails on any HIGH or CRITICAL advisory that has a fixed version;
   a planted lodash 4.17.15 proves the scanner and its database work first.
