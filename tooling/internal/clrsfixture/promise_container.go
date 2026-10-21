@@ -135,18 +135,7 @@ func runPromiseContainer(ctx context.Context, inputs promiseInputs, bundle *os.R
 		return receipt, err
 	}
 	defer func() {
-		cleanupErr := removePromiseStaging(bundle, name, staging)
-		receipt.StagingRemoved = cleanupErr == nil
-		body, encodeErr := strictjson.Canonical(log.entries)
-		if encodeErr == nil && len(body) > 2<<20 {
-			encodeErr = errors.New("Promise command evidence exceeds its byte limit")
-		}
-		logPath := runDirectory + "/commands.json"
-		if encodeErr == nil {
-			encodeErr = writePromiseFile(bundle, logPath, body)
-		}
-		receipt.Log = promiseIdentity(logPath, body)
-		runErr = errors.Join(runErr, cleanupErr, encodeErr)
+		runErr = errors.Join(runErr, finalizePromiseStagingAndLog(bundle, name, staging, log, runDirectory, &receipt))
 	}()
 	runContext, cancel := context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
@@ -162,32 +151,12 @@ func runPromiseContainer(ctx context.Context, inputs promiseInputs, bundle *os.R
 		receipt.CleanupVerified = cleanupErr == nil
 		runErr = errors.Join(runErr, cleanupErr)
 	}()
-	result, err := log.execute(runContext, "create", promiseContainerArguments(inputs, name, filepath.Join(staging.Name(), "wheelhouse")), nil, false)
-	if err != nil {
-		return receipt, err
-	}
-	containerID := strings.TrimSpace(string(result.stdout))
-	if !lowerHex(containerID, 64) || len(result.stderr) != 0 {
-		return receipt, errors.New("Promise container create returned an invalid identity")
-	}
+	containerID, err := createAndStartPromiseContainer(runContext, log, inputs, name, staging)
 	receipt.ContainerID = containerID
-	if _, err := log.execute(runContext, "start", []string{"container", "start", name}, nil, false); err != nil {
-		return receipt, err
-	}
-	if _, err := log.execute(runContext, "copy-source", promiseTransferArguments(inputs.manifest.SourceBuild, name, "copy-source"), inputs.sourceTar, false); err != nil {
-		return receipt, err
-	}
-	if err := executePromiseBuild(runContext, log, inputs.manifest.SourceBuild, name); err != nil {
-		return receipt, err
-	}
-	result, err = log.execute(runContext, "read-wheel", promiseTransferArguments(inputs.manifest.SourceBuild, name, "read-wheel"), nil, false)
 	if err != nil {
 		return receipt, err
 	}
-	if len(result.stderr) != 0 {
-		return receipt, errors.New("Promise wheel readback wrote unexpected stderr")
-	}
-	wheel, err := parsePromiseOutput(result.stdout)
+	wheel, err := buildAndReadPromiseWheel(runContext, log, inputs.manifest.SourceBuild, name, inputs.sourceTar)
 	if err != nil {
 		return receipt, err
 	}
@@ -201,6 +170,53 @@ func runPromiseContainer(ctx context.Context, inputs promiseInputs, bundle *os.R
 	receipt.Wheel = promiseIdentity(wheelPath, wheel)
 	receipt.LicenseSHA256 = promiseLicenseSHA256
 	return receipt, nil
+}
+
+func finalizePromiseStagingAndLog(bundle *os.Root, name string, staging *os.Root, log *promiseCommandLog, runDirectory string, receipt *promiseRunReceipt) error {
+	cleanupErr := removePromiseStaging(bundle, name, staging)
+	receipt.StagingRemoved = cleanupErr == nil
+	body, encodeErr := strictjson.Canonical(log.entries)
+	if encodeErr == nil && len(body) > 2<<20 {
+		encodeErr = errors.New("Promise command evidence exceeds its byte limit")
+	}
+	logPath := runDirectory + "/commands.json"
+	if encodeErr == nil {
+		encodeErr = writePromiseFile(bundle, logPath, body)
+	}
+	receipt.Log = promiseIdentity(logPath, body)
+	return errors.Join(cleanupErr, encodeErr)
+}
+
+func createAndStartPromiseContainer(runContext context.Context, log *promiseCommandLog, inputs promiseInputs, name string, staging *os.Root) (string, error) {
+	result, err := log.execute(runContext, "create", promiseContainerArguments(inputs, name, filepath.Join(staging.Name(), "wheelhouse")), nil, false)
+	if err != nil {
+		return "", err
+	}
+	containerID := strings.TrimSpace(string(result.stdout))
+	if !lowerHex(containerID, 64) || len(result.stderr) != 0 {
+		return "", errors.New("Promise container create returned an invalid identity")
+	}
+	if _, err := log.execute(runContext, "start", []string{"container", "start", name}, nil, false); err != nil {
+		return containerID, err
+	}
+	return containerID, nil
+}
+
+func buildAndReadPromiseWheel(runContext context.Context, log *promiseCommandLog, source GeneratorWheelSourceBuild, name string, sourceTar []byte) ([]byte, error) {
+	if _, err := log.execute(runContext, "copy-source", promiseTransferArguments(source, name, "copy-source"), sourceTar, false); err != nil {
+		return nil, err
+	}
+	if err := executePromiseBuild(runContext, log, source, name); err != nil {
+		return nil, err
+	}
+	result, err := log.execute(runContext, "read-wheel", promiseTransferArguments(source, name, "read-wheel"), nil, false)
+	if err != nil {
+		return nil, err
+	}
+	if len(result.stderr) != 0 {
+		return nil, errors.New("Promise wheel readback wrote unexpected stderr")
+	}
+	return parsePromiseOutput(result.stdout)
 }
 
 func executePromiseBuild(ctx context.Context, log *promiseCommandLog, source GeneratorWheelSourceBuild, name string) error {

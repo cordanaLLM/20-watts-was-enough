@@ -458,7 +458,7 @@ func TestWriteNewGeneratorWheelhouseManifestAnchorsParentAndPreservesReplacement
 			}
 			return os.WriteFile(output, replacement, 0o644)
 		})
-		if err == nil || !strings.Contains(err.Error(), "not the expected regular file") {
+		if err == nil || !strings.Contains(err.Error(), "not the expected regular file") || !strings.Contains(err.Error(), "was left untouched") {
 			t.Fatalf("write after name replacement error = %v", err)
 		}
 		retained, readErr := os.ReadFile(output)
@@ -474,7 +474,7 @@ func TestWriteNewGeneratorWheelhouseManifestAnchorsParentAndPreservesReplacement
 		_, _, err := writeNewGeneratorWheelhouseManifestWithInterlock(t.TempDir(), output, body, func() error {
 			return os.WriteFile(output, replacement, 0o644)
 		})
-		if err == nil || !strings.Contains(err.Error(), "bytes do not match") {
+		if err == nil || !strings.Contains(err.Error(), "bytes do not match") || !strings.Contains(err.Error(), "was left untouched") {
 			t.Fatalf("write after same-inode byte replacement error = %v", err)
 		}
 		retained, readErr := os.ReadFile(output)
