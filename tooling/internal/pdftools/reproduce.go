@@ -20,6 +20,134 @@ type ReproductionOptions struct {
 	Candidate      *CandidateOutputOptions
 }
 
+func verifyReproductionPreconditions(
+	ctx context.Context,
+	executor dockerExecutor,
+	authority checkedAuthority,
+) (ReproductionComparator, apkoBuilderIdentity, error) {
+	comparator, err := currentComparatorIdentity(authority.root)
+	if err != nil {
+		return ReproductionComparator{}, apkoBuilderIdentity{}, err
+	}
+	if err := verifyLocalDockerEndpoint(ctx, executor, authority); err != nil {
+		return ReproductionComparator{}, apkoBuilderIdentity{}, err
+	}
+	if err := verifyBuildxIdentity(ctx, executor, authority); err != nil {
+		return ReproductionComparator{}, apkoBuilderIdentity{}, err
+	}
+	apkoBuilder, err := inspectApkoBuilderIdentity(ctx, executor, authority)
+	if err != nil {
+		return ReproductionComparator{}, apkoBuilderIdentity{}, err
+	}
+	return comparator, apkoBuilder, nil
+}
+
+func runReproductionBaseBuilds(
+	ctx context.Context,
+	executor dockerExecutor,
+	authority checkedAuthority,
+	temporaryRoot string,
+) ([]baseBuild, bool, error) {
+	bases := make([]baseBuild, 0, reproductionBuildCount)
+	for sequence := 1; sequence <= reproductionBuildCount; sequence++ {
+		build, err := runApkoBuild(ctx, executor, authority, temporaryRoot, sequence)
+		if err != nil {
+			return nil, false, err
+		}
+		if err := ensureAuthorityUnchanged(authority); err != nil {
+			return nil, false, err
+		}
+		bases = append(bases, build)
+	}
+	baseArchiveEqual, err := equalRegularFiles(
+		bases[0].Archive, bases[1].Archive, authority.contract.Limits.BaseArchiveBytes,
+	)
+	if err != nil {
+		return nil, false, err
+	}
+	return bases, baseArchiveEqual, nil
+}
+
+func runReproductionFinalBuilds(
+	ctx context.Context,
+	executor dockerExecutor,
+	authority checkedAuthority,
+	temporaryRoot string,
+	bases []baseBuild,
+) (noticeContextIdentity, []finalBuild, []layerInspection, bool, bool, error) {
+	contextRoot := filepath.Join(temporaryRoot, "notice-context")
+	if err := os.Mkdir(contextRoot, 0o700); err != nil {
+		return noticeContextIdentity{}, nil, nil, false, false, fmt.Errorf("create PDF-tools final-image context: %w", err)
+	}
+	contextIdentity, err := prepareNoticeContext(ctx, contextRoot, authority)
+	if err != nil {
+		return noticeContextIdentity{}, nil, nil, false, false, err
+	}
+	finals := make([]finalBuild, 0, reproductionBuildCount)
+	inspections := make([]layerInspection, 0, reproductionBuildCount)
+	contextStable := true
+	for sequence := 1; sequence <= reproductionBuildCount; sequence++ {
+		build, err := runFinalBuild(
+			ctx, executor, authority, bases[sequence-1], contextRoot, temporaryRoot, sequence,
+		)
+		if err != nil {
+			return noticeContextIdentity{}, nil, nil, false, false, err
+		}
+		currentContext, err := inspectNoticeContext(ctx, contextRoot, authority.contract)
+		if err != nil {
+			return noticeContextIdentity{}, nil, nil, false, false, err
+		}
+		contextStable = contextStable && currentContext == contextIdentity
+		inspection, err := inspectFinalLayers(ctx, build.Image, authority.contract)
+		if err != nil {
+			return noticeContextIdentity{}, nil, nil, false, false, err
+		}
+		finals = append(finals, build)
+		inspections = append(inspections, inspection)
+	}
+	finalArchiveEqual, err := equalRegularFiles(
+		finals[0].Archive, finals[1].Archive, authority.contract.Limits.FinalArchiveBytes,
+	)
+	if err != nil {
+		return noticeContextIdentity{}, nil, nil, false, false, err
+	}
+	return contextIdentity, finals, inspections, finalArchiveEqual, contextStable, nil
+}
+
+func handleReproductionMismatch(
+	authority checkedAuthority,
+	repository publicationRootIdentity,
+	receiptPath string,
+	receipt ReproductionReceipt,
+	comparator ReproductionComparator,
+) error {
+	if err := ensureReproductionInputsUnchanged(authority, comparator); err != nil {
+		return err
+	}
+	if err := writeReproductionReceiptCheckedAtRoot(
+		repository, receiptPath, receipt, authority.contract.Limits.ReceiptBytes, nil, nil,
+	); err != nil {
+		return err
+	}
+	return errors.New("PDF-tools final-image reproduction mismatch; inspect the retained NO_RESULT receipt")
+}
+
+func prepareReproductionPlan(
+	authority checkedAuthority,
+	options ReproductionOptions,
+) (publicationRootIdentity, string, *candidateOutputPlan, error) {
+	repository := publicationRootIdentity{path: authority.root, information: authority.rootInformation}
+	receiptPath, err := prepareReproductionReceiptPathAtRoot(repository, options.ReceiptPath, nil)
+	if err != nil {
+		return publicationRootIdentity{}, "", nil, err
+	}
+	candidatePlan, err := prepareCandidateOutputPlan(authority, options.Candidate, options.ReceiptPath)
+	if err != nil {
+		return publicationRootIdentity{}, "", nil, err
+	}
+	return repository, receiptPath, candidatePlan, nil
+}
+
 // ReproduceFinalImage builds and compares two complete local PDF-tools images.
 // When one bundle path and three convenience paths are supplied, it also
 // retains one exact final archive, the byte-identical canonical apko SPDX
@@ -33,12 +161,7 @@ func ReproduceFinalImage(
 	if err != nil {
 		return ReproductionReceipt{}, err
 	}
-	repository := publicationRootIdentity{path: authority.root, information: authority.rootInformation}
-	receiptPath, err := prepareReproductionReceiptPathAtRoot(repository, options.ReceiptPath, nil)
-	if err != nil {
-		return ReproductionReceipt{}, err
-	}
-	candidatePlan, err := prepareCandidateOutputPlan(authority, options.Candidate, options.ReceiptPath)
+	repository, receiptPath, candidatePlan, err := prepareReproductionPlan(authority, options)
 	if err != nil {
 		return ReproductionReceipt{}, err
 	}
@@ -56,71 +179,16 @@ func ReproduceFinalImage(
 		}
 	}()
 	executor := localDockerExecutor{}
-	comparator, err := currentComparatorIdentity(authority.root)
+	comparator, apkoBuilder, err := verifyReproductionPreconditions(reproductionContext, executor, authority)
 	if err != nil {
 		return ReproductionReceipt{}, err
 	}
-	if err := verifyLocalDockerEndpoint(reproductionContext, executor, authority); err != nil {
-		return ReproductionReceipt{}, err
-	}
-	if err := verifyBuildxIdentity(reproductionContext, executor, authority); err != nil {
-		return ReproductionReceipt{}, err
-	}
-	apkoBuilder, err := inspectApkoBuilderIdentity(reproductionContext, executor, authority)
+	bases, baseArchiveEqual, err := runReproductionBaseBuilds(reproductionContext, executor, authority, temporaryRoot)
 	if err != nil {
 		return ReproductionReceipt{}, err
 	}
-
-	bases := make([]baseBuild, 0, reproductionBuildCount)
-	for sequence := 1; sequence <= reproductionBuildCount; sequence++ {
-		build, err := runApkoBuild(reproductionContext, executor, authority, temporaryRoot, sequence)
-		if err != nil {
-			return ReproductionReceipt{}, err
-		}
-		if err := ensureAuthorityUnchanged(authority); err != nil {
-			return ReproductionReceipt{}, err
-		}
-		bases = append(bases, build)
-	}
-	baseArchiveEqual, err := equalRegularFiles(
-		bases[0].Archive, bases[1].Archive, authority.contract.Limits.BaseArchiveBytes,
-	)
-	if err != nil {
-		return ReproductionReceipt{}, err
-	}
-
-	contextRoot := filepath.Join(temporaryRoot, "notice-context")
-	if err := os.Mkdir(contextRoot, 0o700); err != nil {
-		return ReproductionReceipt{}, fmt.Errorf("create PDF-tools final-image context: %w", err)
-	}
-	contextIdentity, err := prepareNoticeContext(reproductionContext, contextRoot, authority)
-	if err != nil {
-		return ReproductionReceipt{}, err
-	}
-	finals := make([]finalBuild, 0, reproductionBuildCount)
-	inspections := make([]layerInspection, 0, reproductionBuildCount)
-	contextStable := true
-	for sequence := 1; sequence <= reproductionBuildCount; sequence++ {
-		build, err := runFinalBuild(
-			reproductionContext, executor, authority, bases[sequence-1], contextRoot, temporaryRoot, sequence,
-		)
-		if err != nil {
-			return ReproductionReceipt{}, err
-		}
-		currentContext, err := inspectNoticeContext(reproductionContext, contextRoot, authority.contract)
-		if err != nil {
-			return ReproductionReceipt{}, err
-		}
-		contextStable = contextStable && currentContext == contextIdentity
-		inspection, err := inspectFinalLayers(reproductionContext, build.Image, authority.contract)
-		if err != nil {
-			return ReproductionReceipt{}, err
-		}
-		finals = append(finals, build)
-		inspections = append(inspections, inspection)
-	}
-	finalArchiveEqual, err := equalRegularFiles(
-		finals[0].Archive, finals[1].Archive, authority.contract.Limits.FinalArchiveBytes,
+	contextIdentity, finals, inspections, finalArchiveEqual, contextStable, err := runReproductionFinalBuilds(
+		reproductionContext, executor, authority, temporaryRoot, bases,
 	)
 	if err != nil {
 		return ReproductionReceipt{}, err
@@ -130,15 +198,7 @@ func ReproduceFinalImage(
 	)
 	receipt := newReproductionReceipt(authority, apkoBuilder, comparator, contextIdentity, bases, finals, inspections[0], comparison, nil)
 	if !comparison.ConstructionMatch {
-		if err := ensureReproductionInputsUnchanged(authority, comparator); err != nil {
-			return ReproductionReceipt{}, err
-		}
-		if err := writeReproductionReceiptCheckedAtRoot(
-			repository, receiptPath, receipt, authority.contract.Limits.ReceiptBytes, nil, nil,
-		); err != nil {
-			return ReproductionReceipt{}, err
-		}
-		return receipt, errors.New("PDF-tools final-image reproduction mismatch; inspect the retained NO_RESULT receipt")
+		return receipt, handleReproductionMismatch(authority, repository, receiptPath, receipt, comparator)
 	}
 	runtimeObservation, err := inspectFinalRuntime(reproductionContext, executor, authority, finals[0])
 	if err != nil {
@@ -152,10 +212,53 @@ func ReproduceFinalImage(
 	)
 }
 
-func finishSuccessfulReproduction(
-	ctx context.Context,
+func writeUnplannedReproductionReceipt(
 	authority checkedAuthority,
 	receiptPath string,
+	apkoBuilder apkoBuilderIdentity,
+	comparator ReproductionComparator,
+	contextIdentity noticeContextIdentity,
+	bases []baseBuild,
+	finals []finalBuild,
+	inspection layerInspection,
+	comparison ReproductionComparison,
+	runtimeObservation RuntimeObservation,
+) (ReproductionReceipt, error) {
+	receipt := newReproductionReceipt(
+		authority, apkoBuilder, comparator, contextIdentity, bases, finals, inspection, comparison, nil,
+	)
+	receipt.Runtime = &runtimeObservation
+	if err := writeReproductionReceiptCheckedAtRoot(
+		publicationRootIdentity{path: authority.root, information: authority.rootInformation},
+		receiptPath, receipt, authority.contract.Limits.ReceiptBytes, nil, nil,
+	); err != nil {
+		return ReproductionReceipt{}, err
+	}
+	return receipt, nil
+}
+
+func publishCandidatePublicationBundle(
+	authority checkedAuthority,
+	publicationBundle *stagedCandidateArtifact,
+	comparator ReproductionComparator,
+) (CandidateBundleVerification, error) {
+	bundle := &stagedCandidate{artifacts: []*stagedCandidateArtifact{publicationBundle}}
+	if err := bundle.install(authority.root); err != nil {
+		return CandidateBundleVerification{}, err
+	}
+	verification, err := verifyPublishedCandidatePublicationBundle(authority, publicationBundle)
+	if err != nil {
+		return CandidateBundleVerification{}, err
+	}
+	if err := ensureReproductionInputsUnchanged(authority, comparator); err != nil {
+		return CandidateBundleVerification{}, err
+	}
+	return verification, nil
+}
+
+func finishCandidateReproduction(
+	ctx context.Context,
+	authority checkedAuthority,
 	plan *candidateOutputPlan,
 	apkoBuilder apkoBuilderIdentity,
 	comparator ReproductionComparator,
@@ -166,22 +269,6 @@ func finishSuccessfulReproduction(
 	comparison ReproductionComparison,
 	runtimeObservation RuntimeObservation,
 ) (_ ReproductionReceipt, returnError error) {
-	if err := ensureReproductionInputsUnchanged(authority, comparator); err != nil {
-		return ReproductionReceipt{}, err
-	}
-	if plan == nil {
-		receipt := newReproductionReceipt(
-			authority, apkoBuilder, comparator, contextIdentity, bases, finals, inspection, comparison, nil,
-		)
-		receipt.Runtime = &runtimeObservation
-		if err := writeReproductionReceiptCheckedAtRoot(
-			publicationRootIdentity{path: authority.root, information: authority.rootInformation},
-			receiptPath, receipt, authority.contract.Limits.ReceiptBytes, nil, nil,
-		); err != nil {
-			return ReproductionReceipt{}, err
-		}
-		return receipt, nil
-	}
 	downloader, err := newCandidateDownloader(time.Duration(authority.contract.Limits.BuildSeconds) * time.Second)
 	if err != nil {
 		return ReproductionReceipt{}, err
@@ -213,21 +300,41 @@ func finishSuccessfulReproduction(
 	if err := ensureReproductionInputsUnchanged(authority, comparator); err != nil {
 		return ReproductionReceipt{}, err
 	}
-	bundle := &stagedCandidate{artifacts: []*stagedCandidateArtifact{publicationBundle}}
-	if err := bundle.install(authority.root); err != nil {
-		return ReproductionReceipt{}, err
-	}
-	verification, err := verifyPublishedCandidatePublicationBundle(authority, publicationBundle)
+	verification, err := publishCandidatePublicationBundle(authority, publicationBundle, comparator)
 	if err != nil {
-		return ReproductionReceipt{}, err
-	}
-	if err := ensureReproductionInputsUnchanged(authority, comparator); err != nil {
 		return ReproductionReceipt{}, err
 	}
 	receipt.Candidate.PublicationBundle = &ReproductionArtifact{
 		Path: plan.publicationBundle.relative, SHA256: verification.SHA256, Bytes: verification.Bytes,
 	}
 	return receipt, nil
+}
+
+func finishSuccessfulReproduction(
+	ctx context.Context,
+	authority checkedAuthority,
+	receiptPath string,
+	plan *candidateOutputPlan,
+	apkoBuilder apkoBuilderIdentity,
+	comparator ReproductionComparator,
+	contextIdentity noticeContextIdentity,
+	bases []baseBuild,
+	finals []finalBuild,
+	inspection layerInspection,
+	comparison ReproductionComparison,
+	runtimeObservation RuntimeObservation,
+) (ReproductionReceipt, error) {
+	if err := ensureReproductionInputsUnchanged(authority, comparator); err != nil {
+		return ReproductionReceipt{}, err
+	}
+	if plan == nil {
+		return writeUnplannedReproductionReceipt(
+			authority, receiptPath, apkoBuilder, comparator, contextIdentity, bases, finals, inspection, comparison, runtimeObservation,
+		)
+	}
+	return finishCandidateReproduction(
+		ctx, authority, plan, apkoBuilder, comparator, contextIdentity, bases, finals, inspection, comparison, runtimeObservation,
+	)
 }
 
 func ensureReproductionInputsUnchanged(authority checkedAuthority, comparator ReproductionComparator) error {

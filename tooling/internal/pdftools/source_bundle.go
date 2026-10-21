@@ -164,6 +164,12 @@ func validateSourceBundleEntries(entries []sourceBundleEntry, maximumBytes int64
 	return nil
 }
 
+var (
+	closeTarWriter             = (*tar.Writer).Close
+	closeGzipWriter            = (*gzip.Writer).Close
+	writeSourceBundleEntryHook = writeSourceBundleEntry
+)
+
 func writeDeterministicSourceBundle(
 	destination io.Writer,
 	entries []sourceBundleEntry,
@@ -202,18 +208,18 @@ func writeDeterministicSourceBundle(
 	tarWriter := tar.NewWriter(gzipWriter)
 	var uncompressed int64
 	for _, entry := range ordered {
-		if err := writeSourceBundleEntry(tarWriter, layout.Root, entry, epoch); err != nil {
-			_ = tarWriter.Close()
-			_ = gzipWriter.Close()
-			return sourceBundleIdentity{}, err
+		if err := writeSourceBundleEntryHook(tarWriter, layout.Root, entry, epoch); err != nil {
+			return sourceBundleIdentity{}, errors.Join(err, closeTarWriter(tarWriter), closeGzipWriter(gzipWriter))
 		}
 		uncompressed += int64(len(entry.Body))
 	}
-	if err := tarWriter.Close(); err != nil {
-		_ = gzipWriter.Close()
-		return sourceBundleIdentity{}, fmt.Errorf("close deterministic source-bundle tar stream: %w", err)
+	if err := closeTarWriter(tarWriter); err != nil {
+		return sourceBundleIdentity{}, errors.Join(
+			fmt.Errorf("close deterministic source-bundle tar stream: %w", err),
+			closeGzipWriter(gzipWriter),
+		)
 	}
-	if err := gzipWriter.Close(); err != nil {
+	if err := closeGzipWriter(gzipWriter); err != nil {
 		return sourceBundleIdentity{}, fmt.Errorf("close deterministic source-bundle gzip stream: %w", err)
 	}
 	return sourceBundleIdentity{
