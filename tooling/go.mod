@@ -1,5 +1,5 @@
 module github.com/cordanaLLM/20-watts-was-enough/tooling
 
-go 1.27.2
+go 1.27.3
 
 require github.com/yuin/goldmark/v2 v2.1.6

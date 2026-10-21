@@ -34,6 +34,8 @@ the controller, validator and fixture-import boundary.
   [Decision 0100](../../decisions/0100-lift-the-urllib3-cutoff-in-the-clrs-generator.md)
   retains the global cutoff `2026-08-31T13:22:50Z` and lifts only urllib3 to
   `2026-09-16T00:00:00Z`, selecting 2.8.0 without changing other package blocks.
+  [Decision 0113](../../decisions/0113-lift-the-certifi-cutoff-in-the-clrs-generator.md)
+  lifts certifi alone to `2026-10-21T00:00:00Z`, selecting 2026.10.19.
 - [`wheelhouse.json`](wheelhouse.json) selects one exact Python 3.13 Linux
   `amd64` wheel for each of the 61 runtime packages and binds the pinned
   Bookworm image's glibc 2.36 boundary. Sixty wheels map directly to compatible
@@ -47,7 +49,7 @@ the controller, validator and fixture-import boundary.
   authority fields. The Promise MIT text is retained at
   [`LICENSES/promise-MIT.txt`](../../LICENSES/promise-MIT.txt); the manifest
   binds its source and built-wheel paths, hash and size. The complete selected
-  set is 823,936,696 bytes; those bytes remain ignored build inputs rather than
+  set is 823,936,177 bytes; those bytes remain ignored build inputs rather than
   Git content.
 - [`image-contract.json`](image-contract.json) reuses the repository's pinned
   Buildx, BuildKit and timestamp-rewrite authority; fixes resource and runtime

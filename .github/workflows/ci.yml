@@ -687,7 +687,7 @@ jobs:
             .state == "completed" and .reason == "ready" and
             .payload == "[0.424 0.545 0.549 0.603 0.715]\n\n" and
             .build.version == "development" and .build.revision == $revision and
-            .build.go_version == "go1.27.2" and .build.os == "linux" and
+            .build.go_version == "go1.27.3" and .build.os == "linux" and
             .build.architecture == "amd64"
           ' <<<"$response" >/dev/null
       - name: Package the closed Fixture 007 runtime context

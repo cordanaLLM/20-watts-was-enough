@@ -152,7 +152,7 @@ func validateGeneratorPythonAndResolver(python GeneratorPython, resolver Generat
 		Image:      "ghcr.io/astral-sh/uv:0.12.9@sha256:8b940d3a9d65bed080436972241af2e21c84b5e8c9193f7014ed71479ee795ff",
 		Revision:   "9f928602938ac5cf1cd6b294a725833c16f5720e",
 		Resolution: "highest-compatible", Prerelease: "if-necessary", ExcludeNewer: "2026-08-31T13:22:50Z",
-		ExcludeNewerPackage: map[string]string{"urllib3": "2026-09-16T00:00:00Z"},
+		ExcludeNewerPackage: map[string]string{"certifi": "2026-10-21T00:00:00Z", "urllib3": "2026-09-16T00:00:00Z"},
 	}
 	if python != wantPython || resolver.Name != wantResolver.Name || resolver.Version != wantResolver.Version ||
 		resolver.Image != wantResolver.Image || resolver.Revision != wantResolver.Revision ||
