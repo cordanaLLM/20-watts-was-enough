@@ -44,13 +44,26 @@ certifi is 2026.10.19, resolving the advisory in pip's bundled distribution.
    virtual environment's pip.
 7. SBOM expectation tests update to classify pip as a locked runtime package
    rather than an unpinned extra top-level package.
+8. Rebuild the candidate image from the new lock and move the retained SBOM
+   bundle that CI checks to a new prerelease.
 
 ## Consequences
 
 - pip advances from ensurepip's 26.2.1 to locked 26.2.2. The lock contains 63
   packages and 137 artifacts; the wheelhouse manifest contains 62 selected
   wheels. The selected wheelhouse bytes increase by 1,819,850 to 825,756,027.
-- pip's vendored certifi meets the PYSEC-2026-4320 requirement.
+- The virtual environment's pip vendors certifi 2026.10.19
+  (`pip/_vendor/vendor.txt` in the locked wheel reads `certifi==2026.10.19`).
+- The retained SBOM bundle that CI checks against the lock moves to the
+  `clrs-sbom-bundle-2026-10-22` prerelease. Its inventory holds 218 package
+  records: 62 locked runtime packages, no extra top-level Python package and
+  156 other records. The `clrs-sbom-bundle-2026-10-21` prerelease stays
+  published.
+- The base image's own interpreter keeps pip 26.2.1 under
+  `/usr/local/lib/python3.13/site-packages`, and the scanner still lists its
+  vendored certifi 2026.6.17 from pip's bundled CycloneDX file. The generator
+  runs from `/opt/venv`; that copy leaves the image only with a newer base
+  image digest.
 - Later uploads for other packages remain outside the resolution boundary.
 - Dependency validation stays offline.
 
@@ -58,8 +71,9 @@ certifi is 2026.10.19, resolving the advisory in pip's bundled distribution.
 
 - **Leave ensurepip pip 26.2.1 in place.** The image scanner would continue to
   flag pip's vendored certifi 2026.6.17.
-- **Uninstall pip after installing requirements.** Pinned execution tools and
-  diagnostics rely on virtual environment inspection.
+- **Uninstall pip after installing requirements.** It changes the image
+  layout further than a version lock and leaves the base image's copy in
+  place as well.
 
 ## Verification
 
@@ -77,3 +91,11 @@ gofmt -l ./internal/clrsfixture
 go vet ./...
 go test ./internal/clrsfixture/... ./internal/clrscontext/... ./internal/experimentcli/...
 ```
+
+Two image builds from the rebuilt context produce identical OCI archives
+(870,898,176 bytes, SHA-256
+`c17930c019866b3fa107cbd9ecea7aada28b07e6efad6ac9e49a074d1177aa63`; manifest
+`sha256:17c07efca134f9e85c8b0965807b0cd4403c3cea85c692aa1a83b16b97a0ad90`).
+The pinned scan lists pip 26.2.2 in `/opt/venv` with its vendored certifi
+2026.10.19. `TestGeneratorSBOMBundleActualRetainedInput` passes with the new
+bundle and fails with the 2026-10-21 bundle on the image binding.

@@ -14,7 +14,10 @@ the exact diff; this file records why the project changed.
   ([Decision 0114](decisions/0114-lock-pip-in-the-clrs-generator.md)).
   Every other package stays as locked. The manifest and contract digest chains
   bind the new wheel, and SBOM validation tests expect pip as a locked runtime
-  package.
+  package. The retained SBOM bundle CI checks moves to the
+  `clrs-sbom-bundle-2026-10-22` prerelease, scanned from the rebuilt image.
+  The base image's own pip under `/usr/local` keeps certifi 2026.6.17 until
+  the base image digest moves.
 
 - The CLRS generator lock moves certifi from 2026.7.22 to 2026.10.19 for
   PYSEC-2026-4320 through a certifi-only package cutoff; every other package
