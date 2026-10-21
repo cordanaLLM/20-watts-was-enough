@@ -44,7 +44,9 @@ func TestContextTarIsDeterministicAndNormalised(t *testing.T) {
 	r := tar.NewReader(bytes.NewReader(first.Bytes()))
 	files := 0
 	directories := 0
-	for {
+	const maxTarEntries = 16
+	entries := 0
+	for ; entries < maxTarEntries; entries++ {
 		header, err := r.Next()
 		if err == io.EOF {
 			break
@@ -60,6 +62,9 @@ func TestContextTarIsDeterministicAndNormalised(t *testing.T) {
 		} else {
 			files++
 		}
+	}
+	if entries >= maxTarEntries {
+		t.Fatalf("tar member count exceeded maximum bound of %d", maxTarEntries)
 	}
 	if files != 3 || directories != 2 {
 		t.Fatalf("members = %d files / %d dirs", files, directories)

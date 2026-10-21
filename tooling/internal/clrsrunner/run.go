@@ -84,10 +84,13 @@ func readRequestContext(ctx context.Context, reader io.Reader) (Request, error) 
 	case completed := <-result:
 		return completedRequestRead(ctx, completed)
 	case <-ctx.Done():
+		err := fmt.Errorf("wait for request envelope: %w", ctx.Err())
 		if closer, ok := reader.(io.Closer); ok {
-			_ = closer.Close()
+			if closeErr := closer.Close(); closeErr != nil {
+				err = errors.Join(err, fmt.Errorf("close request reader: %w", closeErr))
+			}
 		}
-		return Request{}, fmt.Errorf("wait for request envelope: %w", ctx.Err())
+		return Request{}, err
 	}
 }
 
