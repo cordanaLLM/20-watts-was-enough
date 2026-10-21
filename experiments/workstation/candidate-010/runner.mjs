@@ -46,6 +46,7 @@ import {
   validateCapsuleLaunchReceipt,
 } from "./capsule-bootstrap.mjs";
 import { RELEASE_CONTRACT_VERSION } from "./release-contract.mjs";
+import { canonicalJson } from "../lib/canonical-json.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const benchmarkRoot = path.join(root, "experiments", "workstation", "candidate-010");
@@ -62,11 +63,7 @@ function parseArgs(argv) {
 }
 
 function canonical(value) {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
-  if (value && typeof value === "object") {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`;
-  }
-  return JSON.stringify(value);
+  return canonicalJson(value, { strict: false, label: "Runner" });
 }
 
 function sha256(value) {
@@ -209,17 +206,35 @@ async function atomicCreateJson(filePath, document) {
     await handle.close();
     handle = null;
     await link(temporary, filePath);
+    await rm(temporary, { force: true });
     return true;
   } catch (error) {
+    const cleanupErrors = [];
+    if (handle) {
+      try {
+        await handle.close();
+      } catch (closeError) {
+        if (closeError?.code !== "ENOENT") cleanupErrors.push(closeError);
+      }
+    }
+    try {
+      await rm(temporary, { force: true });
+    } catch (rmError) {
+      if (rmError?.code !== "ENOENT") cleanupErrors.push(rmError);
+    }
     if (error.code === "EEXIST") {
       const existing = JSON.parse(await readFile(filePath, "utf8"));
       if (canonical(existing) === canonical(document)) return false;
-      throw new Error(`Concurrent durable provenance differs: ${path.basename(filePath)}`, { cause: error });
+      const existError = new Error(`Concurrent durable provenance differs: ${path.basename(filePath)}`, { cause: error });
+      if (cleanupErrors.length > 0) {
+        throw new AggregateError([existError, ...cleanupErrors], `Failed to clean up temporary file ${temporary}`, { cause: error });
+      }
+      throw existError;
+    }
+    if (cleanupErrors.length > 0) {
+      throw new AggregateError([error, ...cleanupErrors], `Failed to clean up temporary file ${temporary}`, { cause: error });
     }
     throw error;
-  } finally {
-    if (handle) await handle.close().catch(() => {});
-    await rm(temporary, { force: true }).catch(() => {});
   }
 }
 
@@ -234,15 +249,13 @@ function exactHashObject(value, keys, label) {
   return value;
 }
 
-async function persistConfirmationLaunchProvenance({
+async function validateConfirmationLaunchArtifacts({
   outputDirectory,
   launchResult,
-  executionCapsule,
+  descriptor,
   runtimeIdentity,
-  setupTimings,
 }) {
   const provenanceDirectory = path.join(outputDirectory, "provenance");
-  const descriptor = executionCapsule.descriptor;
   const receipt = launchResult.launch_receipt;
   validateCapsuleLaunchReceipt(receipt, {
     action: "candidate-010-confirmation",
@@ -270,6 +283,18 @@ async function persistConfirmationLaunchProvenance({
     loadJson(path.join(outputDirectory, "analysis", "factorial-summary.json")),
     loadJson(path.join(provenanceDirectory, "confirmation-child-setup.json")),
   ]);
+  validatePrecommitAndRunArtifacts({ operatorPrecommit, precommit, receipt, run, validation, summary, launchResult });
+  if (
+    childSetup?.allocation !== "run-level-unallocated"
+    || childSetup.arm_level_allocation !== false
+    || childSetup.calibrated_energy !== false
+    || !Number.isFinite(childSetup.elapsed_ms)
+    || !Number.isSafeInteger(childSetup.bytes_verified)
+  ) throw new Error("Child setup accounting is invalid or allocates overhead to arms.");
+  return { childActionElapsedMs, launchSetupElapsedMs, childSetup };
+}
+
+function validatePrecommitAndRunArtifacts({ operatorPrecommit, precommit, receipt, run, validation, summary, launchResult }) {
   if (canonical(operatorPrecommit) !== canonical(launchResult.launch_precommit)) {
     throw new Error("Parent-frozen launch precommit differs from the bootstrap result.");
   }
@@ -296,14 +321,17 @@ async function persistConfirmationLaunchProvenance({
     || launchResult.action_result.validation_sha256 !== sha256(canonical(validation))
     || launchResult.action_result.analysis_sha256 !== sha256(canonical(summary))
   ) throw new Error("Durable launch receipt is not causally joined to the completed run artifacts.");
-  if (
-    childSetup?.allocation !== "run-level-unallocated"
-    || childSetup.arm_level_allocation !== false
-    || childSetup.calibrated_energy !== false
-    || !Number.isFinite(childSetup.elapsed_ms)
-    || !Number.isSafeInteger(childSetup.bytes_verified)
-  ) throw new Error("Child setup accounting is invalid or allocates overhead to arms.");
+}
 
+function buildConfirmationSetupAccounting({
+  descriptor,
+  receipt,
+  runtimeIdentity,
+  setupTimings,
+  childSetup,
+  launchSetupElapsedMs,
+  childActionElapsedMs,
+}) {
   const sourceBytes = descriptor.source.inventory.total_bytes;
   const dependencyBytes = descriptor.dependencies.inventory.bytes;
   const phases = {
@@ -337,7 +365,7 @@ async function persistConfirmationLaunchProvenance({
       calibrated: false,
     }];
   }));
-  const setupAccounting = {
+  return {
     schema: 1,
     artifact: "candidate-010",
     contract_version: "candidate-010.confirmation-setup-accounting.v1",
@@ -357,20 +385,39 @@ async function persistConfirmationLaunchProvenance({
     modeled_energy_j: null,
     measured_energy_j: null,
   };
+}
+
+async function persistConfirmationLaunchProvenance({
+  outputDirectory,
+  launchResult,
+  executionCapsule,
+  runtimeIdentity,
+  setupTimings,
+}) {
+  const provenanceDirectory = path.join(outputDirectory, "provenance");
+  const descriptor = executionCapsule.descriptor;
+  const receipt = launchResult.launch_receipt;
+  const { childActionElapsedMs, launchSetupElapsedMs, childSetup } = await validateConfirmationLaunchArtifacts({
+    outputDirectory,
+    launchResult,
+    descriptor,
+    runtimeIdentity,
+  });
+  const setupAccounting = buildConfirmationSetupAccounting({
+    descriptor,
+    receipt,
+    runtimeIdentity,
+    setupTimings,
+    childSetup,
+    launchSetupElapsedMs,
+    childActionElapsedMs,
+  });
   await atomicCreateJson(path.join(provenanceDirectory, "capsule-launch-receipt.json"), receipt);
   await atomicCreateJson(path.join(provenanceDirectory, "confirmation-setup-accounting.json"), setupAccounting);
   return Object.freeze({ receipt, setup_accounting: setupAccounting });
 }
 
-export async function runCapsuleConfirmationOperator(options, dependencies = {}) {
-  const {
-    captureRuntime = captureRuntimeIdentity,
-    buildCapsule = buildExecutionCapsule,
-    verifyCapsule = verifyExecutionCapsule,
-    launchCapsule = launchVerifiedCapsuleAction,
-    destroyCapsule = destroyExecutionCapsule,
-    persistLaunchProvenance = persistConfirmationLaunchProvenance,
-  } = dependencies;
+function validateConfirmationOptions(options) {
   const allowedKeys = new Set([
     "release-root", "release", "disjoint-with", "output", "resume", "capsule-parent", "stop-after-records",
   ]);
@@ -391,7 +438,10 @@ export async function runCapsuleConfirmationOperator(options, dependencies = {})
   if (stopAfterRecords !== null && (!Number.isSafeInteger(stopAfterRecords) || stopAfterRecords < 1)) {
     throw new Error("capsule-confirmation --stop-after-records must be a positive integer.");
   }
+  return { stopAfterRecords };
+}
 
+async function loadConfirmationReleaseContext(options) {
   const bindingRoot = await strictRoot(options["release-root"], "release-root");
   const releasePath = await containedRegularFile(bindingRoot, options.release, "release");
   const releaseDocument = await loadJson(releasePath);
@@ -437,13 +487,41 @@ export async function runCapsuleConfirmationOperator(options, dependencies = {})
     ? path.resolve(options["capsule-parent"])
     : os.tmpdir();
   await strictRoot(capsuleParent, "capsule-parent");
+  return {
+    bindingRoot,
+    releasePath,
+    expectedSourceBundle,
+    config,
+    design,
+    disjointWith,
+    outputDirectory,
+    operatorPrecommitPath,
+    existingLaunchPrecommit,
+    capsuleParent,
+  };
+}
 
+export async function runCapsuleConfirmationOperator(options, dependencies = {}) {
+  const {
+    captureRuntime = captureRuntimeIdentity,
+    buildCapsule = buildExecutionCapsule,
+    verifyCapsule = verifyExecutionCapsule,
+    launchCapsule = launchVerifiedCapsuleAction,
+    destroyCapsule = destroyExecutionCapsule,
+    persistLaunchProvenance = persistConfirmationLaunchProvenance,
+  } = dependencies;
+  const { stopAfterRecords } = validateConfirmationOptions(options);
+  const ctx = await loadConfirmationReleaseContext(options);
   const runtimeCaptureStarted = performance.now();
   const runtimeIdentity = await captureRuntime({
     repositoryRoot: root,
     candidateRoot: benchmarkRoot,
   });
-  const runtimeCaptureMs = performance.now() - runtimeCaptureStarted;
+  const setupTimings = {
+    runtime_capture_ms: performance.now() - runtimeCaptureStarted,
+    capsule_build_ms: 0,
+    capsule_verify_ms: 0,
+  };
   let executionCapsule;
   let launchResult;
   let capsuleDestroyed = false;
@@ -451,45 +529,19 @@ export async function runCapsuleConfirmationOperator(options, dependencies = {})
     const capsuleBuildStarted = performance.now();
     executionCapsule = await buildCapsule({
       repositoryRoot: root,
-      executionParent: capsuleParent,
+      executionParent: ctx.capsuleParent,
       runtimeIdentity,
       candidateDirectory: "experiments/workstation/candidate-010",
     });
-    const capsuleBuildMs = performance.now() - capsuleBuildStarted;
-    const capsuleVerifyStarted = performance.now();
-    await verifyCapsule(executionCapsule);
-    const capsuleVerifyMs = performance.now() - capsuleVerifyStarted;
-    launchResult = await launchCapsule({
-      executionCapsule,
-      action: "candidate-010-confirmation",
-      launchPrecommit: existingLaunchPrecommit,
-      onLaunchPrecommit: async (precommit) => {
-        await atomicCreateJson(operatorPrecommitPath, precommit);
-      },
-      confirmationRequest: {
-        config,
-        scenarios: design.scenarios,
-        outputDirectory,
-        release: {
-          bindingRoot,
-          releasePath,
-          disjointWith,
-        },
-        resume: options.resume === "true",
-        ...(stopAfterRecords === null ? {} : { stopAfterRecords }),
-      },
-      expectedSourceBundle,
-    });
-    await persistLaunchProvenance({
-      outputDirectory,
-      launchResult,
-      executionCapsule,
+    setupTimings.capsule_build_ms = performance.now() - capsuleBuildStarted;
+    launchResult = await executeConfirmationCapsuleLaunch({
+      ctx,
+      options,
+      stopAfterRecords,
       runtimeIdentity,
-      setupTimings: {
-        runtime_capture_ms: runtimeCaptureMs,
-        capsule_build_ms: capsuleBuildMs,
-        capsule_verify_ms: capsuleVerifyMs,
-      },
+      executionCapsule,
+      setupTimings,
+      dependencies: { verifyCapsule, launchCapsule, persistLaunchProvenance },
     });
   } finally {
     if (executionCapsule) capsuleDestroyed = await destroyCapsule(executionCapsule);
@@ -499,6 +551,54 @@ export async function runCapsuleConfirmationOperator(options, dependencies = {})
     cleanup_owner: "operator",
     capsule_destroyed: capsuleDestroyed,
   });
+}
+
+async function executeConfirmationCapsuleLaunch({
+  ctx,
+  options,
+  stopAfterRecords,
+  runtimeIdentity,
+  executionCapsule,
+  setupTimings,
+  dependencies,
+}) {
+  const {
+    verifyCapsule,
+    launchCapsule,
+    persistLaunchProvenance,
+  } = dependencies;
+  const capsuleVerifyStarted = performance.now();
+  await verifyCapsule(executionCapsule);
+  setupTimings.capsule_verify_ms = performance.now() - capsuleVerifyStarted;
+  const launchResult = await launchCapsule({
+    executionCapsule,
+    action: "candidate-010-confirmation",
+    launchPrecommit: ctx.existingLaunchPrecommit,
+    onLaunchPrecommit: async (precommit) => {
+      await atomicCreateJson(ctx.operatorPrecommitPath, precommit);
+    },
+    confirmationRequest: {
+      config: ctx.config,
+      scenarios: ctx.design.scenarios,
+      outputDirectory: ctx.outputDirectory,
+      release: {
+        bindingRoot: ctx.bindingRoot,
+        releasePath: ctx.releasePath,
+        disjointWith: ctx.disjointWith,
+      },
+      resume: options.resume === "true",
+      ...(stopAfterRecords === null ? {} : { stopAfterRecords }),
+    },
+    expectedSourceBundle: ctx.expectedSourceBundle,
+  });
+  await persistLaunchProvenance({
+    outputDirectory: ctx.outputDirectory,
+    launchResult,
+    executionCapsule,
+    runtimeIdentity,
+    setupTimings,
+  });
+  return launchResult;
 }
 
 async function loadPromotionCapsuleBindings(paths) {
@@ -591,7 +691,17 @@ async function atomicCreatePromotionPair({ evidenceOutput, receiptOutput, eviden
     }
     await rename(staging, targetDirectory);
   } catch (error) {
-    await rm(staging, { recursive: true, force: true }).catch(() => {});
+    let cleanupErr;
+    try {
+      await rm(staging, { recursive: true, force: true });
+    } catch (cleanupError) {
+      if (cleanupError?.code !== "ENOENT") {
+        cleanupErr = cleanupError;
+      }
+    }
+    if (cleanupErr) {
+      throw new AggregateError([error, cleanupErr], "Failed to clean up promotion staging directory", { cause: error });
+    }
     throw error;
   }
   return Object.freeze({ evidence_path: evidencePath, receipt_path: receiptPath });
@@ -742,16 +852,12 @@ async function loadOptionalJson(file) {
   }
 }
 
-export async function runExperiment({
+async function initializeRunDirectoriesAndProvenance({
+  outputDirectory,
+  resume,
   config,
   seeds,
-  outputDirectory,
-  resume = false,
-  stopAfterRecords = null,
 }) {
-  if (stopAfterRecords !== null && (!Number.isInteger(stopAfterRecords) || stopAfterRecords < 1)) {
-    throw new Error("stopAfterRecords must be a positive integer when supplied.");
-  }
   if (resume) await access(outputDirectory);
   else await assertNewDirectory(outputDirectory);
   const rawDirectory = path.join(outputDirectory, "raw");
@@ -765,12 +871,6 @@ export async function runExperiment({
   const configPath = path.join(provenanceDirectory, "config.json");
   const seedsPath = path.join(provenanceDirectory, "seeds.json");
   const environmentPath = path.join(provenanceDirectory, "environment.json");
-  const requestedIdentity = {
-    profile: config.profile,
-    config_sha256: sha256(canonical(config)),
-    ordered_seed_pack_sha256: sha256(canonical(seeds)),
-    schedule: "seed-opportunity-arm-v1",
-  };
   let environment;
 
   if (resume) {
@@ -799,122 +899,134 @@ export async function runExperiment({
     await writeFile(seedsPath, `${JSON.stringify({ seeds }, null, 2)}\n`, { flag: "wx" });
     await writeFile(environmentPath, `${JSON.stringify(environment, null, 2)}\n`, { flag: "wx" });
   }
-
-  const ledger = await openCheckpointLedger({
+  return {
     rawPath,
     checkpointPath,
-    scientificPayload,
-    workKey,
-    runIdentity: requestedIdentity,
+    runPath,
+    filesystemDirectory,
+    environment,
+  };
+}
+
+async function executeWorkUnitTrial({ filesystemDirectory, seed, opportunity, arm, config }) {
+  const start = performance.now();
+  const policyOpportunity = {
+    id: opportunity.id,
+    evidence: opportunity.evidence,
+    ...(arm === "oracle-ceiling" ? { unsafe: opportunity.unsafe } : {}),
+  };
+  const revealTrace = shouldRevealTrace(arm, policyOpportunity, config);
+  const trial = await executeFilesystemTrial({
+    root: filesystemDirectory,
+    opportunity,
+    arm,
+    config,
+    revealTrace,
+    decideWithTrace: (revealedVerifier) => decide(arm, policyOpportunity, config, revealedVerifier),
   });
-  const completedRun = await loadOptionalJson(runPath);
-  if (completedRun) {
-    if (!resume) throw new Error("Completed run provenance already exists.");
-    const state = ledger.summary();
-    if (
-      completedRun.records !== state.records
-      || completedRun.scientific_payload_sha256 !== state.scientific_payload_sha256
-      || completedRun.hash_chain_sha256 !== state.hash_chain_sha256
-    ) {
-      throw new Error("Completed run provenance disagrees with the append-only ledger.");
-    }
-    return { run: completedRun, rawPath, complete: true, resumed: true };
-  }
+  const { decision, filesystem, revealedVerifier } = trial;
+  const scored = scoreDecision(opportunity, decision, config);
+  return buildTrialEventRecord({
+    seed,
+    opportunity,
+    arm,
+    config,
+    revealTrace,
+    revealedVerifier,
+    decision,
+    filesystem,
+    scored,
+    start,
+  });
+}
 
-  const schedule = deterministicWorkUnits({ seeds, config, arms: armNames, generateOpportunities });
-  const remaining = remainingWorkUnits(schedule, ledger.completedWorkKeys());
-  const checkpointInterval = config.checkpoint_interval_records ?? 64;
-  let processedThisInvocation = 0;
+function buildTrialEventRecord({
+  seed,
+  opportunity,
+  arm,
+  config,
+  revealTrace,
+  revealedVerifier,
+  decision,
+  filesystem,
+  scored,
+  start,
+}) {
+  return {
+    schema: 1,
+    artifact: "candidate-010",
+    profile: config.profile,
+    opportunity_id: opportunity.id,
+    seed,
+    arm,
+    truth_unsafe: opportunity.unsafe,
+    evidence: opportunity.evidence,
+    trace: {
+      revealed: revealTrace,
+      verifier: revealedVerifier,
+      output_sha256: filesystem.trace_output_sha256,
+    },
+    decision: {
+      commit: decision.commit,
+      abstain: decision.abstain,
+      stage: decision.stage,
+      reset: decision.reset,
+      reason: decision.reason,
+      score: decision.score,
+    },
+    outcome: {
+      false_commit: scored.falseCommit,
+      false_reject: scored.falseReject,
+      consequence_weighted_loss: scored.loss,
+      rollback_violation: decision.reset && !filesystem.rollbackComplete,
+    },
+    resources: {
+      observations: decision.observations,
+      verifier_calls: decision.verifier_calls,
+      modeled_energy_j: scored.modeledEnergy,
+      measured_energy_j: null,
+      cpu_elapsed_ms: performance.now() - start,
+      durable_bytes_written: filesystem.durable_bytes_written,
+      staged_bytes_written: filesystem.staged_bytes_written,
+      filesystem_stage_ms: filesystem.stage_elapsed_ms,
+      temporary_execution_ms: filesystem.temporary_execution_elapsed_ms,
+      filesystem_finalize_ms: filesystem.finalize_elapsed_ms,
+      filesystem_boundary_ms: filesystem.boundary_elapsed_ms,
+    },
+    filesystem,
+  };
+}
 
-  for (const { seed, opportunity, arm, key } of remaining) {
-        const start = performance.now();
-        const policyOpportunity = {
-          id: opportunity.id,
-          evidence: opportunity.evidence,
-          ...(arm === "oracle-ceiling" ? { unsafe: opportunity.unsafe } : {}),
-        };
-        const revealTrace = shouldRevealTrace(arm, policyOpportunity, config);
-        const trial = await executeFilesystemTrial({
-          root: filesystemDirectory,
-          opportunity,
-          arm,
-          config,
-          revealTrace,
-          decideWithTrace: (revealedVerifier) => decide(arm, policyOpportunity, config, revealedVerifier),
-        });
-        const { decision, filesystem, revealedVerifier } = trial;
-        const scored = scoreDecision(opportunity, decision, config);
-        const event = {
-          schema: 1,
-          artifact: "candidate-010",
-          profile: config.profile,
-          opportunity_id: opportunity.id,
-          seed,
-          arm,
-          truth_unsafe: opportunity.unsafe,
-          evidence: opportunity.evidence,
-          trace: {
-            revealed: revealTrace,
-            verifier: revealedVerifier,
-            output_sha256: filesystem.trace_output_sha256,
-          },
-          decision: {
-            commit: decision.commit,
-            abstain: decision.abstain,
-            stage: decision.stage,
-            reset: decision.reset,
-            reason: decision.reason,
-            score: decision.score,
-          },
-          outcome: {
-            false_commit: scored.falseCommit,
-            false_reject: scored.falseReject,
-            consequence_weighted_loss: scored.loss,
-            rollback_violation: decision.reset && !filesystem.rollbackComplete,
-          },
-          resources: {
-            observations: decision.observations,
-            verifier_calls: decision.verifier_calls,
-            modeled_energy_j: scored.modeledEnergy,
-            measured_energy_j: null,
-            cpu_elapsed_ms: performance.now() - start,
-            durable_bytes_written: filesystem.durable_bytes_written,
-            staged_bytes_written: filesystem.staged_bytes_written,
-            filesystem_stage_ms: filesystem.stage_elapsed_ms,
-            temporary_execution_ms: filesystem.temporary_execution_elapsed_ms,
-            filesystem_finalize_ms: filesystem.finalize_elapsed_ms,
-            filesystem_boundary_ms: filesystem.boundary_elapsed_ms,
-          },
-          filesystem,
-        };
-        assertCandidate010RawEvent(event, { expectedKind: "smoke", requireIntegrity: false });
-        await ledger.append(event);
-        processedThisInvocation += 1;
-        const state = ledger.summary();
-        if (state.records % checkpointInterval === 0) {
-          await ledger.saveCheckpoint({ last_completed_work_key: key, complete: false });
-        }
-        if (stopAfterRecords !== null && state.records >= stopAfterRecords) {
-          await ledger.saveCheckpoint({ last_completed_work_key: key, complete: false });
-          return {
-            run: {
-              schema: 1,
-              artifact: "candidate-010",
-              profile: config.profile,
-              status: "interrupted-at-declared-test-boundary",
-              records: state.records,
-              expected_records: seeds.length * config.opportunities_per_seed * armNames.length,
-              scientific_payload_sha256: state.scientific_payload_sha256,
-              hash_chain_sha256: state.hash_chain_sha256,
-            },
-            rawPath,
-            complete: false,
-            resumed: resume,
-            processed_this_invocation: processedThisInvocation,
-          };
-        }
-  }
+function buildInterruptedRunResult({ config, seeds, state, rawPath, resume, processedThisInvocation }) {
+  return {
+    run: {
+      schema: 1,
+      artifact: "candidate-010",
+      profile: config.profile,
+      status: "interrupted-at-declared-test-boundary",
+      records: state.records,
+      expected_records: seeds.length * config.opportunities_per_seed * armNames.length,
+      scientific_payload_sha256: state.scientific_payload_sha256,
+      hash_chain_sha256: state.hash_chain_sha256,
+    },
+    rawPath,
+    complete: false,
+    resumed: resume,
+    processed_this_invocation: processedThisInvocation,
+  };
+}
 
+async function finalizeCompletedRun({
+  ledger,
+  seeds,
+  config,
+  environment,
+  requestedIdentity,
+  runPath,
+  rawPath,
+  resume,
+  processedThisInvocation,
+}) {
   const ledgerState = ledger.summary();
   const expectedRecords = seeds.length * config.opportunities_per_seed * armNames.length;
   if (ledgerState.records !== expectedRecords) {
@@ -941,6 +1053,68 @@ export async function runExperiment({
   };
   await writeFile(runPath, `${JSON.stringify(run, null, 2)}\n`, { flag: "wx" });
   return { run, rawPath, complete: true, resumed: resume, processed_this_invocation: processedThisInvocation };
+}
+
+export async function runExperiment({
+  config,
+  seeds,
+  outputDirectory,
+  resume = false,
+  stopAfterRecords = null,
+}) {
+  if (stopAfterRecords !== null && (!Number.isInteger(stopAfterRecords) || stopAfterRecords < 1)) {
+    throw new Error("stopAfterRecords must be a positive integer when supplied.");
+  }
+  const requestedIdentity = {
+    profile: config.profile,
+    config_sha256: sha256(canonical(config)),
+    ordered_seed_pack_sha256: sha256(canonical(seeds)),
+    schedule: "seed-opportunity-arm-v1",
+  };
+  const {
+    rawPath, checkpointPath, runPath, filesystemDirectory, environment,
+  } = await initializeRunDirectoriesAndProvenance({
+    outputDirectory, resume, config, seeds,
+  });
+  const ledger = await openCheckpointLedger({
+    rawPath,
+    checkpointPath,
+    scientificPayload,
+    workKey,
+    runIdentity: requestedIdentity,
+  });
+  const completedRun = await loadOptionalJson(runPath);
+  if (completedRun) {
+    if (!resume) throw new Error("Completed run provenance already exists.");
+    const state = ledger.summary();
+    if (
+      completedRun.records !== state.records
+      || completedRun.scientific_payload_sha256 !== state.scientific_payload_sha256
+      || completedRun.hash_chain_sha256 !== state.hash_chain_sha256
+    ) throw new Error("Completed run provenance disagrees with the append-only ledger.");
+    return { run: completedRun, rawPath, complete: true, resumed: true };
+  }
+  const schedule = deterministicWorkUnits({ seeds, config, arms: armNames, generateOpportunities });
+  const remaining = remainingWorkUnits(schedule, ledger.completedWorkKeys());
+  const checkpointInterval = config.checkpoint_interval_records ?? 64;
+  let processedThisInvocation = 0;
+  for (const { seed, opportunity, arm, key } of remaining) {
+    const event = await executeWorkUnitTrial({ filesystemDirectory, seed, opportunity, arm, config });
+    assertCandidate010RawEvent(event, { expectedKind: "smoke", requireIntegrity: false });
+    await ledger.append(event);
+    processedThisInvocation += 1;
+    const state = ledger.summary();
+    if (state.records % checkpointInterval === 0) {
+      await ledger.saveCheckpoint({ last_completed_work_key: key, complete: false });
+    }
+    if (stopAfterRecords !== null && state.records >= stopAfterRecords) {
+      await ledger.saveCheckpoint({ last_completed_work_key: key, complete: false });
+      return buildInterruptedRunResult({ config, seeds, state, rawPath, resume, processedThisInvocation });
+    }
+  }
+  return finalizeCompletedRun({
+    ledger, seeds, config, environment, requestedIdentity, runPath, rawPath, resume, processedThisInvocation,
+  });
 }
 
 function evaluateEnergyForRun(reading, run) {
@@ -1031,12 +1205,100 @@ export async function analyzeRun(outputDirectory) {
 }
 
 export async function validateRun(outputDirectory, { writeArtifact = true } = {}) {
+  const ctx = await loadRunValidationContext(outputDirectory);
+  const keys = new Set();
+  const errors = [];
+  const stagedBytesByOpportunity = new Map();
+  const traceHashesByOpportunity = new Map();
+
+  const externalEnergyBound = await validateExternalEnergyProvenance({
+    outputDirectory,
+    run: ctx.run,
+    errors,
+  });
+
+  const { scientificDigest, previousRecordHash } = validateRawEventLines({
+    lines: ctx.lines,
+    expectedSchedule: ctx.expectedSchedule,
+    keys,
+    errors,
+    config: ctx.config,
+    stagedBytesByOpportunity,
+    traceHashesByOpportunity,
+  });
+
+  await verifyRunSummaryAndCheckpoints({
+    ctx,
+    scientificDigest,
+    previousRecordHash,
+    stagedBytesByOpportunity,
+    traceHashesByOpportunity,
+    errors,
+  });
+
+  const validation = {
+    schema: 1,
+    artifact: "candidate-010",
+    valid: errors.length === 0,
+    errors,
+    records: ctx.lines.length,
+    unique_work_units: keys.size,
+    scientific_payload_sha256: scientificDigest,
+    hash_chain_sha256: previousRecordHash,
+    external_energy_bound: externalEnergyBound,
+    arm_level_energy_claim_eligible: false,
+  };
+  if (errors.length) throw new Error(`Run validation failed:\n- ${errors.join("\n- ")}`);
+  await writeValidationArtifact(outputDirectory, validation, writeArtifact);
+  return validation;
+}
+
+async function verifyRunSummaryAndCheckpoints({
+  ctx,
+  scientificDigest,
+  previousRecordHash,
+  stagedBytesByOpportunity,
+  traceHashesByOpportunity,
+  errors,
+}) {
+  validateRunProvenanceSummary({
+    lines: ctx.lines,
+    run: ctx.run,
+    config: ctx.config,
+    seeds: ctx.seeds,
+    expectedSchedule: ctx.expectedSchedule,
+    runIdentity: ctx.runIdentity,
+    scientificDigest,
+    previousRecordHash,
+    stagedBytesByOpportunity,
+    traceHashesByOpportunity,
+    errors,
+  });
+  await validateRunCheckpointAuthority({
+    rawPath: ctx.rawPath,
+    provenanceDirectory: ctx.provenanceDirectory,
+    runIdentity: ctx.runIdentity,
+    linesLength: ctx.lines.length,
+    scientificDigest,
+    previousRecordHash,
+    errors,
+  });
+}
+
+async function writeValidationArtifact(outputDirectory, validation, writeArtifact) {
+  if (writeArtifact) {
+    const analysisDirectory = path.join(outputDirectory, "analysis");
+    await mkdir(analysisDirectory, { recursive: true });
+    await writeFile(path.join(analysisDirectory, "validation.json"), `${JSON.stringify(validation, null, 2)}\n`);
+  }
+}
+
+async function loadRunValidationContext(outputDirectory) {
   const rawPath = path.join(outputDirectory, "raw", "events.ndjson");
   const provenanceDirectory = path.join(outputDirectory, "provenance");
-  const runPath = path.join(provenanceDirectory, "run.json");
   const lines = (await readFile(rawPath, "utf8")).trim().split(/\r?\n/).filter(Boolean);
   const [run, config, seedDocument] = await Promise.all([
-    loadJson(runPath),
+    loadJson(path.join(provenanceDirectory, "run.json")),
     loadJson(path.join(provenanceDirectory, "config.json")),
     loadJson(path.join(provenanceDirectory, "seeds.json")),
   ]);
@@ -1051,28 +1313,20 @@ export async function validateRun(outputDirectory, { writeArtifact = true } = {}
   for (const unit of deterministicWorkUnits({ seeds, config, arms: armNames, generateOpportunities })) {
     expectedSchedule.set(unit.key, unit);
   }
+  return { rawPath, provenanceDirectory, lines, run, config, seeds, runIdentity, expectedSchedule };
+}
+
+function validateRawEventLines({
+  lines,
+  expectedSchedule,
+  keys,
+  errors,
+  config,
+  stagedBytesByOpportunity,
+  traceHashesByOpportunity,
+}) {
   const digest = createHash("sha256");
-  const keys = new Set();
-  const errors = [];
-  const stagedBytesByOpportunity = new Map();
-  const traceHashesByOpportunity = new Map();
   let previousRecordHash = "0".repeat(64);
-  const externalEnergyReading = await loadOptionalJson(path.join(outputDirectory, "provenance", "external-energy-reading.json"));
-  const normalizedEnergy = await loadOptionalJson(path.join(outputDirectory, "provenance", "energy.json"));
-
-  if (Boolean(externalEnergyReading) !== Boolean(normalizedEnergy)) {
-    errors.push("external energy provenance is incomplete");
-  } else if (externalEnergyReading && normalizedEnergy) {
-    try {
-      const expectedEnergy = evaluateEnergyForRun(externalEnergyReading, run);
-      if (canonical(expectedEnergy) !== canonical(normalizedEnergy)) {
-        errors.push("normalized external energy provenance does not match its raw reading");
-      }
-    } catch (error) {
-      errors.push(`external energy provenance is invalid: ${error.message}`);
-    }
-  }
-
   for (const [index, line] of lines.entries()) {
     let event;
     try {
@@ -1087,113 +1341,8 @@ export async function validateRun(outputDirectory, { writeArtifact = true } = {}
       errors.push(`raw line ${index + 1} violates the runtime output contract: ${error.message}`);
       continue;
     }
-    const key = `${event.opportunity_id}\u0000${event.arm}`;
-    if (keys.has(key)) errors.push(`duplicate work unit: ${event.opportunity_id}/${event.arm}`);
-    keys.add(key);
-    const expectedUnit = expectedSchedule.get(key);
-    if (!expectedUnit) {
-      errors.push(`work unit is not in the frozen schedule: ${event.opportunity_id}/${event.arm}`);
-    } else {
-      const expectedProjection = {
-        opportunity_id: expectedUnit.opportunity.id,
-        seed: expectedUnit.seed,
-        truth_unsafe: expectedUnit.opportunity.unsafe,
-        evidence: expectedUnit.opportunity.evidence,
-      };
-      const observedProjection = Object.fromEntries(
-        Object.keys(expectedProjection).map((field) => [field, event[field]]),
-      );
-      if (canonical(expectedProjection) !== canonical(observedProjection)) {
-        errors.push(`work unit input differs from the frozen schedule: ${event.opportunity_id}/${event.arm}`);
-      }
-      const policyOpportunity = {
-        id: expectedUnit.opportunity.id,
-        evidence: expectedUnit.opportunity.evidence,
-        ...(event.arm === "oracle-ceiling" ? { unsafe: expectedUnit.opportunity.unsafe } : {}),
-      };
-      const expectedTrace = traceBodyForJob(expectedUnit.opportunity, config);
-      const expectedReveal = shouldRevealTrace(event.arm, policyOpportunity, config);
-      const expectedDecision = decide(
-        event.arm,
-        policyOpportunity,
-        config,
-        expectedReveal ? expectedTrace.verifier : null,
-      );
-      const observedDecision = {
-        commit: event.decision?.commit,
-        abstain: event.decision?.abstain,
-        stage: event.decision?.stage,
-        reset: event.decision?.reset,
-        reason: event.decision?.reason,
-        score: event.decision?.score,
-      };
-      const expectedDecisionProjection = {
-        commit: expectedDecision.commit,
-        abstain: expectedDecision.abstain,
-        stage: expectedDecision.stage,
-        reset: expectedDecision.reset,
-        reason: expectedDecision.reason,
-        score: expectedDecision.score,
-      };
-      if (
-        canonical(observedDecision) !== canonical(expectedDecisionProjection)
-        || event.resources?.observations !== expectedDecision.observations
-        || event.resources?.verifier_calls !== expectedDecision.verifier_calls
-      ) errors.push(`decision differs from the frozen policy: ${event.opportunity_id}/${event.arm}`);
-      const expectedTraceSha256 = sha256(expectedTrace.body);
-      if (
-        event.trace?.revealed !== expectedReveal
-        || event.trace?.verifier !== (expectedReveal ? expectedTrace.verifier : null)
-        || event.trace?.output_sha256 !== expectedTraceSha256
-      ) errors.push(`temporary execution differs from the frozen trace job: ${event.opportunity_id}/${event.arm}`);
-      const scored = scoreDecision(expectedUnit.opportunity, expectedDecision, config);
-      if (
-        event.outcome?.false_commit !== scored.falseCommit
-        || event.outcome?.false_reject !== scored.falseReject
-        || event.outcome?.consequence_weighted_loss !== scored.loss
-        || event.outcome?.rollback_violation !== Boolean(expectedDecision.reset && !event.filesystem?.rollbackComplete)
-        || event.resources?.modeled_energy_j !== scored.modeledEnergy
-      ) errors.push(`scientific result differs from independent recomputation: ${event.opportunity_id}/${event.arm}`);
-    }
-    if (event.schema !== 1 || event.artifact !== "candidate-010") {
-      errors.push(`raw line ${index + 1} has the wrong schema or artifact`);
-    }
-    if (!armNames.includes(event.arm)) errors.push(`raw line ${index + 1} has unknown arm ${event.arm}`);
-    if (!event.filesystem || event.filesystem.boundary !== "filesystem-stage-execute-finalize-v1") {
-      errors.push(`work unit did not cross the declared filesystem boundary: ${event.opportunity_id}/${event.arm}`);
-    }
-    if (event.decision?.stage !== true || event.decision?.reset === event.decision?.commit) {
-      errors.push(`work unit did not stage then choose exactly one finalization: ${event.opportunity_id}/${event.arm}`);
-    }
-    if (event.decision?.reset && event.filesystem?.rollbackComplete !== true) {
-      errors.push(`reset did not restore pre-state: ${event.opportunity_id}/${event.arm}`);
-    }
-    if (event.decision?.commit && event.filesystem?.commitComplete !== true) {
-      errors.push(`commit did not cross the filesystem boundary: ${event.opportunity_id}/${event.arm}`);
-    }
-    if (event.trace?.revealed !== event.filesystem?.trace_revealed) {
-      errors.push(`trace revelation record disagrees with filesystem record: ${event.opportunity_id}/${event.arm}`);
-    }
-    if (event.trace?.output_sha256 !== event.filesystem?.trace_output_sha256) {
-      errors.push(`trace digest disagrees with filesystem record: ${event.opportunity_id}/${event.arm}`);
-    }
-    if (
-      !Number.isFinite(event.resources?.filesystem_boundary_ms)
-      || event.resources.filesystem_boundary_ms < 0
-      || event.resources?.staged_bytes_written !== event.filesystem?.staged_bytes_written
-      || event.resources?.durable_bytes_written !== event.filesystem?.durable_bytes_written
-    ) {
-      errors.push(`filesystem cost report is invalid: ${event.opportunity_id}/${event.arm}`);
-    }
-    if (event.trace?.revealed ? !Number.isFinite(event.trace.verifier) : event.trace?.verifier !== null) {
-      errors.push(`trace verifier visibility is invalid: ${event.opportunity_id}/${event.arm}`);
-    }
-    const byteSet = stagedBytesByOpportunity.get(event.opportunity_id) ?? new Set();
-    byteSet.add(event.resources?.staged_bytes_written);
-    stagedBytesByOpportunity.set(event.opportunity_id, byteSet);
-    const traceHashes = traceHashesByOpportunity.get(event.opportunity_id) ?? new Set();
-    traceHashes.add(event.filesystem?.trace_output_sha256);
-    traceHashesByOpportunity.set(event.opportunity_id, traceHashes);
+    validateScheduledEvent({ event, expectedSchedule, keys, errors, config });
+    validateEventFilesystemAndResources({ event, index, errors, stagedBytesByOpportunity, traceHashesByOpportunity });
     let payload;
     try {
       payload = canonical(scientificPayload(event));
@@ -1212,19 +1361,174 @@ export async function validateRun(outputDirectory, { writeArtifact = true } = {}
     previousRecordHash = expectedRecordHash;
     digest.update(payload);
   }
+  return { scientificDigest: digest.digest("hex"), previousRecordHash };
+}
 
+async function validateExternalEnergyProvenance({ outputDirectory, run, errors }) {
+  const externalEnergyReading = await loadOptionalJson(path.join(outputDirectory, "provenance", "external-energy-reading.json"));
+  const normalizedEnergy = await loadOptionalJson(path.join(outputDirectory, "provenance", "energy.json"));
+  if (Boolean(externalEnergyReading) !== Boolean(normalizedEnergy)) {
+    errors.push("external energy provenance is incomplete");
+  } else if (externalEnergyReading && normalizedEnergy) {
+    try {
+      const expectedEnergy = evaluateEnergyForRun(externalEnergyReading, run);
+      if (canonical(expectedEnergy) !== canonical(normalizedEnergy)) {
+        errors.push("normalized external energy provenance does not match its raw reading");
+      }
+    } catch (error) {
+      errors.push(`external energy provenance is invalid: ${error.message}`);
+    }
+  }
+  return Boolean(externalEnergyReading && normalizedEnergy);
+}
+
+function validateScheduledEventInput({ event, expectedSchedule, keys, errors }) {
+  const key = `${event.opportunity_id}\u0000${event.arm}`;
+  if (keys.has(key)) errors.push(`duplicate work unit: ${event.opportunity_id}/${event.arm}`);
+  keys.add(key);
+  const expectedUnit = expectedSchedule.get(key);
+  if (!expectedUnit) {
+    errors.push(`work unit is not in the frozen schedule: ${event.opportunity_id}/${event.arm}`);
+    return null;
+  }
+  const expectedProjection = {
+    opportunity_id: expectedUnit.opportunity.id,
+    seed: expectedUnit.seed,
+    truth_unsafe: expectedUnit.opportunity.unsafe,
+    evidence: expectedUnit.opportunity.evidence,
+  };
+  const observedProjection = Object.fromEntries(
+    Object.keys(expectedProjection).map((field) => [field, event[field]]),
+  );
+  if (canonical(expectedProjection) !== canonical(observedProjection)) {
+    errors.push(`work unit input differs from the frozen schedule: ${event.opportunity_id}/${event.arm}`);
+  }
+  return expectedUnit;
+}
+
+function validateScheduledEventPolicyAndTrace({ event, expectedUnit, errors, config }) {
+  const policyOpportunity = {
+    id: expectedUnit.opportunity.id,
+    evidence: expectedUnit.opportunity.evidence,
+    ...(event.arm === "oracle-ceiling" ? { unsafe: expectedUnit.opportunity.unsafe } : {}),
+  };
+  const expectedTrace = traceBodyForJob(expectedUnit.opportunity, config);
+  const expectedReveal = shouldRevealTrace(event.arm, policyOpportunity, config);
+  const expectedDecision = decide(
+    event.arm,
+    policyOpportunity,
+    config,
+    expectedReveal ? expectedTrace.verifier : null,
+  );
+  const observedDecision = {
+    commit: event.decision?.commit,
+    abstain: event.decision?.abstain,
+    stage: event.decision?.stage,
+    reset: event.decision?.reset,
+    reason: event.decision?.reason,
+    score: event.decision?.score,
+  };
+  const expectedDecisionProjection = {
+    commit: expectedDecision.commit,
+    abstain: expectedDecision.abstain,
+    stage: expectedDecision.stage,
+    reset: expectedDecision.reset,
+    reason: expectedDecision.reason,
+    score: expectedDecision.score,
+  };
+  if (
+    canonical(observedDecision) !== canonical(expectedDecisionProjection)
+    || event.resources?.observations !== expectedDecision.observations
+    || event.resources?.verifier_calls !== expectedDecision.verifier_calls
+  ) errors.push(`decision differs from the frozen policy: ${event.opportunity_id}/${event.arm}`);
+  const expectedTraceSha256 = sha256(expectedTrace.body);
+  if (
+    event.trace?.revealed !== expectedReveal
+    || event.trace?.verifier !== (expectedReveal ? expectedTrace.verifier : null)
+    || event.trace?.output_sha256 !== expectedTraceSha256
+  ) errors.push(`temporary execution differs from the frozen trace job: ${event.opportunity_id}/${event.arm}`);
+  const scored = scoreDecision(expectedUnit.opportunity, expectedDecision, config);
+  if (
+    event.outcome?.false_commit !== scored.falseCommit
+    || event.outcome?.false_reject !== scored.falseReject
+    || event.outcome?.consequence_weighted_loss !== scored.loss
+    || event.outcome?.rollback_violation !== Boolean(expectedDecision.reset && !event.filesystem?.rollbackComplete)
+    || event.resources?.modeled_energy_j !== scored.modeledEnergy
+  ) errors.push(`scientific result differs from independent recomputation: ${event.opportunity_id}/${event.arm}`);
+}
+
+function validateScheduledEvent({ event, expectedSchedule, keys, errors, config }) {
+  const expectedUnit = validateScheduledEventInput({ event, expectedSchedule, keys, errors });
+  if (expectedUnit) {
+    validateScheduledEventPolicyAndTrace({ event, expectedUnit, errors, config });
+  }
+}
+
+function validateEventFilesystemAndResources({ event, index, errors, stagedBytesByOpportunity, traceHashesByOpportunity }) {
+  if (event.schema !== 1 || event.artifact !== "candidate-010") {
+    errors.push(`raw line ${index + 1} has the wrong schema or artifact`);
+  }
+  if (!armNames.includes(event.arm)) errors.push(`raw line ${index + 1} has unknown arm ${event.arm}`);
+  if (!event.filesystem || event.filesystem.boundary !== "filesystem-stage-execute-finalize-v1") {
+    errors.push(`work unit did not cross the declared filesystem boundary: ${event.opportunity_id}/${event.arm}`);
+  }
+  if (event.decision?.stage !== true || event.decision?.reset === event.decision?.commit) {
+    errors.push(`work unit did not stage then choose exactly one finalization: ${event.opportunity_id}/${event.arm}`);
+  }
+  if (event.decision?.reset && event.filesystem?.rollbackComplete !== true) {
+    errors.push(`reset did not restore pre-state: ${event.opportunity_id}/${event.arm}`);
+  }
+  if (event.decision?.commit && event.filesystem?.commitComplete !== true) {
+    errors.push(`commit did not cross the filesystem boundary: ${event.opportunity_id}/${event.arm}`);
+  }
+  if (event.trace?.revealed !== event.filesystem?.trace_revealed) {
+    errors.push(`trace revelation record disagrees with filesystem record: ${event.opportunity_id}/${event.arm}`);
+  }
+  if (event.trace?.output_sha256 !== event.filesystem?.trace_output_sha256) {
+    errors.push(`trace digest disagrees with filesystem record: ${event.opportunity_id}/${event.arm}`);
+  }
+  if (
+    !Number.isFinite(event.resources?.filesystem_boundary_ms)
+    || event.resources.filesystem_boundary_ms < 0
+    || event.resources?.staged_bytes_written !== event.filesystem?.staged_bytes_written
+    || event.resources?.durable_bytes_written !== event.filesystem?.durable_bytes_written
+  ) {
+    errors.push(`filesystem cost report is invalid: ${event.opportunity_id}/${event.arm}`);
+  }
+  if (event.trace?.revealed ? !Number.isFinite(event.trace.verifier) : event.trace?.verifier !== null) {
+    errors.push(`trace verifier visibility is invalid: ${event.opportunity_id}/${event.arm}`);
+  }
+  const byteSet = stagedBytesByOpportunity.get(event.opportunity_id) ?? new Set();
+  byteSet.add(event.resources?.staged_bytes_written);
+  stagedBytesByOpportunity.set(event.opportunity_id, byteSet);
+  const traceHashes = traceHashesByOpportunity.get(event.opportunity_id) ?? new Set();
+  traceHashes.add(event.filesystem?.trace_output_sha256);
+  traceHashesByOpportunity.set(event.opportunity_id, traceHashes);
+}
+
+function validateRunProvenanceSummary({
+  lines,
+  run,
+  config,
+  seeds,
+  expectedSchedule,
+  runIdentity,
+  scientificDigest,
+  previousRecordHash,
+  stagedBytesByOpportunity,
+  traceHashesByOpportunity,
+  errors,
+}) {
   for (const [opportunityId, byteSet] of stagedBytesByOpportunity) {
     if (byteSet.size !== 1) errors.push(`filesystem staging cost is not byte-comparable across arms: ${opportunityId}`);
   }
   for (const [opportunityId, traceHashes] of traceHashesByOpportunity) {
     if (traceHashes.size !== 1) errors.push(`temporary execution differs across arms: ${opportunityId}`);
   }
-
   const expectedRecords = run.opportunities * run.arms;
   if (lines.length !== run.records || lines.length !== expectedRecords) {
     errors.push(`record count ${lines.length} does not match provenance ${run.records} and matrix ${expectedRecords}`);
   }
-  const scientificDigest = digest.digest("hex");
   if (scientificDigest !== run.scientific_payload_sha256) {
     errors.push("scientific payload digest does not match provenance");
   }
@@ -1238,7 +1542,17 @@ export async function validateRun(outputDirectory, { writeArtifact = true } = {}
     || run.seed_count !== seeds.length
     || expectedSchedule.size !== expectedRecords
   ) errors.push("run provenance differs from the frozen config, seed pack, or schedule");
-  let checkpointState;
+}
+
+async function validateRunCheckpointAuthority({
+  rawPath,
+  provenanceDirectory,
+  runIdentity,
+  linesLength,
+  scientificDigest,
+  previousRecordHash,
+  errors,
+}) {
   try {
     const ledger = await openCheckpointLedger({
       rawPath,
@@ -1247,38 +1561,18 @@ export async function validateRun(outputDirectory, { writeArtifact = true } = {}
       workKey,
       runIdentity,
     });
-    checkpointState = ledger.summary();
+    const checkpointState = ledger.summary();
     const checkpoint = await loadJson(path.join(provenanceDirectory, "checkpoint.json"));
     if (
       checkpointState.checkpoint_status !== "current"
       || checkpoint.complete !== true
-      || checkpoint.records !== lines.length
+      || checkpoint.records !== linesLength
       || checkpoint.scientific_payload_sha256 !== scientificDigest
       || checkpoint.hash_chain_sha256 !== previousRecordHash
     ) errors.push("completed run lacks a current complete checkpoint authority");
   } catch (error) {
     errors.push(`completed run checkpoint authority is invalid: ${error.message}`);
   }
-
-  const validation = {
-    schema: 1,
-    artifact: "candidate-010",
-    valid: errors.length === 0,
-    errors,
-    records: lines.length,
-    unique_work_units: keys.size,
-    scientific_payload_sha256: scientificDigest,
-    hash_chain_sha256: previousRecordHash,
-    external_energy_bound: Boolean(externalEnergyReading && normalizedEnergy),
-    arm_level_energy_claim_eligible: false,
-  };
-  if (errors.length) throw new Error(`Run validation failed:\n- ${errors.join("\n- ")}`);
-  if (writeArtifact) {
-    const analysisDirectory = path.join(outputDirectory, "analysis");
-    await mkdir(analysisDirectory, { recursive: true });
-    await writeFile(path.join(analysisDirectory, "validation.json"), `${JSON.stringify(validation, null, 2)}\n`);
-  }
-  return validation;
 }
 
 async function prepare(profile) {
@@ -1292,8 +1586,7 @@ async function prepare(profile) {
   return { node: process.version, free_bytes: freeBytes, profile, energy_measurement: "unavailable" };
 }
 
-async function main() {
-  const { action, options } = parseArgs(process.argv);
+async function handleCapsuleAction(action) {
   if (action === "capsule-confirmation") {
     const capsuleOptions = parseCapsuleConfirmationOptions(process.argv);
     const result = await runCapsuleConfirmationOperator(capsuleOptions);
@@ -1317,50 +1610,30 @@ async function main() {
       receiptOutput: path.resolve(promotionOptions["receipt-output"]),
     });
     console.log(canonical(result));
-    return;
   }
-  const profile = options.profile ?? (action === "smoke" ? "smoke" : "development");
-  if (action === "prepare") {
-    console.log(JSON.stringify(await prepare(profile), null, 2));
-    return;
+}
+
+async function handleAnalysisOrValidationAction(action, options) {
+  if (!options.output) throw new Error(`${action} requires --output <run-directory>`);
+  const output = path.resolve(options.output);
+  const runDocument = await loadJson(path.join(output, "provenance", "run.json"));
+  const isFactorial = runDocument.run_kind === "factorial-diagnostic-v1";
+  if (isFactorial && options["energy-reading"]) {
+    throw new Error("Factorial energy must be bound per assigned interval; whole-run allocation is not supported.");
+  }
+  if (!isFactorial && options["energy-reading"]) {
+    await attachEnergyReading(output, path.resolve(options["energy-reading"]));
   }
   if (action === "analyze") {
-    if (!options.output) throw new Error("analyze requires --output <run-directory>");
-    const output = path.resolve(options.output);
-    const runDocument = await loadJson(path.join(output, "provenance", "run.json"));
-    if (runDocument.run_kind === "factorial-diagnostic-v1") {
-      if (options["energy-reading"]) {
-        throw new Error("Factorial energy must be bound per assigned interval; whole-run allocation is not supported.");
-      }
-      console.log(JSON.stringify(await analyzeFactorialRun(output), null, 2));
-      return;
-    }
-    if (options["energy-reading"]) {
-      await attachEnergyReading(output, path.resolve(options["energy-reading"]));
-    }
-    console.log(JSON.stringify(await analyzeRun(output), null, 2));
+    const summary = isFactorial ? await analyzeFactorialRun(output) : await analyzeRun(output);
+    console.log(JSON.stringify(summary, null, 2));
     return;
   }
-  if (action === "validate") {
-    if (!options.output) throw new Error("validate requires --output <run-directory>");
-    const output = path.resolve(options.output);
-    const runDocument = await loadJson(path.join(output, "provenance", "run.json"));
-    if (runDocument.run_kind === "factorial-diagnostic-v1") {
-      if (options["energy-reading"]) {
-        throw new Error("Factorial energy must be bound per assigned interval; whole-run allocation is not supported.");
-      }
-      console.log(JSON.stringify(await validateFactorialRun(output), null, 2));
-      return;
-    }
-    if (options["energy-reading"]) {
-      await attachEnergyReading(output, path.resolve(options["energy-reading"]));
-    }
-    console.log(JSON.stringify(await validateRun(output), null, 2));
-    return;
-  }
-  if (action !== "smoke" && action !== "run" && action !== "factorial") {
-    throw new Error("Action must be prepare, smoke, run, factorial, capsule-confirmation, capsule-promotion-build, analyze, or validate.");
-  }
+  const validation = isFactorial ? await validateFactorialRun(output) : await validateRun(output);
+  console.log(JSON.stringify(validation, null, 2));
+}
+
+async function handleExecutionAction(action, options, profile) {
   await prepare(profile);
   const config = await loadJson(path.join(benchmarkRoot, "configs", `${profile}.json`));
   const seedFile = profile === "smoke" ? "smoke.json" : "development.json";
@@ -1413,6 +1686,27 @@ async function main() {
   const validation = await validateRun(output);
   const summary = await analyzeRun(output);
   console.log(JSON.stringify({ output, run: result.run, summary, validation }, null, 2));
+}
+
+async function main() {
+  const { action, options } = parseArgs(process.argv);
+  if (action === "capsule-confirmation" || action === "capsule-promotion-build") {
+    await handleCapsuleAction(action);
+    return;
+  }
+  const profile = options.profile ?? (action === "smoke" ? "smoke" : "development");
+  if (action === "prepare") {
+    console.log(JSON.stringify(await prepare(profile), null, 2));
+    return;
+  }
+  if (action === "analyze" || action === "validate") {
+    await handleAnalysisOrValidationAction(action, options);
+    return;
+  }
+  if (action !== "smoke" && action !== "run" && action !== "factorial") {
+    throw new Error("Action must be prepare, smoke, run, factorial, capsule-confirmation, capsule-promotion-build, analyze, or validate.");
+  }
+  await handleExecutionAction(action, options, profile);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname.replace(/^\/(.:)/, "$1"))) {

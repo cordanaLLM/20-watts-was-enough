@@ -262,6 +262,38 @@ function assertIdentityDocument(document) {
   }
 }
 
+async function capturePackageAndLock(repository) {
+  const packagePath = path.join(repository, "package.json");
+  const lockPath = path.join(repository, "package-lock.json");
+  await assertUnlinkedContainedPath(repository, packagePath, "root package metadata", "file");
+  await assertUnlinkedContainedPath(repository, lockPath, "root package lock", "file");
+  const [packageDocument, lock, packageLockIdentity] = await Promise.all([
+    readBoundJson(repository, packagePath, "root package metadata"),
+    readBoundJson(repository, lockPath, "root package lock"),
+    hashFile(lockPath),
+  ]);
+  if (!Number.isSafeInteger(lock.lockfileVersion) || lock.lockfileVersion < 1) {
+    refuse("LOCK_MISMATCH", "Root package lock has no supported lockfile version.");
+  }
+  return { packageDocument, lock, packageLockIdentity };
+}
+
+async function captureExecutableIdentity(execPath) {
+  const executable = path.resolve(execPath);
+  let executableInformation;
+  try {
+    executableInformation = await lstat(executable);
+  } catch (error) {
+    refuse("EXECUTABLE", `Cannot inspect Node executable: ${error.message}`, error);
+  }
+  if (executableInformation.isSymbolicLink() || !executableInformation.isFile()) {
+    refuse("EXECUTABLE", "Node executable is a symlink, reparse point, or non-file.");
+  }
+  const executableRealpath = await realpath(executable);
+  const executableIdentity = await hashFile(executableRealpath);
+  return { executable, executableRealpath, executableIdentity };
+}
+
 export async function captureRuntimeIdentity({
   repositoryRoot = path.resolve(
     path.dirname(new URL(import.meta.url).pathname.replace(/^\/(.:)/, "$1")),
@@ -276,18 +308,7 @@ export async function captureRuntimeIdentity({
   const candidate = path.resolve(candidateRoot);
   await assertUnlinkedContainedPath(repository, repository, "repository", "directory");
   await assertUnlinkedContainedPath(repository, candidate, "Candidate 010 source tree", "directory");
-  const packagePath = path.join(repository, "package.json");
-  const lockPath = path.join(repository, "package-lock.json");
-  await assertUnlinkedContainedPath(repository, packagePath, "root package metadata", "file");
-  await assertUnlinkedContainedPath(repository, lockPath, "root package lock", "file");
-  const [packageDocument, lock, packageLockIdentity] = await Promise.all([
-    readBoundJson(repository, packagePath, "root package metadata"),
-    readBoundJson(repository, lockPath, "root package lock"),
-    hashFile(lockPath),
-  ]);
-  if (!Number.isSafeInteger(lock.lockfileVersion) || lock.lockfileVersion < 1) {
-    refuse("LOCK_MISMATCH", "Root package lock has no supported lockfile version.");
-  }
+  const { packageDocument, lock, packageLockIdentity } = await capturePackageAndLock(repository);
   const dependencyNames = await deriveExternalProductionDependencies(candidate);
   const dependencies = await Promise.all(dependencyNames.map((name) => captureDependency({
     repositoryRoot: repository,
@@ -296,18 +317,7 @@ export async function captureRuntimeIdentity({
     name,
   })));
 
-  const executable = path.resolve(execPath);
-  let executableInformation;
-  try {
-    executableInformation = await lstat(executable);
-  } catch (error) {
-    refuse("EXECUTABLE", `Cannot inspect Node executable: ${error.message}`, error);
-  }
-  if (executableInformation.isSymbolicLink() || !executableInformation.isFile()) {
-    refuse("EXECUTABLE", "Node executable is a symlink, reparse point, or non-file.");
-  }
-  const executableRealpath = await realpath(executable);
-  const executableIdentity = await hashFile(executableRealpath);
+  const { executable, executableRealpath, executableIdentity } = await captureExecutableIdentity(execPath);
   const versions = Object.fromEntries(Object.entries(process.versions).sort(([left], [right]) => (
     left.localeCompare(right)
   )));

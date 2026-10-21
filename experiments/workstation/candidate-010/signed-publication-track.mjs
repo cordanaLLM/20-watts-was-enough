@@ -86,22 +86,7 @@ async function exclusiveWriteRefusesExisting(file, body) {
   }
 }
 
-export async function executeSignedPublicationTrial({
-  root,
-  opportunity,
-  arm,
-  config,
-  revealTrace,
-  decideWithTrace,
-}) {
-  const boundaryStarted = performance.now();
-  const safeArm = unitName(arm);
-  const safeOpportunity = unitName(opportunity.id);
-  const stagingParent = path.join(root, "staging", safeArm);
-  const stagedUnit = path.join(stagingParent, safeOpportunity);
-  const publicationParent = path.join(root, "publication-log", safeArm);
-  const publicationPath = path.join(publicationParent, `${safeOpportunity}.json`);
-
+async function stagePublicationPaths({ stagingParent, publicationParent, stagedUnit, opportunity }) {
   const stageStarted = performance.now();
   await mkdir(stagingParent, { recursive: true });
   await mkdir(publicationParent, { recursive: true });
@@ -120,7 +105,18 @@ export async function executeSignedPublicationTrial({
   await writeFile(payloadPath, payloadBody, { encoding: "utf8", flag: "wx" });
   await writeFile(envelopePath, envelopeBody, { encoding: "utf8", flag: "wx" });
   const stageElapsedMs = performance.now() - stageStarted;
+  return {
+    payload,
+    payloadBody,
+    envelope,
+    envelopeBody,
+    payloadPath,
+    envelopePath,
+    stageElapsedMs,
+  };
+}
 
+async function executeStagedTrace({ stagedUnit, payloadPath, envelopePath, config }) {
   const executionStarted = performance.now();
   const stagedPayloadBody = await readFile(payloadPath, "utf8");
   const stagedPayload = JSON.parse(stagedPayloadBody);
@@ -133,26 +129,15 @@ export async function executeSignedPublicationTrial({
   const stagedTrace = JSON.parse(await readFile(tracePath, "utf8"));
   if (stagedTrace.verifier !== verifier) throw new Error("Staged publication trace failed verification.");
   const temporaryExecutionElapsedMs = performance.now() - executionStarted;
-
-  const revealedVerifier = revealTrace ? verifier : null;
-  const decision = decideWithTrace(revealedVerifier);
-  if (decision.stage !== true || decision.reset === decision.commit) {
-    throw new Error("Every arm must stage and then choose exactly one of commit or reset.");
-  }
-
-  const publication = {
-    schema: 1,
-    backend_id: BACKEND_ID,
-    task_family: TASK_FAMILY,
-    payload,
-    envelope,
-    trace: JSON.parse(traceBody),
+  return {
+    envelopeValid,
+    verifier,
+    traceBody,
+    temporaryExecutionElapsedMs,
   };
-  const publicationBody = `${JSON.stringify(publication)}\n`;
-  const stagedBytesWritten = Buffer.byteLength(payloadBody)
-    + Buffer.byteLength(envelopeBody)
-    + Buffer.byteLength(traceBody);
+}
 
+async function finalizePublicationTrial({ decision, publicationPath, publicationBody, stagedUnit }) {
   const finalizeStarted = performance.now();
   let appendOnlyRefusalVerified = false;
   if (decision.commit) {
@@ -161,7 +146,16 @@ export async function executeSignedPublicationTrial({
   }
   await rm(stagedUnit, { recursive: true, force: true });
   const finalizeElapsedMs = performance.now() - finalizeStarted;
+  return { appendOnlyRefusalVerified, finalizeElapsedMs };
+}
 
+async function evaluatePublicationOutcome({
+  stagedUnit,
+  publicationPath,
+  publicationBody,
+  decision,
+  appendOnlyRefusalVerified,
+}) {
   const stageExists = await fileExists(stagedUnit);
   const durableExists = await fileExists(publicationPath);
   const durableBody = durableExists ? await readFile(publicationPath, "utf8") : null;
@@ -181,32 +175,124 @@ export async function executeSignedPublicationTrial({
   const irreversibleViolation = decision.reset
     ? !rollbackComplete
     : !commitComplete;
+  return {
+    stageExists,
+    durableExists,
+    durableBody,
+    durableIntegrityValid,
+    rollbackComplete,
+    commitComplete,
+    irreversibleViolation,
+  };
+}
 
-  const filesystem = {
+function buildFilesystemReport({
+  revealTrace,
+  staged,
+  executed,
+  finalized,
+  outcome,
+  boundaryStarted,
+  stagedBytesWritten,
+}) {
+  return {
     boundary: "signed-publication-stage-execute-finalize-v1",
     task_family: TASK_FAMILY,
     backend_id: BACKEND_ID,
     trace_revealed: revealTrace,
-    payload_sha256: sha256(payloadBody),
-    envelope_sha256: sha256(envelopeBody),
-    trace_output_sha256: sha256(traceBody),
-    publication_sha256: durableBody === null ? null : sha256(durableBody),
+    payload_sha256: sha256(staged.payloadBody),
+    envelope_sha256: sha256(staged.envelopeBody),
+    trace_output_sha256: sha256(executed.traceBody),
+    publication_sha256: outcome.durableBody === null ? null : sha256(outcome.durableBody),
     staged_bytes_written: stagedBytesWritten,
-    durable_bytes_written: durableBody === null ? 0 : Buffer.byteLength(durableBody),
-    stage_elapsed_ms: stageElapsedMs,
-    temporary_execution_elapsed_ms: temporaryExecutionElapsedMs,
-    finalize_elapsed_ms: finalizeElapsedMs,
+    durable_bytes_written: outcome.durableBody === null ? 0 : Buffer.byteLength(outcome.durableBody),
+    stage_elapsed_ms: staged.stageElapsedMs,
+    temporary_execution_elapsed_ms: executed.temporaryExecutionElapsedMs,
+    finalize_elapsed_ms: finalized.finalizeElapsedMs,
     boundary_elapsed_ms: performance.now() - boundaryStarted,
-    stageExists,
-    durableExists,
-    envelopeValid,
-    durableIntegrityValid,
-    appendOnlyRefusalVerified,
-    rollbackComplete,
-    commitComplete,
-    irreversible_violation: irreversibleViolation,
+    stageExists: outcome.stageExists,
+    durableExists: outcome.durableExists,
+    envelopeValid: executed.envelopeValid,
+    durableIntegrityValid: outcome.durableIntegrityValid,
+    appendOnlyRefusalVerified: finalized.appendOnlyRefusalVerified,
+    rollbackComplete: outcome.rollbackComplete,
+    commitComplete: outcome.commitComplete,
+    irreversible_violation: outcome.irreversibleViolation,
     physical_actuation: false,
   };
+}
+
+function buildPublicationDocument(staged, executed) {
+  const publication = {
+    schema: 1,
+    backend_id: BACKEND_ID,
+    task_family: TASK_FAMILY,
+    payload: staged.payload,
+    envelope: staged.envelope,
+    trace: JSON.parse(executed.traceBody),
+  };
+  const publicationBody = `${JSON.stringify(publication)}\n`;
+  const stagedBytesWritten = Buffer.byteLength(staged.payloadBody)
+    + Buffer.byteLength(staged.envelopeBody)
+    + Buffer.byteLength(executed.traceBody);
+  return { publication, publicationBody, stagedBytesWritten };
+}
+
+export async function executeSignedPublicationTrial({
+  root,
+  opportunity,
+  arm,
+  config,
+  revealTrace,
+  decideWithTrace,
+}) {
+  const boundaryStarted = performance.now();
+  const safeArm = unitName(arm);
+  const safeOpportunity = unitName(opportunity.id);
+  const stagingParent = path.join(root, "staging", safeArm);
+  const stagedUnit = path.join(stagingParent, safeOpportunity);
+  const publicationParent = path.join(root, "publication-log", safeArm);
+  const publicationPath = path.join(publicationParent, `${safeOpportunity}.json`);
+
+  const staged = await stagePublicationPaths({ stagingParent, publicationParent, stagedUnit, opportunity });
+  const executed = await executeStagedTrace({
+    stagedUnit,
+    payloadPath: staged.payloadPath,
+    envelopePath: staged.envelopePath,
+    config,
+  });
+
+  const revealedVerifier = revealTrace ? executed.verifier : null;
+  const decision = decideWithTrace(revealedVerifier);
+  if (decision.stage !== true || decision.reset === decision.commit) {
+    throw new Error("Every arm must stage and then choose exactly one of commit or reset.");
+  }
+
+  const { publicationBody, stagedBytesWritten } = buildPublicationDocument(staged, executed);
+
+  const finalized = await finalizePublicationTrial({
+    decision,
+    publicationPath,
+    publicationBody,
+    stagedUnit,
+  });
+  const outcome = await evaluatePublicationOutcome({
+    stagedUnit,
+    publicationPath,
+    publicationBody,
+    decision,
+    appendOnlyRefusalVerified: finalized.appendOnlyRefusalVerified,
+  });
+
+  const filesystem = buildFilesystemReport({
+    revealTrace,
+    staged,
+    executed,
+    finalized,
+    outcome,
+    boundaryStarted,
+    stagedBytesWritten,
+  });
   return {
     decision,
     filesystem,

@@ -3,6 +3,7 @@ import { lstat, readFile, readdir, realpath } from "node:fs/promises";
 import path from "node:path";
 import { init, parse } from "es-module-lexer";
 import { readStableOpenedFile } from "./opened-file.mjs";
+import { canonicalJson } from "../lib/canonical-json.mjs";
 
 export const CANDIDATE_010_SOURCE_FILES = Object.freeze([
   "package-lock.json",
@@ -11,6 +12,7 @@ export const CANDIDATE_010_SOURCE_FILES = Object.freeze([
   "scripts/lib/workstation-manifests.mjs",
   "scripts/validate-workstation.mjs",
   "experiments/workstation/manifest.schema.json",
+  "experiments/workstation/lib/canonical-json.mjs",
   "experiments/workstation/candidate-010/actuator-command-track.mjs",
   "experiments/workstation/candidate-010/backend-registry.mjs",
   "experiments/workstation/candidate-010/capsule-bootstrap.mjs",
@@ -149,11 +151,7 @@ function manifestFromExecutionProjection(projection, readiness) {
 }
 
 function canonical(value) {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
-  if (value && typeof value === "object") {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`;
-  }
-  return JSON.stringify(value);
+  return canonicalJson(value, { strict: false, label: "Source bundle" });
 }
 
 export function assertCandidate010ExecutionManifestProjection({ manifest, projection }) {
@@ -218,10 +216,22 @@ async function exactRegularFileInventory(sourceRoot) {
   const root = await strictSourceRoot(sourceRoot);
   const files = [];
   const directories = [];
-  async function visit(directory, relativeDirectory = "") {
+  const queue = [{ directory: root, relativeDirectory: "", depth: 0 }];
+  const MAXIMUM_DIRECTORY_DEPTH = 32;
+  const MAXIMUM_DIRECTORY_ENTRIES = 10_000;
+  let entriesProcessed = 0;
+
+  while (queue.length > 0) {
+    const { directory, relativeDirectory, depth } = queue.shift();
+    if (depth > MAXIMUM_DIRECTORY_DEPTH) {
+      throw new Error(`Frozen source root exceeded maximum directory depth of ${MAXIMUM_DIRECTORY_DEPTH}.`);
+    }
     const entries = await readdir(directory, { withFileTypes: true });
     entries.sort((left, right) => left.name.localeCompare(right.name));
     for (const entry of entries) {
+      if (++entriesProcessed > MAXIMUM_DIRECTORY_ENTRIES) {
+        throw new Error("Frozen source root exceeded traversal entry limit.");
+      }
       const relative = relativeDirectory ? `${relativeDirectory}/${entry.name}` : entry.name;
       const absolute = path.join(directory, entry.name);
       const information = await lstat(absolute);
@@ -234,13 +244,14 @@ async function exactRegularFileInventory(sourceRoot) {
       }
       if (information.isDirectory()) {
         directories.push(relative);
-        await visit(absolute, relative);
+        queue.push({ directory: absolute, relativeDirectory: relative, depth: depth + 1 });
+      } else if (information.isFile()) {
+        files.push(relative);
+      } else {
+        throw new Error(`Frozen source root contains an unsupported filesystem entry: ${relative}`);
       }
-      else if (information.isFile()) files.push(relative);
-      else throw new Error(`Frozen source root contains an unsupported filesystem entry: ${relative}`);
     }
   }
-  await visit(root);
   return Object.freeze({
     root,
     files: Object.freeze(files.sort()),
@@ -300,19 +311,34 @@ async function walkCandidateFiles(root, candidateDirectory) {
     label: "Candidate 010 source directory",
   });
   const files = [];
-  async function visit(directory, relativeDirectory = "") {
+  const queue = [{ directory: absoluteCandidateDirectory, relativeDirectory: "", depth: 0 }];
+  const MAXIMUM_CANDIDATE_WALK_DEPTH = 32;
+  const MAXIMUM_CANDIDATE_WALK_ENTRIES = 10_000;
+  let entriesProcessed = 0;
+
+  while (queue.length > 0) {
+    const { directory, relativeDirectory, depth } = queue.shift();
+    if (depth > MAXIMUM_CANDIDATE_WALK_DEPTH) {
+      throw new Error(`Candidate 010 source discovery exceeded maximum depth of ${MAXIMUM_CANDIDATE_WALK_DEPTH}.`);
+    }
     const entries = await readdir(directory, { withFileTypes: true });
     entries.sort((left, right) => left.name.localeCompare(right.name));
     for (const entry of entries) {
+      if (++entriesProcessed > MAXIMUM_CANDIDATE_WALK_ENTRIES) {
+        throw new Error("Candidate 010 source discovery exceeded entry limit.");
+      }
       const relative = relativeDirectory ? `${relativeDirectory}/${entry.name}` : entry.name;
       const absolute = path.join(directory, entry.name);
       if (entry.isSymbolicLink()) throw new Error(`Candidate 010 source discovery refuses symbolic links: ${relative}`);
-      if (entry.isDirectory()) await visit(absolute, relative);
-      else if (entry.isFile()) files.push(relative);
-      else throw new Error(`Candidate 010 source discovery found an unsupported entry: ${relative}`);
+      if (entry.isDirectory()) {
+        queue.push({ directory: absolute, relativeDirectory: relative, depth: depth + 1 });
+      } else if (entry.isFile()) {
+        files.push(relative);
+      } else {
+        throw new Error(`Candidate 010 source discovery found an unsupported entry: ${relative}`);
+      }
     }
   }
-  await visit(absoluteCandidateDirectory);
   return files.sort();
 }
 
@@ -350,22 +376,7 @@ async function validateFrozenImportClosure({ root, importers, sourceFiles }) {
   )));
 }
 
-export async function discoverCandidate010SourceFiles({
-  root = process.cwd(),
-  candidateDirectory = "experiments/workstation/candidate-010",
-  manifestFile = CANDIDATE_010_MANIFEST_FILE,
-  executionManifestFile = CANDIDATE_010_EXECUTION_MANIFEST_FILE,
-  productionFiles = CANDIDATE_010_SOURCE_FILES,
-  testSupportFiles = CANDIDATE_010_TEST_SUPPORT_FILES,
-  exclusions = CANDIDATE_010_DISCOVERY_EXCLUSIONS,
-} = {}) {
-  const normalizedProduction = sortedUnique([...productionFiles], "Candidate 010 production source");
-  const normalizedSupport = sortedUnique([...testSupportFiles], "Candidate 010 test-support source");
-  const normalizedManifest = normalizedRelativePath(manifestFile);
-  const normalizedExecutionManifest = normalizedRelativePath(executionManifestFile);
-  const normalizedCandidateDirectory = normalizedRelativePath(candidateDirectory).replace(/\/$/, "");
-  const prefix = `${normalizedCandidateDirectory}/`;
-  const discoveredRelative = await walkCandidateFiles(root, normalizedCandidateDirectory);
+function validateDiscoveredProductionModules(discoveredRelative, normalizedProduction, prefix) {
   const discoveredProductionModules = discoveredRelative
     .filter((file) => file.endsWith(".mjs") && !file.endsWith(".test.mjs"))
     .map((file) => `${prefix}${file}`)
@@ -380,7 +391,15 @@ export async function discoverCandidate010SourceFiles({
     const missing = listedProductionModules.filter((file) => !discovered.has(file));
     throw new Error(`Candidate 010 production module coverage mismatch; unlisted=[${unlisted.join(",")}], missing=[${missing.join(",")}]`);
   }
+}
 
+async function loadManifestAndValidateTests({
+  root,
+  normalizedManifest,
+  normalizedExecutionManifest,
+  prefix,
+  discoveredRelative,
+}) {
   const { absolute: manifestPath } = await repositoryEntry(root, normalizedManifest, {
     label: "Candidate 010 execution manifest",
   });
@@ -411,7 +430,10 @@ export async function discoverCandidate010SourceFiles({
     const missing = normalizedRegisteredTests.filter((file) => !discovered.has(file));
     throw new Error(`Candidate 010 test coverage mismatch; unregistered=[${unregistered.join(",")}], missing=[${missing.join(",")}]`);
   }
+  return { executionManifestProjection, normalizedRegisteredTests };
+}
 
+function validateExclusionsAndCoverage(exclusions, sourceFiles, discoveredRelative, prefix) {
   const exclusionMap = new Map();
   for (const exclusion of exclusions) {
     const relative = normalizedRelativePath(exclusion?.path);
@@ -421,11 +443,6 @@ export async function discoverCandidate010SourceFiles({
     if (exclusionMap.has(relative)) throw new Error(`Duplicate Candidate 010 discovery exclusion: ${relative}`);
     exclusionMap.set(relative, exclusion.reason);
   }
-  const sourceFiles = sortedUnique([
-    ...normalizedProduction,
-    ...normalizedRegisteredTests,
-    ...normalizedSupport,
-  ], "Candidate 010 complete source");
   const includedCandidateFiles = new Set(sourceFiles
     .filter((file) => file.startsWith(prefix))
     .map((file) => file.slice(prefix.length)));
@@ -435,6 +452,41 @@ export async function discoverCandidate010SourceFiles({
   if (unclassified.length > 0) {
     throw new Error(`Candidate 010 discovery found unclassified files: ${unclassified.join(",")}`);
   }
+  return exclusionMap;
+}
+
+export async function discoverCandidate010SourceFiles({
+  root = process.cwd(),
+  candidateDirectory = "experiments/workstation/candidate-010",
+  manifestFile = CANDIDATE_010_MANIFEST_FILE,
+  executionManifestFile = CANDIDATE_010_EXECUTION_MANIFEST_FILE,
+  productionFiles = CANDIDATE_010_SOURCE_FILES,
+  testSupportFiles = CANDIDATE_010_TEST_SUPPORT_FILES,
+  exclusions = CANDIDATE_010_DISCOVERY_EXCLUSIONS,
+} = {}) {
+  const normalizedProduction = sortedUnique([...productionFiles], "Candidate 010 production source");
+  const normalizedSupport = sortedUnique([...testSupportFiles], "Candidate 010 test-support source");
+  const normalizedManifest = normalizedRelativePath(manifestFile);
+  const normalizedExecutionManifest = normalizedRelativePath(executionManifestFile);
+  const normalizedCandidateDirectory = normalizedRelativePath(candidateDirectory).replace(/\/$/, "");
+  const prefix = `${normalizedCandidateDirectory}/`;
+  const discoveredRelative = await walkCandidateFiles(root, normalizedCandidateDirectory);
+  validateDiscoveredProductionModules(discoveredRelative, normalizedProduction, prefix);
+
+  const { executionManifestProjection, normalizedRegisteredTests } = await loadManifestAndValidateTests({
+    root,
+    normalizedManifest,
+    normalizedExecutionManifest,
+    prefix,
+    discoveredRelative,
+  });
+
+  const sourceFiles = sortedUnique([
+    ...normalizedProduction,
+    ...normalizedRegisteredTests,
+    ...normalizedSupport,
+  ], "Candidate 010 complete source");
+  const exclusionMap = validateExclusionsAndCoverage(exclusions, sourceFiles, discoveredRelative, prefix);
   const productionModules = normalizedProduction.filter((file) => file.endsWith(".mjs"));
   const importClosure = await validateFrozenImportClosure({
     root,
@@ -674,25 +726,35 @@ function packedReference(body, reference) {
   return null;
 }
 
-async function resolveGitReference(reference, directories, visited = new Set()) {
-  if (!reference.startsWith("refs/") || visited.has(reference) || visited.size >= 8) {
-    throw new Error(`Cannot safely resolve Git reference ${reference}.`);
+const MAXIMUM_GIT_REFERENCE_HOPS = 8;
+
+async function resolveGitReference(initialReference, directories) {
+  let current = initialReference;
+  const visited = new Set();
+  while (visited.size < MAXIMUM_GIT_REFERENCE_HOPS) {
+    if (!current.startsWith("refs/") || visited.has(current)) {
+      throw new Error(`Cannot safely resolve Git reference ${current}.`);
+    }
+    visited.add(current);
+    const looseDirectory = isWorktreeReference(current)
+      ? directories.gitDirectory
+      : directories.commonDirectory;
+    const loose = await readOptional(path.join(looseDirectory, ...current.split("/")), looseDirectory);
+    const value = loose?.trim();
+    if (/^[0-9a-f]{40}$/.test(value ?? "")) return value;
+    const symbolic = /^ref:\s*(.+)$/.exec(value ?? "");
+    if (symbolic) {
+      current = symbolic[1];
+      continue;
+    }
+    if (loose !== null) throw new Error(`Git loose reference ${current} is malformed.`);
+    const packed = await readOptional(
+      path.join(directories.commonDirectory, "packed-refs"),
+      directories.commonDirectory,
+    );
+    return packedReference(packed, current);
   }
-  visited.add(reference);
-  const looseDirectory = isWorktreeReference(reference)
-    ? directories.gitDirectory
-    : directories.commonDirectory;
-  const loose = await readOptional(path.join(looseDirectory, ...reference.split("/")), looseDirectory);
-  const value = loose?.trim();
-  if (/^[0-9a-f]{40}$/.test(value ?? "")) return value;
-  const symbolic = /^ref:\s*(.+)$/.exec(value ?? "");
-  if (symbolic) return resolveGitReference(symbolic[1], directories, visited);
-  if (loose !== null) throw new Error(`Git loose reference ${reference} is malformed.`);
-  const packed = await readOptional(
-    path.join(directories.commonDirectory, "packed-refs"),
-    directories.commonDirectory,
-  );
-  return packedReference(packed, reference);
+  throw new Error(`Cannot safely resolve Git reference ${current}.`);
 }
 
 export async function readCandidate010SourceCommit(root = process.cwd()) {
