@@ -88,6 +88,56 @@ type dockerContainerInspection struct {
 	} `json:"NetworkSettings"`
 }
 
+func loadAndTagFinalRuntimeImage(
+	ctx context.Context,
+	executor dockerExecutor,
+	authority checkedAuthority,
+	build finalBuild,
+	alias string,
+) error {
+	if _, err := executor.run(ctx, dockerRequest{
+		operation: "load compared untagged PDF-tools final image locally",
+		directory: authority.root,
+		timeout:   2 * time.Minute,
+		output:    authority.contract.Limits.CapturedOutputBytes,
+		arguments: []string{"image", "load", "--input", build.Archive},
+	}); err != nil {
+		return err
+	}
+	reference, present, err := localFinalImageReference(ctx, executor, authority, build.Image.Identity)
+	if err != nil || !present {
+		return errors.Join(err, errors.New("Docker did not retain the loaded PDF-tools image identity"))
+	}
+	if _, err := executor.run(ctx, dockerRequest{
+		operation: "create owned PDF-tools runtime alias",
+		directory: authority.root,
+		timeout:   30 * time.Second,
+		output:    authority.contract.Limits.CapturedOutputBytes,
+		arguments: []string{"image", "tag", reference, alias},
+	}); err != nil {
+		return err
+	}
+	return validateLoadedFinalImage(ctx, executor, authority, build.Image, alias)
+}
+
+func probeRuntimeTools(
+	ctx context.Context,
+	executor dockerExecutor,
+	authority checkedAuthority,
+	alias string,
+) ([]RuntimeToolObservation, error) {
+	tools := make([]RuntimeToolObservation, 0, len(authority.contract.Runtime.RequiredTools))
+	for _, tool := range authority.contract.Runtime.RequiredTools {
+		if err := runVersionProbe(ctx, executor, authority, alias, tool); err != nil {
+			return nil, err
+		}
+		tools = append(tools, RuntimeToolObservation{
+			Name: tool.Name, Version: tool.Version, VersionStream: tool.VersionStream,
+		})
+	}
+	return tools, nil
+}
+
 func inspectFinalRuntime(
 	ctx context.Context,
 	executor dockerExecutor,
@@ -114,43 +164,16 @@ func inspectFinalRuntime(
 	defer func() {
 		returnError = errors.Join(returnError, removeRuntimeAliasIfPresent(executor, authority, alias))
 	}()
-	if _, err := executor.run(ctx, dockerRequest{
-		operation: "load compared untagged PDF-tools final image locally",
-		directory: authority.root,
-		timeout:   2 * time.Minute,
-		output:    authority.contract.Limits.CapturedOutputBytes,
-		arguments: []string{"image", "load", "--input", build.Archive},
-	}); err != nil {
-		return RuntimeObservation{}, err
-	}
-	reference, present, err := localFinalImageReference(ctx, executor, authority, build.Image.Identity)
-	if err != nil || !present {
-		return RuntimeObservation{}, errors.Join(err, errors.New("Docker did not retain the loaded PDF-tools image identity"))
-	}
-	if _, err := executor.run(ctx, dockerRequest{
-		operation: "create owned PDF-tools runtime alias",
-		directory: authority.root,
-		timeout:   30 * time.Second,
-		output:    authority.contract.Limits.CapturedOutputBytes,
-		arguments: []string{"image", "tag", reference, alias},
-	}); err != nil {
-		return RuntimeObservation{}, err
-	}
-	if err := validateLoadedFinalImage(ctx, executor, authority, build.Image, alias); err != nil {
+	if err := loadAndTagFinalRuntimeImage(ctx, executor, authority, build, alias); err != nil {
 		return RuntimeObservation{}, err
 	}
 	containment, uid, gid, err := inspectRuntimeContainment(ctx, executor, authority, build.Image, alias)
 	if err != nil {
 		return RuntimeObservation{}, err
 	}
-	tools := make([]RuntimeToolObservation, 0, len(authority.contract.Runtime.RequiredTools))
-	for _, tool := range authority.contract.Runtime.RequiredTools {
-		if err := runVersionProbe(ctx, executor, authority, alias, tool); err != nil {
-			return RuntimeObservation{}, err
-		}
-		tools = append(tools, RuntimeToolObservation{
-			Name: tool.Name, Version: tool.Version, VersionStream: tool.VersionStream,
-		})
+	tools, err := probeRuntimeTools(ctx, executor, authority, alias)
+	if err != nil {
+		return RuntimeObservation{}, err
 	}
 	return RuntimeObservation{
 		ImageManifestDigest: build.Image.Identity.ManifestDigest,
@@ -243,6 +266,37 @@ func validateLoadedFinalImage(
 	return nil
 }
 
+func validateRuntimeContainmentInspection(
+	inspection dockerContainerInspection,
+	authority checkedAuthority,
+	image inspectedFinalImage,
+	reference string,
+) error {
+	contract := authority.contract
+	expectedUser := strconv.Itoa(contract.Runtime.UID) + ":" + strconv.Itoa(contract.Runtime.GID)
+	if inspection.Platform != "linux" ||
+		(inspection.Image != image.Identity.ManifestDigest && inspection.Image != image.Identity.ConfigDigest) ||
+		inspection.Host.NetworkMode != contract.Runtime.Network || inspection.Host.Privileged ||
+		!inspection.Host.ReadonlyRoot || len(inspection.Host.CapAdd) != 0 ||
+		!slices.Equal(inspection.Host.CapDrop, []string{"ALL"}) ||
+		!slices.Equal(inspection.Host.SecurityOpt, []string{"no-new-privileges"}) ||
+		inspection.Host.Memory != contract.Limits.RuntimeMemoryBytes ||
+		inspection.Host.MemorySwap != contract.Limits.RuntimeMemoryBytes ||
+		inspection.Host.PIDsLimit != contract.Limits.RuntimePIDs || inspection.Config.User != expectedUser ||
+		inspection.Config.Image != reference || !slices.Equal(inspection.Config.Entrypoint, []string{"/usr/bin/pdfinfo"}) ||
+		!slices.Equal(inspection.Config.Env, image.Config.Config.Env) ||
+		!equalStringMap(inspection.Config.Labels, image.Config.Config.Labels) ||
+		!equalStringMap(inspection.Host.Tmpfs, map[string]string{
+			"/tmp": strings.TrimPrefix(dockerTmpfsValue("/tmp", contract.Limits.RuntimeTemporaryBytes), "/tmp:"),
+		}) || len(inspection.NetworkSettings.Networks) != 1 {
+		return errors.New("Docker did not retain the exact PDF-tools runtime containment")
+	}
+	if _, exists := inspection.NetworkSettings.Networks[contract.Runtime.Network]; !exists {
+		return errors.New("Docker did not attach only the disabled PDF-tools network")
+	}
+	return nil
+}
+
 func inspectRuntimeContainment(
 	ctx context.Context,
 	executor dockerExecutor,
@@ -285,28 +339,10 @@ func inspectRuntimeContainment(
 	if err != nil {
 		return RuntimeContainment{}, 0, 0, err
 	}
+	if err := validateRuntimeContainmentInspection(inspection, authority, image, reference); err != nil {
+		return RuntimeContainment{}, 0, 0, err
+	}
 	contract := authority.contract
-	expectedUser := strconv.Itoa(contract.Runtime.UID) + ":" + strconv.Itoa(contract.Runtime.GID)
-	if inspection.Platform != "linux" ||
-		(inspection.Image != image.Identity.ManifestDigest && inspection.Image != image.Identity.ConfigDigest) ||
-		inspection.Host.NetworkMode != contract.Runtime.Network || inspection.Host.Privileged ||
-		!inspection.Host.ReadonlyRoot || len(inspection.Host.CapAdd) != 0 ||
-		!slices.Equal(inspection.Host.CapDrop, []string{"ALL"}) ||
-		!slices.Equal(inspection.Host.SecurityOpt, []string{"no-new-privileges"}) ||
-		inspection.Host.Memory != contract.Limits.RuntimeMemoryBytes ||
-		inspection.Host.MemorySwap != contract.Limits.RuntimeMemoryBytes ||
-		inspection.Host.PIDsLimit != contract.Limits.RuntimePIDs || inspection.Config.User != expectedUser ||
-		inspection.Config.Image != reference || !slices.Equal(inspection.Config.Entrypoint, []string{"/usr/bin/pdfinfo"}) ||
-		!slices.Equal(inspection.Config.Env, image.Config.Config.Env) ||
-		!equalStringMap(inspection.Config.Labels, image.Config.Config.Labels) ||
-		!equalStringMap(inspection.Host.Tmpfs, map[string]string{
-			"/tmp": strings.TrimPrefix(dockerTmpfsValue("/tmp", contract.Limits.RuntimeTemporaryBytes), "/tmp:"),
-		}) || len(inspection.NetworkSettings.Networks) != 1 {
-		return RuntimeContainment{}, 0, 0, errors.New("Docker did not retain the exact PDF-tools runtime containment")
-	}
-	if _, exists := inspection.NetworkSettings.Networks[contract.Runtime.Network]; !exists {
-		return RuntimeContainment{}, 0, 0, errors.New("Docker did not attach only the disabled PDF-tools network")
-	}
 	return RuntimeContainment{
 		Network: contract.Runtime.Network, ReadOnlyRoot: true, Capabilities: contract.Runtime.Capabilities,
 		NoNewPrivileges: true, MemoryBytes: contract.Limits.RuntimeMemoryBytes,
