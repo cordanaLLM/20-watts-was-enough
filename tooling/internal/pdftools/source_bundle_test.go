@@ -91,7 +91,11 @@ func readSourceBundle(t *testing.T, body []byte) (map[string][]byte, []string) {
 	reader := tar.NewReader(gzipReader)
 	files := make(map[string][]byte)
 	var names []string
-	for {
+	const maximumSourceBundleEntries = 1024
+	for iteration := 0; iteration <= maximumSourceBundleEntries; iteration++ {
+		if iteration == maximumSourceBundleEntries {
+			t.Fatalf("readSourceBundle exceeded maximum entries boundary %d", maximumSourceBundleEntries)
+		}
 		header, err := reader.Next()
 		if err == io.EOF {
 			break
