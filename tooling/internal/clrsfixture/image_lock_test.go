@@ -14,7 +14,7 @@ func TestGeneratorPackageCutoffsAcceptReviewedOverride(t *testing.T) {
 		t.Fatal(err)
 	}
 	if input.Resolver.ExcludeNewer != "2026-08-31T13:22:50Z" ||
-		!maps.Equal(input.Resolver.ExcludeNewerPackage, map[string]string{"urllib3": "2026-09-16T00:00:00Z"}) {
+		!maps.Equal(input.Resolver.ExcludeNewerPackage, map[string]string{"certifi": "2026-10-21T00:00:00Z", "urllib3": "2026-09-16T00:00:00Z"}) {
 		t.Fatalf("unexpected reviewed cutoff policy: %+v", input.Resolver)
 	}
 }

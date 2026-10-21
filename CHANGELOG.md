@@ -7,6 +7,13 @@ the exact diff; this file records why the project changed.
 
 ### Security
 
+- The CLRS generator lock moves certifi from 2026.7.22 to 2026.10.19 for
+  PYSEC-2026-4320 through a certifi-only package cutoff; every other package
+  stays as locked
+  ([Decision 0113](decisions/0113-lift-the-certifi-cutoff-in-the-clrs-generator.md)).
+  The retained SBOM bundle that CI checks moves to the
+  `clrs-sbom-bundle-2026-10-21` prerelease, scanned from the image rebuilt
+  with the new lock.
 - The Go toolchain moves from 1.27.2 to 1.27.3 for CVE-2026-111943 in
   `crypto/x509`, which the container smoke Trivy scan reports in the static
   `20w` image. The builder image `golang:1.27.3-trixie` is pinned by digest
