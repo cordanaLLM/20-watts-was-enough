@@ -238,8 +238,12 @@ func TestInputMutationDuringRunInvalidatesCompletedWork(t *testing.T) {
 	// Restore the input so Check must reject the incomplete receipt itself.
 	writeTestFile(t, filepath.Join(options.DatasetDirectory, changedPath), original)
 	before := snapshot(t, options.OutputDirectory)
-	if _, err := Check(context.Background(), options); err == nil || err.Error() != "shakedown receipt is incomplete or changes the closed execution boundary" {
+	checked, err := Check(context.Background(), options)
+	if err == nil || err.Error() != "shakedown receipt is incomplete or changes the closed execution boundary" {
 		t.Fatalf("invalidated receipt passed or failed before receipt validation: %v", err)
+	}
+	if checked.RunID != options.RunID || len(checked.Cases) != len(report.Cases) || checked.Error != err.Error() {
+		t.Fatalf("checker dropped the decoded receipt on refusal: %+v", checked)
 	}
 	if !reflect.DeepEqual(before, snapshot(t, options.OutputDirectory)) {
 		t.Fatal("checker changed invalidated evidence")

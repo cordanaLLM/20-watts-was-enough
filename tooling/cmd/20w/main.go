@@ -28,6 +28,7 @@ import (
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/githubprmetadata"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/ocimanifest"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/pdfrender"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/pdfrenderlock"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/releasecheck"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/releaseimage"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/workstationrunner"
@@ -166,16 +167,34 @@ func runCIPlan(arguments []string, stdout, stderr io.Writer) int {
 	return ciplancli.RunPlan(arguments, stdout, stderr)
 }
 
+const (
+	workstationSuiteDeadline = workstationrunner.MaximumSuiteDuration
+	// One render spends at most the lock's build and render limits; five
+	// minutes cover the revision, Buildx and cleanup commands around them.
+	publicationRenderDeadline = time.Duration(pdfrenderlock.MaximumBuildSeconds+pdfrenderlock.MaximumRenderSeconds)*time.Second +
+		5*time.Minute
+)
+
 func runCIWorkstation(arguments []string, stdout, stderr io.Writer) int {
+	return runCIWorkstationWithRunner(arguments, stdout, stderr, workstationrunner.Run)
+}
+
+func runCIWorkstationWithRunner(
+	arguments []string,
+	stdout, stderr io.Writer,
+	run func(context.Context, string, io.Writer) error,
+) int {
 	flags := flag.NewFlagSet("ci run-workstation", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	root := flags.String("root", ".", "repository root")
 	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 {
 		return 2
 	}
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := context.WithTimeout(context.Background(), workstationSuiteDeadline)
 	defer cancel()
-	if err := workstationrunner.Run(ctx, *root, stdout); err != nil {
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := run(ctx, *root, stdout); err != nil {
 		fmt.Fprintf(stderr, "Run bounded workstation suite: %v\n", err)
 		return 1
 	}
@@ -366,8 +385,10 @@ func runPublicationRenderPDFWithRenderer(arguments []string, stdout, stderr io.W
 		)
 		return 0
 	}
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := context.WithTimeout(context.Background(), publicationRenderDeadline)
 	defer cancel()
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	result, err := render(ctx, pdfrender.Options{
 		RepositoryRoot: *root,
 		SourceRef:      *sourceRef,

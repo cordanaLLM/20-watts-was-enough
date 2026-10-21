@@ -13,6 +13,75 @@ import (
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsfixture"
 )
 
+func loadCheckInputs(ctx context.Context, options *Options) (clrsfixture.FixtureTree, boundInputs, *os.Root, error) {
+	tree, err := clrsfixture.LoadFixtureTree(ctx, clrsfixture.FixtureTreeOptions{
+		RepositoryRoot:     options.RepositoryRoot,
+		DatasetDirectory:   options.DatasetDirectory,
+		ExpectedTreeSHA256: options.ExpectedTreeSHA256,
+	})
+	if err != nil {
+		return clrsfixture.FixtureTree{}, boundInputs{}, nil, err
+	}
+	options.RepositoryRoot, options.DatasetDirectory = tree.RepositoryRoot, tree.DatasetDirectory
+	bound, err := bindInputs(*options, tree)
+	if err != nil {
+		return clrsfixture.FixtureTree{}, boundInputs{}, nil, err
+	}
+	output, err := resolveOutput(*options)
+	if err != nil {
+		return clrsfixture.FixtureTree{}, boundInputs{}, nil, err
+	}
+	root, err := openDirectory(output)
+	if err != nil {
+		return clrsfixture.FixtureTree{}, boundInputs{}, nil, err
+	}
+	return tree, bound, root, nil
+}
+
+func readAndValidateCheckReceipts(ctx context.Context, root *os.Root, options Options, tree clrsfixture.FixtureTree, report Report) (Report, []byte, []byte, error) {
+	receiptBytes, err := readFile(ctx, root, "receipt.json", maximumReportBytes)
+	if err != nil {
+		return report, nil, nil, err
+	}
+	if err := decode(receiptBytes, &report); err != nil {
+		return report, nil, nil, err
+	}
+	if err := validateReport(report, options, tree); err != nil {
+		return report, nil, nil, err
+	}
+	startBytes, err := readFile(ctx, root, "run-start.json", maximumReportBytes)
+	if err != nil {
+		return report, nil, nil, err
+	}
+	var start Report
+	if err := decode(startBytes, &start); err != nil {
+		return report, nil, nil, err
+	}
+	wantStart := report
+	wantStart.State, wantStart.Finished, wantStart.InputsRechecked = "incomplete", time.Time{}, false
+	wantStart.Cases, wantStart.Events, wantStart.EventBytes = []Case{}, []Artifact{}, 0
+	if !reflect.DeepEqual(start, wantStart) {
+		return report, nil, nil, errors.New("shakedown run-start identity differs from its receipt")
+	}
+	return report, startBytes, receiptBytes, nil
+}
+
+func verifyCheckCompletion(ctx context.Context, root *os.Root, tree clrsfixture.FixtureTree, startBytes, receiptBytes []byte) error {
+	for name, original := range map[string][]byte{"run-start.json": startBytes, "receipt.json": receiptBytes} {
+		current, err := readFile(ctx, root, name, maximumReportBytes)
+		if err != nil || identify(current) != identify(original) {
+			return errors.New("shakedown receipt changed during check")
+		}
+	}
+	if err := tree.Recheck(ctx); err != nil {
+		return err
+	}
+	if err := checkBundleRoot(root); err != nil {
+		return err
+	}
+	return checkInventory(root, ".", map[string]bool{"events": true, "receipt.json": false, "run-start.json": false})
+}
+
 // Check rechecks retained bytes and policy/reference consistency without running
 // a specialist, Docker or a subprocess. Unsigned receipts cannot prove execution.
 func Check(ctx context.Context, options Options) (report Report, err error) {
@@ -32,20 +101,7 @@ func Check(ctx context.Context, options Options) (report Report, err error) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	tree, err := clrsfixture.LoadFixtureTree(ctx, clrsfixture.FixtureTreeOptions{RepositoryRoot: options.RepositoryRoot, DatasetDirectory: options.DatasetDirectory, ExpectedTreeSHA256: options.ExpectedTreeSHA256})
-	if err != nil {
-		return report, err
-	}
-	options.RepositoryRoot, options.DatasetDirectory = tree.RepositoryRoot, tree.DatasetDirectory
-	bound, err := bindInputs(options, tree)
-	if err != nil {
-		return report, err
-	}
-	output, err := resolveOutput(options)
-	if err != nil {
-		return report, err
-	}
-	root, err := openDirectory(output)
+	tree, bound, root, err := loadCheckInputs(ctx, &options)
 	if err != nil {
 		return report, err
 	}
@@ -53,46 +109,14 @@ func Check(ctx context.Context, options Options) (report Report, err error) {
 	if err := checkInventory(root, ".", map[string]bool{"events": true, "receipt.json": false, "run-start.json": false}); err != nil {
 		return report, err
 	}
-	receiptBytes, err := readFile(ctx, root, "receipt.json", maximumReportBytes)
+	report, startBytes, receiptBytes, err := readAndValidateCheckReceipts(ctx, root, options, tree, report)
 	if err != nil {
 		return report, err
-	}
-	if err := decode(receiptBytes, &report); err != nil {
-		return report, err
-	}
-	if err := validateReport(report, options, tree); err != nil {
-		return report, err
-	}
-	startBytes, err := readFile(ctx, root, "run-start.json", maximumReportBytes)
-	if err != nil {
-		return report, err
-	}
-	var start Report
-	if err := decode(startBytes, &start); err != nil {
-		return report, err
-	}
-	wantStart := report
-	wantStart.State, wantStart.Finished, wantStart.InputsRechecked = "incomplete", time.Time{}, false
-	wantStart.Cases, wantStart.Events, wantStart.EventBytes = []Case{}, []Artifact{}, 0
-	if !reflect.DeepEqual(start, wantStart) {
-		return report, errors.New("shakedown run-start identity differs from its receipt")
 	}
 	if err := checkEvents(ctx, root, bound, report); err != nil {
 		return report, err
 	}
-	for name, original := range map[string][]byte{"run-start.json": startBytes, "receipt.json": receiptBytes} {
-		current, err := readFile(ctx, root, name, maximumReportBytes)
-		if err != nil || identify(current) != identify(original) {
-			return report, errors.New("shakedown receipt changed during check")
-		}
-	}
-	if err := tree.Recheck(ctx); err != nil {
-		return report, err
-	}
-	if err := checkBundleRoot(root); err != nil {
-		return report, err
-	}
-	if err := checkInventory(root, ".", map[string]bool{"events": true, "receipt.json": false, "run-start.json": false}); err != nil {
+	if err := verifyCheckCompletion(ctx, root, tree, startBytes, receiptBytes); err != nil {
 		return report, err
 	}
 	report.State = "bundle-consistent-unadmitted"
