@@ -326,7 +326,10 @@ func (admission *Admission) wait(
 	ticket *admissionTicket,
 ) (AdmissionDecision, *AdmissionLease) {
 	event := waitStarted
-	for {
+	// The wait deadline bounds the loop; waitingBoundary turns it into the
+	// terminal decision, inside the loop or after the last wake.
+	waitUntil, _ := admission.waitDeadline(request, ticket.queuedAt)
+	for wokeAt := now(); wokeAt.Before(waitUntil); wokeAt = now() {
 		admission.mu.Lock()
 		at := now()
 		decision, lease, terminal := admission.advanceWaitingLocked(ctx, request, ticket, event, at)
@@ -351,6 +354,11 @@ func (admission *Admission) wait(
 			stopTimer(timer)
 		}
 	}
+	admission.mu.Lock()
+	defer admission.mu.Unlock()
+	decision, _ := admission.waitingBoundary(ctx, request, ticket, now())
+	admission.removeTicketLocked(ticket)
+	return decision, nil
 }
 
 func (admission *Admission) advanceWaitingLocked(
@@ -420,66 +428,37 @@ func (admission *Admission) attemptLocked(
 	return decision, false, lease
 }
 
+type eligibleSpecialist struct {
+	id   string
+	cost uint64
+}
+
 func (admission *Admission) selectLocked(
 	task TaskKind,
 	ticket *admissionTicket,
 	at time.Time,
 ) (string, AdmissionDecision, bool) {
-	type eligible struct {
-		id   string
-		cost uint64
-	}
-	var choices []eligible
+	var choices []eligibleSpecialist
 	var representative AdmissionDecision
 	waitable, compatible := false, false
 	plannedSpecialist := admission.plannedSpecialistLocked(ticket, task, at)
 	for _, specialistID := range admission.routes[task] {
-		if ticket != nil && (!ticket.candidates[specialistID] || ticket.exhausted[specialistID]) {
+		choice, candidate, candidateWaitable, candidateCompatible := admission.inspectRouteCandidateLocked(
+			task, specialistID, ticket, plannedSpecialist, at,
+		)
+		if choice != nil {
+			choices = append(choices, *choice)
+			compatible = true
 			continue
 		}
-		observation := admission.observations[specialistID]
-		observedFit := observation.fits[task]
-		fit := effectiveFit(observedFit, at)
-		state := effectiveReadiness(observation, at)
-		if state == ReadinessStale {
-			candidate := decisionFromUnavailable(specialistID, observation, observedFit, at, AdmissionReasonStale)
-			candidate.Readiness = state
-			if representative.Reason == "" || readinessPriority(candidate.Reason) < readinessPriority(representative.Reason) {
-				representative = candidate
-			}
-			continue
+		if candidateCompatible {
+			compatible = true
 		}
-		if !admissibleFit(fit) {
-			candidate := decisionFromUnavailable(specialistID, observation, observedFit, at, fitReason(fit))
-			if representative.Reason == "" || readinessPriority(candidate.Reason) < readinessPriority(representative.Reason) {
-				representative = candidate
-			}
-			continue
-		}
-		compatible = true
-		blocked := state == ReadinessReady && plannedSpecialist != specialistID
-		if state == ReadinessReady && !blocked {
-			choices = append(choices, eligible{id: specialistID, cost: observation.declaredCost})
-			continue
-		}
-		if blocked {
-			state = ReadinessSaturated
-		}
-		candidate := decisionFromUnavailable(specialistID, observation, observedFit, at, readinessReason(state))
-		candidate.Readiness = state
-		if representative.Reason == "" || readinessPriority(candidate.Reason) < readinessPriority(representative.Reason) {
-			representative = candidate
-		}
-		waitable = waitable || state == ReadinessLoading || state == ReadinessSaturated
+		updateRepresentative(&representative, candidate)
+		waitable = waitable || candidateWaitable
 	}
 	if len(choices) > 0 {
-		sort.Slice(choices, func(left, right int) bool {
-			if choices[left].cost != choices[right].cost {
-				return choices[left].cost < choices[right].cost
-			}
-			return choices[left].id < choices[right].id
-		})
-		return choices[0].id, AdmissionDecision{}, false
+		return selectBestChoice(choices), AdmissionDecision{}, false
 	}
 	if representative.Reason == "" {
 		reason := AdmissionReasonFitUnknown
@@ -489,6 +468,61 @@ func (admission *Admission) selectLocked(
 		representative.Reason = reason
 	}
 	return "", representative, waitable
+}
+
+func (admission *Admission) inspectRouteCandidateLocked(
+	task TaskKind,
+	specialistID string,
+	ticket *admissionTicket,
+	plannedSpecialist string,
+	at time.Time,
+) (*eligibleSpecialist, AdmissionDecision, bool, bool) {
+	if ticket != nil && (!ticket.candidates[specialistID] || ticket.exhausted[specialistID]) {
+		return nil, AdmissionDecision{}, false, false
+	}
+	observation := admission.observations[specialistID]
+	observedFit := observation.fits[task]
+	fit := effectiveFit(observedFit, at)
+	state := effectiveReadiness(observation, at)
+	if state == ReadinessStale {
+		candidate := decisionFromUnavailable(specialistID, observation, observedFit, at, AdmissionReasonStale)
+		candidate.Readiness = state
+		return nil, candidate, false, false
+	}
+	if !admissibleFit(fit) {
+		candidate := decisionFromUnavailable(specialistID, observation, observedFit, at, fitReason(fit))
+		return nil, candidate, false, false
+	}
+	blocked := state == ReadinessReady && plannedSpecialist != specialistID
+	if state == ReadinessReady && !blocked {
+		return &eligibleSpecialist{id: specialistID, cost: observation.declaredCost}, AdmissionDecision{}, false, true
+	}
+	if blocked {
+		state = ReadinessSaturated
+	}
+	candidate := decisionFromUnavailable(specialistID, observation, observedFit, at, readinessReason(state))
+	candidate.Readiness = state
+	waitable := state == ReadinessLoading || state == ReadinessSaturated
+	return nil, candidate, waitable, true
+}
+
+func updateRepresentative(current *AdmissionDecision, candidate AdmissionDecision) {
+	if candidate.Reason == "" {
+		return
+	}
+	if current.Reason == "" || readinessPriority(candidate.Reason) < readinessPriority(current.Reason) {
+		*current = candidate
+	}
+}
+
+func selectBestChoice(choices []eligibleSpecialist) string {
+	sort.Slice(choices, func(left, right int) bool {
+		if choices[left].cost != choices[right].cost {
+			return choices[left].cost < choices[right].cost
+		}
+		return choices[left].id < choices[right].id
+	})
+	return choices[0].id
 }
 
 func (admission *Admission) reserveLocked(specialistID string, request Request) *AdmissionLease {
@@ -730,38 +764,8 @@ func (admission *Admission) plannedSpecialistLocked(
 	if targetIndex < 0 {
 		return ""
 	}
-
-	identities := make([]string, 0, len(admission.registered))
-	for specialistID := range admission.registered {
-		identities = append(identities, specialistID)
-	}
-	sort.Strings(identities)
-	slots := make([]admissionCapacitySlot, 0, len(tickets))
-	slotsBySpecialist := make(map[string][]int, len(identities))
-	for _, specialistID := range identities {
-		free := admission.limits.MaxConcurrencyPerSpecialist - admission.active[specialistID]
-		if free <= 0 {
-			continue
-		}
-		if free > freeTotal {
-			free = freeTotal
-		}
-		if free > len(tickets) {
-			free = len(tickets)
-		}
-		for range free {
-			slot := len(slots)
-			slots = append(slots, admissionCapacitySlot{specialistID: specialistID})
-			slotsBySpecialist[specialistID] = append(slotsBySpecialist[specialistID], slot)
-		}
-	}
-
-	choices := make([][]int, len(tickets))
-	for index, ticket := range tickets {
-		for _, specialistID := range admission.matchingCandidatesLocked(ticket, slotsBySpecialist, at) {
-			choices[index] = append(choices[index], slotsBySpecialist[specialistID]...)
-		}
-	}
+	slots, slotsBySpecialist := admission.availableCapacitySlotsLocked(freeTotal, len(tickets))
+	choices := admission.ticketSlotChoicesLocked(tickets, slotsBySpecialist, at)
 	owners := make([]int, len(slots))
 	assignments := make([]int, len(tickets))
 	for index := range owners {
@@ -783,6 +787,48 @@ func (admission *Admission) plannedSpecialistLocked(
 		return ""
 	}
 	return slots[assignments[targetIndex]].specialistID
+}
+
+func (admission *Admission) availableCapacitySlotsLocked(freeTotal, ticketCount int) ([]admissionCapacitySlot, map[string][]int) {
+	identities := make([]string, 0, len(admission.registered))
+	for specialistID := range admission.registered {
+		identities = append(identities, specialistID)
+	}
+	sort.Strings(identities)
+	slots := make([]admissionCapacitySlot, 0, ticketCount)
+	slotsBySpecialist := make(map[string][]int, len(identities))
+	for _, specialistID := range identities {
+		free := admission.limits.MaxConcurrencyPerSpecialist - admission.active[specialistID]
+		if free <= 0 {
+			continue
+		}
+		if free > freeTotal {
+			free = freeTotal
+		}
+		if free > ticketCount {
+			free = ticketCount
+		}
+		for range free {
+			slot := len(slots)
+			slots = append(slots, admissionCapacitySlot{specialistID: specialistID})
+			slotsBySpecialist[specialistID] = append(slotsBySpecialist[specialistID], slot)
+		}
+	}
+	return slots, slotsBySpecialist
+}
+
+func (admission *Admission) ticketSlotChoicesLocked(
+	tickets []admissionMatchingTicket,
+	slotsBySpecialist map[string][]int,
+	at time.Time,
+) [][]int {
+	choices := make([][]int, len(tickets))
+	for index, ticket := range tickets {
+		for _, specialistID := range admission.matchingCandidatesLocked(ticket, slotsBySpecialist, at) {
+			choices[index] = append(choices[index], slotsBySpecialist[specialistID]...)
+		}
+	}
+	return choices
 }
 
 func (admission *Admission) matchingTicketsLocked(

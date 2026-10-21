@@ -189,13 +189,20 @@ func validateChrome(chrome ChromeForTesting) error {
 	return nil
 }
 
+// MaximumBuildSeconds and MaximumRenderSeconds are the largest build and
+// render limits a lock may declare.
+const (
+	MaximumBuildSeconds  = 3600
+	MaximumRenderSeconds = 1800
+)
+
 func validateLimits(limits Limits) error {
 	checks := []struct {
 		value, minimum, maximum int64
 		name                    string
 	}{
-		{int64(limits.BuildSeconds), 30, 3600, "build_seconds"},
-		{int64(limits.RenderSeconds), 30, 1800, "render_seconds"},
+		{int64(limits.BuildSeconds), 30, MaximumBuildSeconds, "build_seconds"},
+		{int64(limits.RenderSeconds), 30, MaximumRenderSeconds, "render_seconds"},
 		{int64(limits.OutputBytes), 1024, 64 * 1024 * 1024, "output_bytes"},
 		{limits.MemoryBytes, 512 * 1024 * 1024, 16 * 1024 * 1024 * 1024, "memory_bytes"},
 		{int64(limits.PIDs), 32, 4096, "pids"},

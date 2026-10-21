@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
 )
@@ -20,16 +21,22 @@ func realDirectory(value string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	for current := absolute; ; current = filepath.Dir(current) {
+	// An absolute path has one ancestor per separator plus itself, so this
+	// bound ends the walk without refusing any real directory.
+	ancestors := strings.Count(absolute, string(filepath.Separator)) + 1
+	current := absolute
+	for step := 0; step < ancestors; step++ {
 		info, err := fileidentity.Lstat(current)
 		if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 			return "", fmt.Errorf("CLRS context directory %q must contain only real directories", value)
 		}
-		if filepath.Dir(current) == current {
-			break
+		parent := filepath.Dir(current)
+		if parent == current {
+			return absolute, nil
 		}
+		current = parent
 	}
-	return absolute, nil
+	return "", fmt.Errorf("CLRS context directory %q has more ancestors than separators", value)
 }
 
 func sameFile(a, b os.FileInfo) bool {
@@ -40,9 +47,9 @@ func openStable(name string, maximum int64) (*os.File, os.FileInfo, error) {
 	if _, err := realDirectory(filepath.Dir(name)); err != nil {
 		return nil, nil, err
 	}
-	before, err := fileidentity.Lstat(name)
-	if err != nil || !before.Mode().IsRegular() || before.Size() < 0 || before.Size() > maximum {
-		return nil, nil, fmt.Errorf("CLRS context input %q is not a bounded regular file", name)
+	before, err := inspectBoundedRegular(name, maximum)
+	if err != nil {
+		return nil, nil, err
 	}
 	file, err := os.Open(name)
 	if err != nil {
@@ -55,6 +62,14 @@ func openStable(name string, maximum int64) (*os.File, os.FileInfo, error) {
 		return nil, nil, errors.New("CLRS context input changed before read")
 	}
 	return file, opened, nil
+}
+
+func inspectBoundedRegular(name string, maximum int64) (os.FileInfo, error) {
+	before, err := fileidentity.Lstat(name)
+	if err != nil || !before.Mode().IsRegular() || before.Size() < 0 || before.Size() > maximum {
+		return nil, fmt.Errorf("CLRS context input %q is not a bounded regular file", name)
+	}
+	return before, nil
 }
 
 func confirmFile(file *os.File, name string, before os.FileInfo) error {

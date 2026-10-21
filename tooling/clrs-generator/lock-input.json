@@ -30,6 +30,7 @@
     "prerelease": "if-necessary",
     "exclude_newer": "2026-08-31T13:22:50Z",
     "exclude_newer_package": {
+      "certifi": "2026-10-21T00:00:00Z",
       "urllib3": "2026-09-16T00:00:00Z"
     }
   },
