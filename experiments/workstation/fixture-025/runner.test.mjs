@@ -4,10 +4,11 @@ import {
   mkdtemp,
   readFile,
   rm,
-  writeFile,
 } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
+
+import { corruptRawEventsFirstRow } from "../lib/runner-test-helpers.mjs";
 
 import {
   analyzeFixture025,
@@ -107,12 +108,7 @@ test("analysis rejects an altered chained decision", async () => {
   const fixture = await temporaryOutput("fixture-025-corrupt-");
   try {
     await executeFixture025({ profile: "smoke", output: fixture.output });
-    const rawPath = path.join(fixture.output, "raw-events.jsonl");
-    const rows = (await readFile(rawPath, "utf8")).trimEnd().split("\n");
-    const first = JSON.parse(rows[0]);
-    first.loss += 0.1;
-    rows[0] = JSON.stringify(first);
-    await writeFile(rawPath, `${rows.join("\n")}\n`);
+    await corruptRawEventsFirstRow(fixture.output);
     await assert.rejects(() => analyzeFixture025(fixture.output), /runtime contract|hash/i);
   } finally {
     await cleanup(fixture);
