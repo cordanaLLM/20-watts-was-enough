@@ -45,6 +45,7 @@ const repositoryRoot = path.resolve(fixtureRoot, "../../..");
 const ledgerFormat = "fixture-027.rin-t01-ledger.v1";
 const sourceFiles = Object.freeze([
   "../lib/checkpoint-ledger.mjs",
+  "../lib/pcg64-dxsm.mjs",
   "contract.mjs",
   "generator.mjs",
   "registry.mjs",
