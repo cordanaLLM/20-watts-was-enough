@@ -59,6 +59,11 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- CI, CodeQL and Scorecard cancel a superseded branch run but no longer
+  cancel a running `main` run; each `main` commit keeps its own concurrency
+  group. The repository policy requires that shape for every workflow with a
+  `pull_request` trigger
+  ([Decision 0116](decisions/0116-cancel-superseded-branch-runs-and-let-main-runs-finish.md)).
 - Renew the declared-verify npm skip in `scripts/declared-verify-npm.mjs` to
   2026-10-25 (category B, three days): the engine fix for
   cordanaLLM/praetor#1385 is still open, and since 2026-10-22 every
