@@ -118,3 +118,4 @@ than silently changing its outcome.
 | [0111](0111-scan-the-ci-container-images-with-trivy.md) | Scan the CI container images with Trivy | accepted |
 | [0112](0112-keep-the-20w-cli-and-release-module-graph-without-kong-or-spdx-tools-golang.md) | Keep the 20w command line and release module graph without kong or spdx/tools-golang | accepted |
 | [0113](0113-lift-the-certifi-cutoff-in-the-clrs-generator.md) | Lift the certifi cutoff in the CLRS generator | accepted |
+| [0114](0114-lock-pip-in-the-clrs-generator.md) | Lock pip in the CLRS generator | accepted |

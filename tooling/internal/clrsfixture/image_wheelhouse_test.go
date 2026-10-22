@@ -14,8 +14,8 @@ func TestTrackedGeneratorWheelhouseManifestLocksEveryRuntimePackage(t *testing.T
 	t.Parallel()
 	manifest, _, _, _ := trackedGeneratorWheelhouseManifest(t)
 	if manifest.PackageCount != generatorRuntimePackageCount || manifest.ArtifactCount != generatorRuntimePackageCount ||
-		manifest.DownloadedWheelCount != 60 || manifest.SourceBuiltWheelCount != 1 ||
-		manifest.TotalSizeBytes != 823_936_177 {
+		manifest.DownloadedWheelCount != 61 || manifest.SourceBuiltWheelCount != 1 ||
+		manifest.TotalSizeBytes != 825_756_027 {
 		t.Fatalf("tracked wheelhouse counts/bytes = %#v", manifest)
 	}
 	if len(manifest.Artifacts) != generatorRuntimePackageCount || manifest.Artifacts[0].Package != "absl-py" ||
@@ -104,8 +104,8 @@ func TestGeneratorWheelhouseManifestRejectsArtifactAndRecipeDrift(t *testing.T) 
 			1,
 		),
 		"wrong authority": strings.Replace(valid, `"authority": "NO_RESULT"`, `"authority": "RESULT"`, 1),
-		"package count":   strings.Replace(valid, `"package_count": 61`, `"package_count": 60`, 1),
-		"byte total":      strings.Replace(valid, `"total_size_bytes": 823936177`, `"total_size_bytes": 823936178`, 1),
+		"package count":   strings.Replace(valid, `"package_count": 62`, `"package_count": 61`, 1),
+		"byte total":      strings.Replace(valid, `"total_size_bytes": 825756027`, `"total_size_bytes": 825756028`, 1),
 		"mutable base": strings.Replace(
 			valid,
 			input.Python.BaseImage,
@@ -285,7 +285,7 @@ func TestGeneratorWheelhouseSnapshotBoundsEntryCountAndDetectsMutation(t *testin
 			}
 		}
 		if _, err := readGeneratorWheelhouseSnapshot(root, generatorRuntimePackageCount); err == nil ||
-			!strings.Contains(err.Error(), "62 files") {
+			!strings.Contains(err.Error(), fmt.Sprintf("%d files", generatorRuntimePackageCount+1)) {
 			t.Fatalf("readGeneratorWheelhouseSnapshot() error = %v, want bounded extra-entry rejection", err)
 		}
 	})
