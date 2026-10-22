@@ -85,7 +85,7 @@ func executeGenerationCommand(ctx context.Context, binary string, args, environm
 		sink = &stdout
 		shared = &generationCommandBudget{remaining: 1 << 20}
 	}
-	command := exec.CommandContext(commandContext, binary, args...)
+	command := exec.CommandContext(commandContext, binary, args...) //#nosec G204 -- binary and arguments validated by validateGenerationCommand
 	command.Env = environment
 	command.WaitDelay = 2 * time.Second
 	command.Stdout = &generationCommandWriter{destination: sink, remaining: limit, shared: shared, cancel: cancel}

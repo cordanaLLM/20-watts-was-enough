@@ -61,7 +61,7 @@ func executeContainerCommand(ctx context.Context, binary string, args, environme
 	defer cancel(nil)
 	var stdout, stderr bytes.Buffer
 	budget := &containerStreamBudget{remaining: maximum, cancel: cancel}
-	command := exec.CommandContext(child, binary, args...)
+	command := exec.CommandContext(child, binary, args...) //#nosec G204 -- absolute binary path and bounded argument slice validated by preceding checks
 	command.Env = environment
 	command.WaitDelay = containerProcessWaitDelay
 	command.Stdout, command.Stderr = containerStreamWriter{&stdout, budget}, containerStreamWriter{&stderr, budget}

@@ -152,7 +152,7 @@ func dependencyDirectoryNames(root, relative string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	directory, err := os.Open(name)
+	directory, err := os.Open(name) //#nosec G304 -- directory path validated within installed inventory root
 	if err != nil {
 		return nil, err
 	}

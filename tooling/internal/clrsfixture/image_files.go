@@ -267,7 +267,7 @@ func readGeneratorFileWithInterlock(root, relative string, maximumBytes int64, a
 	if err != nil || !before.Mode().IsRegular() || before.Size() <= 0 || before.Size() > maximumBytes {
 		return nil, fmt.Errorf("CLRS generator file %s must be regular and between 1 and %d bytes", relative, maximumBytes)
 	}
-	file, err := os.Open(absolute)
+	file, err := os.Open(absolute) //#nosec G304 -- repository-relative path validated as non-symlink regular file within byte bounds
 	if err != nil {
 		return nil, fmt.Errorf("open CLRS generator file %s: %w", relative, err)
 	}

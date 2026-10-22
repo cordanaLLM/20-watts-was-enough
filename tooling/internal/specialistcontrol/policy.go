@@ -550,7 +550,7 @@ func bindRequest(request Request, specialistID string, decidedAt time.Time, admi
 	for _, value := range []int64{
 		request.IssuedAt.UnixNano(), decidedAt.UnixNano(), request.Deadline.UnixNano(), int64(len(request.Payload)),
 	} {
-		buffer = binary.BigEndian.AppendUint64(buffer, uint64(value))
+		buffer = binary.BigEndian.AppendUint64(buffer, uint64(value)) //#nosec G115 -- two's complement bitcast of int64 to 8 big-endian bytes for hashing
 	}
 	buffer = append(buffer, request.Payload...)
 	for _, value := range []string{
@@ -564,7 +564,7 @@ func bindRequest(request Request, specialistID string, decidedAt time.Time, admi
 		admission.ValidUntil.UnixNano(), admission.QueuedAt.UnixNano(), admission.DecidedAt.UnixNano(),
 		int64(admission.Attempts),
 	} {
-		buffer = binary.BigEndian.AppendUint64(buffer, uint64(value))
+		buffer = binary.BigEndian.AppendUint64(buffer, uint64(value)) //#nosec G115 -- two's complement bitcast of int64 to 8 big-endian bytes for hashing
 	}
 	buffer = binary.BigEndian.AppendUint64(buffer, admission.DeclaredCost)
 	return Binding(sha256.Sum256(buffer))

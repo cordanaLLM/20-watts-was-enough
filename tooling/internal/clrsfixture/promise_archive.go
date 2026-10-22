@@ -291,7 +291,7 @@ func checkPromiseZipEnvelope(body []byte) error {
 	directoryOffset := uint64(binary.LittleEndian.Uint32(end[16:20]))
 	if binary.LittleEndian.Uint16(end[4:6]) != 0 || binary.LittleEndian.Uint16(end[6:8]) != 0 ||
 		binary.LittleEndian.Uint16(end[8:10]) != count || count == 0 || count > promiseArchiveEntries ||
-		directoryOffset+directoryBytes != uint64(len(body)-22) {
+		directoryOffset+directoryBytes != uint64(len(body)-22) { //#nosec G115 -- bounded >= 0 by len(body) >= 22 check at start of function
 		return errors.New("promise wheel ZIP central directory is not one bounded complete disk")
 	}
 	return nil
