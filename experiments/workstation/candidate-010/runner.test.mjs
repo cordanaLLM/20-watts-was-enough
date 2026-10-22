@@ -642,7 +642,7 @@ test("capsule-confirmation operator executes the real frozen child path and remo
       assert.equal(serializedResult.includes(forbidden), false, `operator receipt leaked ${forbidden}`);
     }
   } finally {
-    if (previewCapsule) await destroyExecutionCapsule(previewCapsule).catch(() => {});
+    if (previewCapsule) await destroyExecutionCapsule(previewCapsule);
     await rm(container, { recursive: true, force: true });
   }
 });

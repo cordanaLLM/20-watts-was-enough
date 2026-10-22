@@ -18,7 +18,7 @@ import { createFrozenSeedReleaseContract } from "./release-contract.mjs";
 import { captureRuntimeIdentity } from "./runtime-identity.mjs";
 import { RunLockContentionError, acquireRunLock } from "./run-lock.mjs";
 import { seedListCommitment } from "./seeds/seed-pack.mjs";
-import { computeSourceBundle } from "./source-bundle.mjs";
+import { CANDIDATE_010_SOURCE_FILES, computeSourceBundle } from "./source-bundle.mjs";
 import {
   analyzeFactorialRun,
   deriveFactorialRecordIdentities,
@@ -187,16 +187,17 @@ async function writeJson(file, value) {
   await writeFile(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
-async function candidateProductionFiles(directory, repositoryRootPath, relativeDirectory = "") {
+async function candidateProductionFiles(directory, repositoryRootPath) {
   const files = [];
-  const entries = await readdir(directory, { withFileTypes: true });
-  entries.sort((left, right) => left.name.localeCompare(right.name));
-  for (const entry of entries) {
-    const relative = relativeDirectory ? `${relativeDirectory}/${entry.name}` : entry.name;
-    const absolute = path.join(directory, entry.name);
-    if (entry.isDirectory()) files.push(...await candidateProductionFiles(absolute, repositoryRootPath, relative));
-    else if (entry.isFile() && entry.name.endsWith(".mjs") && !entry.name.endsWith(".test.mjs")) {
-      files.push(path.relative(repositoryRootPath, absolute).replaceAll("\\", "/"));
+  const directories = [directory];
+  for (let index = 0; index < directories.length; index += 1) {
+    const entries = await readdir(directories[index], { withFileTypes: true });
+    for (const entry of entries) {
+      const absolute = path.join(directories[index], entry.name);
+      if (entry.isDirectory()) directories.push(absolute);
+      else if (entry.isFile() && entry.name.endsWith(".mjs") && !entry.name.endsWith(".test.mjs")) {
+        files.push(path.relative(repositoryRootPath, absolute).replaceAll("\\", "/"));
+      }
     }
   }
   return files.sort();
@@ -206,12 +207,111 @@ async function git(cwd, ...args) {
   return execFileAsync("git", ["-c", "core.autocrlf=false", ...args], { cwd, windowsHide: true });
 }
 
+async function commitFixtureSourceBundle(fixtureRepository, candidateRelative) {
+  const sharedLibraryPrefix = "experiments/workstation/lib/";
+  const currentCandidateRoot = path.join(repositoryRoot, ...candidateRelative.split("/"));
+  const sourceFiles = [
+    ...await candidateProductionFiles(currentCandidateRoot, repositoryRoot),
+    ...CANDIDATE_010_SOURCE_FILES.filter((file) => file.startsWith(sharedLibraryPrefix)),
+  ].sort();
+  for (const relative of [...sourceFiles, "package.json", "package-lock.json"]) {
+    const destination = path.join(fixtureRepository, ...relative.split("/"));
+    await mkdir(path.dirname(destination), { recursive: true });
+    await cp(path.join(repositoryRoot, ...relative.split("/")), destination);
+  }
+  await cp(
+    path.join(repositoryRoot, "node_modules", "es-module-lexer"),
+    path.join(fixtureRepository, "node_modules", "es-module-lexer"),
+    { recursive: true },
+  );
+  await git(fixtureRepository, "init");
+  await git(fixtureRepository, "config", "user.email", "candidate-010-fixture@example.invalid");
+  await git(fixtureRepository, "config", "user.name", "Candidate 010 Fixture");
+  await git(fixtureRepository, "add", "--", "package.json", "package-lock.json", candidateRelative, sharedLibraryPrefix);
+  await git(fixtureRepository, "commit", "-m", "candidate 010 capsule fixture");
+  const { stdout } = await git(fixtureRepository, "rev-parse", "HEAD");
+  return computeSourceBundle({
+    root: fixtureRepository,
+    sourceFiles,
+    vcs: { source_commit: stdout.trim(), worktree_state: "temporary-committed-capsule-fixture" },
+  });
+}
+
+async function writeReleaseBindings({
+  bindingRoot,
+  executionCapsule,
+  expectedSourceBundle,
+  candidateRelative,
+  config,
+  scenarios,
+  seeds,
+}) {
+  const files = {
+    sourceBundlePath: "source-bundle.json",
+    executionDescriptorPath: "execution-descriptor.json",
+    runtimeIdentityPath: "runtime-identity.json",
+    configPath: "config.json",
+    designPath: "design.json",
+    backendRegistryPath: "backend-registry.mjs",
+    preregistrationPath: "preregistration.json",
+    commitmentPath: "seeds.commit.json",
+    revealPath: "seeds.reveal.json",
+  };
+  const commitment = seedListCommitment(seeds);
+  await writeJson(path.join(bindingRoot, files.sourceBundlePath), expectedSourceBundle);
+  await writeJson(
+    path.join(bindingRoot, files.executionDescriptorPath),
+    executionCapsule.descriptor,
+  );
+  await writeJson(
+    path.join(bindingRoot, files.runtimeIdentityPath),
+    executionCapsule.descriptor.runtime_identity,
+  );
+  await writeJson(path.join(bindingRoot, files.configPath), config);
+  await writeJson(path.join(bindingRoot, files.designPath), { scenarios });
+  await cp(
+    path.join(executionCapsule.local.source_root, ...candidateRelative.split("/"), "backend-registry.mjs"),
+    path.join(bindingRoot, files.backendRegistryPath),
+  );
+  await writeJson(path.join(bindingRoot, files.preregistrationPath), { id: "fixture-preregistration" });
+  await writeJson(path.join(bindingRoot, files.commitmentPath), {
+    schema: 1,
+    partition: "confirmation",
+    state: "sealed",
+    algorithm: "sha256-json-array-v1",
+    seed_count: seeds.length,
+    commitment,
+  });
+  await writeJson(path.join(bindingRoot, files.revealPath), {
+    schema: 1,
+    partition: "confirmation",
+    state: "frozen-reveal",
+    algorithm: "sha256-json-array-v1",
+    commitment,
+    seeds,
+  });
+  return { files, commitment };
+}
+
+async function writeFrozenRelease(bindingRoot, executionCapsule, files) {
+  const contract = await createFrozenSeedReleaseContract({
+    bindingRoot,
+    sourceRoot: executionCapsule.local.source_root,
+    releaseVersion: 1,
+    partition: "confirmation",
+    phase: "confirmation",
+    ...files,
+  });
+  const releasePath = path.join(bindingRoot, "release.json");
+  await writeJson(releasePath, contract);
+  return { contract, releasePath };
+}
+
 async function temporaryCapsuleConfirmationFixture({ config, scenarios, seeds = [4_040_401] }) {
   const container = await mkdtemp(path.join(os.tmpdir(), "20w-c010-authority-integration-"));
   const fixtureRepository = path.join(container, "repository");
   const candidateRelative = "experiments/workstation/candidate-010";
   const fixtureCandidateRoot = path.join(fixtureRepository, ...candidateRelative.split("/"));
-  const currentCandidateRoot = path.join(repositoryRoot, ...candidateRelative.split("/"));
   const executionParent = path.join(container, "execution-parent");
   const bindingRoot = path.join(container, "release-bindings");
   let executionCapsule = null;
@@ -219,39 +319,7 @@ async function temporaryCapsuleConfirmationFixture({ config, scenarios, seeds = 
     await mkdir(fixtureCandidateRoot, { recursive: true });
     await mkdir(executionParent);
     await mkdir(bindingRoot);
-    const currentProductionFiles = await candidateProductionFiles(
-      currentCandidateRoot,
-      repositoryRoot,
-    );
-    for (const relative of currentProductionFiles) {
-      const destination = path.join(fixtureRepository, ...relative.split("/"));
-      await mkdir(path.dirname(destination), { recursive: true });
-      await cp(path.join(repositoryRoot, ...relative.split("/")), destination);
-    }
-    await cp(path.join(repositoryRoot, "package.json"), path.join(fixtureRepository, "package.json"));
-    await cp(path.join(repositoryRoot, "package-lock.json"), path.join(fixtureRepository, "package-lock.json"));
-    await mkdir(path.join(fixtureRepository, "node_modules"));
-    await cp(
-      path.join(repositoryRoot, "node_modules", "es-module-lexer"),
-      path.join(fixtureRepository, "node_modules", "es-module-lexer"),
-      { recursive: true },
-    );
-    await git(fixtureRepository, "init");
-    await git(fixtureRepository, "config", "user.email", "candidate-010-fixture@example.invalid");
-    await git(fixtureRepository, "config", "user.name", "Candidate 010 Fixture");
-    await git(fixtureRepository, "add", "--", "package.json", "package-lock.json", candidateRelative);
-    await git(fixtureRepository, "commit", "-m", "candidate 010 capsule fixture");
-    const { stdout } = await git(fixtureRepository, "rev-parse", "HEAD");
-    const sourceCommit = stdout.trim();
-    const sourceFiles = currentProductionFiles.sort();
-    const expectedSourceBundle = await computeSourceBundle({
-      root: fixtureRepository,
-      sourceFiles,
-      vcs: {
-        source_commit: sourceCommit,
-        worktree_state: "temporary-committed-capsule-fixture",
-      },
-    });
+    const expectedSourceBundle = await commitFixtureSourceBundle(fixtureRepository, candidateRelative);
     const runtimeIdentity = await captureRuntimeIdentity({
       repositoryRoot: fixtureRepository,
       candidateRoot: fixtureCandidateRoot,
@@ -260,64 +328,19 @@ async function temporaryCapsuleConfirmationFixture({ config, scenarios, seeds = 
       repositoryRoot: fixtureRepository,
       executionParent,
       runtimeIdentity,
-      sourcePaths: sourceFiles,
+      sourcePaths: expectedSourceBundle.files.map((entry) => entry.path),
       candidateDirectory: candidateRelative,
     });
-
-    const files = {
-      sourceBundlePath: "source-bundle.json",
-      executionDescriptorPath: "execution-descriptor.json",
-      runtimeIdentityPath: "runtime-identity.json",
-      configPath: "config.json",
-      designPath: "design.json",
-      backendRegistryPath: "backend-registry.mjs",
-      preregistrationPath: "preregistration.json",
-      commitmentPath: "seeds.commit.json",
-      revealPath: "seeds.reveal.json",
-    };
-    const commitment = seedListCommitment(seeds);
-    await writeJson(path.join(bindingRoot, files.sourceBundlePath), expectedSourceBundle);
-    await writeJson(
-      path.join(bindingRoot, files.executionDescriptorPath),
-      executionCapsule.descriptor,
-    );
-    await writeJson(
-      path.join(bindingRoot, files.runtimeIdentityPath),
-      executionCapsule.descriptor.runtime_identity,
-    );
-    await writeJson(path.join(bindingRoot, files.configPath), config);
-    await writeJson(path.join(bindingRoot, files.designPath), { scenarios });
-    await cp(
-      path.join(executionCapsule.local.source_root, ...candidateRelative.split("/"), "backend-registry.mjs"),
-      path.join(bindingRoot, files.backendRegistryPath),
-    );
-    await writeJson(path.join(bindingRoot, files.preregistrationPath), { id: "fixture-preregistration" });
-    await writeJson(path.join(bindingRoot, files.commitmentPath), {
-      schema: 1,
-      partition: "confirmation",
-      state: "sealed",
-      algorithm: "sha256-json-array-v1",
-      seed_count: seeds.length,
-      commitment,
-    });
-    await writeJson(path.join(bindingRoot, files.revealPath), {
-      schema: 1,
-      partition: "confirmation",
-      state: "frozen-reveal",
-      algorithm: "sha256-json-array-v1",
-      commitment,
+    const { files, commitment } = await writeReleaseBindings({
+      bindingRoot,
+      executionCapsule,
+      expectedSourceBundle,
+      candidateRelative,
+      config,
+      scenarios,
       seeds,
     });
-    const contract = await createFrozenSeedReleaseContract({
-      bindingRoot,
-      sourceRoot: executionCapsule.local.source_root,
-      releaseVersion: 1,
-      partition: "confirmation",
-      phase: "confirmation",
-      ...files,
-    });
-    const releasePath = path.join(bindingRoot, "release.json");
-    await writeJson(releasePath, contract);
+    const { contract, releasePath } = await writeFrozenRelease(bindingRoot, executionCapsule, files);
     return {
       container,
       executionCapsule,
@@ -332,8 +355,10 @@ async function temporaryCapsuleConfirmationFixture({ config, scenarios, seeds = 
       },
     };
   } catch (error) {
-    if (executionCapsule) await destroyExecutionCapsule(executionCapsule).catch(() => {});
+    const failures = [error];
+    if (executionCapsule) await destroyExecutionCapsule(executionCapsule).catch((cleanupError) => failures.push(cleanupError));
     await rm(container, { recursive: true, force: true });
+    if (failures.length > 1) throw new AggregateError(failures, "Capsule fixture setup and cleanup failed.", { cause: error });
     throw error;
   }
 }

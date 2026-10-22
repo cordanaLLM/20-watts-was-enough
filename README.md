@@ -20,9 +20,9 @@ generated agent context against `AGENTS.md`.
 private scratch-link policy.
 
 **Debt Baseline**: `.standards-baseline.json` anchors the debt ratchet at
-538 recorded infractions; audit forbids growth.
+493 recorded infractions; audit forbids growth.
 
-[praetor-hiss-badge]: https://img.shields.io/badge/Standards-HISS%20Adopted%20(538%20baselined)-yellow
+[praetor-hiss-badge]: https://img.shields.io/badge/Standards-HISS%20Adopted%20(493%20baselined)-yellow
 [praetor-hiss-agents]: https://github.com/cordanaLLM/20-watts-was-enough/blob/HEAD/AGENTS.md
 [praetor-docs-badge]: https://github.com/cordanaLLM/20-watts-was-enough/actions/workflows/praetor-docs.yml/badge.svg
 [praetor-docs-runs]: https://github.com/cordanaLLM/20-watts-was-enough/actions/workflows/praetor-docs.yml

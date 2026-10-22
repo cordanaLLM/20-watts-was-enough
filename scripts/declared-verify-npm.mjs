@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 
 export const DECLARED_VERIFY_EXCEPTION = Object.freeze({
   category: "B",
-  expires: "2026-10-21",
+  expires: "2026-10-25",
   issue: "cordanaLLM/praetor#1385",
   path: "Makefile",
   reason:

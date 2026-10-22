@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { lstat, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
+import { canonicalJson } from "../lib/canonical-json.mjs";
 
 import {
   CONFIRMATION_PREFLIGHT_VERSION,
@@ -80,23 +81,7 @@ export const RELEASE_V4_ADAPTER_CONTRACT = Object.freeze({
 });
 
 function canonical(value) {
-  if (value === null || typeof value === "boolean" || typeof value === "string") {
-    return JSON.stringify(value);
-  }
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) throw new TypeError("Release-v4 canonicalization rejects non-finite numbers.");
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
-  if (value && typeof value === "object") {
-    return `{${Object.keys(value).sort().map((key) => {
-      if (value[key] === undefined) {
-        throw new TypeError(`Release-v4 canonicalization rejects undefined at ${key}.`);
-      }
-      return `${JSON.stringify(key)}:${canonical(value[key])}`;
-    }).join(",")}}`;
-  }
-  throw new TypeError(`Release-v4 canonicalization rejects ${typeof value}.`);
+  return canonicalJson(value, { label: "Release-v4" });
 }
 
 function sha256(value) {
@@ -221,7 +206,7 @@ function parseJson(body, label) {
   }
 }
 
-function validatePreflight(document) {
+function assertPreflightExactShapes(document) {
   requireExact(document, [
     "kind", "status", "claim_eligible", "authority", "seeds_generated", "seeds_revealed",
     "statistical_plan", "design", "pilot_projection", "resource_caps", "meter_block",
@@ -269,7 +254,10 @@ function validatePreflight(document) {
     "records", "measurement_blocks", "raw_bytes", "meter_log_bytes", "total_bytes", "files",
     "wall_time_s", "required_free_disk_bytes",
   ], "Confirmation preflight projected resources");
+}
 
+function validatePreflight(document) {
+  assertPreflightExactShapes(document);
   const input = {
     statistical_plan: {
       independent_unit: document.statistical_plan.independent_unit,
@@ -312,6 +300,40 @@ function validatePreflight(document) {
   return document;
 }
 
+function extractScheduleScenariosAndArms(schedule, manifests) {
+  const scenarios = new Map();
+  const seeds = new Set();
+  for (const manifest of manifests) seeds.add(manifest.seed);
+  for (const block of schedule.blocks) {
+    if (!block || typeof block !== "object" || Array.isArray(block)) {
+      throw new Error("Energy schedule contains a malformed block.");
+    }
+    const identity = {
+      scenario_id: block.scenario_id,
+      task_family: block.task_family,
+      backend_id: block.backend_id,
+    };
+    const previous = scenarios.get(block.scenario_id);
+    if (previous && canonical(previous) !== canonical(identity)) {
+      throw new Error(`Energy schedule changes the identity of scenario ${block.scenario_id}.`);
+    }
+    scenarios.set(block.scenario_id, identity);
+  }
+  const firstCluster = schedule.blocks.find((block) => block.phase === "warmup")?.cluster_id;
+  const arms = schedule.blocks
+    .filter((block) => block.phase === "warmup" && block.cluster_id === firstCluster)
+    .sort((left, right) => left.sequence - right.sequence)
+    .map((block) => block.arm);
+  if (arms.length < 2 || new Set(arms).size !== arms.length) {
+    throw new Error("Energy schedule does not expose one exact initial warmup arm order.");
+  }
+  return {
+    scenarios: [...scenarios.values()].sort((left, right) => left.scenario_id.localeCompare(right.scenario_id)),
+    seeds: [...seeds].sort((left, right) => left - right),
+    arms,
+  };
+}
+
 function scheduleComponents(schedule) {
   requireExact(schedule, [
     "schema", "contract_version", "run_id", "purpose", "claim_eligibility",
@@ -345,36 +367,9 @@ function scheduleComponents(schedule) {
   if (!Array.isArray(schedule.blocks) || schedule.blocks.length === 0) {
     throw new Error("Energy schedule must contain blocks.");
   }
-  const scenarios = new Map();
-  const seeds = new Set();
-  for (const manifest of manifests) seeds.add(manifest.seed);
-  for (const block of schedule.blocks) {
-    if (!block || typeof block !== "object" || Array.isArray(block)) {
-      throw new Error("Energy schedule contains a malformed block.");
-    }
-    const identity = {
-      scenario_id: block.scenario_id,
-      task_family: block.task_family,
-      backend_id: block.backend_id,
-    };
-    const previous = scenarios.get(block.scenario_id);
-    if (previous && canonical(previous) !== canonical(identity)) {
-      throw new Error(`Energy schedule changes the identity of scenario ${block.scenario_id}.`);
-    }
-    scenarios.set(block.scenario_id, identity);
-  }
-  const firstCluster = schedule.blocks.find((block) => block.phase === "warmup")?.cluster_id;
-  const arms = schedule.blocks
-    .filter((block) => block.phase === "warmup" && block.cluster_id === firstCluster)
-    .sort((left, right) => left.sequence - right.sequence)
-    .map((block) => block.arm);
-  if (arms.length < 2 || new Set(arms).size !== arms.length) {
-    throw new Error("Energy schedule does not expose one exact initial warmup arm order.");
-  }
+  const extracted = extractScheduleScenariosAndArms(schedule, manifests);
   return {
-    scenarios: [...scenarios.values()].sort((left, right) => left.scenario_id.localeCompare(right.scenario_id)),
-    seeds: [...seeds].sort((left, right) => left - right),
-    arms,
+    ...extracted,
     manifests,
   };
 }
@@ -796,11 +791,14 @@ function validateV4Document(document) {
   return document;
 }
 
-async function verifyEvidence({ bindingRoot, sourceRoot, bindings, executionDescriptor, runtimeIdentity }) {
-  const resolved = Object.fromEntries(await Promise.all(V4_BINDING_NAMES.map(async (name) => [
-    name,
-    await readBinding(bindingRoot, bindings[name], name),
-  ])));
+async function verifyEvidenceReleaseAndSeeds({
+  bindingRoot,
+  sourceRoot,
+  resolved,
+  bindings,
+  executionDescriptor,
+  runtimeIdentity,
+}) {
   const baseRelease = validateBaseReleaseShape(parseJson(resolved.base_release.body, "Base release"));
   const confirmationCommitmentBinding = await readBinding(
     bindingRoot,
@@ -852,6 +850,19 @@ async function verifyEvidence({ bindingRoot, sourceRoot, bindings, executionDesc
   };
   const attestation = parseJson(resolved.seed_reveal_attestation.body, "Seed reveal attestation");
   seedOperatorAgreement({ baseRelease, openedRelease, plan, attestation, commitments, reveals });
+  return { baseRelease, openedRelease, plan, attestation, commitments };
+}
+
+async function verifyEvidence({ bindingRoot, sourceRoot, bindings, executionDescriptor, runtimeIdentity }) {
+  const resolved = Object.fromEntries(await Promise.all(V4_BINDING_NAMES.map(async (name) => [
+    name,
+    await readBinding(bindingRoot, bindings[name], name),
+  ])));
+  const {
+    baseRelease, openedRelease, plan, attestation, commitments,
+  } = await verifyEvidenceReleaseAndSeeds({
+    bindingRoot, sourceRoot, resolved, bindings, executionDescriptor, runtimeIdentity,
+  });
 
   const preflight = validatePreflight(parseJson(resolved.confirmation_preflight.body, "Confirmation preflight"));
   const schedule = validateSchedule(parseJson(resolved.energy_block_schedule.body, "Energy block schedule"));

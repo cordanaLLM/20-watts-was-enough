@@ -1,18 +1,10 @@
 {
   "version": 1,
-  "generated_at": "2026-10-19T08:35:17Z",
+  "generated_at": "2026-10-21T22:29:42Z",
   "repository": "cordanaLLM/20-watts-was-enough",
-  "commit_sha": "a9680edfaf74b3b40b34068930af11fd58ca1f27",
-  "total_infractions": 538,
+  "commit_sha": "b649b90ff127dddd142c7ff5f30f9d715fc9ba36",
+  "total_infractions": 493,
   "infractions": [
-    {
-      "rule_id": "HISS-08",
-      "file_path": ".config/lefthook/scripts/common.py",
-      "line_number": 117,
-      "message": "Signal call os.killpg with target pgid must be guarded; add guard: if not isinstance(pgid, int) or isinstance(pgid, bool) or pgid \u003c= 1 or pgid == os.getpgrp(): ...",
-      "anchor": "fn:_signal_group",
-      "fingerprint": ".config/lefthook/scripts/common.py:HISS-08:fn:_signal_group#1"
-    },
     {
       "rule_id": "HISS-04",
       "file_path": "app/components/book-edition.tsx",
@@ -3389,198 +3381,6 @@
     },
     {
       "rule_id": "HISS-04",
-      "file_path": "tooling/cmd/20w/github_metadata.go",
-      "line_number": 38,
-      "symbol": "syncGitHubMetadata",
-      "message": "Function 'syncGitHubMetadata' (105 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:syncGitHubMetadata",
-      "fingerprint": "tooling/cmd/20w/github_metadata.go:HISS-04:fn:syncGitHubMetadata#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/cmd/20w/pdf_tools.go",
-      "line_number": 38,
-      "symbol": "runPublicationReproducePDFToolsImage",
-      "message": "Function 'runPublicationReproducePDFToolsImage' (72 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:runPublicationReproducePDFToolsImage",
-      "fingerprint": "tooling/cmd/20w/pdf_tools.go:HISS-04:fn:runPublicationReproducePDFToolsImage#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsbellmanford/adapter.go",
-      "line_number": 135,
-      "symbol": "BindDataset",
-      "message": "Function 'BindDataset' (62 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:BindDataset",
-      "fingerprint": "tooling/internal/clrsbellmanford/adapter.go:HISS-04:fn:BindDataset#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsbinary/adapter.go",
-      "line_number": 135,
-      "symbol": "BindDataset",
-      "message": "Function 'BindDataset' (62 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:BindDataset",
-      "fingerprint": "tooling/internal/clrsbinary/adapter.go:HISS-04:fn:BindDataset#1"
-    },
-    {
-      "rule_id": "HISS-02",
-      "file_path": "tooling/internal/clrscontext/context_test.go",
-      "line_number": 47,
-      "symbol": "TestContextTarIsDeterministicAndNormalised",
-      "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
-      "anchor": "fn:TestContextTarIsDeterministicAndNormalised",
-      "fingerprint": "tooling/internal/clrscontext/context_test.go:HISS-02:fn:TestContextTarIsDeterministicAndNormalised#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/clrsfixture/identity.go",
-      "line_number": 51,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:identityBuilder.addBytes",
-      "fingerprint": "tooling/internal/clrsfixture/identity.go:HISS-07:fn:identityBuilder.addBytes#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/clrsfixture/identity.go",
-      "line_number": 52,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:identityBuilder.addBytes",
-      "fingerprint": "tooling/internal/clrsfixture/identity.go:HISS-07:fn:identityBuilder.addBytes#2"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsfixture/image_wheelhouse.go",
-      "line_number": 94,
-      "symbol": "validate",
-      "message": "Function 'validate' (82 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:GeneratorWheelhouseManifest.validate",
-      "fingerprint": "tooling/internal/clrsfixture/image_wheelhouse.go:HISS-04:fn:GeneratorWheelhouseManifest.validate#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsfixture/image_wheelhouse.go",
-      "line_number": 240,
-      "symbol": "lockedPromiseSourceBuild",
-      "message": "Function 'lockedPromiseSourceBuild' (83 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:lockedPromiseSourceBuild",
-      "fingerprint": "tooling/internal/clrsfixture/image_wheelhouse.go:HISS-04:fn:lockedPromiseSourceBuild#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsfixture/image_wheelhouse.go",
-      "line_number": 498,
-      "symbol": "writeNewGeneratorWheelhouseManifestWithInterlock",
-      "message": "Function 'writeNewGeneratorWheelhouseManifestWithInterlock' (130 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:writeNewGeneratorWheelhouseManifestWithInterlock",
-      "fingerprint": "tooling/internal/clrsfixture/image_wheelhouse.go:HISS-04:fn:writeNewGeneratorWheelhouseManifestWithInterlock#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/clrsfixture/image_wheelhouse.go",
-      "line_number": 549,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:writeNewGeneratorWheelhouseManifestWithInterlock",
-      "fingerprint": "tooling/internal/clrsfixture/image_wheelhouse.go:HISS-07:fn:writeNewGeneratorWheelhouseManifestWithInterlock#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/clrsfixture/image_wheelhouse.go",
-      "line_number": 553,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:writeNewGeneratorWheelhouseManifestWithInterlock",
-      "fingerprint": "tooling/internal/clrsfixture/image_wheelhouse.go:HISS-07:fn:writeNewGeneratorWheelhouseManifestWithInterlock#2"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsfixture/image_wheelhouse.go",
-      "line_number": 629,
-      "symbol": "loadGeneratorWheelhouseInputs",
-      "message": "Function 'loadGeneratorWheelhouseInputs' (62 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:loadGeneratorWheelhouseInputs",
-      "fingerprint": "tooling/internal/clrsfixture/image_wheelhouse.go:HISS-04:fn:loadGeneratorWheelhouseInputs#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsfixture/image_wheelhouse.go",
-      "line_number": 692,
-      "symbol": "inspectMaterializedGeneratorWheelhouse",
-      "message": "Function 'inspectMaterializedGeneratorWheelhouse' (75 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:inspectMaterializedGeneratorWheelhouse",
-      "fingerprint": "tooling/internal/clrsfixture/image_wheelhouse.go:HISS-04:fn:inspectMaterializedGeneratorWheelhouse#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsfixture/image_wheelhouse.go",
-      "line_number": 778,
-      "symbol": "readGeneratorWheelhouseSnapshot",
-      "message": "Function 'readGeneratorWheelhouseSnapshot' (63 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:readGeneratorWheelhouseSnapshot",
-      "fingerprint": "tooling/internal/clrsfixture/image_wheelhouse.go:HISS-04:fn:readGeneratorWheelhouseSnapshot#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsfixture/import.go",
-      "line_number": 211,
-      "symbol": "PairExamples",
-      "message": "Function 'PairExamples' (64 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:PairExamples",
-      "fingerprint": "tooling/internal/clrsfixture/import.go:HISS-04:fn:PairExamples#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/clrsfixture/promise_command.go",
-      "line_number": 59,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:promiseCaptureWriter.Write",
-      "fingerprint": "tooling/internal/clrsfixture/promise_command.go:HISS-07:fn:promiseCaptureWriter.Write#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsfixture/promise_container.go",
-      "line_number": 122,
-      "symbol": "runPromiseContainer",
-      "message": "Function 'runPromiseContainer' (83 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:runPromiseContainer",
-      "fingerprint": "tooling/internal/clrsfixture/promise_container.go:HISS-04:fn:runPromiseContainer#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsinsertion/adapter.go",
-      "line_number": 135,
-      "symbol": "BindDataset",
-      "message": "Function 'BindDataset' (62 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:BindDataset",
-      "fingerprint": "tooling/internal/clrsinsertion/adapter.go:HISS-04:fn:BindDataset#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsmatrixchain/adapter.go",
-      "line_number": 135,
-      "symbol": "BindDataset",
-      "message": "Function 'BindDataset' (62 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:BindDataset",
-      "fingerprint": "tooling/internal/clrsmatrixchain/adapter.go:HISS-04:fn:BindDataset#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsrunner/registry.go",
-      "line_number": 117,
-      "symbol": "Invoke",
-      "message": "Function 'Invoke' (79 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:Registry.Invoke",
-      "fingerprint": "tooling/internal/clrsrunner/registry.go:HISS-04:fn:Registry.Invoke#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/clrsrunner/run.go",
-      "line_number": 88,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:readRequestContext",
-      "fingerprint": "tooling/internal/clrsrunner/run.go:HISS-07:fn:readRequestContext#1"
-    },
-    {
-      "rule_id": "HISS-04",
       "file_path": "tooling/internal/clrssegments/adapter.go",
       "line_number": 136,
       "symbol": "BindDataset",
@@ -3592,7 +3392,6 @@
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/clrssegments/adapter.go",
       "line_number": 311,
-      "symbol": "bindPair",
       "message": "Context without a deadline reaches a call; derive it with context.WithTimeout or context.WithDeadline",
       "anchor": "fn:bindPair",
       "fingerprint": "tooling/internal/clrssegments/adapter.go:HISS-02:fn:bindPair#1"
@@ -3601,7 +3400,6 @@
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/experimentcli/clrs_compare.go",
       "line_number": 32,
-      "symbol": "runExperimentCompareCLRSFixtures",
       "message": "Context without a deadline reaches a call; derive it with context.WithTimeout or context.WithDeadline",
       "anchor": "fn:runExperimentCompareCLRSFixtures",
       "fingerprint": "tooling/internal/experimentcli/clrs_compare.go:HISS-02:fn:runExperimentCompareCLRSFixtures#1"
@@ -3610,7 +3408,6 @@
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/experimentcli/clrs_generation.go",
       "line_number": 50,
-      "symbol": "runCLRSGenerationWithActions",
       "message": "Context without a deadline reaches a call; derive it with context.WithTimeout or context.WithDeadline",
       "anchor": "fn:runCLRSGenerationWithActions",
       "fingerprint": "tooling/internal/experimentcli/clrs_generation.go:HISS-02:fn:runCLRSGenerationWithActions#1"
@@ -3619,7 +3416,6 @@
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/experimentcli/clrs_invocation.go",
       "line_number": 40,
-      "symbol": "runExperimentRenderCLRSInvocation",
       "message": "Context without a deadline reaches a call; derive it with context.WithTimeout or context.WithDeadline",
       "anchor": "fn:runExperimentRenderCLRSInvocation",
       "fingerprint": "tooling/internal/experimentcli/clrs_invocation.go:HISS-02:fn:runExperimentRenderCLRSInvocation#1"
@@ -3628,7 +3424,6 @@
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/experimentcli/clrs_sbom.go",
       "line_number": 38,
-      "symbol": "runExperimentCheckCLRSSBOM",
       "message": "Context without a deadline reaches a call; derive it with context.WithTimeout or context.WithDeadline",
       "anchor": "fn:runExperimentCheckCLRSSBOM",
       "fingerprint": "tooling/internal/experimentcli/clrs_sbom.go:HISS-02:fn:runExperimentCheckCLRSSBOM#1"
@@ -3637,7 +3432,6 @@
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/experimentcli/clrs_shakedown.go",
       "line_number": 47,
-      "symbol": "runShakedownWithActions",
       "message": "Context without a deadline reaches a call; derive it with context.WithTimeout or context.WithDeadline",
       "anchor": "fn:runShakedownWithActions",
       "fingerprint": "tooling/internal/experimentcli/clrs_shakedown.go:HISS-02:fn:runShakedownWithActions#1"
@@ -3765,7 +3559,6 @@
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/pdfrender/image_proof_command.go",
       "line_number": 60,
-      "symbol": "localReproducibilityExecutor.inspectImageArchive",
       "message": "exec.Command takes no context, so no deadline bounds it; use exec.CommandContext",
       "anchor": "fn:localReproducibilityExecutor.inspectImageArchive",
       "fingerprint": "tooling/internal/pdfrender/image_proof_command.go:HISS-02:fn:localReproducibilityExecutor.inspectImageArchive#1"
@@ -3814,7 +3607,6 @@
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/pdfrender/image_proof_tar.go",
       "line_number": 71,
-      "symbol": "readImageProofArchive",
       "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
       "anchor": "fn:readImageProofArchive",
       "fingerprint": "tooling/internal/pdfrender/image_proof_tar.go:HISS-02:fn:readImageProofArchive#1"
@@ -3823,7 +3615,6 @@
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/pdfrender/image_proof_tar.go",
       "line_number": 181,
-      "symbol": "finishImageProofArchive",
       "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
       "anchor": "fn:finishImageProofArchive",
       "fingerprint": "tooling/internal/pdfrender/image_proof_tar.go:HISS-02:fn:finishImageProofArchive#1"
@@ -3888,7 +3679,6 @@
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/pdfrender/reproducibility_receipt.go",
       "line_number": 223,
-      "symbol": "hashContextFile",
       "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
       "anchor": "fn:hashContextFile",
       "fingerprint": "tooling/internal/pdfrender/reproducibility_receipt.go:HISS-02:fn:hashContextFile#1"
@@ -3938,7 +3728,6 @@
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/pdfrendercli/cli.go",
       "line_number": 43,
-      "symbol": "runVerifyReproducibility",
       "message": "Context without a deadline reaches a call; derive it with context.WithTimeout or context.WithDeadline",
       "anchor": "fn:runVerifyReproducibility",
       "fingerprint": "tooling/internal/pdfrendercli/cli.go:HISS-02:fn:runVerifyReproducibility#1"
@@ -4022,7 +3811,6 @@
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/pdftools/docker_command.go",
       "line_number": 156,
-      "symbol": "monitorBoundedDockerOutputs",
       "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
       "anchor": "fn:monitorBoundedDockerOutputs",
       "fingerprint": "tooling/internal/pdftools/docker_command.go:HISS-02:fn:monitorBoundedDockerOutputs#1"
@@ -4048,7 +3836,6 @@
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/pdftools/docker_command.go",
       "line_number": 269,
-      "symbol": "walkBoundedTree",
       "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
       "anchor": "fn:walkBoundedTree",
       "fingerprint": "tooling/internal/pdftools/docker_command.go:HISS-02:fn:walkBoundedTree#1"
@@ -4122,7 +3909,6 @@
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/pdftools/final_archive.go",
       "line_number": 76,
-      "symbol": "extractFinalOCITar",
       "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
       "anchor": "fn:extractFinalOCITar",
       "fingerprint": "tooling/internal/pdftools/final_archive.go:HISS-02:fn:extractFinalOCITar#1"
@@ -4131,7 +3917,6 @@
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/pdftools/final_archive.go",
       "line_number": 159,
-      "symbol": "drainZeroTarPadding",
       "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
       "anchor": "fn:drainZeroTarPadding",
       "fingerprint": "tooling/internal/pdftools/final_archive.go:HISS-02:fn:drainZeroTarPadding#1"
@@ -4165,7 +3950,6 @@
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/pdftools/image_archive.go",
       "line_number": 170,
-      "symbol": "projectBaseTarEntries",
       "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
       "anchor": "fn:projectBaseTarEntries",
       "fingerprint": "tooling/internal/pdftools/image_archive.go:HISS-02:fn:projectBaseTarEntries#1"
@@ -4223,7 +4007,6 @@
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/pdftools/layer.go",
       "line_number": 142,
-      "symbol": "layerPathExists",
       "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
       "anchor": "fn:layerPathExists",
       "fingerprint": "tooling/internal/pdftools/layer.go:HISS-02:fn:layerPathExists#1"
@@ -4250,7 +4033,6 @@
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/pdftools/layer.go",
       "line_number": 281,
-      "symbol": "scanCompressedLayer",
       "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
       "anchor": "fn:scanCompressedLayer",
       "fingerprint": "tooling/internal/pdftools/layer.go:HISS-02:fn:scanCompressedLayer#1"
@@ -4259,7 +4041,6 @@
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/pdftools/layer.go",
       "line_number": 332,
-      "symbol": "drainZeroLayerPadding",
       "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
       "anchor": "fn:drainZeroLayerPadding",
       "fingerprint": "tooling/internal/pdftools/layer.go:HISS-02:fn:drainZeroLayerPadding#1"
@@ -4369,196 +4150,6 @@
       "fingerprint": "tooling/internal/pdftools/publication_output_linux_amd64.go:HISS-09:fn:rawLinkat#2"
     },
     {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/pdftools/receipt.go",
-      "line_number": 206,
-      "symbol": "newReproductionReceipt",
-      "message": "Function 'newReproductionReceipt' (99 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:newReproductionReceipt",
-      "fingerprint": "tooling/internal/pdftools/receipt.go:HISS-04:fn:newReproductionReceipt#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/pdftools/receipt.go",
-      "line_number": 575,
-      "symbol": "writeReproductionReceiptCheckedAtRoot",
-      "message": "Function 'writeReproductionReceiptCheckedAtRoot' (96 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:writeReproductionReceiptCheckedAtRoot",
-      "fingerprint": "tooling/internal/pdftools/receipt.go:HISS-04:fn:writeReproductionReceiptCheckedAtRoot#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/pdftools/reproduce.go",
-      "line_number": 28,
-      "symbol": "ReproduceFinalImage",
-      "message": "Function 'ReproduceFinalImage' (126 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:ReproduceFinalImage",
-      "fingerprint": "tooling/internal/pdftools/reproduce.go:HISS-04:fn:ReproduceFinalImage#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/pdftools/reproduce.go",
-      "line_number": 155,
-      "symbol": "finishSuccessfulReproduction",
-      "message": "Function 'finishSuccessfulReproduction' (77 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:finishSuccessfulReproduction",
-      "fingerprint": "tooling/internal/pdftools/reproduce.go:HISS-04:fn:finishSuccessfulReproduction#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/pdftools/reproduction_build.go",
-      "line_number": 177,
-      "symbol": "runApkoBuild",
-      "message": "Function 'runApkoBuild' (89 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:runApkoBuild",
-      "fingerprint": "tooling/internal/pdftools/reproduction_build.go:HISS-04:fn:runApkoBuild#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/pdftools/reproduction_build.go",
-      "line_number": 556,
-      "symbol": "validateReproductionBuilder",
-      "message": "Function 'validateReproductionBuilder' (72 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:validateReproductionBuilder",
-      "fingerprint": "tooling/internal/pdftools/reproduction_build.go:HISS-04:fn:validateReproductionBuilder#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/pdftools/reproduction_context.go",
-      "line_number": 72,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:writeNormalizedContextFile",
-      "fingerprint": "tooling/internal/pdftools/reproduction_context.go:HISS-07:fn:writeNormalizedContextFile#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/pdftools/reproduction_context.go",
-      "line_number": 74,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:writeNormalizedContextFile",
-      "fingerprint": "tooling/internal/pdftools/reproduction_context.go:HISS-07:fn:writeNormalizedContextFile#2"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/pdftools/reproduction_context.go",
-      "line_number": 96,
-      "symbol": "inspectNoticeContext",
-      "message": "Function 'inspectNoticeContext' (74 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:inspectNoticeContext",
-      "fingerprint": "tooling/internal/pdftools/reproduction_context.go:HISS-04:fn:inspectNoticeContext#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/pdftools/reproduction_context.go",
-      "line_number": 172,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:writeContextDigestField",
-      "fingerprint": "tooling/internal/pdftools/reproduction_context.go:HISS-07:fn:writeContextDigestField#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/pdftools/reproduction_context.go",
-      "line_number": 173,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:writeContextDigestField",
-      "fingerprint": "tooling/internal/pdftools/reproduction_context.go:HISS-07:fn:writeContextDigestField#2"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/pdftools/runtime.go",
-      "line_number": 91,
-      "symbol": "inspectFinalRuntime",
-      "message": "Function 'inspectFinalRuntime' (74 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:inspectFinalRuntime",
-      "fingerprint": "tooling/internal/pdftools/runtime.go:HISS-04:fn:inspectFinalRuntime#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/pdftools/runtime.go",
-      "line_number": 246,
-      "symbol": "inspectRuntimeContainment",
-      "message": "Function 'inspectRuntimeContainment' (70 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:inspectRuntimeContainment",
-      "fingerprint": "tooling/internal/pdftools/runtime.go:HISS-04:fn:inspectRuntimeContainment#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/pdftools/source_bundle.go",
-      "line_number": 206,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:writeDeterministicSourceBundle",
-      "fingerprint": "tooling/internal/pdftools/source_bundle.go:HISS-07:fn:writeDeterministicSourceBundle#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/pdftools/source_bundle.go",
-      "line_number": 207,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:writeDeterministicSourceBundle",
-      "fingerprint": "tooling/internal/pdftools/source_bundle.go:HISS-07:fn:writeDeterministicSourceBundle#2"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/pdftools/source_bundle.go",
-      "line_number": 213,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:writeDeterministicSourceBundle",
-      "fingerprint": "tooling/internal/pdftools/source_bundle.go:HISS-07:fn:writeDeterministicSourceBundle#3"
-    },
-    {
-      "rule_id": "HISS-02",
-      "file_path": "tooling/internal/pdftools/source_bundle_test.go",
-      "line_number": 94,
-      "symbol": "readSourceBundle",
-      "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
-      "anchor": "fn:readSourceBundle",
-      "fingerprint": "tooling/internal/pdftools/source_bundle_test.go:HISS-02:fn:readSourceBundle#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/publictransport/verify.go",
-      "line_number": 106,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:requestHead",
-      "fingerprint": "tooling/internal/publictransport/verify.go:HISS-07:fn:requestHead#1"
-    },
-    {
-      "rule_id": "HISS-02",
-      "file_path": "tooling/internal/specialistcontrol/admission.go",
-      "line_number": 329,
-      "symbol": "Admission.wait",
-      "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
-      "anchor": "fn:Admission.wait",
-      "fingerprint": "tooling/internal/specialistcontrol/admission.go:HISS-02:fn:Admission.wait#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/specialistcontrol/admission.go",
-      "line_number": 423,
-      "symbol": "selectLocked",
-      "message": "Function 'selectLocked' (70 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:Admission.selectLocked",
-      "fingerprint": "tooling/internal/specialistcontrol/admission.go:HISS-04:fn:Admission.selectLocked#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/specialistcontrol/admission.go",
-      "line_number": 720,
-      "symbol": "plannedSpecialistLocked",
-      "message": "Function 'plannedSpecialistLocked' (67 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:Admission.plannedSpecialistLocked",
-      "fingerprint": "tooling/internal/specialistcontrol/admission.go:HISS-04:fn:Admission.plannedSpecialistLocked#1"
-    },
-    {
-      "rule_id": "HISS-02",
-      "file_path": "tooling/internal/specialistcontrol/admission_test.go",
-      "line_number": 1216,
-      "symbol": "TestAdmissionReservationNeverOversubscribesUnderRace",
-      "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
-      "anchor": "fn:TestAdmissionReservationNeverOversubscribesUnderRace",
-      "fingerprint": "tooling/internal/specialistcontrol/admission_test.go:HISS-02:fn:TestAdmissionReservationNeverOversubscribesUnderRace#1"
-    },
-    {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/translationbundle/files.go",
       "line_number": 357,
@@ -4586,7 +4177,6 @@
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/translationbundle/files.go",
       "line_number": 397,
-      "symbol": "nearestRealAncestor",
       "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
       "anchor": "fn:nearestRealAncestor",
       "fingerprint": "tooling/internal/translationbundle/files.go:HISS-02:fn:nearestRealAncestor#1"
@@ -4667,7 +4257,6 @@
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/workstationrunner/process_tree_windows.go",
       "line_number": 182,
-      "symbol": "resumeWindowsProcess",
       "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
       "anchor": "fn:resumeWindowsProcess",
       "fingerprint": "tooling/internal/workstationrunner/process_tree_windows.go:HISS-02:fn:resumeWindowsProcess#1"
