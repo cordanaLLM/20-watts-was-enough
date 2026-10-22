@@ -7,6 +7,21 @@ the exact diff; this file records why the project changed.
 
 ### Security
 
+- Lock the PDF renderer to Buildx 0.38.1, the Go 1.26.10 rebuild of the
+  same commit for CVE-2026-111943, and let the update bot propose the lock
+  together with the workflow inputs
+  ([Decision 0115](decisions/0115-move-the-renderer-lock-to-buildx-0-38-1-and-let-the-update-bot-carry-it.md)).
+- The CLRS generator lock locks `pip==26.2.2` through a supplemental requirement
+  and a pip-only package cutoff, replacing ensurepip's pip 26.2.1 whose vendored
+  certifi 2026.6.17 carries PYSEC-2026-4320; pip 26.2.2 vendors fixed certifi
+  2026.10.19
+  ([Decision 0114](decisions/0114-lock-pip-in-the-clrs-generator.md)).
+  Every other package stays as locked. The manifest and contract digest chains
+  bind the new wheel, and SBOM validation tests expect pip as a locked runtime
+  package. The retained SBOM bundle CI checks moves to the
+  `clrs-sbom-bundle-2026-10-22` prerelease, scanned from the rebuilt image.
+  The base image's own pip under `/usr/local` keeps certifi 2026.6.17 until
+  the base image digest moves.
 - The CLRS generator lock moves certifi from 2026.7.22 to 2026.10.19 for
   PYSEC-2026-4320 through a certifi-only package cutoff; every other package
   stays as locked

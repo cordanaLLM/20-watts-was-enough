@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	generatorRuntimePackageCount = 61
+	generatorRuntimePackageCount = 62
 	generatorSourceDateEpoch     = int64(1_787_658_740)
 	generatorGlibcVersion        = "2.36"
 	generatorMaximumGlibcMinor   = 36
