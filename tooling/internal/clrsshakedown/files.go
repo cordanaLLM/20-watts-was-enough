@@ -88,8 +88,7 @@ func newBundle(options Options) (*os.Root, error) {
 		return nil, err
 	}
 	if err := clrsfixture.SyncDirectory(parent, "."); err != nil {
-		root.Close()
-		return nil, err
+		return nil, errors.Join(err, root.Close())
 	}
 	return root, nil
 }

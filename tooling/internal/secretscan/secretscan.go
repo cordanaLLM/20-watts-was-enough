@@ -67,7 +67,7 @@ type Runner func(ctx context.Context, toolsDir string, args []string) (status in
 // configuration named by the environment is dropped, so the planted scan uses
 // the default rules.
 func ExecRunner(ctx context.Context, toolsDir string, args []string) (int, []byte, error) {
-	command := exec.CommandContext(ctx, "go", append([]string{"tool", "gitleaks"}, args...)...)
+	command := exec.CommandContext(ctx, "go", append([]string{"tool", "gitleaks"}, args...)...) //#nosec G204 -- fixed go tool gitleaks execution with bounded arguments
 	command.Dir = toolsDir
 	command.Env = withoutVariables(os.Environ(), "GITLEAKS_CONFIG", "GITLEAKS_CONFIG_TOML")
 	output, err := command.CombinedOutput()
@@ -112,7 +112,7 @@ func Plant(ctx context.Context, directory string) error {
 		{"-c", "user.name=20w canary", "-c", "user.email=canary@invalid", "-c", "commit.gpgsign=false",
 			"commit", "--quiet", "--no-verify", "--message", "Plant a secret for the scanner proof"},
 	} {
-		command := exec.CommandContext(ctx, "git", args...)
+		command := exec.CommandContext(ctx, "git", args...) //#nosec G204 -- fixed git binary with fixed internal arguments for canary creation
 		command.Dir = directory
 		command.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_CONFIG_NOSYSTEM=1")
 		if output, err := command.CombinedOutput(); err != nil {
@@ -171,7 +171,7 @@ func CheckCanary(status int, output []byte, report string) error {
 			status, findingsExit, output,
 		)
 	}
-	file, err := os.Open(report)
+	file, err := os.Open(report) //#nosec G304 -- path within temporary scratch directory created for canary report
 	if err != nil {
 		return fmt.Errorf("read planted scan report: %w", err)
 	}

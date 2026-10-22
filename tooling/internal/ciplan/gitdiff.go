@@ -42,7 +42,7 @@ func readGitChangedPaths(
 	defer cancel()
 	standardOutput := newBoundedBuffer(maximumGitDiffBytes)
 	standardError := newBoundedBuffer(maximumGitErrorBytes)
-	command := exec.CommandContext(
+	command := exec.CommandContext( //#nosec G204 -- fixed git binary with validated revisions and double-dash separator
 		diffContext,
 		gitExecutable,
 		"-C", root,

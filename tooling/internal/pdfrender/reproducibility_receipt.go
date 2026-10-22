@@ -213,7 +213,7 @@ func inspectNormalizedBuildContext(
 }
 
 func hashContextFile(ctx context.Context, digest hash.Hash, file string, initial os.FileInfo) error {
-	opened, err := os.Open(file)
+	opened, err := os.Open(file) //#nosec G304 -- context file path validated within repository
 	if err != nil {
 		return err
 	}
@@ -381,7 +381,7 @@ func retainReproducibilityMismatch(
 		return nil, err
 	}
 	evidenceRoot := filepath.Join(repositoryRoot, evidenceRelative)
-	if err := os.Mkdir(evidenceRoot, 0o755); err != nil {
+	if err := os.Mkdir(evidenceRoot, 0o755); err != nil { //#nosec G301 -- PDF reproducibility mismatch evidence root must be readable by review tooling
 		if errors.Is(err, os.ErrExist) {
 			return nil, errors.New("PDF reproducibility mismatch evidence already exists")
 		}
@@ -411,7 +411,7 @@ func retainReproducibilityMismatch(
 		}
 		buildRelative := filepath.Join(evidenceRelative, fmt.Sprintf("build-%d", sequence))
 		buildRoot := filepath.Join(repositoryRoot, buildRelative)
-		if err := os.Mkdir(buildRoot, 0o755); err != nil {
+		if err := os.Mkdir(buildRoot, 0o755); err != nil { //#nosec G301 -- PDF reproducibility mismatch build directory must be readable by review tooling
 			return nil, fmt.Errorf("create PDF reproducibility mismatch build directory: %w", err)
 		}
 		for _, artifact := range build.Pair.artifacts {
@@ -431,7 +431,7 @@ func retainReproducibilityMismatch(
 }
 
 func writeReproducibilityMismatchArtifact(file string, body []byte) (returnError error) {
-	opened, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	opened, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //#nosec G304,G302 -- PDF reproducibility mismatch artifact must be readable by review tooling
 	if err != nil {
 		return fmt.Errorf("create PDF reproducibility mismatch artifact: %w", err)
 	}
@@ -544,7 +544,7 @@ func writeReproducibilityReceipt(file string, receipt ReproducibilityReceipt) (r
 		return fmt.Errorf("encode PDF reproducibility receipt: %w", err)
 	}
 	body = append(body, '\n')
-	opened, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	opened, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //#nosec G304,G302 -- PDF reproducibility receipt must be readable by CI audit and review tooling
 	if err != nil {
 		return fmt.Errorf("create PDF reproducibility receipt: %w", err)
 	}
