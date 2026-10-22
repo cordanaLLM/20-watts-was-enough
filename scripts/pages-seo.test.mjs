@@ -26,6 +26,9 @@ import {
 import { resolvePagesBase } from "./lib/pages-base.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+// vite.pages.config.ts binds its base when imported; read it at the same point so
+// a concurrent test that sets PAGES_BASE_PATH cannot split the two values.
+const pagesBase = resolvePagesBase(process.env.PAGES_BASE_PATH);
 const portalStylesheet = await readFile(path.join(repositoryRoot, "app/portal.css"), "utf8");
 const projectVersion = JSON.parse(
   await readFile(path.join(repositoryRoot, "package.json"), "utf8"),
@@ -109,7 +112,7 @@ test("the local Pages server renders the canonical no-JavaScript help page", asy
   const handler = typeof transform === "function" ? transform : transform?.handler;
   assert.ok(handler);
   const rendered = await handler.call({}, template, {
-    path: `${resolvePagesBase(process.env.PAGES_BASE_PATH)}help/`,
+    path: `${pagesBase}help/`,
     filename: path.join(repositoryRoot, "github-pages", "help", "index.html"),
     server: {},
   });

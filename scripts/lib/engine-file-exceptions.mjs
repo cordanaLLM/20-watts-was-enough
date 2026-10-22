@@ -14,10 +14,10 @@ function lintException(filePath, reason, rules) {
 }
 
 export const LINT_EXCEPTIONS = Object.freeze([
-  lintException("tools/figures/dist/loader.js", BUNDLE_REASON, [
+  lintException("tools/figures/player/loader.js", BUNDLE_REASON, [
     "@typescript-eslint/no-unused-expressions",
   ]),
-  lintException("tools/figures/dist/player.js", BUNDLE_REASON, [
+  lintException("tools/figures/player/player.js", BUNDLE_REASON, [
     "@typescript-eslint/no-this-alias",
     "@typescript-eslint/no-unused-expressions",
     "getter-return",

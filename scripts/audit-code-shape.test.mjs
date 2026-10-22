@@ -226,8 +226,8 @@ test("the declared exceptions are five engine-file groups with one last day", ()
   assert.deepEqual(
     CODE_SHAPE_EXCEPTIONS.map((entry) => `${entry.path} · ${entry.rule} · ${entry.expires}`),
     [
-      "tools/figures/dist/player.js · complexity · 2027-01-09",
-      "tools/figures/dist/player.js · max-statements · 2027-01-09",
+      "tools/figures/player/player.js · complexity · 2027-01-09",
+      "tools/figures/player/player.js · max-statements · 2027-01-09",
       "tools/figures/third_party/interfig/upstream/src/svg.ts · max-lines-per-function · 2027-01-09",
       "tools/figures/third_party/interfig/upstream/src/svg.ts · max-statements · 2027-01-09",
       "tools/markdownlint/no-private-scratch-links.mjs · complexity · 2027-01-09",
