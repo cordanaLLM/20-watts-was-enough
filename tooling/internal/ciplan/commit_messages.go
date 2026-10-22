@@ -144,7 +144,7 @@ func CheckCommitMessageFile(messagePath string) (MessageReport, error) {
 	if information.Size() > maximumCommitMessageBytes {
 		return MessageReport{}, errors.New("commit-message file exceeds the size limit")
 	}
-	file, err := os.Open(messagePath)
+	file, err := os.Open(messagePath) //#nosec G304 -- path validated as regular bounded file within maximum size
 	if err != nil {
 		return MessageReport{}, fmt.Errorf("open commit-message file: %w", err)
 	}
@@ -183,7 +183,7 @@ func readCommitMessages(
 	}, revisions...)
 	standardOutput := newBoundedBuffer(maximumGitLogBytes)
 	standardError := newBoundedBuffer(maximumGitErrorBytes)
-	command := exec.CommandContext(logContext, gitExecutable, append(arguments, "--")...)
+	command := exec.CommandContext(logContext, gitExecutable, append(arguments, "--")...) //#nosec G204 -- fixed git binary with validated revisions and end-of-options guard
 	command.Env = boundedexec.GitEnvironment()
 	command.Stdout = standardOutput
 	command.Stderr = standardError

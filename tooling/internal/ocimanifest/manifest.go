@@ -139,7 +139,7 @@ func Write(path string, options Options) error {
 }
 
 func writeManifestFile(path string, body []byte) (returnError error) {
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) //#nosec G304 -- path within validated non-symlink directory
 	if err != nil {
 		return fmt.Errorf("create OCI image manifest: %w", err)
 	}
@@ -210,7 +210,7 @@ func readManifest(path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	file, err := os.Open(path)
+	file, err := os.Open(path) //#nosec G304 -- path validated by inspectManifestPath as bounded regular file
 	if err != nil {
 		return nil, fmt.Errorf("open OCI image manifest: %w", err)
 	}

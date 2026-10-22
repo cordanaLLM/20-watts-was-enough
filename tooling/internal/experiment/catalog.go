@@ -190,7 +190,7 @@ func readManifest(path string) (manifest, error) {
 	if information.Size() > maxManifestBytes {
 		return manifest{}, fmt.Errorf("manifest exceeds the %d-byte limit", maxManifestBytes)
 	}
-	file, err := os.Open(path)
+	file, err := os.Open(path) //#nosec G304 -- manifest path validated as regular file bounded by maxManifestBytes
 	if err != nil {
 		return manifest{}, err
 	}
@@ -306,7 +306,7 @@ func validateRepositoryFile(root, relative string) error {
 	if err != nil {
 		return err
 	}
-	file, err := os.Open(path)
+	file, err := os.Open(path) //#nosec G304 -- repository-relative path validated by inspectRepositoryPath
 	if err != nil {
 		return fmt.Errorf("open repository file %q: %w", relative, err)
 	}

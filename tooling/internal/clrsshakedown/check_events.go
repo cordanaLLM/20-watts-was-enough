@@ -167,10 +167,12 @@ func onlyEvent(record event, kind string) bool {
 }
 
 func orderedTimes(values ...time.Time) bool {
+	var previous time.Time
 	for index, value := range values {
-		if value.IsZero() || index > 0 && value.Before(values[index-1]) {
+		if value.IsZero() || (index > 0 && value.Before(previous)) {
 			return false
 		}
+		previous = value
 	}
 	return true
 }

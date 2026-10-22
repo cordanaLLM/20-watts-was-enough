@@ -7,6 +7,28 @@ the exact diff; this file records why the project changed.
 
 ### Security
 
+- The Go tooling module passes gosec with the engine's default rules and
+  no baseline. Ignored `Close` errors are now joined into the returned
+  error, the CLRS prompt parsers refuse a negative size before converting
+  it, and one event-order loop no longer indexes the previous element.
+  The remaining 123 findings carry a `#nosec` mark at their line that
+  names the check or fixed source that makes the value safe; no file
+  mode changed.
+- Lock the PDF renderer to Buildx 0.38.1, the Go 1.26.10 rebuild of the
+  same commit for CVE-2026-111943, and let the update bot propose the lock
+  together with the workflow inputs
+  ([Decision 0115](decisions/0115-move-the-renderer-lock-to-buildx-0-38-1-and-let-the-update-bot-carry-it.md)).
+- The CLRS generator lock locks `pip==26.2.2` through a supplemental requirement
+  and a pip-only package cutoff, replacing ensurepip's pip 26.2.1 whose vendored
+  certifi 2026.6.17 carries PYSEC-2026-4320; pip 26.2.2 vendors fixed certifi
+  2026.10.19
+  ([Decision 0114](decisions/0114-lock-pip-in-the-clrs-generator.md)).
+  Every other package stays as locked. The manifest and contract digest chains
+  bind the new wheel, and SBOM validation tests expect pip as a locked runtime
+  package. The retained SBOM bundle CI checks moves to the
+  `clrs-sbom-bundle-2026-10-22` prerelease, scanned from the rebuilt image.
+  The base image's own pip under `/usr/local` keeps certifi 2026.6.17 until
+  the base image digest moves.
 - The CLRS generator lock moves certifi from 2026.7.22 to 2026.10.19 for
   PYSEC-2026-4320 through a certifi-only package cutoff; every other package
   stays as locked
@@ -44,6 +66,15 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Refresh the Praetor adoption with engine 18c50fc74. The engine-managed
+  `praetor-api.yml` and `praetor-docs.yml` workflows gain a concurrency group
+  per pull request that cancels a superseded pull-request run and lets every
+  push and merge-queue run finish; their checkout no longer persists
+  credentials. The figure player moves from `tools/figures/dist/` to
+  `tools/figures/player/`, and the code-shape exceptions follow it. CI pins
+  the same engine, because the previous pin refuses the refreshed workflows,
+  and two registry-token assignments in `release-build.yml` drop their outer
+  quotes so the engine's workflow reader can measure the release job.
 - Renew the declared-verify npm skip in `scripts/declared-verify-npm.mjs` to
   2026-10-25 (category B, three days): the engine fix for
   cordanaLLM/praetor#1385 is still open, and since 2026-10-22 every
@@ -152,6 +183,7 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- A `20w` command that rejects its arguments now says why on standard error. Twenty of 29 commands exited with code 2 and printed nothing for a stray positional argument or a missing required flag. `ci plan`, `ci messages` and `publication verify-pdf-reproducibility`, together with the `ci-plan` and `pdf-proof` binaries that share their parsers, now print a one-line diagnosis; every other such command prints `invalid arguments` and its line from the `20w` usage text. Exit codes are unchanged.
 - The CLRS shakedown no longer fails a case whose journal write takes longer than 100 ms. The decision, invocation, verification and terminal events were recorded under a fixed 100 ms deadline separate from the case deadline, so a slow file sync on Windows reported an event that was already on disk as a deadline failure. Each record deadline now follows the case deadline; the three journal events keep 100 ms as the floor so that a case that overran still records its event (#322).
 - The installed-dependency drift test for PDF reproducibility no longer fails intermittently. The two proof builds run concurrently, so the test's edit to `package.json` could land while the other build's preflight read the file. The test wrote with a truncating write, which let that preflight see an empty file and report a size error instead of drift. The test helper now replaces the file through a renamed temporary file, retrying the rename a bounded number of times on Windows, and the test accepts each of the three drift refusals the timing can produce (#319).
 - Tag display equations in the book PDF's structure tree. Chromium's tagged PDF has no mapping for MathML and KaTeX hides its glyphs from accessibility, so display equations were missing from the structure tree. The renderer now labels each one as an image whose alternate text is its TeX source, so it appears as a `Figure` at its reading position; inline equations remain untagged ([Decision 0110](decisions/0110-tag-book-pdf-display-equations-as-figures.md), #17).

@@ -61,7 +61,11 @@ func runPlan(arguments []string, stdout, stderr io.Writer, build func(context.Co
 	headRevision := flags.String("head", "", "exact 40-character head commit")
 	forceFull := flags.Bool("full", false, "select the complete repository gate")
 	jsonOutput := flags.Bool("json", false, "write one stable JSON plan")
-	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 {
+	if err := flags.Parse(arguments); err != nil {
+		return 2
+	}
+	if flags.NArg() != 0 {
+		fmt.Fprintf(stderr, "ci plan accepts no positional arguments: %s\n", flags.Arg(0))
 		return 2
 	}
 	if (*baseRevision == "") != (*headRevision == "") {

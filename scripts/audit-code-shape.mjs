@@ -42,8 +42,8 @@ function engineFileException(filePath, rule, reason) {
 }
 
 export const CODE_SHAPE_EXCEPTIONS = Object.freeze([
-  engineFileException("tools/figures/dist/player.js", "complexity", ENGINE_BUNDLE_REASON),
-  engineFileException("tools/figures/dist/player.js", "max-statements", ENGINE_BUNDLE_REASON),
+  engineFileException("tools/figures/player/player.js", "complexity", ENGINE_BUNDLE_REASON),
+  engineFileException("tools/figures/player/player.js", "max-statements", ENGINE_BUNDLE_REASON),
   engineFileException(
     "tools/figures/third_party/interfig/upstream/src/svg.ts",
     "max-lines-per-function",

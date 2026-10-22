@@ -45,7 +45,7 @@ func prepareReleasePaths(options Options) (releasePaths, error) {
 	if err := rejectSymlinkedComponents(repository, outputParent, "output parent"); err != nil {
 		return releasePaths{}, err
 	}
-	if err := os.MkdirAll(outputParent, 0o755); err != nil {
+	if err := os.MkdirAll(outputParent, 0o755); err != nil { //#nosec G301 -- release build output directory must be world-readable for packaging and publishing
 		return releasePaths{}, fmt.Errorf("create output parent: %w", err)
 	}
 	if err := rejectSymlinkedComponents(repository, outputParent, "output parent"); err != nil {

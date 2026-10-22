@@ -32,7 +32,6 @@ func newSBOMTestFixture(t *testing.T) *sbomTestFixture {
 	for _, wheel := range authority.manifest.Artifacts {
 		fixture.packages = append(fixture.packages, sbomTestPackage(wheel.Package, wheel.Version, "SPDXRef-"+wheel.Package, ""))
 	}
-	fixture.packages = append(fixture.packages, sbomTestPackage("pip", "26.2.1", "SPDXRef-pip", ""))
 	fixture.packages = append(fixture.packages, sbomTestPackage("packaging", "26.0", "SPDXRef-vendor", "setuptools/_vendor/"))
 	fixture.packages = append(fixture.packages, map[string]any{"SPDXID": "SPDXRef-system", "name": "libc6", "versionInfo": "2.41", "sourceInfo": "acquired dpkg metadata"})
 	fixture.execution = map[string]any{

@@ -163,7 +163,7 @@ type assetSnapshot struct {
 }
 
 func snapshotAssetDirectory(root string) ([]assetSnapshot, error) {
-	directory, err := os.Open(root)
+	directory, err := os.Open(root) //#nosec G304 -- directory path validated by caller within release assets
 	if err != nil {
 		return nil, fmt.Errorf("list release assets: %w", err)
 	}
@@ -363,7 +363,7 @@ func readRegularFile(root, file string, maximumBytes int64) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	opened, err := os.Open(file)
+	opened, err := os.Open(file) //#nosec G304 -- path within root validated by validateRegularPath
 	if err != nil {
 		return nil, err
 	}
@@ -386,7 +386,7 @@ func digestRegularFile(root, file string, maximumBytes int64) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	opened, err := os.Open(file)
+	opened, err := os.Open(file) //#nosec G304 -- path within root validated by validateRegularPath
 	if err != nil {
 		return "", err
 	}

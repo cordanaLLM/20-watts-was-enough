@@ -48,7 +48,7 @@ type Runner func(ctx context.Context, toolsDir, target string) (status int, outp
 func ExecRunner(ctx context.Context, toolsDir, target string) (int, []byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, ScanDeadline)
 	defer cancel()
-	command := exec.CommandContext(ctx, "go", "tool", "govulncheck", "-C", target, "./...")
+	command := exec.CommandContext(ctx, "go", "tool", "govulncheck", "-C", target, "./...") //#nosec G204 -- fixed go tool invocation with caller-specified target module directory
 	command.Dir = toolsDir
 	output, err := command.CombinedOutput()
 	if ctx.Err() != nil {
