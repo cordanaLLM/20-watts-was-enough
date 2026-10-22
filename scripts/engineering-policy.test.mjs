@@ -4451,7 +4451,7 @@ test("verify-all skips npm steps only inside the declared-verify stage without n
   assert.equal(declaredVerifyAction({ env: {}, hasNodeModules: false, today: lastDay }), "run");
   assert.equal(declaredVerifyAction({ env: stage, hasNodeModules: true, today: lastDay }), "run");
   // From the day after the exception expires the skip fails.
-  assert.equal(declaredVerifyAction({ env: stage, hasNodeModules: false, today: "2026-10-22" }), "expired");
+  assert.equal(declaredVerifyAction({ env: stage, hasNodeModules: false, today: "2026-10-26" }), "expired");
   assert.equal(DECLARED_VERIFY_EXCEPTION.category, "B");
   const makefile = readFileSync("Makefile", "utf8");
   assert.doesNotMatch(makefile, /'npm' 'run'/u, "every npm step in the Makefile goes through the exception script");
