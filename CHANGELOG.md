@@ -66,6 +66,15 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Refresh the Praetor adoption with engine 18c50fc74. The engine-managed
+  `praetor-api.yml` and `praetor-docs.yml` workflows gain a concurrency group
+  per pull request that cancels a superseded pull-request run and lets every
+  push and merge-queue run finish; their checkout no longer persists
+  credentials. The figure player moves from `tools/figures/dist/` to
+  `tools/figures/player/`, and the code-shape exceptions follow it. CI pins
+  the same engine, because the previous pin refuses the refreshed workflows,
+  and two registry-token assignments in `release-build.yml` drop their outer
+  quotes so the engine's workflow reader can measure the release job.
 - Renew the declared-verify npm skip in `scripts/declared-verify-npm.mjs` to
   2026-10-25 (category B, three days): the engine fix for
   cordanaLLM/praetor#1385 is still open, and since 2026-10-22 every
