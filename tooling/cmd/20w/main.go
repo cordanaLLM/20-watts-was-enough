@@ -2,6 +2,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -80,6 +82,44 @@ func usage(writer io.Writer) {
 	fmt.Fprintln(writer, "  20w version [--json]")
 }
 
+// trackingWriter records whether any non-empty byte slice was written.
+type trackingWriter struct {
+	writer  io.Writer
+	written bool
+}
+
+func (w *trackingWriter) Write(p []byte) (int, error) {
+	if len(p) > 0 {
+		w.written = true
+	}
+	return w.writer.Write(p)
+}
+
+func printUsageError(stderr io.Writer, command ...string) {
+	prefix := append([]string{"20w"}, command...)
+	prefixText := strings.Join(prefix, " ")
+	var help bytes.Buffer
+	usage(&help)
+	var matched strings.Builder
+	for _, line := range strings.Split(help.String(), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= len(prefix) && slices.Equal(fields[:len(prefix)], prefix) {
+			matched.WriteString(line)
+			matched.WriteByte('\n')
+		}
+	}
+	fmt.Fprintf(stderr, "%s: invalid arguments\nUsage:\n%s", prefixText, matched.String())
+}
+
+func runWithUsageFallback(stderr io.Writer, command []string, execute func(io.Writer) int) int {
+	tracker := &trackingWriter{writer: stderr}
+	code := execute(tracker)
+	if code == 2 && !tracker.written {
+		printUsageError(stderr, command...)
+	}
+	return code
+}
+
 func run(arguments []string, stdout, stderr io.Writer) int {
 	if len(arguments) == 0 || arguments[0] == "help" || arguments[0] == "--help" || arguments[0] == "-h" {
 		usage(stdout)
@@ -91,10 +131,14 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 			return code
 		}
 	case "version":
-		return runVersion(arguments[1:], stdout, stderr)
+		return runWithUsageFallback(stderr, []string{"version"}, func(errWriter io.Writer) int {
+			return runVersion(arguments[1:], stdout, errWriter)
+		})
 	default:
 		if handler, ok := lookupSubcommand(arguments); ok {
-			return handler(arguments[2:], stdout, stderr)
+			return runWithUsageFallback(stderr, arguments[:2], func(errWriter io.Writer) int {
+				return handler(arguments[2:], stdout, errWriter)
+			})
 		}
 	}
 	fmt.Fprintf(stderr, "Unknown 20w command: %s\n", arguments[0])
