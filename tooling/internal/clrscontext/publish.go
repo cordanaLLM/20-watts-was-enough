@@ -34,13 +34,11 @@ func openPublishRoot(output string) (publishedRoot, error) {
 	}
 	parentInfo, err := root.Stat(".")
 	if err != nil {
-		root.Close()
-		return publishedRoot{}, err
+		return publishedRoot{}, errors.Join(err, root.Close())
 	}
 	name := filepath.Base(absolute)
 	if _, err := root.Lstat(name); !errors.Is(err, os.ErrNotExist) {
-		root.Close()
-		return publishedRoot{}, errors.New("CLRS context output must not already exist")
+		return publishedRoot{}, errors.Join(errors.New("CLRS context output must not already exist"), root.Close())
 	}
 	return publishedRoot{root: root, parent: parent, name: name, absolute: absolute, parentInfo: parentInfo}, nil
 }
@@ -64,8 +62,7 @@ func createStagedContextFile(root *os.Root) (stagedContextFile, error) {
 	}
 	owned, err := file.Stat()
 	if err != nil {
-		file.Close()
-		return stagedContextFile{}, fmt.Errorf("inspect owned CLRS staging file; retained %s: %w", stage, err)
+		return stagedContextFile{}, errors.Join(fmt.Errorf("inspect owned CLRS staging file; retained %s: %w", stage, err), file.Close())
 	}
 	return stagedContextFile{stage: stage, stagedName: stagedName, file: file, owned: owned}, nil
 }
@@ -117,7 +114,9 @@ func publishContext(ctx context.Context, output string, p plan, recheck func() e
 		return result, err
 	}
 	defer func() {
-		s.file.Close()
+		if closeErr := s.file.Close(); closeErr != nil && !errors.Is(closeErr, os.ErrClosed) {
+			returnErr = errors.Join(returnErr, closeErr)
+		}
 		current, err := pub.root.Lstat(s.stagedName)
 		if err == nil && current.Mode().IsRegular() && os.SameFile(s.owned, current) {
 			err = pub.root.Remove(s.stagedName)

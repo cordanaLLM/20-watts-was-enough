@@ -184,7 +184,7 @@ func readMarkdownDocument(root, path string, entry fs.DirEntry, totalBytes *int6
 	if *totalBytes > maxMarkdownTotal {
 		return markdownDocument{}, false, fmt.Errorf("Markdown input exceeds %d bytes", maxMarkdownTotal)
 	}
-	content, readErr := os.ReadFile(path)
+	content, readErr := os.ReadFile(path) //#nosec G304 -- path within repository root bounded by maxMarkdownFileBytes
 	if readErr != nil {
 		return markdownDocument{}, false, fmt.Errorf("read %s: %w", relativePath(root, path), readErr)
 	}
@@ -425,7 +425,7 @@ func validateChapters(root string, report *collector) int {
 			continue
 		}
 		count++
-		content, err := os.ReadFile(filepath.Join(chapterRoot, name))
+		content, err := os.ReadFile(filepath.Join(chapterRoot, name)) //#nosec G304 -- path built from concept chapter root + validated chapter file name
 		if err != nil {
 			report.addError("Read concept/%s: %v", name, err)
 			continue
@@ -441,7 +441,7 @@ func validateChapters(root string, report *collector) int {
 
 func validateBibliography(root string, report *collector) {
 	bibliographyPath := filepath.Join(root, "research", "references.bib")
-	bibliography, err := os.ReadFile(bibliographyPath)
+	bibliography, err := os.ReadFile(bibliographyPath) //#nosec G304 -- fixed research/references.bib path within repository root
 	if err != nil {
 		report.addError("Missing or unreadable research/references.bib: %v", err)
 		return
@@ -454,7 +454,7 @@ func validateBibliography(root string, report *collector) {
 		}
 		keys[key] = struct{}{}
 	}
-	claims, err := os.ReadFile(filepath.Join(root, "research", "claims.md"))
+	claims, err := os.ReadFile(filepath.Join(root, "research", "claims.md")) //#nosec G304 -- fixed research/claims.md path within repository root
 	if err != nil {
 		return
 	}

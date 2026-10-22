@@ -384,7 +384,7 @@ func openBoundedRegular(path string, maximum int64, label string) (*os.File, err
 		information.Size() <= 0 || information.Size() > maximum {
 		return nil, fmt.Errorf("%s must be a regular non-symlink file between 1 and %d bytes", label, maximum)
 	}
-	file, err := os.Open(path)
+	file, err := os.Open(path) //#nosec G304 -- path validated as regular non-symlink file within maximum bytes
 	if err != nil {
 		return nil, fmt.Errorf("open %s: %w", label, err)
 	}
@@ -408,7 +408,7 @@ func verifyOpenedRegular(path string, file *os.File, size int64, label string) e
 }
 
 func writeExactStream(path string, source io.Reader, size int64, expectedDigest string, epoch int64) (returnError error) {
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //#nosec G304,G302 -- projected OCI blob must be world-readable per OCI image layout specification
 	if err != nil {
 		return fmt.Errorf("create projected OCI blob: %w", err)
 	}
@@ -438,7 +438,7 @@ func writeExactStream(path string, source io.Reader, size int64, expectedDigest 
 }
 
 func writeExactBytes(path string, body []byte, epoch int64) error {
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //#nosec G304,G302 -- projected OCI metadata must be world-readable per OCI image layout specification
 	if err != nil {
 		return fmt.Errorf("create projected OCI metadata: %w", err)
 	}
@@ -458,7 +458,7 @@ func writeExactBytes(path string, body []byte, epoch int64) error {
 	if err := file.Close(); err != nil {
 		return fmt.Errorf("close projected OCI metadata: %w", err)
 	}
-	if err := os.Chmod(path, 0o644); err != nil {
+	if err := os.Chmod(path, 0o644); err != nil { //#nosec G302 -- projected OCI metadata must be world-readable per OCI image layout specification
 		return fmt.Errorf("normalize projected OCI metadata mode: %w", err)
 	}
 	if err := os.Chtimes(path, time.Unix(epoch, 0), time.Unix(epoch, 0)); err != nil {
@@ -473,7 +473,7 @@ func writeOCILayoutFile(root string, epoch int64) error {
 		return err
 	}
 	for _, directory := range []string{filepath.Join(root, "blobs"), filepath.Join(root, "blobs", "sha256"), root} {
-		if err := os.Chmod(directory, 0o755); err != nil {
+		if err := os.Chmod(directory, 0o755); err != nil { //#nosec G302 -- projected OCI directory layout must be world-readable per OCI image specification
 			return fmt.Errorf("normalize projected OCI directory mode: %w", err)
 		}
 		if err := os.Chtimes(directory, time.Unix(epoch, 0), time.Unix(epoch, 0)); err != nil {

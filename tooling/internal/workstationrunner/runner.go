@@ -284,7 +284,7 @@ func executeJob(ctx context.Context, root string, current job, options runOption
 	jobContext, cancel := context.WithTimeout(ctx, options.jobDuration)
 	defer cancel()
 	output := boundedexec.NewCancellingOutput(options.outputBytes, cancel)
-	command := exec.CommandContext(jobContext, options.executable, current.arguments...)
+	command := exec.CommandContext(jobContext, options.executable, current.arguments...) //#nosec G204 -- executable and argument slice from validated workstation inventory job
 	command.Dir = root
 	command.Env = options.environment
 	command.Stdout = output

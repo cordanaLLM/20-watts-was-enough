@@ -179,8 +179,11 @@ func parseAnswer(reference []byte, limits Limits, valueCount int) (int, error) {
 			return 0, errors.New("reference is not one canonical non-negative index")
 		}
 	}
+	if valueCount < 0 {
+		return 0, errors.New("value count must be non-negative")
+	}
 	parsed, err := strconv.ParseUint(body, 10, 31)
-	if err != nil || parsed >= uint64(valueCount) {
+	if err != nil || parsed >= uint64(valueCount) { //#nosec G115 -- valueCount bounded >= 0 by preceding check
 		return 0, fmt.Errorf("reference index is outside 0..%d", valueCount-1)
 	}
 	return int(parsed), nil

@@ -49,7 +49,7 @@ func acquirePublicationLock(repositoryRoot string) (*publicationLock, error) {
 }
 
 func createPublicationLock(lockPath string) (_ *publicationLock, returnError error) {
-	file, err := os.OpenFile(lockPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	file, err := os.OpenFile(lockPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) //#nosec G304 -- publication lock file path within repository root
 	if errors.Is(err, os.ErrExist) {
 		return nil, err
 	}
@@ -281,12 +281,12 @@ func copyRegularFileExclusive(source, destination string) (returnError error) {
 	if err != nil || !information.Mode().IsRegular() || information.Mode()&os.ModeSymlink != 0 {
 		return errors.New("publication backup source must be a regular non-symlink file")
 	}
-	input, err := os.Open(source)
+	input, err := os.Open(source) //#nosec G304 -- publication source artifact validated regular file
 	if err != nil {
 		return err
 	}
 	defer input.Close()
-	output, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE|os.O_EXCL, information.Mode().Perm())
+	output, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE|os.O_EXCL, information.Mode().Perm()) //#nosec G304,G302 -- publication destination path within repository root preserving source permission
 	if err != nil {
 		return err
 	}

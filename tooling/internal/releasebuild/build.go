@@ -234,7 +234,7 @@ func validateBinary(path, name string) error {
 }
 
 func digestBoundedFile(path string) ([sha256.Size]byte, error) {
-	file, err := os.Open(path)
+	file, err := os.Open(path) //#nosec G304 -- path validated as bounded binary file within maximumBinaryBytes
 	if err != nil {
 		return [sha256.Size]byte{}, err
 	}
@@ -358,7 +358,7 @@ func writeDependencyMetadata(stagingRoot, moduleRoot string, artifacts []Artifac
 	if err != nil || !licenseInformation.Mode().IsRegular() {
 		return errors.New("tracked Goldmark licence must be a regular file")
 	}
-	licenseBytes, err := os.ReadFile(licensePath)
+	licenseBytes, err := os.ReadFile(licensePath) //#nosec G304 -- fixed LICENSES/goldmark-MIT.txt path within repository root
 	if err != nil {
 		return fmt.Errorf("read tracked Goldmark licence: %w", err)
 	}

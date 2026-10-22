@@ -57,7 +57,7 @@ func (localReproducibilityExecutor) inspectImageArchive(
 	if _, err := newLocalReproducibilityExecutor(); err != nil {
 		return ImageConfigProof{}, err
 	}
-	command := exec.Command("docker", pinnedReproducibilityArguments([]string{
+	command := exec.Command("docker", pinnedReproducibilityArguments([]string{ //#nosec G204 -- fixed docker binary with pinned reproducibility arguments
 		"image", "save", "--platform", configuration.Lock.Platform, imageID,
 	})...)
 	command.Dir = configuration.RepositoryRoot

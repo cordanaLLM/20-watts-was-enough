@@ -190,7 +190,7 @@ func readStableMapping(filename string) ([]byte, error) {
 	if before.Size() > maximumMappingBytes {
 		return nil, fmt.Errorf("mapping exceeds the %d-byte limit", maximumMappingBytes)
 	}
-	file, err := os.Open(filename)
+	file, err := os.Open(filename) //#nosec G304 -- mapping file validated as bounded regular file
 	if err != nil {
 		return nil, err
 	}
