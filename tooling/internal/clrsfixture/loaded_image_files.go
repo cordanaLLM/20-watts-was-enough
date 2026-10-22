@@ -44,8 +44,7 @@ func newLoadedImageBundle(options GeneratorLoadedImageOptions) (*os.Root, error)
 		err = errors.Join(checkGenerationRoot(bundle), SyncDirectory(root, "."))
 	}
 	if err != nil {
-		bundle.Close()
-		return nil, err
+		return nil, errors.Join(err, bundle.Close())
 	}
 	return bundle, nil
 }

@@ -182,7 +182,7 @@ func hashCacheBlob(ctx context.Context, root string, descriptor imageProofDescri
 	if initial.Size() != descriptor.Size {
 		return errors.New("PDF renderer cache blob size does not match its descriptor")
 	}
-	opened, err := os.Open(file)
+	opened, err := os.Open(file) //#nosec G304 -- cache file path validated by caller within build cache root
 	if err != nil {
 		return err
 	}
@@ -208,7 +208,7 @@ func exactCacheDirectory(directory string, expected map[string]bool) (returnErro
 	if err != nil || !initial.IsDir() || initial.Mode()&os.ModeSymlink != 0 {
 		return fmt.Errorf("PDF renderer cache requires a non-symlink directory: %s", directory)
 	}
-	opened, err := os.Open(directory)
+	opened, err := os.Open(directory) //#nosec G304 -- cache directory path validated by caller within build cache root
 	if err != nil {
 		return err
 	}

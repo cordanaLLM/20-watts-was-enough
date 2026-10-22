@@ -347,7 +347,7 @@ func writeNewFile(path string, body []byte) error {
 	if err := prepareRealParent(filepath.Dir(path)); err != nil {
 		return err
 	}
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) //#nosec G304 -- path within translation directory prepared with non-symlink parent
 	if err != nil {
 		return err
 	}
@@ -381,7 +381,7 @@ func prepareRealParent(parent string) error {
 	current := ancestor
 	for index := len(missing) - 1; index >= 0; index-- {
 		current = filepath.Join(current, missing[index])
-		if err := os.Mkdir(current, 0o755); err != nil && !os.IsExist(err) {
+		if err := os.Mkdir(current, 0o755); err != nil && !os.IsExist(err) { //#nosec G301 -- translation bundle repository directory must be readable by build and test tooling
 			return err
 		}
 		if err := requireRealDirectory(current); err != nil {

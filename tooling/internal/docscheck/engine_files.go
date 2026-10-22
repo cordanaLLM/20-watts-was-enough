@@ -131,6 +131,6 @@ func isRenderedSkillCopy(root, relative string, content []byte) bool {
 	if err != nil || !info.Mode().IsRegular() || info.Size() != int64(len(content)) {
 		return false
 	}
-	original, err := os.ReadFile(canonical)
+	original, err := os.ReadFile(canonical) //#nosec G304 -- canonical skill path within repository root verified regular file
 	return err == nil && bytes.Equal(original, content)
 }

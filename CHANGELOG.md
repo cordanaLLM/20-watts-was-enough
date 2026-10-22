@@ -7,6 +7,13 @@ the exact diff; this file records why the project changed.
 
 ### Security
 
+- The Go tooling module passes gosec with the engine's default rules and
+  no baseline. Ignored `Close` errors are now joined into the returned
+  error, the CLRS prompt parsers refuse a negative size before converting
+  it, and one event-order loop no longer indexes the previous element.
+  The remaining 123 findings carry a `#nosec` mark at their line that
+  names the check or fixed source that makes the value safe; no file
+  mode changed.
 - Lock the PDF renderer to Buildx 0.38.1, the Go 1.26.10 rebuild of the
   same commit for CVE-2026-111943, and let the update bot propose the lock
   together with the workflow inputs

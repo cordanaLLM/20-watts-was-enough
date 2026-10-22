@@ -178,7 +178,7 @@ func verifySourceRevision(ctx context.Context, root, sourceRef, expected string)
 	defer cancel()
 	standardOutput := boundedexec.NewOutput(128)
 	standardError := boundedexec.NewOutput(maximumDiagnosticBytes)
-	command := exec.CommandContext(
+	command := exec.CommandContext( //#nosec G204 -- bounded renderer command with validated executor binary and arguments
 		commandContext,
 		gitExecutable,
 		"-C", root,
@@ -221,7 +221,7 @@ func runDockerCommand(ctx context.Context, request commandRequest, environment [
 	commandContext, cancel := context.WithTimeout(ctx, request.timeout)
 	defer cancel()
 	output := boundedexec.NewOutput(request.outputSize)
-	command := exec.CommandContext(commandContext, "docker", request.arguments...)
+	command := exec.CommandContext(commandContext, "docker", request.arguments...) //#nosec G204 -- fixed docker binary with bounded arguments
 	command.Dir = request.directory
 	command.Env = environment
 	command.Stdout = output

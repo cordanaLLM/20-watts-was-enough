@@ -24,7 +24,7 @@ type noticeContextIdentity struct {
 }
 
 func prepareNoticeContext(ctx context.Context, root string, authority checkedAuthority) (noticeContextIdentity, error) {
-	if err := os.MkdirAll(filepath.Join(root, "notices"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(root, "notices"), 0o755); err != nil { //#nosec G301 -- container build context directory must be readable by container builder
 		return noticeContextIdentity{}, fmt.Errorf("create PDF-tools notice context: %w", err)
 	}
 	epoch := time.Unix(authority.contract.SourceDateEpoch, 0)
@@ -53,7 +53,7 @@ func prepareNoticeContext(ctx context.Context, root string, authority checkedAut
 		}
 	}
 	for _, directory := range []string{filepath.Join(root, "notices"), root} {
-		if err := os.Chmod(directory, 0o755); err != nil {
+		if err := os.Chmod(directory, 0o755); err != nil { //#nosec G302 -- container build context directory must be readable by container builder
 			return noticeContextIdentity{}, fmt.Errorf("normalize notice context directory mode: %w", err)
 		}
 		if err := os.Chtimes(directory, epoch, epoch); err != nil {
@@ -70,7 +70,7 @@ var (
 )
 
 func writeNormalizedContextFile(path string, body []byte, epoch time.Time) (returnError error) {
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //#nosec G304,G302 -- container build context file must be readable by container builder
 	if err != nil {
 		return fmt.Errorf("create normalized notice context file: %w", err)
 	}
@@ -94,7 +94,7 @@ func writeNormalizedContextFile(path string, body []byte, epoch time.Time) (retu
 	if err := closeContextFile(file); err != nil {
 		return fmt.Errorf("close normalized notice context file: %w", err)
 	}
-	if err := os.Chmod(path, 0o644); err != nil {
+	if err := os.Chmod(path, 0o644); err != nil { //#nosec G302 -- container build context file must be readable by container builder
 		return fmt.Errorf("normalize notice context file mode: %w", err)
 	}
 	if err := os.Chtimes(path, epoch, epoch); err != nil {

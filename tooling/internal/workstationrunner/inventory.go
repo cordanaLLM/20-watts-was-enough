@@ -409,7 +409,7 @@ func readStableBoundedFile(path string, maximumBytes int64) ([]byte, error) {
 	if before.Size() <= 0 || before.Size() > maximumBytes {
 		return nil, fmt.Errorf("file size is outside 1..%d bytes", maximumBytes)
 	}
-	file, err := os.Open(path)
+	file, err := os.Open(path) //#nosec G304 -- path validated as regular bounded file within maximumBytes
 	if err != nil {
 		return nil, err
 	}

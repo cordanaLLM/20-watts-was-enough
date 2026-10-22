@@ -72,12 +72,12 @@ func copyVerifiedArchive(source, destination string, chrome ChromeForTesting) (r
 	if !information.Mode().IsRegular() || information.Mode()&os.ModeSymlink != 0 || information.Size() != chrome.ArchiveSizeBytes {
 		return errors.New("cached Chrome for Testing archive changed before staging")
 	}
-	input, err := os.Open(source)
+	input, err := os.Open(source) //#nosec G304 -- source path within repository verified non-symlink regular file
 	if err != nil {
 		return fmt.Errorf("open cached Chrome for Testing archive: %w", err)
 	}
 	defer input.Close()
-	output, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	output, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) //#nosec G304 -- destination path within temporary build directory
 	if err != nil {
 		return fmt.Errorf("create staged Chrome for Testing archive: %w", err)
 	}
@@ -190,7 +190,7 @@ func downloadChromeArchive(ctx context.Context, chrome ChromeForTesting, destina
 	if response.ContentLength != chrome.ArchiveSizeBytes || response.Header.Get("X-Goog-Generation") != chrome.ArchiveGeneration {
 		return errors.New("Chrome for Testing response size or generation does not match its lock")
 	}
-	file, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	file, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) //#nosec G304 -- destination path within temporary build directory
 	if err != nil {
 		return fmt.Errorf("create staged Chrome for Testing archive: %w", err)
 	}
@@ -269,12 +269,12 @@ func extractArchiveEntry(entry *zip.File, destination, clean string) (returnErro
 		return fmt.Errorf("Chrome for Testing archive entry %q escapes destination", clean)
 	}
 	if entry.FileInfo().IsDir() {
-		if err := os.MkdirAll(target, 0o755); err != nil {
+		if err := os.MkdirAll(target, 0o755); err != nil { //#nosec G301 -- Chrome for Testing application directory must be executable by browser runner
 			return fmt.Errorf("create Chrome for Testing directory %q: %w", clean, err)
 		}
 		return nil
 	}
-	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil { //#nosec G301 -- Chrome for Testing application directory must be executable by browser runner
 		return fmt.Errorf("create Chrome for Testing parent for %q: %w", clean, err)
 	}
 	reader, err := entry.Open()
@@ -286,7 +286,7 @@ func extractArchiveEntry(entry *zip.File, destination, clean string) (returnErro
 	if mode == 0 {
 		mode = 0o644
 	}
-	file, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
+	file, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode) //#nosec G304 -- target path within Chrome for Testing extraction directory
 	if err != nil {
 		return fmt.Errorf("create Chrome for Testing file %q: %w", clean, err)
 	}
@@ -295,11 +295,11 @@ func extractArchiveEntry(entry *zip.File, destination, clean string) (returnErro
 			returnError = fmt.Errorf("close Chrome for Testing file %q: %w", clean, closeError)
 		}
 	}()
-	written, err := io.Copy(file, io.LimitReader(reader, int64(entry.UncompressedSize64)+1))
+	written, err := io.Copy(file, io.LimitReader(reader, int64(entry.UncompressedSize64)+1)) //#nosec G115 -- bounded by preceding maximumExtractedFileBytes check in extractChromeArchive
 	if err != nil {
 		return fmt.Errorf("extract Chrome for Testing file %q: %w", clean, err)
 	}
-	if written != int64(entry.UncompressedSize64) {
+	if written != int64(entry.UncompressedSize64) { //#nosec G115 -- bounded by preceding maximumExtractedFileBytes check in extractChromeArchive
 		return fmt.Errorf("Chrome for Testing file %q size changed during extraction", clean)
 	}
 	return nil
@@ -313,7 +313,7 @@ func digestRegularFile(file string, maximumBytes int64) (string, error) {
 	if !information.Mode().IsRegular() || information.Mode()&os.ModeSymlink != 0 || information.Size() <= 0 || information.Size() > maximumBytes {
 		return "", errors.New("file is not a bounded regular file")
 	}
-	opened, err := os.Open(file)
+	opened, err := os.Open(file) //#nosec G304 -- path within Chrome for Testing directory verified regular file
 	if err != nil {
 		return "", err
 	}
@@ -345,7 +345,7 @@ func normalizeBuildContext(root string, sourceDateEpoch int64) error {
 		}
 		if entry.IsDir() {
 			directories = append(directories, file)
-			return os.Chmod(file, 0o755)
+			return os.Chmod(file, 0o755) //#nosec G122,G302 -- container build context directory normalized for reproducible container image
 		}
 		if !information.Mode().IsRegular() {
 			return fmt.Errorf("PDF renderer build context contains unsupported file %s", file)
@@ -354,10 +354,10 @@ func normalizeBuildContext(root string, sourceDateEpoch int64) error {
 		if information.Mode().Perm()&0o111 != 0 {
 			mode = 0o755
 		}
-		if err := os.Chmod(file, mode); err != nil {
+		if err := os.Chmod(file, mode); err != nil { //#nosec G122 -- temporary build context walk, non-symlink verified by preceding ModeSymlink check
 			return err
 		}
-		return os.Chtimes(file, fixedTime, fixedTime)
+		return os.Chtimes(file, fixedTime, fixedTime) //#nosec G122 -- temporary build context walk, non-symlink verified by preceding ModeSymlink check
 	})
 	if err != nil {
 		return fmt.Errorf("normalize PDF renderer build context: %w", err)
