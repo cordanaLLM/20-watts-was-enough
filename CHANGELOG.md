@@ -7,6 +7,10 @@ the exact diff; this file records why the project changed.
 
 ### Security
 
+- Lock the PDF renderer to Buildx 0.38.1, the Go 1.26.10 rebuild of the
+  same commit for CVE-2026-111943, and let the update bot propose the lock
+  together with the workflow inputs
+  ([Decision 0115](decisions/0115-move-the-renderer-lock-to-buildx-0-38-1-and-let-the-update-bot-carry-it.md)).
 - The CLRS generator lock moves certifi from 2026.7.22 to 2026.10.19 for
   PYSEC-2026-4320 through a certifi-only package cutoff; every other package
   stays as locked
