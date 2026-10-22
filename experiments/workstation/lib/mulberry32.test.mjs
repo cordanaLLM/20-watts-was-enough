@@ -63,3 +63,16 @@ test("normal fails closed on invalid generator input", () => {
   assert.throws(() => normal(undefined), { name: "TypeError" });
   assert.throws(() => normal("invalid"), { name: "TypeError" });
 });
+
+test("mulberry32 and normal keep the values of the fixture 007 and 012 copies", () => {
+  // Golden values computed from the generator copies on main before they moved here.
+  const random = mulberry32(20261022);
+  assert.deepEqual([random(), random(), random()], [0.5591592639684677, 0.21883013984188437, 0.5584872781764716]);
+  const gaussian = mulberry32(7);
+  assert.deepEqual([normal(gaussian), normal(gaussian)], [2.759372987028844, -0.06805135650735404]);
+});
+
+test("normal clamps a zero draw at Number.MIN_VALUE", () => {
+  const draws = [0, 0];
+  assert.equal(normal(() => draws.shift()), 38.58600969059592);
+});
