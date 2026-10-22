@@ -6,13 +6,13 @@
   "python_version": "3.13.15",
   "base_image": "docker.io/library/python:3.13.15-slim-bookworm@sha256:c45a22ea000adfd9cda29364bbe7edd23001ce5cc2ad15857cfbf7766943b9ca",
   "glibc_version": "2.36",
-  "dependency_lock_sha256": "1f2a837d35260fb4bf095032a016c0ea9543b573b8ad83def7ae5378972ff7e4",
+  "dependency_lock_sha256": "cbac28b4acab15f07d722203ead7731ecb9a1f7e9f51c1754de0ca28a5b4cdba",
   "source_date_epoch": 1787658740,
-  "package_count": 61,
-  "artifact_count": 61,
-  "downloaded_wheel_count": 60,
+  "package_count": 62,
+  "artifact_count": 62,
+  "downloaded_wheel_count": 61,
   "source_built_wheel_count": 1,
-  "total_size_bytes": 823936177,
+  "total_size_bytes": 825756027,
   "artifacts": [
     {
       "package": "absl-py",
@@ -337,6 +337,15 @@
       "url": "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl",
       "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
       "size_bytes": 129956
+    },
+    {
+      "package": "pip",
+      "version": "26.2.2",
+      "kind": "downloaded-wheel",
+      "filename": "pip-26.2.2-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/3f/06/3e4420302363fbb71be3c7f35ce042f54bfca330e3e66b3a2e3c4cca579f/pip-26.2.2-py3-none-any.whl",
+      "sha256": "fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70",
+      "size_bytes": 1819850
     },
     {
       "package": "promise",
