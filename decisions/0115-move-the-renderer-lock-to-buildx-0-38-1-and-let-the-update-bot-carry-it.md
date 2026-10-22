@@ -58,7 +58,8 @@ the lock, so it could not have raised the drift before a host hit it.
    that pull request that lists the values the bot cannot compute: the
    authority digest in both contracts and the Go constant, the approved
    policy value and the book record.
-5. The book manifest and the semantic baseline record the new lock digest.
+5. The book manifest records the new lock digest and renderer image, and
+   the semantic baseline records the new manifest hash.
 
 The image contract under `tooling/clrs-generator/` stays outside the bot's
 reach because `ignorePaths` excludes that folder; its digest moves with the
@@ -69,7 +70,8 @@ lock by hand, as the note says.
 - Local renders on a host with the 0.38.1 package run without a workaround.
 - The renderer image identity changes from `sha256:9a2e9bec…` to
   `sha256:5ef5f660…`, and the lock digest from `ce94c89e…` to `d2957178…`.
-  The semantic baseline holds neither and stays as it is.
+  The PDF bytes do not change; the semantic baseline moves only by the
+  manifest hash and source digest it records.
 - The next Buildx release arrives as one bot pull request that changes the
   workflow inputs and the lock together. It still fails the tests until the
   derived digests are recomputed, which keeps decision 0105's coupling: the
