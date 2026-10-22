@@ -47,6 +47,7 @@ import {
   captureCandidate010SourceBundle,
   discoverCandidate010SourceFiles,
 } from "./source-bundle.mjs";
+import { canonicalJson } from "../lib/canonical-json.mjs";
 
 const executeFile = promisify(execFile);
 const benchmarkRoot = path.dirname(new URL(import.meta.url).pathname.replace(/^\/(.:)/, "$1"));
@@ -54,11 +55,7 @@ const repositoryRoot = path.resolve(benchmarkRoot, "..", "..", "..");
 const candidateRelative = "experiments/workstation/candidate-010";
 
 function canonical(value) {
-  if (value === null || typeof value === "boolean" || typeof value === "string" || typeof value === "number") {
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
-  return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`;
+  return canonicalJson(value, { strict: false, label: "Promotion test" });
 }
 
 function sha256(value) {
@@ -70,37 +67,7 @@ async function writeJson(file, value) {
   await writeFile(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
-async function writeManifestSeedOperatorFixture({
-  bindingRoot,
-  sourceBundle,
-  executionDescriptor,
-  config,
-  design,
-  backendRegistry,
-  preregistration,
-  confirmationSeeds: confirmationSeedList,
-  heldOutSeeds,
-}) {
-  const revealedRoot = path.join(bindingRoot, "revealed");
-  await mkdir(revealedRoot, { recursive: true });
-  const snapshotBodies = {
-    source_bundle: sourceBundle,
-    execution_descriptor: executionDescriptor,
-    runtime_identity: executionDescriptor.runtime_identity,
-    config,
-    design,
-    backend_registry: backendRegistry,
-    preregistration,
-  };
-  const snapshotNames = {
-    source_bundle: "source-bundle.json",
-    execution_descriptor: "execution-descriptor.json",
-    runtime_identity: "runtime-identity.json",
-    config: "config.json",
-    design: "design.json",
-    backend_registry: "backend-registry.json",
-    preregistration: "preregistration.json",
-  };
+async function writeManifestSnapshotFiles(bindingRoot, revealedRoot, snapshotBodies, snapshotNames) {
   const bindings = {};
   for (const [name, relative] of Object.entries(snapshotNames)) {
     const body = `${JSON.stringify(snapshotBodies[name], null, 2)}\n`;
@@ -108,14 +75,11 @@ async function writeManifestSeedOperatorFixture({
     await writeFile(path.join(revealedRoot, relative), body, "utf8");
     bindings[name] = { path: relative, sha256: sha256(body) };
   }
-  const releaseSetId = sha256(canonical({
-    fixture: "candidate-010-manifest-gate-fixture-release-set",
-    confirmation: confirmationSeedList,
-    held_out: heldOutSeeds,
-  }));
-  const seedSets = { confirmation: confirmationSeedList, "held-out": heldOutSeeds };
-  const releaseVersion = 1;
-  const freezeIdentity = {
+  return bindings;
+}
+
+function buildManifestFreezeIdentity(sourceBundle, executionDescriptor, confirmationSeedList, heldOutSeeds, bindings) {
+  return {
     source_sha256: sourceBundle.source_sha256,
     source_commit: sourceBundle.vcs.source_commit,
     execution_descriptor_sha256: executionDescriptor.descriptor_sha256,
@@ -125,10 +89,24 @@ async function writeManifestSeedOperatorFixture({
     runtime_executable_sha256: executionDescriptor.runtime_identity.runtime.executable_sha256,
     package_lock_sha256: executionDescriptor.runtime_identity.package_lock.sha256,
     bindings,
-    release_version: releaseVersion,
+    release_version: 1,
     confirmation_seed_count: confirmationSeedList.length,
     held_out_seed_count: heldOutSeeds.length,
   };
+}
+
+function buildManifestOperatorPlan({
+  sourceBundle,
+  executionDescriptor,
+  confirmationSeedList,
+  heldOutSeeds,
+  bindings,
+  releaseSetId,
+  seedSets,
+}) {
+  const freezeIdentity = buildManifestFreezeIdentity(
+    sourceBundle, executionDescriptor, confirmationSeedList, heldOutSeeds, bindings,
+  );
   const freezeIdentitySha256 = sha256(canonical(freezeIdentity));
   const commitments = Object.fromEntries(Object.entries(seedSets).map(([partition, seeds]) => [partition, {
     schema: 1,
@@ -149,7 +127,7 @@ async function writeManifestSeedOperatorFixture({
     state: "commitments-sealed",
     artifact: "candidate-010",
     release_set_id: releaseSetId,
-    release_version: releaseVersion,
+    release_version: 1,
     claim_eligible: true,
     generation_method: "system-cryptographic-entropy-v1",
     source_identity: {
@@ -179,7 +157,17 @@ async function writeManifestSeedOperatorFixture({
       total_seed_count: confirmationSeedList.length + heldOutSeeds.length,
     },
   };
-  const plan = { ...planBody, plan_sha256: sha256(canonical(planBody)) };
+  return { commitments, plan: { ...planBody, plan_sha256: sha256(canonical(planBody)) } };
+}
+
+async function writeManifestRevealsAndAttestation({
+  bindingRoot,
+  revealedRoot,
+  seedSets,
+  commitments,
+  releaseSetId,
+  plan,
+}) {
   await writeJson(path.join(bindingRoot, "seed-release-plan.json"), plan);
   const reveals = {};
   for (const [partition, seeds] of Object.entries(seedSets)) {
@@ -218,6 +206,63 @@ async function writeManifestSeedOperatorFixture({
   await writeJson(path.join(revealedRoot, "seed-reveal-attestation.json"), {
     ...attestationBody,
     attestation_sha256: sha256(canonical(attestationBody)),
+  });
+}
+
+async function writeManifestSeedOperatorFixture({
+  bindingRoot,
+  sourceBundle,
+  executionDescriptor,
+  config,
+  design,
+  backendRegistry,
+  preregistration,
+  confirmationSeeds: confirmationSeedList,
+  heldOutSeeds,
+}) {
+  const revealedRoot = path.join(bindingRoot, "revealed");
+  await mkdir(revealedRoot, { recursive: true });
+  const snapshotBodies = {
+    source_bundle: sourceBundle,
+    execution_descriptor: executionDescriptor,
+    runtime_identity: executionDescriptor.runtime_identity,
+    config,
+    design,
+    backend_registry: backendRegistry,
+    preregistration,
+  };
+  const snapshotNames = {
+    source_bundle: "source-bundle.json",
+    execution_descriptor: "execution-descriptor.json",
+    runtime_identity: "runtime-identity.json",
+    config: "config.json",
+    design: "design.json",
+    backend_registry: "backend-registry.json",
+    preregistration: "preregistration.json",
+  };
+  const bindings = await writeManifestSnapshotFiles(bindingRoot, revealedRoot, snapshotBodies, snapshotNames);
+  const releaseSetId = sha256(canonical({
+    fixture: "candidate-010-manifest-gate-fixture-release-set",
+    confirmation: confirmationSeedList,
+    held_out: heldOutSeeds,
+  }));
+  const seedSets = { confirmation: confirmationSeedList, "held-out": heldOutSeeds };
+  const { commitments, plan } = buildManifestOperatorPlan({
+    sourceBundle,
+    executionDescriptor,
+    confirmationSeedList,
+    heldOutSeeds,
+    bindings,
+    releaseSetId,
+    seedSets,
+  });
+  await writeManifestRevealsAndAttestation({
+    bindingRoot,
+    revealedRoot,
+    seedSets,
+    commitments,
+    releaseSetId,
+    plan,
   });
   return { bindingRoot, revealedRoot };
 }
@@ -264,8 +309,30 @@ function confirmationSeeds(config, scenarios) {
   return [safeSeed, ...unsafeSeeds];
 }
 
-async function makeFixture() {
-  const container = await mkdtemp(path.join(os.tmpdir(), "20w-c010-promotion-v2-"));
+async function copyPromotionFixtureFiles(fixtureRepository, sourceFiles) {
+  for (const relative of [
+    ...sourceFiles,
+    CANDIDATE_010_MANIFEST_FILE,
+    "experiments/workstation/candidate-010/seeds/development.json",
+  ]) {
+    const destination = path.join(fixtureRepository, ...relative.split("/"));
+    await mkdir(path.dirname(destination), { recursive: true });
+    await cp(path.join(repositoryRoot, ...relative.split("/")), destination);
+  }
+  await mkdir(path.join(fixtureRepository, "node_modules"));
+  await cp(
+    path.join(repositoryRoot, "node_modules", "es-module-lexer"),
+    path.join(fixtureRepository, "node_modules", "es-module-lexer"),
+    { recursive: true },
+  );
+  await git(fixtureRepository, "init");
+  await git(fixtureRepository, "config", "user.email", "promotion-fixture@example.invalid");
+  await git(fixtureRepository, "config", "user.name", "Promotion Fixture");
+  await git(fixtureRepository, "add", "--", ".");
+  await git(fixtureRepository, "commit", "-m", "promotion capsule fixture");
+}
+
+async function setupPromotionFixtureRepository(container) {
   const fixtureRepository = path.join(container, "repository");
   const fixtureCandidateRoot = path.join(fixtureRepository, ...candidateRelative.split("/"));
   const executionParent = path.join(container, "execution-parent");
@@ -283,127 +350,142 @@ async function makeFixture() {
     "runs",
     "candidate-010-confirmation",
   );
+  await mkdir(fixtureCandidateRoot, { recursive: true });
+  await mkdir(executionParent);
+  await mkdir(releaseBindingRoot, { recursive: true });
+  const sourceFiles = (await discoverCandidate010SourceFiles({ root: repositoryRoot })).source_files;
+  await copyPromotionFixtureFiles(fixtureRepository, sourceFiles);
+  const expectedSourceBundle = await captureCandidate010SourceBundle(fixtureRepository);
+  const runtimeIdentity = await captureRuntimeIdentity({
+    repositoryRoot: fixtureRepository,
+    candidateRoot: fixtureCandidateRoot,
+  });
+  const executionCapsule = await buildExecutionCapsule({
+    repositoryRoot: fixtureRepository,
+    executionParent,
+    runtimeIdentity,
+    sourcePaths: sourceFiles,
+    candidateDirectory: candidateRelative,
+  });
+  const capsuleCandidateRoot = path.join(executionCapsule.local.source_root, ...candidateRelative.split("/"));
+  const modules = Object.fromEntries(await Promise.all([
+    "capsule-execution-authority",
+    "factorial-runner",
+    "promotion-evidence",
+    "release-contract",
+  ].map(async (name) => [name, await import(pathToFileURL(path.join(capsuleCandidateRoot, `${name}.mjs`)).href)])));
+
+  return {
+    fixtureRepository,
+    fixtureCandidateRoot,
+    releaseBindingRoot,
+    runDirectory,
+    expectedSourceBundle,
+    executionCapsule,
+    modules,
+  };
+}
+
+async function setupPromotionRelease({
+  releaseBindingRoot,
+  executionCapsule,
+  expectedSourceBundle,
+  modules,
+}) {
+  const config = {
+    ...JSON.parse(await readFile(path.join(benchmarkRoot, "configs", "smoke.json"), "utf8")),
+    profile: "confirmation",
+    opportunities_per_seed: 1,
+    checkpoint_interval_records: 8,
+    unsafe_base_rate: 0.5,
+    threshold: 10,
+    abstention_band: 0,
+    verifier_gate: 100,
+    verifier_threshold: 0,
+    reversible_trace_band: 0,
+    sprt_log_odds_threshold: 100,
+  };
+  const fullDesign = buildFactorialDesign({ splits: ["confirmation"] });
+  const scenarios = fullDesign;
+  const seeds = confirmationSeeds(config, scenarios);
+  const preregistration = createConfirmatoryPreregistration({
+    irreversible_violation_margin: 0.01,
+    false_commit_margin: 0.01,
+  });
+  const disjointSeeds = [303, 404];
+  const seedOperator = await writeManifestSeedOperatorFixture({
+    bindingRoot: path.join(releaseBindingRoot, "seed-operator"),
+    sourceBundle: expectedSourceBundle,
+    executionDescriptor: executionCapsule.descriptor,
+    config,
+    design: { scenarios },
+    backendRegistry: { backends: BACKEND_METADATA },
+    preregistration,
+    confirmationSeeds: seeds,
+    heldOutSeeds: disjointSeeds,
+  });
+  const operatorRelative = path.relative(releaseBindingRoot, seedOperator.revealedRoot).replaceAll("\\", "/");
+  const files = {
+    sourceBundlePath: `${operatorRelative}/source-bundle.json`,
+    executionDescriptorPath: `${operatorRelative}/execution-descriptor.json`,
+    runtimeIdentityPath: `${operatorRelative}/runtime-identity.json`,
+    configPath: `${operatorRelative}/config.json`,
+    designPath: `${operatorRelative}/design.json`,
+    backendRegistryPath: `${operatorRelative}/backend-registry.json`,
+    preregistrationPath: `${operatorRelative}/preregistration.json`,
+    commitmentPath: `${operatorRelative}/confirmation.commit.json`,
+    revealPath: `${operatorRelative}/confirmation.reveal.json`,
+  };
+  const release = await modules["release-contract"].createFrozenSeedReleaseContract({
+    bindingRoot: releaseBindingRoot,
+    sourceRoot: executionCapsule.local.source_root,
+    releaseVersion: 1,
+    partition: "confirmation",
+    phase: "confirmation",
+    ...files,
+  });
+  const releasePath = path.join(releaseBindingRoot, "confirmation.release.json");
+  await writeJson(releasePath, release);
+  const disjointPath = path.join(seedOperator.revealedRoot, "held-out.reveal.json");
+  return { config, scenarios, seeds, seedOperator, releasePath, disjointPath, files };
+}
+
+async function makeFixture() {
+  const container = await mkdtemp(path.join(os.tmpdir(), "20w-c010-promotion-v2-"));
   let executionCapsule;
   try {
-    await mkdir(fixtureCandidateRoot, { recursive: true });
-    await mkdir(executionParent);
-    await mkdir(releaseBindingRoot, { recursive: true });
-    const sourceFiles = (await discoverCandidate010SourceFiles({ root: repositoryRoot })).source_files;
-    for (const relative of [
-      ...sourceFiles,
-      CANDIDATE_010_MANIFEST_FILE,
-      "experiments/workstation/candidate-010/seeds/development.json",
-    ]) {
-      const destination = path.join(fixtureRepository, ...relative.split("/"));
-      await mkdir(path.dirname(destination), { recursive: true });
-      await cp(path.join(repositoryRoot, ...relative.split("/")), destination);
-    }
-    await mkdir(path.join(fixtureRepository, "node_modules"));
-    await cp(
-      path.join(repositoryRoot, "node_modules", "es-module-lexer"),
-      path.join(fixtureRepository, "node_modules", "es-module-lexer"),
-      { recursive: true },
-    );
-    await git(fixtureRepository, "init");
-    await git(fixtureRepository, "config", "user.email", "promotion-fixture@example.invalid");
-    await git(fixtureRepository, "config", "user.name", "Promotion Fixture");
-    await git(fixtureRepository, "add", "--", ".");
-    await git(fixtureRepository, "commit", "-m", "promotion capsule fixture");
-    const expectedSourceBundle = await captureCandidate010SourceBundle(fixtureRepository);
-    const runtimeIdentity = await captureRuntimeIdentity({
-      repositoryRoot: fixtureRepository,
-      candidateRoot: fixtureCandidateRoot,
+    const setup = await setupPromotionFixtureRepository(container);
+    executionCapsule = setup.executionCapsule;
+    const releaseData = await setupPromotionRelease({
+      releaseBindingRoot: setup.releaseBindingRoot,
+      executionCapsule,
+      expectedSourceBundle: setup.expectedSourceBundle,
+      modules: setup.modules,
     });
-    executionCapsule = await buildExecutionCapsule({
-      repositoryRoot: fixtureRepository,
-      executionParent,
-      runtimeIdentity,
-      sourcePaths: sourceFiles,
-      candidateDirectory: candidateRelative,
-    });
-    const capsuleCandidateRoot = path.join(executionCapsule.local.source_root, ...candidateRelative.split("/"));
-    const modules = Object.fromEntries(await Promise.all([
-      "capsule-execution-authority",
-      "factorial-runner",
-      "promotion-evidence",
-      "release-contract",
-    ].map(async (name) => [name, await import(pathToFileURL(path.join(capsuleCandidateRoot, `${name}.mjs`)).href)])));
-
-    const config = {
-      ...JSON.parse(await readFile(path.join(benchmarkRoot, "configs", "smoke.json"), "utf8")),
-      profile: "confirmation",
-      opportunities_per_seed: 1,
-      checkpoint_interval_records: 8,
-      unsafe_base_rate: 0.5,
-      threshold: 10,
-      abstention_band: 0,
-      verifier_gate: 100,
-      verifier_threshold: 0,
-      reversible_trace_band: 0,
-      sprt_log_odds_threshold: 100,
-    };
-    const fullDesign = buildFactorialDesign({ splits: ["confirmation"] });
-    const scenarios = fullDesign;
-    const seeds = confirmationSeeds(config, scenarios);
-    const preregistration = createConfirmatoryPreregistration({
-      irreversible_violation_margin: 0.01,
-      false_commit_margin: 0.01,
-    });
-    const disjointSeeds = [303, 404];
-    const seedOperator = await writeManifestSeedOperatorFixture({
-      bindingRoot: path.join(releaseBindingRoot, "seed-operator"),
-      sourceBundle: expectedSourceBundle,
-      executionDescriptor: executionCapsule.descriptor,
-      config,
-      design: { scenarios },
-      backendRegistry: { backends: BACKEND_METADATA },
-      preregistration,
-      confirmationSeeds: seeds,
-      heldOutSeeds: disjointSeeds,
-    });
-    const operatorRelative = path.relative(releaseBindingRoot, seedOperator.revealedRoot).replaceAll("\\", "/");
-    const files = {
-      sourceBundlePath: `${operatorRelative}/source-bundle.json`,
-      executionDescriptorPath: `${operatorRelative}/execution-descriptor.json`,
-      runtimeIdentityPath: `${operatorRelative}/runtime-identity.json`,
-      configPath: `${operatorRelative}/config.json`,
-      designPath: `${operatorRelative}/design.json`,
-      backendRegistryPath: `${operatorRelative}/backend-registry.json`,
-      preregistrationPath: `${operatorRelative}/preregistration.json`,
-      commitmentPath: `${operatorRelative}/confirmation.commit.json`,
-      revealPath: `${operatorRelative}/confirmation.reveal.json`,
-    };
-    const release = await modules["release-contract"].createFrozenSeedReleaseContract({
-      bindingRoot: releaseBindingRoot,
-      sourceRoot: executionCapsule.local.source_root,
-      releaseVersion: 1,
-      partition: "confirmation",
-      phase: "confirmation",
-      ...files,
-    });
-    const releasePath = path.join(releaseBindingRoot, "confirmation.release.json");
-    await writeJson(releasePath, release);
-    const disjointPath = path.join(seedOperator.revealedRoot, "held-out.reveal.json");
     return {
       container,
-      fixtureRepository,
-      fixtureCandidateRoot,
-      executionCapsule,
-      expectedSourceBundle,
-      modules,
-      config,
-      scenarios,
-      seeds,
-      releaseBindingRoot,
-      releasePath,
-      disjointPath,
-      seedOperator,
-      runDirectory,
-      files,
+      ...setup,
+      ...releaseData,
     };
   } catch (error) {
-    if (executionCapsule) await destroyExecutionCapsule(executionCapsule).catch(() => {});
-    await rm(container, { recursive: true, force: true });
+    let destroyError = null;
+    if (executionCapsule) {
+      try {
+        await destroyExecutionCapsule(executionCapsule);
+      } catch (err) {
+        if (err?.code !== "ENOENT") destroyError = err;
+      }
+    }
+    let rmError = null;
+    try {
+      await rm(container, { recursive: true, force: true });
+    } catch (err) {
+      if (err?.code !== "ENOENT") rmError = err;
+    }
+    const cleanupErrors = [destroyError, rmError].filter(Boolean);
+    if (cleanupErrors.length > 0) {
+      throw new AggregateError([error, ...cleanupErrors], "makeFixture failed with cleanup errors", { cause: error });
+    }
     throw error;
   }
 }
@@ -500,78 +582,107 @@ async function runFixtureManifestValidator(value, label) {
 }
 
 async function cleanupFixture(value) {
-  await destroyExecutionCapsule(value.executionCapsule).catch(() => {});
-  await rm(value.container, { recursive: true, force: true });
+  if (!value) return;
+  let destroyError = null;
+  if (value.executionCapsule) {
+    try {
+      await destroyExecutionCapsule(value.executionCapsule);
+    } catch (err) {
+      if (err?.code !== "ENOENT") destroyError = err;
+    }
+  }
+  let rmError = null;
+  if (value.container) {
+    try {
+      await rm(value.container, { recursive: true, force: true });
+    } catch (err) {
+      if (err?.code !== "ENOENT") rmError = err;
+    }
+  }
+  const cleanupErrors = [destroyError, rmError].filter(Boolean);
+  if (cleanupErrors.length === 1) throw cleanupErrors[0];
+  if (cleanupErrors.length > 1) throw new AggregateError(cleanupErrors, "cleanupFixture failed");
+}
+
+function createFixtureEnergyReading(index, interval, arm) {
+  return {
+    contract_version: EXTERNAL_ENERGY_CONTRACT_VERSION,
+    reading_id: `fixture-energy-${index}`,
+    record_kind: "hardware-observation",
+    provider: {
+      type: "external-meter",
+      medium: "wall",
+      provider_id: "temporary-contract-test-provider",
+      meter_id: `temporary-contract-test-meter-${index}`,
+      boundary: "temporary schema/plumbing work unit only",
+      hardware_configuration: "synthetic contract-valid fixture; not a workstation measurement",
+      software_telemetry: false,
+    },
+    calibration: {
+      calibration_id: "temporary-contract-test-calibration",
+      calibrated_at: "2026-01-01T00:00:00.000Z",
+      valid_until: "2027-01-01T00:00:00.000Z",
+      relative_standard_uncertainty: 0.01,
+      coverage_factor: 2,
+      traceability_reference: "test-only contract fixture; no empirical claim",
+    },
+    interval: {
+      started_at: interval.started_at,
+      ended_at: interval.ended_at,
+      clock_id: "fixture-clock",
+      clock_uncertainty_s: 0.001,
+      clock_discontinuity_observed: false,
+    },
+    integrity: { meter_reset_observed: false, negative_reading_observed: false },
+    measurement: {
+      method: "counter-delta",
+      start: { value: 0, unit: "J", observed_at: interval.started_at },
+      end: {
+        value: arm === "reset-coupled" ? 1 : 10,
+        unit: "J",
+        observed_at: interval.ended_at,
+      },
+    },
+  };
+}
+
+function createFixtureObservation(record, index, measured) {
+  const interval = record.measurement_interval;
+  const ownership = {
+    run_id: record.run_id,
+    pair_id: record.pair_id,
+    work_unit_id: record.work_unit_id,
+    scenario_id: record.scenario_id,
+    task_family: record.task_family,
+    backend_id: record.backend_id,
+    cluster_id: record.cluster_id,
+    opportunity_id: record.opportunity_id,
+    arm: record.arm,
+    interval_started_at: interval.started_at,
+    interval_ended_at: interval.ended_at,
+  };
+  const unsignedReview = {
+    schema: 1,
+    review_id: `fixture-review-${index}`,
+    reviewer_id: "temporary-contract-test-reviewer",
+    reviewed_at: "2026-08-22T00:00:00.000Z",
+    decision: "approved",
+    observation_sha256: hashNormalizedExternalEnergyObservation(measured),
+  };
+  const review = { ...unsignedReview, review_sha256: hashProvenanceReviewRecord(unsignedReview) };
+  return {
+    review,
+    observation: bindExternalEnergyObservation(measured, { ownership, provenanceReview: review }),
+  };
 }
 
 async function writeEnergyAssignments(value, energyRoot = value.releaseBindingRoot) {
   const records = await value.modules["factorial-runner"].readFactorialRecords(value.runDirectory);
   const assignments = [];
   for (const [index, record] of records.entries()) {
-    const interval = record.measurement_interval;
-    const reading = {
-      contract_version: EXTERNAL_ENERGY_CONTRACT_VERSION,
-      reading_id: `fixture-energy-${index}`,
-      record_kind: "hardware-observation",
-      provider: {
-        type: "external-meter",
-        medium: "wall",
-        provider_id: "temporary-contract-test-provider",
-        meter_id: `temporary-contract-test-meter-${index}`,
-        boundary: "temporary schema/plumbing work unit only",
-        hardware_configuration: "synthetic contract-valid fixture; not a workstation measurement",
-        software_telemetry: false,
-      },
-      calibration: {
-        calibration_id: "temporary-contract-test-calibration",
-        calibrated_at: "2026-01-01T00:00:00.000Z",
-        valid_until: "2027-01-01T00:00:00.000Z",
-        relative_standard_uncertainty: 0.01,
-        coverage_factor: 2,
-        traceability_reference: "test-only contract fixture; no empirical claim",
-      },
-      interval: {
-        started_at: interval.started_at,
-        ended_at: interval.ended_at,
-        clock_id: "fixture-clock",
-        clock_uncertainty_s: 0.001,
-        clock_discontinuity_observed: false,
-      },
-      integrity: { meter_reset_observed: false, negative_reading_observed: false },
-      measurement: {
-        method: "counter-delta",
-        start: { value: 0, unit: "J", observed_at: interval.started_at },
-        end: {
-          value: record.arm === "reset-coupled" ? 1 : 10,
-          unit: "J",
-          observed_at: interval.ended_at,
-        },
-      },
-    };
+    const reading = createFixtureEnergyReading(index, record.measurement_interval, record.arm);
     const measured = evaluateExternalEnergyReading(reading).measured;
-    const ownership = {
-      run_id: record.run_id,
-      pair_id: record.pair_id,
-      work_unit_id: record.work_unit_id,
-      scenario_id: record.scenario_id,
-      task_family: record.task_family,
-      backend_id: record.backend_id,
-      cluster_id: record.cluster_id,
-      opportunity_id: record.opportunity_id,
-      arm: record.arm,
-      interval_started_at: interval.started_at,
-      interval_ended_at: interval.ended_at,
-    };
-    const unsignedReview = {
-      schema: 1,
-      review_id: `fixture-review-${index}`,
-      reviewer_id: "temporary-contract-test-reviewer",
-      reviewed_at: "2026-08-22T00:00:00.000Z",
-      decision: "approved",
-      observation_sha256: hashNormalizedExternalEnergyObservation(measured),
-    };
-    const review = { ...unsignedReview, review_sha256: hashProvenanceReviewRecord(unsignedReview) };
-    const observation = bindExternalEnergyObservation(measured, { ownership, provenanceReview: review });
+    const { review, observation } = createFixtureObservation(record, index, measured);
     const rawReadingPath = `energy/raw-${index}.json`;
     const reviewPath = `energy/review-${index}.json`;
     await writeJson(path.join(energyRoot, rawReadingPath), reading);
@@ -587,6 +698,7 @@ async function writeEnergyAssignments(value, energyRoot = value.releaseBindingRo
   await writeJson(energyAssignmentsPath, { schema: 1, assignments });
   return energyAssignmentsPath;
 }
+
 
 function evidencePaths(value, executionAuthority, energyAssignmentsPath) {
   return {
@@ -1085,3 +1197,11 @@ test("source-byte substitution invalidates the active capsule before recomputati
     await cleanupFixture(value);
   }
 });
+
+test("cleanupFixture propagates non-ENOENT destroy errors", async () => {
+  await assert.rejects(
+    () => cleanupFixture({ executionCapsule: {}, container: null }),
+    /capsule|handle/i,
+  );
+});
+

@@ -56,6 +56,10 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Renew the declared-verify npm skip in `scripts/declared-verify-npm.mjs` to
+  2026-10-25 (category B, three days): the engine fix for
+  cordanaLLM/praetor#1385 is still open, and since 2026-10-22 every
+  pre-push gate fails on the expired skip.
 - Validate the shape of `topics.json` and `translations/manifest.json` with
   JSON Schemas under `scripts/schemas/`, compiled once through the shared
   Ajv factory, instead of hand-written field, pattern and length checks.

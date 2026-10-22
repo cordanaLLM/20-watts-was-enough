@@ -31,6 +31,7 @@ import {
   validateSeedList,
 } from "./seeds/seed-pack.mjs";
 import { captureCandidate010SourceBundle } from "./source-bundle.mjs";
+import { canonicalJson } from "../lib/canonical-json.mjs";
 
 const executeFile = promisify(executeFileCallback);
 
@@ -52,21 +53,22 @@ const snapshotNames = Object.freeze({
 });
 
 function canonical(value) {
-  if (value === null || typeof value === "boolean" || typeof value === "string") {
-    return JSON.stringify(value);
+  return canonicalJson(value, { label: "Seed-release" });
+}
+
+async function cleanupStagingPaths(paths, primaryError) {
+  const cleanupErrors = [];
+  for (const targetPath of paths) {
+    if (!targetPath) continue;
+    try {
+      await rm(targetPath, { recursive: true, force: true });
+    } catch (error) {
+      if (error?.code !== "ENOENT") cleanupErrors.push(error);
+    }
   }
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) throw new TypeError("Seed-release canonicalization rejects non-finite numbers.");
-    return JSON.stringify(value);
+  if (cleanupErrors.length > 0) {
+    throw new AggregateError([primaryError, ...cleanupErrors], "Seed release cleanup failed", { cause: primaryError });
   }
-  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
-  if (value && typeof value === "object") {
-    return `{${Object.keys(value).sort().map((key) => {
-      if (value[key] === undefined) throw new TypeError(`Seed-release canonicalization rejects undefined at ${key}.`);
-      return `${JSON.stringify(key)}:${canonical(value[key])}`;
-    }).join(",")}}`;
-  }
-  throw new TypeError(`Seed-release canonicalization rejects ${typeof value}.`);
 }
 
 function sha256(value) {
@@ -309,9 +311,7 @@ function escrowDocument({ partition, seeds, commitment, releaseSetId, freezeIden
   });
 }
 
-function validatePlan(plan) {
-  const exactDigestRecord = (value, keys) => exactKeys(value, keys)
-    && keys.every((key) => /^[0-9a-f]{64}$/.test(value[key] ?? ""));
+function validatePlanStructure(plan) {
   const validBindings = exactKeys(plan?.bindings, Object.keys(snapshotNames))
     && Object.entries(snapshotNames).every(([name, expectedPath]) => (
       exactKeys(plan.bindings[name], ["path", "sha256"])
@@ -337,7 +337,11 @@ function validatePlan(plan) {
     && Number.isSafeInteger(plan.cross_partition.total_seed_count)
     && plan.cross_partition.total_seed_count
       === partitionNames.reduce((sum, partition) => sum + (plan.partitions?.[partition]?.seed_count ?? 0), 0);
-  const reconstructedFreezeIdentity = {
+  return { validBindings, validPartitions, validCrossPartition };
+}
+
+function computeReconstructedFreezeIdentity(plan) {
+  return {
     source_sha256: plan?.source_identity?.source_sha256,
     source_commit: plan?.source_identity?.source_commit,
     execution_descriptor_sha256: plan?.execution_identity?.descriptor_sha256,
@@ -351,6 +355,13 @@ function validatePlan(plan) {
     confirmation_seed_count: plan?.partitions?.confirmation?.seed_count,
     held_out_seed_count: plan?.partitions?.["held-out"]?.seed_count,
   };
+}
+
+function validatePlan(plan) {
+  const exactDigestRecord = (value, keys) => exactKeys(value, keys)
+    && keys.every((key) => /^[0-9a-f]{64}$/.test(value[key] ?? ""));
+  const { validBindings, validPartitions, validCrossPartition } = validatePlanStructure(plan);
+  const reconstructedFreezeIdentity = computeReconstructedFreezeIdentity(plan);
   if (
     !exactKeys(plan, [
       "schema", "contract_version", "state", "artifact", "release_set_id", "release_version",
@@ -570,7 +581,35 @@ async function loadPlanAndBindings(bindingDirectory) {
   return { root, plan, bodies, commitments };
 }
 
-export async function sealSeedReleaseSet(options, dependencies = {}) {
+async function loadFrozenInputEntries(repository, paths) {
+  const inputEntries = {
+    config: await trackedInput(repository, paths.configPath, "confirmation config"),
+    design: await trackedInput(repository, paths.designPath, "confirmation design"),
+    backend_registry: await trackedInput(repository, paths.backendRegistryPath, "backend registry"),
+    preregistration: await trackedInput(repository, paths.preregistrationPath, "confirmatory preregistration"),
+  };
+  assertFrozenInputs({
+    config: parseJson(inputEntries.config.body, "confirmation config"),
+    design: parseJson(inputEntries.design.body, "confirmation design"),
+    backendRegistry: parseJson(inputEntries.backend_registry.body, "backend registry"),
+    preregistration: parseJson(inputEntries.preregistration.body, "confirmatory preregistration"),
+  });
+  return inputEntries;
+}
+
+async function resolveSealTargets(repository, bindingDirectory, escrowDirectory) {
+  const bindingTarget = await absentTarget(bindingDirectory, "seed bindingDirectory");
+  const escrowTarget = await absentTarget(escrowDirectory, "seed escrowDirectory");
+  if (inside(repository, escrowTarget.absolute) || samePath(repository, escrowTarget.absolute)) {
+    throw new Error("Encrypted seed escrow must be outside the Git repository.");
+  }
+  if (samePath(bindingTarget.absolute, escrowTarget.absolute)) {
+    throw new Error("Seed binding and encrypted escrow directories must be distinct.");
+  }
+  return { bindingTarget, escrowTarget };
+}
+
+async function prepareSealInputs(options, dependencies) {
   const requiredOptions = [
     "repositoryRoot", "bindingDirectory", "escrowDirectory", "capsuleParent",
     "configPath", "designPath", "backendRegistryPath", "preregistrationPath",
@@ -588,8 +627,6 @@ export async function sealSeedReleaseSet(options, dependencies = {}) {
     designPath,
     backendRegistryPath,
     preregistrationPath,
-    confirmationSeedCount,
-    heldOutSeedCount,
     releaseVersion = 1,
     encryptionKey: rawEncryptionKey,
   } = options;
@@ -608,28 +645,37 @@ export async function sealSeedReleaseSet(options, dependencies = {}) {
   }
   const repository = await strictDirectory(repositoryRoot, "seed repositoryRoot");
   const headCommit = await assertCleanRepository(repository);
-  const bindingTarget = await absentTarget(bindingDirectory, "seed bindingDirectory");
-  const escrowTarget = await absentTarget(escrowDirectory, "seed escrowDirectory");
-  if (inside(repository, escrowTarget.absolute) || samePath(repository, escrowTarget.absolute)) {
-    throw new Error("Encrypted seed escrow must be outside the Git repository.");
-  }
-  if (samePath(bindingTarget.absolute, escrowTarget.absolute)) {
-    throw new Error("Seed binding and encrypted escrow directories must be distinct.");
-  }
+  const { bindingTarget, escrowTarget } = await resolveSealTargets(
+    repository, bindingDirectory, escrowDirectory,
+  );
   const capsuleRoot = await strictDirectory(capsuleParent, "seed capsuleParent");
-  const inputEntries = {
-    config: await trackedInput(repository, configPath, "confirmation config"),
-    design: await trackedInput(repository, designPath, "confirmation design"),
-    backend_registry: await trackedInput(repository, backendRegistryPath, "backend registry"),
-    preregistration: await trackedInput(repository, preregistrationPath, "confirmatory preregistration"),
-  };
-  assertFrozenInputs({
-    config: parseJson(inputEntries.config.body, "confirmation config"),
-    design: parseJson(inputEntries.design.body, "confirmation design"),
-    backendRegistry: parseJson(inputEntries.backend_registry.body, "backend registry"),
-    preregistration: parseJson(inputEntries.preregistration.body, "confirmatory preregistration"),
+  const inputEntries = await loadFrozenInputEntries(repository, {
+    configPath, designPath, backendRegistryPath, preregistrationPath,
   });
+  return {
+    repository,
+    headCommit,
+    bindingTarget,
+    escrowTarget,
+    capsuleRoot,
+    inputEntries,
+    claimEligible,
+    generationMethod,
+    releaseVersion,
+    randomBytes,
+    key,
+  };
+}
 
+async function captureSealArtifacts({
+  repository,
+  capsuleRoot,
+  headCommit,
+  inputEntries,
+  releaseVersion,
+  confirmationSeedCount,
+  heldOutSeedCount,
+}) {
   const sourceBundle = await captureCandidate010SourceBundle(repository);
   if (sourceBundle.vcs.source_commit !== headCommit) {
     throw new Error("Captured source bundle does not match the clean implementation freeze commit.");
@@ -678,8 +724,26 @@ export async function sealSeedReleaseSet(options, dependencies = {}) {
     confirmation_seed_count: confirmationSeedCount,
     held_out_seed_count: heldOutSeedCount,
   };
-  const freezeIdentitySha256 = sha256(canonical(freezeIdentity));
-  const releaseSetId = sha256(randomBuffer(randomBytes, 32));
+  return {
+    sourceBundle,
+    runtimeIdentity,
+    descriptor,
+    generatedBodies,
+    bindings,
+    freezeIdentitySha256: sha256(canonical(freezeIdentity)),
+  };
+}
+
+function generateSealedCommitmentsAndEscrows({
+  confirmationSeedCount,
+  heldOutSeedCount,
+  randomBytes,
+  claimEligible,
+  generationMethod,
+  key,
+  freezeIdentitySha256,
+  releaseSetId,
+}) {
   const [confirmationSeeds, heldOutSeeds] = drawDisjointSeeds(
     [confirmationSeedCount, heldOutSeedCount],
     randomBytes,
@@ -711,45 +775,20 @@ export async function sealSeedReleaseSet(options, dependencies = {}) {
       randomBytes,
     });
   }
+  const totalSeedCount = confirmationSeeds.length + heldOutSeeds.length;
   confirmationSeeds.fill(0);
   heldOutSeeds.fill(0);
-  const planBody = {
-    schema: 1,
-    contract_version: SEED_RELEASE_PLAN_VERSION,
-    state: "commitments-sealed",
-    artifact: "candidate-010",
-    release_set_id: releaseSetId,
-    release_version: releaseVersion,
-    claim_eligible: claimEligible,
-    generation_method: generationMethod,
-    source_identity: {
-      source_sha256: sourceBundle.source_sha256,
-      source_commit: sourceBundle.vcs.source_commit,
-    },
-    execution_identity: {
-      descriptor_sha256: descriptor.descriptor_sha256,
-      source_inventory_sha256: descriptor.source.inventory_sha256,
-      dependency_inventory_sha256: descriptor.dependencies.inventory.inventory_sha256,
-    },
-    runtime_identity: {
-      identity_sha256: runtimeIdentity.identity_sha256,
-      executable_sha256: runtimeIdentity.runtime.executable_sha256,
-      package_lock_sha256: runtimeIdentity.package_lock.sha256,
-    },
-    bindings,
-    partitions: Object.fromEntries(partitionNames.map((partition) => [partition, {
-      commitment_path: `${partition}.commit.json`,
-      seed_count: commitments[partition].seed_count,
-      commitment: commitments[partition].commitment,
-      escrow_sha256: escrows[partition].escrow_sha256,
-    }])),
-    cross_partition: {
-      freeze_identity_sha256: freezeIdentitySha256,
-      uniqueness_rule: "one jointly generated unsigned-32-bit set split once; duplicates refused",
-      total_seed_count: confirmationSeeds.length + heldOutSeeds.length,
-    },
-  };
-  const plan = Object.freeze({ ...planBody, plan_sha256: sha256(canonical(planBody)) });
+  return { commitments, escrows, totalSeedCount };
+}
+
+async function publishSealedReleaseFiles({
+  bindingTarget,
+  escrowTarget,
+  generatedBodies,
+  commitments,
+  escrows,
+  plan,
+}) {
   const bindingStaging = path.join(bindingTarget.parent, `.candidate-010-seed-bindings-${randomUUID()}.tmp`);
   const escrowStaging = path.join(escrowTarget.parent, `.candidate-010-seed-escrow-${randomUUID()}.tmp`);
   let escrowPublished = false;
@@ -768,50 +807,118 @@ export async function sealSeedReleaseSet(options, dependencies = {}) {
     escrowPublished = true;
     await rename(bindingStaging, bindingTarget.absolute);
   } catch (error) {
-    await rm(bindingStaging, { recursive: true, force: true }).catch(() => {});
-    await rm(escrowStaging, { recursive: true, force: true }).catch(() => {});
-    if (escrowPublished) await rm(escrowTarget.absolute, { recursive: true, force: true }).catch(() => {});
+    await cleanupStagingPaths([
+      bindingStaging,
+      escrowStaging,
+      escrowPublished ? escrowTarget.absolute : null,
+    ], error);
     throw error;
   }
+}
+
+function buildSeedReleasePlan({
+  releaseSetId,
+  prepared,
+  artifacts,
+  commitments,
+  escrows,
+  totalSeedCount,
+}) {
+  const planBody = {
+    schema: 1,
+    contract_version: SEED_RELEASE_PLAN_VERSION,
+    state: "commitments-sealed",
+    artifact: "candidate-010",
+    release_set_id: releaseSetId,
+    release_version: prepared.releaseVersion,
+    claim_eligible: prepared.claimEligible,
+    generation_method: prepared.generationMethod,
+    source_identity: {
+      source_sha256: artifacts.sourceBundle.source_sha256,
+      source_commit: artifacts.sourceBundle.vcs.source_commit,
+    },
+    execution_identity: {
+      descriptor_sha256: artifacts.descriptor.descriptor_sha256,
+      source_inventory_sha256: artifacts.descriptor.source.inventory_sha256,
+      dependency_inventory_sha256: artifacts.descriptor.dependencies.inventory.inventory_sha256,
+    },
+    runtime_identity: {
+      identity_sha256: artifacts.runtimeIdentity.identity_sha256,
+      executable_sha256: artifacts.runtimeIdentity.runtime.executable_sha256,
+      package_lock_sha256: artifacts.runtimeIdentity.package_lock.sha256,
+    },
+    bindings: artifacts.bindings,
+    partitions: Object.fromEntries(partitionNames.map((partition) => [partition, {
+      commitment_path: `${partition}.commit.json`,
+      seed_count: commitments[partition].seed_count,
+      commitment: commitments[partition].commitment,
+      escrow_sha256: escrows[partition].escrow_sha256,
+    }])),
+    cross_partition: {
+      freeze_identity_sha256: artifacts.freezeIdentitySha256,
+      uniqueness_rule: "one jointly generated unsigned-32-bit set split once; duplicates refused",
+      total_seed_count: totalSeedCount,
+    },
+  };
+  return Object.freeze({ ...planBody, plan_sha256: sha256(canonical(planBody)) });
+}
+
+export async function sealSeedReleaseSet(options, dependencies = {}) {
+  const prepared = await prepareSealInputs(options, dependencies);
+  const artifacts = await captureSealArtifacts({
+    repository: prepared.repository,
+    capsuleRoot: prepared.capsuleRoot,
+    headCommit: prepared.headCommit,
+    inputEntries: prepared.inputEntries,
+    releaseVersion: prepared.releaseVersion,
+    confirmationSeedCount: options.confirmationSeedCount,
+    heldOutSeedCount: options.heldOutSeedCount,
+  });
+  const releaseSetId = sha256(randomBuffer(prepared.randomBytes, 32));
+  const { commitments, escrows, totalSeedCount } = generateSealedCommitmentsAndEscrows({
+    confirmationSeedCount: options.confirmationSeedCount,
+    heldOutSeedCount: options.heldOutSeedCount,
+    randomBytes: prepared.randomBytes,
+    claimEligible: prepared.claimEligible,
+    generationMethod: prepared.generationMethod,
+    key: prepared.key,
+    freezeIdentitySha256: artifacts.freezeIdentitySha256,
+    releaseSetId,
+  });
+  const plan = buildSeedReleasePlan({
+    releaseSetId,
+    prepared,
+    artifacts,
+    commitments,
+    escrows,
+    totalSeedCount,
+  });
+  await publishSealedReleaseFiles({
+    bindingTarget: prepared.bindingTarget,
+    escrowTarget: prepared.escrowTarget,
+    generatedBodies: artifacts.generatedBodies,
+    commitments,
+    escrows,
+    plan,
+  });
   return Object.freeze({
     contract_version: SEED_RELEASE_OPERATOR_VERSION,
     state: "commitments-sealed",
-    claim_eligible: claimEligible,
+    claim_eligible: prepared.claimEligible,
     release_set_id: releaseSetId,
     plan_sha256: plan.plan_sha256,
-    source_commit: sourceBundle.vcs.source_commit,
-    binding_directory: bindingTarget.absolute,
-    escrow_directory: escrowTarget.absolute,
+    source_commit: artifacts.sourceBundle.vcs.source_commit,
+    binding_directory: prepared.bindingTarget.absolute,
+    escrow_directory: prepared.escrowTarget.absolute,
     commitment_paths: Object.freeze(Object.fromEntries(partitionNames.map((partition) => [
       partition,
-      path.join(bindingTarget.absolute, `${partition}.commit.json`),
+      path.join(prepared.bindingTarget.absolute, `${partition}.commit.json`),
     ]))),
     reveal_paths: null,
   });
 }
 
-export async function revealSeedReleaseSet(options) {
-  const requiredOptions = [
-    "repositoryRoot", "bindingDirectory", "escrowDirectory", "capsuleParent", "encryptionKey",
-  ];
-  if (!exactOptions(options, requiredOptions)) {
-    throw new Error("Seed reveal requires exact operator inputs and never accepts caller eligibility flags.");
-  }
-  const {
-    repositoryRoot,
-    bindingDirectory,
-    escrowDirectory,
-    capsuleParent,
-    encryptionKey: rawEncryptionKey,
-  } = options;
-  const key = encryptionKey(rawEncryptionKey);
-  const repository = await strictDirectory(repositoryRoot, "seed repositoryRoot");
-  await assertCleanRepository(repository);
-  const binding = await loadPlanAndBindings(bindingDirectory);
-  const escrowRoot = await strictDirectory(escrowDirectory, "seed escrowDirectory");
-  if (inside(repository, escrowRoot) || samePath(repository, escrowRoot)) {
-    throw new Error("Encrypted seed escrow must remain outside the Git repository.");
-  }
+async function verifyEnvironmentForReveal({ repository, binding, capsuleParent }) {
   const sourceBundle = await captureCandidate010SourceBundle(repository);
   const expectedSourceBundle = parseJson(binding.bodies.source_bundle, "bound source bundle");
   const expectedRuntimeIdentity = parseJson(binding.bodies.runtime_identity, "bound runtime identity");
@@ -849,7 +956,9 @@ export async function revealSeedReleaseSet(options) {
     || runtimeIdentity.runtime.executable_sha256 !== binding.plan.runtime_identity.executable_sha256
     || runtimeIdentity.package_lock.sha256 !== binding.plan.runtime_identity.package_lock_sha256
   ) throw new Error("Current source, execution capsule, or runtime differs from the sealed seed-release plan.");
+}
 
+async function decryptAndVerifyEscrows({ escrowRoot, binding, key }) {
   const revealed = {};
   for (const partition of partitionNames) {
     const escrowBody = parseJson(
@@ -893,6 +1002,10 @@ export async function revealSeedReleaseSet(options) {
     });
   }
   assertDisjointSeedPacks(partitionNames.map((partition) => revealed[partition]));
+  return revealed;
+}
+
+function buildRevealAttestation(binding, revealed) {
   const attestationBody = {
     schema: 1,
     contract_version: SEED_REVEAL_ATTESTATION_VERSION,
@@ -908,11 +1021,13 @@ export async function revealSeedReleaseSet(options) {
     }])),
     disjointness: "verified",
   };
-  const attestation = Object.freeze({
+  return Object.freeze({
     ...attestationBody,
     attestation_sha256: sha256(canonical(attestationBody)),
   });
-  const revealedTarget = await absentTarget(path.join(binding.root, "revealed"), "seed reveal directory");
+}
+
+async function publishRevealedReleaseFiles({ binding, revealed, attestation, revealedTarget }) {
   const staging = path.join(revealedTarget.parent, `.candidate-010-seed-reveal-${randomUUID()}.tmp`);
   await mkdir(staging);
   try {
@@ -927,9 +1042,56 @@ export async function revealSeedReleaseSet(options) {
     await writeJson(path.join(staging, "seed-reveal-attestation.json"), attestation);
     await rename(staging, revealedTarget.absolute);
   } catch (error) {
-    await rm(staging, { recursive: true, force: true }).catch(() => {});
+    await cleanupStagingPaths([staging], error);
     throw error;
   }
+}
+
+function buildReleaseV3Arguments(plan) {
+  if (!plan.claim_eligible) return null;
+  return Object.freeze(Object.fromEntries(partitionNames.map((partition) => [partition, Object.freeze({
+    releaseVersion: plan.release_version,
+    partition,
+    phase: partition,
+    sourceBundlePath: snapshotNames.source_bundle,
+    executionDescriptorPath: snapshotNames.execution_descriptor,
+    runtimeIdentityPath: snapshotNames.runtime_identity,
+    configPath: snapshotNames.config,
+    designPath: snapshotNames.design,
+    backendRegistryPath: snapshotNames.backend_registry,
+    preregistrationPath: snapshotNames.preregistration,
+    commitmentPath: `${partition}.commit.json`,
+    revealPath: `${partition}.reveal.json`,
+  })])));
+}
+
+export async function revealSeedReleaseSet(options) {
+  const requiredOptions = [
+    "repositoryRoot", "bindingDirectory", "escrowDirectory", "capsuleParent", "encryptionKey",
+  ];
+  if (!exactOptions(options, requiredOptions)) {
+    throw new Error("Seed reveal requires exact operator inputs and never accepts caller eligibility flags.");
+  }
+  const {
+    repositoryRoot,
+    bindingDirectory,
+    escrowDirectory,
+    capsuleParent,
+    encryptionKey: rawEncryptionKey,
+  } = options;
+  const key = encryptionKey(rawEncryptionKey);
+  const repository = await strictDirectory(repositoryRoot, "seed repositoryRoot");
+  await assertCleanRepository(repository);
+  const binding = await loadPlanAndBindings(bindingDirectory);
+  const escrowRoot = await strictDirectory(escrowDirectory, "seed escrowDirectory");
+  if (inside(repository, escrowRoot) || samePath(repository, escrowRoot)) {
+    throw new Error("Encrypted seed escrow must remain outside the Git repository.");
+  }
+  await verifyEnvironmentForReveal({ repository, binding, capsuleParent });
+  const revealed = await decryptAndVerifyEscrows({ escrowRoot, binding, key });
+  const attestation = buildRevealAttestation(binding, revealed);
+  const revealedTarget = await absentTarget(path.join(binding.root, "revealed"), "seed reveal directory");
+  await publishRevealedReleaseFiles({ binding, revealed, attestation, revealedTarget });
   return Object.freeze({
     contract_version: SEED_RELEASE_OPERATOR_VERSION,
     state: "explicitly-revealed",
@@ -938,23 +1100,63 @@ export async function revealSeedReleaseSet(options) {
     plan_sha256: binding.plan.plan_sha256,
     attestation_sha256: attestation.attestation_sha256,
     reveal_directory: revealedTarget.absolute,
-    release_v3_arguments: binding.plan.claim_eligible
-      ? Object.freeze(Object.fromEntries(partitionNames.map((partition) => [partition, Object.freeze({
-        releaseVersion: binding.plan.release_version,
-        partition,
-        phase: partition,
-        sourceBundlePath: snapshotNames.source_bundle,
-        executionDescriptorPath: snapshotNames.execution_descriptor,
-        runtimeIdentityPath: snapshotNames.runtime_identity,
-        configPath: snapshotNames.config,
-        designPath: snapshotNames.design,
-        backendRegistryPath: snapshotNames.backend_registry,
-        preregistrationPath: snapshotNames.preregistration,
-        commitmentPath: `${partition}.commit.json`,
-        revealPath: `${partition}.reveal.json`,
-      })])))
-      : null,
+    release_v3_arguments: buildReleaseV3Arguments(binding.plan),
   });
+}
+
+async function validateRevealedArtifacts(revealedRoot, binding) {
+  for (const [name, relative] of Object.entries(snapshotNames)) {
+    const body = await readFile(await containedFile(
+      revealedRoot,
+      path.join(revealedRoot, relative),
+      `revealed seed-release ${name}`,
+    ));
+    if (
+      sha256(body) !== binding.plan.bindings[name].sha256
+      || canonical(parseJson(body, `revealed ${name}`)) !== canonical(parseJson(binding.bodies[name], `bound ${name}`))
+    ) throw new Error(`Revealed seed-release snapshot mismatch for ${name}.`);
+  }
+  const reveals = {};
+  for (const partition of partitionNames) {
+    const copiedCommitment = parseJson(
+      await readFile(await containedFile(
+        revealedRoot,
+        path.join(revealedRoot, `${partition}.commit.json`),
+        `revealed ${partition} commitment`,
+      )),
+      `revealed ${partition} commitment`,
+    );
+    validateCommitment(copiedCommitment, binding.plan, partition);
+    if (canonical(copiedCommitment) !== canonical(binding.commitments[partition])) {
+      throw new Error(`Revealed ${partition} commitment differs from the sealed binding.`);
+    }
+    reveals[partition] = validateReveal(
+      parseJson(
+        await readFile(await containedFile(
+          revealedRoot,
+          path.join(revealedRoot, `${partition}.reveal.json`),
+          `${partition} revealed seed pack`,
+        )),
+        `${partition} reveal`,
+      ),
+      binding.plan,
+      binding.commitments[partition],
+      partition,
+    );
+  }
+  return validateRevealAttestation(
+    parseJson(
+      await readFile(await containedFile(
+        revealedRoot,
+        path.join(revealedRoot, "seed-reveal-attestation.json"),
+        "seed reveal attestation",
+      )),
+      "seed reveal attestation",
+    ),
+    binding.plan,
+    binding.commitments,
+    reveals,
+  );
 }
 
 export async function validateSeedReleaseOperatorArtifacts(options) {
@@ -977,58 +1179,7 @@ export async function validateSeedReleaseOperatorArtifacts(options) {
   }
   let attestation = null;
   if (revealedRoot !== null) {
-    for (const [name, relative] of Object.entries(snapshotNames)) {
-      const body = await readFile(await containedFile(
-        revealedRoot,
-        path.join(revealedRoot, relative),
-        `revealed seed-release ${name}`,
-      ));
-      if (
-        sha256(body) !== binding.plan.bindings[name].sha256
-        || canonical(parseJson(body, `revealed ${name}`)) !== canonical(parseJson(binding.bodies[name], `bound ${name}`))
-      ) throw new Error(`Revealed seed-release snapshot mismatch for ${name}.`);
-    }
-    const reveals = {};
-    for (const partition of partitionNames) {
-      const copiedCommitment = parseJson(
-        await readFile(await containedFile(
-          revealedRoot,
-          path.join(revealedRoot, `${partition}.commit.json`),
-          `revealed ${partition} commitment`,
-        )),
-        `revealed ${partition} commitment`,
-      );
-      validateCommitment(copiedCommitment, binding.plan, partition);
-      if (canonical(copiedCommitment) !== canonical(binding.commitments[partition])) {
-        throw new Error(`Revealed ${partition} commitment differs from the sealed binding.`);
-      }
-      reveals[partition] = validateReveal(
-        parseJson(
-          await readFile(await containedFile(
-            revealedRoot,
-            path.join(revealedRoot, `${partition}.reveal.json`),
-            `${partition} revealed seed pack`,
-          )),
-          `${partition} reveal`,
-        ),
-        binding.plan,
-        binding.commitments[partition],
-        partition,
-      );
-    }
-    attestation = validateRevealAttestation(
-      parseJson(
-        await readFile(await containedFile(
-          revealedRoot,
-          path.join(revealedRoot, "seed-reveal-attestation.json"),
-          "seed reveal attestation",
-        )),
-        "seed reveal attestation",
-      ),
-      binding.plan,
-      binding.commitments,
-      reveals,
-    );
+    attestation = await validateRevealedArtifacts(revealedRoot, binding);
   }
   return Object.freeze({
     valid: true,
