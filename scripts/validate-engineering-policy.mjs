@@ -5115,12 +5115,63 @@ export function validateEngineManagedWorkflowObject(workflow, relativePath) {
   return findings;
 }
 
+// A superseded pull-request run cancels so it stops holding jobs under the
+// organisation's job cap; a main run keys its group on the commit and always
+// finishes, because the main rollup needs every commit's result. Paths are
+// matched exactly; engine-managed workflows keep their carve-out.
+export const supersededRunConcurrencyGroup =
+  "${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}";
+
+export const supersededRunCancellationWorkflowPaths = Object.freeze([
+  ".github/workflows/ci.yml",
+  ".github/workflows/codeql.yml",
+  ".github/workflows/scorecard.yml",
+]);
+
+function workflowTriggersOnPullRequest(workflow) {
+  const on = workflow?.on;
+  if (typeof on === "string") return on === "pull_request";
+  if (Array.isArray(on)) return on.includes("pull_request");
+  return on !== null && typeof on === "object" && Object.hasOwn(on, "pull_request");
+}
+
+export function validateSupersededRunCancellationWorkflowObject(
+  workflow,
+  relativePath = "workflow.yml",
+) {
+  if (!workflow || typeof workflow !== "object") {
+    return [];
+  }
+  if (engineManagedWorkflowPaths.includes(relativePath)) {
+    return [];
+  }
+  const applies = supersededRunCancellationWorkflowPaths.includes(relativePath)
+    || workflowTriggersOnPullRequest(workflow);
+  if (!applies) {
+    return [];
+  }
+  const concurrency = workflow.concurrency;
+  if (
+    !concurrency
+    || typeof concurrency !== "object"
+    || Array.isArray(concurrency)
+    || concurrency.group !== supersededRunConcurrencyGroup
+    || concurrency["cancel-in-progress"] !== true
+  ) {
+    return [
+      `${relativePath}: concurrency must cancel superseded runs on every ref except main (group ${supersededRunConcurrencyGroup}, cancel-in-progress true)`,
+    ];
+  }
+  return [];
+}
+
 function validateWorkflowPolicy(workflow, relativePath, lock, findings) {
   if (engineManagedWorkflowPaths.includes(relativePath)) {
     findings.push(...validateEngineManagedWorkflowObject(workflow, relativePath));
     return;
   }
   findings.push(...validateWorkflowObject(workflow, relativePath));
+  findings.push(...validateSupersededRunCancellationWorkflowObject(workflow, relativePath));
   findings.push(...validatePublicRepositoryRunnerWorkflowObject(workflow, relativePath));
   findings.push(...validateNodeSetupWorkflowObject(workflow, relativePath));
   const auditJobName = relativePath === ".github/workflows/ci.yml"

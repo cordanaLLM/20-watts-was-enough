@@ -120,3 +120,4 @@ than silently changing its outcome.
 | [0113](0113-lift-the-certifi-cutoff-in-the-clrs-generator.md) | Lift the certifi cutoff in the CLRS generator | accepted |
 | [0114](0114-lock-pip-in-the-clrs-generator.md) | Lock pip in the CLRS generator | accepted |
 | [0115](0115-move-the-renderer-lock-to-buildx-0-38-1-and-let-the-update-bot-carry-it.md) | Move the renderer lock to Buildx 0.38.1 and let the update bot carry it | accepted |
+| [0116](0116-cancel-superseded-branch-runs-and-let-main-runs-finish.md) | Cancel superseded branch runs and let main runs finish | accepted |
