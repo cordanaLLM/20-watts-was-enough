@@ -99,7 +99,7 @@ const approvedActionPins = new Map([
   ["actions/configure-pages", "45bfe0192ca1faeb007ade9deae92b16b8254a0d"],
   ["actions/dependency-review-action", "a1d282b36b6f3519aa1f3fc636f609c47dddb294"],
   ["actions/deploy-pages", "368f82528645a54fb793d4d04e342629a3f51346"],
-  ["actions/download-artifact", "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"],
+  ["actions/download-artifact", "9000827ccba6bdab643e8b6fd33ac0654aef8333"],
   ["actions/labeler", "bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13"],
   ["actions/setup-go", "b7ad1dad31e06c5925ef5d2fc7ad053ef454303e"],
   ["actions/setup-node", "949feb2413d6458794dcd2491c4babbbce0c15c1"],
@@ -113,7 +113,7 @@ const approvedActionPins = new Map([
   ["github/codeql-action/analyze", "24c54180a607b1449ed407dd24f251e4e9147c8d"],
   ["github/codeql-action/init", "24c54180a607b1449ed407dd24f251e4e9147c8d"],
   ["github/codeql-action/upload-sarif", "24c54180a607b1449ed407dd24f251e4e9147c8d"],
-  ["ossf/scorecard-action", "2d1146689b8cda280b9bc96326124645441f03bc"],
+  ["ossf/scorecard-action", "fa7117db83c52d787ae5a89f350999701505d78e"],
 ]);
 
 const requiredFiles = [
