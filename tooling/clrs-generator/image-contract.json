@@ -10,12 +10,12 @@
   "generation_contract_id": "sha256:cc14fce405e8fa7d4719f1fc906e28d5e4b73235085c8f0722795efded2891a8",
   "lock_input": {
     "path": "tooling/clrs-generator/lock-input.json",
-    "sha256": "db62eb7900d71da0eb7a4fdb23a19374e87971374370affd5056ae0205a4621b"
+    "sha256": "bdaccfb27ee888c700b17a4de6471117e2b1d3a72dbce920bcc4b00d0bf9450b"
   },
   "builder": {
     "authority_path": "tooling/pdf-renderer/lock.json",
-    "authority_subset_sha256": "6dfae8d0f6cbd4f7afe7e31f36b70cbc4894d1d4e9cdb29e66ad476ba5e86def",
-    "buildx_version": "0.38.0",
+    "authority_subset_sha256": "6aa28166ec01c5f7bc805175adf52e8e0d5185b932a3cc0fe2cca33e89b98c12",
+    "buildx_version": "0.38.1",
     "buildx_revision": "0dbe87f36ed472fe36b6796c3f70b4210a731fc5",
     "buildkit_version": "0.32.2",
     "buildkit_image": "moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8",
@@ -26,18 +26,18 @@
   "dependency_lock": {
     "state": "locked",
     "project_path": "tooling/clrs-generator/pyproject.toml",
-    "project_sha256": "c69663fac3691694ebf8ff7bb32679a37fc3a3ee01af7b763441b5b14a5797c6",
+    "project_sha256": "ebc2953d6ca5f4f6d496c6d587ee6da2aed44a42ad4e573d223595a6fb96acc4",
     "path": "tooling/clrs-generator/uv.lock",
-    "sha256": "1f2a837d35260fb4bf095032a016c0ea9543b573b8ad83def7ae5378972ff7e4",
-    "package_count": 62,
-    "artifact_count": 135
+    "sha256": "cbac28b4acab15f07d722203ead7731ecb9a1f7e9f51c1754de0ca28a5b4cdba",
+    "package_count": 63,
+    "artifact_count": 137
   },
   "build_context": {
     "state": "wheelhouse-manifest-locked",
     "dockerfile_path": "tooling/clrs-generator/Dockerfile",
     "dockerfile_sha256": "",
     "wheelhouse_manifest_path": "tooling/clrs-generator/wheelhouse.json",
-    "wheelhouse_manifest_sha256": "25ac7d1c146c7f6402a24d12dc4ea4d611673140f57fb0d84c28afeed8fa20fa",
+    "wheelhouse_manifest_sha256": "c68f7832c4c27e373f7e640b1eb85b8a5082df5594c94e30833392baac2e6ce5",
     "context_sha256": "",
     "install_network": "none"
   },

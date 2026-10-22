@@ -179,7 +179,7 @@ func lookupNumericRelease(requestContext context.Context, run ghReleaseCommandRu
 func runGHReleaseCommand(ctx context.Context, arguments ...string) (ghReleaseCommandResult, error) {
 	stdout := &boundedBuffer{limit: maximumGHOutputBytes}
 	stderr := &boundedBuffer{limit: maximumGHOutputBytes}
-	command := exec.CommandContext(ctx, "gh", arguments...)
+	command := exec.CommandContext(ctx, "gh", arguments...) //#nosec G204 -- fixed gh CLI binary with bounded release query arguments
 	command.Stdout = stdout
 	command.Stderr = stderr
 	command.WaitDelay = githubAPICommandWaitDelay

@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/pdfrender"
 )
@@ -42,6 +43,27 @@ func TestProofPreservesDefaultMainOptions(t *testing.T) {
 	})
 	if code != 0 || stderr.Len() != 0 {
 		t.Fatalf("exit=%d stderr=%q", code, stderr.String())
+	}
+}
+
+func TestVerifyReproducibilityEnforcesDeadline(t *testing.T) {
+	called := false
+	var stdout, stderr bytes.Buffer
+	verify := func(ctx context.Context, _ pdfrender.ReproducibilityOptions) (pdfrender.ReproducibilityReceipt, error) {
+		called = true
+		now := time.Now()
+		deadline, ok := ctx.Deadline()
+		if !ok {
+			t.Fatal("expected context to carry a deadline")
+		}
+		if !deadline.After(now) || deadline.After(now.Add(verifyReproducibilityDeadline)) {
+			t.Fatalf("deadline %v not in (%v, %v]", deadline, now, now.Add(verifyReproducibilityDeadline))
+		}
+		return proofReceipt(), nil
+	}
+	code := runVerifyReproducibility([]string{"--receipt", "proof.json"}, &stdout, &stderr, verify)
+	if code != 0 || !called || stderr.Len() != 0 {
+		t.Fatalf("exit=%d called=%t stderr=%q", code, called, stderr.String())
 	}
 }
 
@@ -165,6 +187,26 @@ func TestProofRejectsArgumentsBeforeVerification(t *testing.T) {
 		if code != 2 || stdout.Len() != 0 {
 			t.Fatalf("args=%q exit=%d stdout=%q stderr=%q", args, code, stdout.String(), stderr.String())
 		}
+	}
+}
+
+func TestVerifyReproducibilityRejectsStrayPositionalArguments(t *testing.T) {
+	t.Parallel()
+	var stdout, stderr bytes.Buffer
+	code := RunVerifyReproducibility([]string{"--receipt", "proof.json", "stray"}, &stdout, &stderr)
+	wantStderr := "publication verify-pdf-reproducibility accepts no positional arguments: stray\n"
+	if code != 2 || stdout.Len() != 0 || stderr.String() != wantStderr {
+		t.Fatalf("exit=%d stdout=%q stderr=%q, want exit=2 and stderr=%q", code, stdout.String(), stderr.String(), wantStderr)
+	}
+}
+
+func TestVerifyReproducibilityRequiresReceipt(t *testing.T) {
+	t.Parallel()
+	var stdout, stderr bytes.Buffer
+	code := RunVerifyReproducibility(nil, &stdout, &stderr)
+	wantStderr := "publication verify-pdf-reproducibility requires --receipt\n"
+	if code != 2 || stdout.Len() != 0 || stderr.String() != wantStderr {
+		t.Fatalf("exit=%d stdout=%q stderr=%q, want exit=2 and stderr=%q", code, stdout.String(), stderr.String(), wantStderr)
 	}
 }
 

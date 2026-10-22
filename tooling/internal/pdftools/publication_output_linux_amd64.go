@@ -255,8 +255,8 @@ func rawLinkat(oldDirectory int, oldPath string, newDirectory int, newPath strin
 	// bridge to the kernel's atomic no-replace primitive (P10-9).
 	_, _, callError := syscall.Syscall6(
 		syscall.SYS_LINKAT,
-		uintptr(oldDirectory), uintptr(unsafe.Pointer(oldPointer)),
-		uintptr(newDirectory), uintptr(unsafe.Pointer(newPointer)),
+		uintptr(oldDirectory), uintptr(unsafe.Pointer(oldPointer)), //#nosec G103 -- syscall argument points to NUL-terminated byte slice from BytePtrFromString, kept alive across syscall
+		uintptr(newDirectory), uintptr(unsafe.Pointer(newPointer)), //#nosec G103 -- syscall argument points to NUL-terminated byte slice from BytePtrFromString, kept alive across syscall
 		uintptr(flags), 0,
 	)
 	runtime.KeepAlive(oldPointer)

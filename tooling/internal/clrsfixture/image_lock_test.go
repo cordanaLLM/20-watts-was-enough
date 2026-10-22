@@ -14,7 +14,7 @@ func TestGeneratorPackageCutoffsAcceptReviewedOverride(t *testing.T) {
 		t.Fatal(err)
 	}
 	if input.Resolver.ExcludeNewer != "2026-08-31T13:22:50Z" ||
-		!maps.Equal(input.Resolver.ExcludeNewerPackage, map[string]string{"certifi": "2026-10-21T00:00:00Z", "urllib3": "2026-09-16T00:00:00Z"}) {
+		!maps.Equal(input.Resolver.ExcludeNewerPackage, map[string]string{"certifi": "2026-10-21T00:00:00Z", "pip": "2026-10-21T00:00:00Z", "urllib3": "2026-09-16T00:00:00Z"}) {
 		t.Fatalf("unexpected reviewed cutoff policy: %+v", input.Resolver)
 	}
 }
@@ -35,8 +35,11 @@ func TestParseGeneratorLockInputRejectsPackageCutoffDrift(t *testing.T) {
 		{"missing", nil, "reviewed Linux amd64 boundary"},
 		{"empty", map[string]string{}, "reviewed Linux amd64 boundary"},
 		{"unknown", map[string]string{"unknown-package": cutoff}, "reviewed Linux amd64 boundary"},
-		{"extra known package", map[string]string{"urllib3": cutoff, "requests": cutoff}, "reviewed Linux amd64 boundary"},
-		{"extra unknown package", map[string]string{"urllib3": cutoff, "unknown-package": cutoff}, "reviewed Linux amd64 boundary"},
+		{"missing pip", map[string]string{"certifi": "2026-10-21T00:00:00Z", "urllib3": cutoff}, "reviewed Linux amd64 boundary"},
+		{"missing certifi", map[string]string{"pip": "2026-10-21T00:00:00Z", "urllib3": cutoff}, "reviewed Linux amd64 boundary"},
+		{"missing urllib3", map[string]string{"certifi": "2026-10-21T00:00:00Z", "pip": "2026-10-21T00:00:00Z"}, "reviewed Linux amd64 boundary"},
+		{"extra known package", map[string]string{"certifi": "2026-10-21T00:00:00Z", "pip": "2026-10-21T00:00:00Z", "urllib3": cutoff, "requests": cutoff}, "reviewed Linux amd64 boundary"},
+		{"extra unknown package", map[string]string{"certifi": "2026-10-21T00:00:00Z", "pip": "2026-10-21T00:00:00Z", "urllib3": cutoff, "unknown-package": cutoff}, "reviewed Linux amd64 boundary"},
 		{"uppercase", map[string]string{"URLLib3": cutoff}, "not canonical"},
 		{"underscore", map[string]string{"urllib_3": cutoff}, "not canonical"},
 		{"dot", map[string]string{"urllib.3": cutoff}, "not canonical"},
@@ -46,7 +49,7 @@ func TestParseGeneratorLockInputRejectsPackageCutoffDrift(t *testing.T) {
 		{"invalid date", map[string]string{"urllib3": "2026-09-16"}, "must be RFC3339 and after"},
 		{"equal to global", map[string]string{"urllib3": input.Resolver.ExcludeNewer}, "must be RFC3339 and after"},
 		{"before global", map[string]string{"urllib3": "2026-08-30T00:00:00Z"}, "must be RFC3339 and after"},
-		{"unreviewed date", map[string]string{"urllib3": "2026-09-17T00:00:00Z"}, "reviewed Linux amd64 boundary"},
+		{"unreviewed date", map[string]string{"certifi": "2026-10-21T00:00:00Z", "pip": "2026-10-22T00:00:00Z", "urllib3": cutoff}, "reviewed Linux amd64 boundary"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
