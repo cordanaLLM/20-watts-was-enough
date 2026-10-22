@@ -16,6 +16,22 @@
     "**/__fixtures__/**",
     "tooling/clrs-generator/**"
   ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "The PDF renderer lock names the Buildx client by version and the commit its tag points to. The depName matches the workflow input, so both land in one pull request.",
+      "managerFilePatterns": [
+        "/^tooling/pdf-renderer/lock\\.json$/"
+      ],
+      "matchStrings": [
+        "\"buildx_version\": \"(?<currentValue>[^\"]+)\",\\s*\"buildx_revision\": \"(?<currentDigest>[0-9a-f]{40})\""
+      ],
+      "depNameTemplate": "buildx",
+      "packageNameTemplate": "docker/buildx",
+      "datasourceTemplate": "github-tags",
+      "extractVersionTemplate": "^v(?<version>.+)$"
+    }
+  ],
   "timezone": "Europe/Berlin",
   "constraints": {
     "node": "26.11.1",
@@ -56,6 +72,18 @@
       ],
       "prBodyNotes": [
         "This repository binds workflow tool versions to locks: Python to the fixture-019 environment, Buildx to the PDF renderer lock. `npm run validate:policy` fails until a bound value moves together with its lock in this pull request."
+      ]
+    },
+    {
+      "description": "The custom manager moves the renderer lock's Buildx version and revision with the workflow inputs. The values derived from the lock still move by hand in the same pull request.",
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "matchDepNames": [
+        "buildx"
+      ],
+      "prBodyNotes": [
+        "This update moves the Buildx version and revision in `tooling/pdf-renderer/lock.json`. Before merge, recompute the BuildKit authority digest in `tooling/pdf-tools/contract.json`, `tooling/clrs-generator/image-contract.json` and `tooling/internal/clrsfixture/image_contract.go`, update the approved value in `scripts/validate-engineering-policy.mjs`, and re-record the book with `npm run generate:book-pdf` (decision 0115)."
       ]
     },
     {
