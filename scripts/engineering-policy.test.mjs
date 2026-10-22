@@ -4078,7 +4078,7 @@ test("no other workflow file can claim the engine-managed carve-out", (t) => {
       refused.includes(`.github/workflows/${name}: concurrency must define a group and explicit cancel-in-progress boolean`),
       `${name}: ${refused.join(" | ")}`,
     );
-    assert.ok(refused.some((finding) => finding.includes("persist-credentials")), name);
+    assert.ok(refused.some((finding) => finding.includes("unapproved external action")), name);
   }
   assert.deepEqual(about(findings, "praetor-api.yml"), []);
   assert.deepEqual(about(findings, "praetor-docs.yml"), []);
@@ -4208,8 +4208,8 @@ test("engine-file exception lists are well formed and fail closed when they are 
   assert.deepEqual(engineFileExceptionFindings(LINT_EXCEPTIONS, "rules"), []);
   assert.deepEqual(engineFileExceptionFindings(TYPE_CHECK_EXCEPTIONS, "diagnostics"), []);
   assert.deepEqual(LINT_EXCEPTIONS.map((entry) => [entry.path, entry.expires, entry.rules.length]), [
-    ["tools/figures/dist/loader.js", engineFileLastDay, 1],
-    ["tools/figures/dist/player.js", engineFileLastDay, 15],
+    ["tools/figures/player/loader.js", engineFileLastDay, 1],
+    ["tools/figures/player/player.js", engineFileLastDay, 15],
   ]);
   const base = plainEntry(LINT_EXCEPTIONS[1], "rules");
   const label = "engine-file exception 0";
@@ -4258,7 +4258,7 @@ test("engine-file exceptions apply through their last day and compare calendar d
   assert.deepEqual(overrides[0].rules, { "@typescript-eslint/no-unused-expressions": "off" });
   const mixed = [{ ...plainEntry(LINT_EXCEPTIONS[0], "rules"), expires: "2026-10-10" }, LINT_EXCEPTIONS[1]];
   assert.deepEqual(lintExceptionOverrides(mixed, "2026-10-11").map((override) => override.files), [
-    ["tools/figures/dist/player.js"],
+    ["tools/figures/player/player.js"],
   ]);
   assert.equal(createEslintConfig({ today: engineFileLastDay }).length, createEslintConfig({ today: engineFileNextDay }).length + 2);
 });
@@ -4276,7 +4276,7 @@ test("the lint exceptions hide exactly the rules their two files trip, and nothi
   narrowed[1].rules = narrowed[1].rules.filter((rule) => rule !== "no-undef");
   assert.deepEqual(await lintRuleIds("2026-10-11", narrowed), {
     ...clean,
-    "tools/figures/dist/player.js": ["no-undef"],
+    "tools/figures/player/player.js": ["no-undef"],
   });
 });
 
@@ -4288,9 +4288,9 @@ test("a lint exception covers its own file and no neighbour", async () => {
   });
   const source = "export const pattern = /a\\-b/;\nif (pattern) {}\n";
   for (const [filePath, expected] of [
-    ["tools/figures/dist/player.js", []],
-    ["tools/figures/dist/player.test.js", ["no-empty", "no-useless-escape"]],
-    ["tools/figures/dist/nested/player.js", ["no-empty", "no-useless-escape"]],
+    ["tools/figures/player/player.js", []],
+    ["tools/figures/player/player.test.js", ["no-empty", "no-useless-escape"]],
+    ["tools/figures/player/nested/player.js", ["no-empty", "no-useless-escape"]],
     ["tools/figures/player.js", ["no-empty", "no-useless-escape"]],
     ["scripts/player.js", ["no-empty", "no-useless-escape"]],
   ]) {

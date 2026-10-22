@@ -928,7 +928,9 @@ jobs:
             local token_response token
             token_response="$(curl --fail --silent --show-error --max-time 30 \
               "https://ghcr.io/token?scope=repository:${repository}:pull")" || return 1
-            token="$(printf '%s' "$token_response" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')"
+            # Unquoted on purpose: an assignment does not split words, and the Praetor
+            # workflow reader does not nest quotes inside "$(...)".
+            token=$(printf '%s' "$token_response" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
             [[ -n "$token" ]] || return 1
             curl --fail --silent --show-error --max-time 30 --head --output /dev/null \
               --header "Authorization: Bearer ${token}" \
@@ -1140,7 +1142,9 @@ jobs:
             local token_response token
             token_response="$(curl --fail --silent --show-error --max-time 30 \
               "https://ghcr.io/token?scope=repository:${repository}:pull")" || return 1
-            token="$(printf '%s' "$token_response" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')"
+            # Unquoted on purpose: an assignment does not split words, and the Praetor
+            # workflow reader does not nest quotes inside "$(...)".
+            token=$(printf '%s' "$token_response" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
             [[ -n "$token" ]] || return 1
             curl --fail --silent --show-error --max-time 30 --head --output /dev/null \
               --header "Authorization: Bearer ${token}" \
