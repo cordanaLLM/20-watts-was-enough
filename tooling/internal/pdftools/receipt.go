@@ -399,7 +399,7 @@ func runBoundedGit(root string, arguments []string, maximum int64) ([]byte, erro
 	stdout := boundedexec.NewOutput(int(maximum))
 	stderr := boundedexec.NewOutput(64 * 1024)
 	commandArguments := append([]string{"-C", root}, arguments...)
-	command := exec.CommandContext(ctx, gitBinary, commandArguments...)
+	command := exec.CommandContext(ctx, gitBinary, commandArguments...) //#nosec G204 -- fixed git binary from LookPath and bounded arguments validated by caller
 	command.Env = boundedDockerEnvironment()
 	command.Stdout = stdout
 	command.Stderr = stderr

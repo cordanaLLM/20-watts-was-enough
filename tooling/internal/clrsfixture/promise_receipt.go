@@ -115,7 +115,7 @@ func promiseSourcePaths(root string) ([]string, error) {
 	if err := rejectGeneratorSymlink(root, directory); err != nil {
 		return nil, err
 	}
-	file, err := os.Open(directory)
+	file, err := os.Open(directory) //#nosec G304 -- directory built from repository root + fixed relative path, non-symlink verified
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +171,7 @@ func promiseExperimentCLISources(root string) ([]string, error) {
 	if err := rejectGeneratorSymlink(root, directory); err != nil {
 		return nil, err
 	}
-	file, err := os.Open(directory)
+	file, err := os.Open(directory) //#nosec G304 -- directory built from repository root + fixed relative path, non-symlink verified
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +277,7 @@ func checkPromiseBundleEntries(directory string) error {
 		if err := rejectGeneratorSymlink(directory, path); err != nil {
 			return err
 		}
-		file, err := os.Open(path)
+		file, err := os.Open(path) //#nosec G304 -- path within evidence directory validated as non-symlink
 		if err != nil {
 			return err
 		}

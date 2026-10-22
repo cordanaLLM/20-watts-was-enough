@@ -51,15 +51,14 @@ func openStable(name string, maximum int64) (*os.File, os.FileInfo, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	file, err := os.Open(name)
+	file, err := os.Open(name) //#nosec G304 -- path validated as regular bounded non-symlink file by inspectBoundedRegular
 	if err != nil {
 		return nil, nil, err
 	}
 	opened, err := file.Stat()
 	named, namedErr := fileidentity.Lstat(name)
 	if err != nil || namedErr != nil || !sameFile(before, opened) || !sameFile(opened, named) {
-		file.Close()
-		return nil, nil, errors.New("CLRS context input changed before read")
+		return nil, nil, errors.Join(errors.New("CLRS context input changed before read"), file.Close())
 	}
 	return file, opened, nil
 }

@@ -126,7 +126,7 @@ func readRegularBoundedWithInterlock(
 	if information.Size() <= 0 || information.Size() > maximumBytes {
 		return nil, fmt.Errorf("%s size must be between 1 and %d bytes", label, maximumBytes)
 	}
-	opened, err := os.Open(file)
+	opened, err := os.Open(file) //#nosec G304 -- lock file path validated regular file
 	if err != nil {
 		return nil, fmt.Errorf("open %s: %w", label, err)
 	}

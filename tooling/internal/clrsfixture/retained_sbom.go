@@ -52,7 +52,7 @@ func LoadSBOMBundleLock(root string) (SBOMBundleLock, error) {
 	if !info.Mode().IsRegular() || info.Size() > sbomBundleLockMaxBytes {
 		return lock, errors.New("SBOM bundle lock must be a regular file of at most 64 KiB")
 	}
-	body, err := os.ReadFile(path)
+	body, err := os.ReadFile(path) //#nosec G304 -- path built from repository root + fixed relative lock path
 	if err != nil {
 		return lock, fmt.Errorf("read SBOM bundle lock: %w", err)
 	}

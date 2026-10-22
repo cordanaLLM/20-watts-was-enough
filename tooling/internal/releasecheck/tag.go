@@ -109,7 +109,7 @@ func runGHObjectRequest(ctx context.Context, endpoint string) (GitObject, error)
 	defer cancel()
 	stdout := &boundedBuffer{limit: maximumGHOutputBytes}
 	stderr := &boundedBuffer{limit: maximumGHOutputBytes}
-	command := exec.CommandContext(
+	command := exec.CommandContext( //#nosec G204 -- fixed gh CLI binary with validated API endpoint
 		requestContext,
 		"gh",
 		"api",
