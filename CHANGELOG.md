@@ -66,6 +66,11 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- CI, CodeQL and Scorecard cancel a superseded branch run but no longer
+  cancel a running `main` run; each `main` commit keeps its own concurrency
+  group. The repository policy requires that shape for every workflow with a
+  `pull_request` trigger
+  ([Decision 0116](decisions/0116-cancel-superseded-branch-runs-and-let-main-runs-finish.md)).
 - Refresh the Praetor adoption with engine 18c50fc74. The engine-managed
   `praetor-api.yml` and `praetor-docs.yml` workflows gain a concurrency group
   per pull request that cancels a superseded pull-request run and lets every
