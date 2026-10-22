@@ -104,29 +104,29 @@ make verify-all
 
 # Repository agent contract
 
-Read [`docs/principles.md`](docs/principles.md) before changing this repository.
+Read [`docs/principles.md`](../docs/principles.md) before changing this repository.
 It is project-wide engineering and research contract. Then read nearest
 nested `AGENTS.md` for files in scope.
 
 Before drafting or revising project-authored explanatory prose, read and apply
-project-local [`research-writing` skill](.agents/skills/research-writing/SKILL.md).
+project-local [`research-writing` skill](../.agents/skills/research-writing/SKILL.md).
 It does not apply to imported sources or verbatim quotations.
 
 Before changing public layout, typography, colour, interface hierarchy, or
 brand expression, read and apply project-local
-[`research-design` skill](.agents/skills/research-design/SKILL.md). Use the
-[`reader-editor` skill](.agents/skills/reader-editor/SKILL.md) as well when the
+[`research-design` skill](../.agents/skills/research-design/SKILL.md). Use the
+[`reader-editor` skill](../.agents/skills/reader-editor/SKILL.md) as well when the
 design problem exposes comprehension failure in project prose.
 
 Before changing continuous book or generated PDF hierarchy, print
 typography, pagination, navigation, figures, tables, equations, or visual QA
 contract, also read and apply project-local
-[`publication-design` skill](.agents/skills/publication-design/SKILL.md).
+[`publication-design` skill](../.agents/skills/publication-design/SKILL.md).
 
 Before adding or changing recurring dependency, CI, release, generation,
 GitHub-metadata, security-drift, or translation-freshness automation, read and
 apply project-local
-[`maintenance-automation` skill](.agents/skills/maintenance-automation/SKILL.md).
+[`maintenance-automation` skill](../.agents/skills/maintenance-automation/SKILL.md).
 It does not grant authority to automate scientific judgement, claim promotion,
 or consequential remote state.
 
@@ -149,7 +149,7 @@ or consequential remote state.
    and timeout. Record seeds and run identity at claim-eligible boundaries.
 9. Keep generated sources editable and deterministic. Do not edit `dist/`,
    `dist-github-pages/`, or generated reader copies.
-10. Follow [`LICENSING.md`](LICENSING.md). Citation is not permission to copy;
+10. Follow [`LICENSING.md`](../LICENSING.md). Citation is not permission to copy;
     `sources/` and all third-party material keep their own terms.
 11. EU and German law, official adoptions, and applicability are normative
     default. Do not infer compliance from standard title or checklist.
@@ -159,7 +159,7 @@ or consequential remote state.
     filler. Run `npm run check:prose` after changing canonical Markdown. Prose
     embedded in site code remains review-gated; automated tripwire does not
     attempt brittle JSX or HTML extraction.
-14. Apply [`research/research-integrity-baseline.md`](research/research-integrity-baseline.md)
+14. Apply [`research/research-integrity-baseline.md`](../research/research-integrity-baseline.md)
     at every triggered research boundary. Disclose contributors, support,
     competing interests, and material AI or external-tool use; complete any
     required ethics or misuse review before affected work begins.
@@ -204,8 +204,8 @@ or consequential remote state.
    require `npm run generate:book-pdf` and `npm run validate:book-pdf`.
    Changes confined to `scripts/book-render-free-sources.json` paths take
    `npm run record:book-provenance` instead of render
-   ([Decision 0090](decisions/0090-re-record-book-provenance-for-dependency-records.md)).
-   [Decision 0088](decisions/0088-impact-scope-ci-and-local-validation.md) defines
+   ([Decision 0090](../decisions/0090-re-record-book-provenance-for-dependency-records.md)).
+   [Decision 0088](../decisions/0088-impact-scope-ci-and-local-validation.md) defines
    scope selection and evidence reuse; complete integration and release gates
    remain unchanged.
 5. Update `CHANGELOG.md` for notable change. Add decision record when an
@@ -234,11 +234,11 @@ remains authoritative at integration and release boundaries above.
 
 ## File-specific instructions
 
-- [`research/AGENTS.md`](research/AGENTS.md) governs claims, evidence, source
+- [`research/AGENTS.md`](../research/AGENTS.md) governs claims, evidence, source
   audits, principle deduplication, and normative material.
-- [`experiments/AGENTS.md`](experiments/AGENTS.md) governs candidate and fixture
+- [`experiments/AGENTS.md`](../experiments/AGENTS.md) governs candidate and fixture
   contracts.
-- [`experiments/workstation/AGENTS.md`](experiments/workstation/AGENTS.md)
+- [`experiments/workstation/AGENTS.md`](../experiments/workstation/AGENTS.md)
   governs executable runs and authority boundaries.
-- [`app/AGENTS.md`](app/AGENTS.md) governs interactive reader.
-- [`scripts/AGENTS.md`](scripts/AGENTS.md) governs validators and generators.
+- [`app/AGENTS.md`](../app/AGENTS.md) governs interactive reader.
+- [`scripts/AGENTS.md`](../scripts/AGENTS.md) governs validators and generators.
