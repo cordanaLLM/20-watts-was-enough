@@ -10,10 +10,10 @@ import (
 )
 
 const (
-	expectedGeneratorLockInputSHA256  = "db62eb7900d71da0eb7a4fdb23a19374e87971374370affd5056ae0205a4621b"
-	expectedGeneratorDependencySHA256 = "1f2a837d35260fb4bf095032a016c0ea9543b573b8ad83def7ae5378972ff7e4"
-	expectedGeneratorWheelhouseSHA256 = "25ac7d1c146c7f6402a24d12dc4ea4d611673140f57fb0d84c28afeed8fa20fa"
-	expectedGeneratorImageSHA256      = "f0abd0ce7dce0e477fdf07d5b393d96908fdf8772f1822651188859fcfc2bb99"
+	expectedGeneratorLockInputSHA256  = "bdaccfb27ee888c700b17a4de6471117e2b1d3a72dbce920bcc4b00d0bf9450b"
+	expectedGeneratorDependencySHA256 = "cbac28b4acab15f07d722203ead7731ecb9a1f7e9f51c1754de0ca28a5b4cdba"
+	expectedGeneratorWheelhouseSHA256 = "c68f7832c4c27e373f7e640b1eb85b8a5082df5594c94e30833392baac2e6ce5"
+	expectedGeneratorImageSHA256      = "88eba8ab98cbf470335a104c469d24fb53ffb3cac2759842ae4979fef061052e"
 )
 
 func TestTrackedGeneratorImageFoundationIsClosedAndBlocked(t *testing.T) {
