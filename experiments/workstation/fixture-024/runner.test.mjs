@@ -16,6 +16,7 @@ import {
   prepareFixture024,
   validateFixture024Output,
 } from "./runner.mjs";
+import { assertDeterministicSmokeExecution } from "../lib/runner-test-helpers.mjs";
 
 const root = process.cwd();
 const temporaryRoot = path.join(root, "tmp");
@@ -86,12 +87,7 @@ test("same public inputs produce byte-identical raw ledgers", async () => {
   const left = await temporaryOutput("fixture-024-left-");
   const right = await temporaryOutput("fixture-024-right-");
   try {
-    await executeFixture024({ profile: "smoke", output: left.output });
-    await executeFixture024({ profile: "smoke", output: right.output });
-    assert.equal(
-      await readFile(path.join(left.output, "raw-events.jsonl"), "utf8"),
-      await readFile(path.join(right.output, "raw-events.jsonl"), "utf8"),
-    );
+    await assertDeterministicSmokeExecution(executeFixture024, left.output, right.output);
   } finally {
     await cleanup(left, right);
   }

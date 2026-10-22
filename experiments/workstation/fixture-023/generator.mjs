@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { assertT01PolicyInput, assertT02PolicyInput } from "./policy-input.mjs";
+import { exactKeys } from "../lib/exact-keys.mjs";
 import { Pcg64Dxsm } from "../lib/pcg64-dxsm.mjs";
 
 export { assertT01PolicyInput, assertT02PolicyInput } from "./policy-input.mjs";
@@ -17,13 +18,6 @@ export function fixture023OpaqueWorldId(track, seed, worldIndex) {
   return `w23_${createHash("sha256")
     .update(`fixture-023-public-world-v3|${track}|${seed}|${worldIndex}`, "utf8")
     .digest("hex").slice(0, 32)}`;
-}
-
-function exactKeys(value, keys) {
-  return value
-    && typeof value === "object"
-    && !Array.isArray(value)
-    && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
 }
 
 export function validateFixture023Config(config) {
