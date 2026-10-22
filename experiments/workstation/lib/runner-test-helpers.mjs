@@ -52,3 +52,12 @@ export async function assertReleaseExecutionRequiresDigest({
   );
   await assert.rejects(() => readFile(path.join(output, "run.json")), /ENOENT/u);
 }
+
+export async function assertDeterministicSmokeExecution(execute, leftOutput, rightOutput) {
+  await execute({ profile: "smoke", output: leftOutput });
+  await execute({ profile: "smoke", output: rightOutput });
+  assert.equal(
+    await readFile(path.join(leftOutput, "raw-events.jsonl"), "utf8"),
+    await readFile(path.join(rightOutput, "raw-events.jsonl"), "utf8"),
+  );
+}

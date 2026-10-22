@@ -1,3 +1,5 @@
+import { exactKeys } from "../lib/exact-keys.mjs";
+
 const OPAQUE_WORLD_ID = /^w23_[0-9a-f]{32}$/;
 
 const EVALUATOR_ONLY_KEYS = Object.freeze(new Set([
@@ -11,13 +13,6 @@ const EVALUATOR_ONLY_KEYS = Object.freeze(new Set([
   "corruption_family",
   "rho",
 ]));
-
-function exactKeys(value, keys) {
-  return value
-    && typeof value === "object"
-    && !Array.isArray(value)
-    && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
-}
 
 function assertEvaluatorFieldsAbsent(value, location = "policy input") {
   if (Array.isArray(value)) {

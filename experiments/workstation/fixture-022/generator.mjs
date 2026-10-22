@@ -3,18 +3,12 @@ import {
   canonical,
   sha256,
 } from "./contract.mjs";
+import { exactKeys } from "../lib/exact-keys.mjs";
 import { Pcg64Dxsm } from "../lib/pcg64-dxsm.mjs";
 
 export { Pcg64Dxsm };
 
 export const FIXTURE_022_GENERATOR_VERSION = "fixture-022.dev-t01-grid-generator.v1";
-
-function exactKeys(value, keys) {
-  return value
-    && typeof value === "object"
-    && !Array.isArray(value)
-    && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
-}
 
 export function validateFixture022Config(config) {
   const keys = [
