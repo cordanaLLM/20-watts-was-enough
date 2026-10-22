@@ -185,8 +185,11 @@ func parseSourceIndex(token string, size int) (int, error) {
 			return 0, errors.New("source is not one canonical non-negative index")
 		}
 	}
+	if size <= 0 {
+		return 0, errors.New("source size must be positive")
+	}
 	parsed, err := strconv.ParseUint(token, 10, 31)
-	if err != nil || parsed >= uint64(size) {
+	if err != nil || parsed >= uint64(size) { //#nosec G115 -- size bounded >= 1 by preceding positive check
 		return 0, fmt.Errorf("source is outside 0..%d", size-1)
 	}
 	return int(parsed), nil

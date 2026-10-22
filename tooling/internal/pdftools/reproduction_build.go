@@ -187,7 +187,7 @@ func executeApkoContainer(
 		// The private 0700 temporaryRoot contains this bind mount. Its mounted
 		// directories need write and search permission for the capability-free
 		// container root, including daemons that remap container identities.
-		if err := os.Chmod(directory, 0o733); err != nil {
+		if err := os.Chmod(directory, 0o733); err != nil { //#nosec G302 -- bind mount directory permissions for capability-free container execution
 			return fmt.Errorf("prepare apko output directory permissions: %w", err)
 		}
 	}
@@ -209,7 +209,7 @@ func executeApkoContainer(
 		return err
 	}
 	for _, directory := range []string{root, sbomRoot} {
-		if err := os.Chmod(directory, 0o700); err != nil {
+		if err := os.Chmod(directory, 0o700); err != nil { //#nosec G302 -- directory restore to private 0700 after container run
 			return fmt.Errorf("close apko output directory permissions: %w", err)
 		}
 	}
