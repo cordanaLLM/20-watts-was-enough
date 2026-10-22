@@ -204,6 +204,53 @@ func ImportDataset(
 	return candidates, verifiers, nil
 }
 
+func indexVerifierExamples(scope contractScope, verifiers []VerifierExample) (map[CandidateID]VerifierExample, error) {
+	byCandidate := make(map[CandidateID]VerifierExample, len(verifiers))
+	for index, verifier := range verifiers {
+		if err := validateVerifierRecord(scope, verifier); err != nil {
+			return nil, fmt.Errorf("validate CLRS verifier %d: %w", index, err)
+		}
+		if _, exists := byCandidate[verifier.CandidateID]; exists {
+			return nil, fmt.Errorf("CLRS verifier %d duplicates candidate identity %s", index, verifier.CandidateID.String())
+		}
+		byCandidate[verifier.CandidateID] = verifier
+	}
+	return byCandidate, nil
+}
+
+func pairCandidateExamples(
+	scope contractScope,
+	datasetName string,
+	candidates []CandidateExample,
+	byCandidate map[CandidateID]VerifierExample,
+) ([]PairedExample, error) {
+	cells := newCellCounter(scope)
+	seenCandidates := make(map[CandidateID]struct{}, len(candidates))
+	pairs := make([]PairedExample, 0, len(candidates))
+	for index, candidate := range candidates {
+		if err := validateCandidateRecord(scope, datasetName, uint64(index), candidate); err != nil {
+			return nil, fmt.Errorf("validate CLRS candidate %d: %w", index, err)
+		}
+		if _, exists := seenCandidates[candidate.ID]; exists {
+			return nil, fmt.Errorf("CLRS candidate %d duplicates identity %s", index, candidate.ID.String())
+		}
+		seenCandidates[candidate.ID] = struct{}{}
+		if err := cells.observe(candidate.RequestedLength, candidate.Seed); err != nil {
+			return nil, fmt.Errorf("validate CLRS candidate %d: %w", index, err)
+		}
+		verifier, exists := byCandidate[candidate.ID]
+		if !exists {
+			return nil, fmt.Errorf("CLRS candidate %d has no verifier", index)
+		}
+		pairs = append(pairs, PairedExample{Candidate: candidate, Verifier: verifier})
+		delete(byCandidate, candidate.ID)
+	}
+	if err := cells.complete(); err != nil {
+		return nil, err
+	}
+	return pairs, nil
+}
+
 // PairExamples validates both separated sets against the caller's exact
 // contract-selected output path, recomputes every identity, and returns
 // verifier records in candidate order. It rejects identity-inconsistent,
@@ -231,40 +278,12 @@ func PairExamples(
 	if len(verifiers.Examples) != scope.task.ExpectedExamples {
 		return nil, fmt.Errorf("CLRS verifier count = %d, want exactly %d", len(verifiers.Examples), scope.task.ExpectedExamples)
 	}
-
-	byCandidate := make(map[CandidateID]VerifierExample, len(verifiers.Examples))
-	for index, verifier := range verifiers.Examples {
-		if err := validateVerifierRecord(scope, verifier); err != nil {
-			return nil, fmt.Errorf("validate CLRS verifier %d: %w", index, err)
-		}
-		if _, exists := byCandidate[verifier.CandidateID]; exists {
-			return nil, fmt.Errorf("CLRS verifier %d duplicates candidate identity %s", index, verifier.CandidateID.String())
-		}
-		byCandidate[verifier.CandidateID] = verifier
+	byCandidate, err := indexVerifierExamples(scope, verifiers.Examples)
+	if err != nil {
+		return nil, err
 	}
-
-	cells := newCellCounter(scope)
-	seenCandidates := make(map[CandidateID]struct{}, len(candidates.Examples))
-	pairs := make([]PairedExample, 0, len(candidates.Examples))
-	for index, candidate := range candidates.Examples {
-		if err := validateCandidateRecord(scope, candidates.DatasetName, uint64(index), candidate); err != nil {
-			return nil, fmt.Errorf("validate CLRS candidate %d: %w", index, err)
-		}
-		if _, exists := seenCandidates[candidate.ID]; exists {
-			return nil, fmt.Errorf("CLRS candidate %d duplicates identity %s", index, candidate.ID.String())
-		}
-		seenCandidates[candidate.ID] = struct{}{}
-		if err := cells.observe(candidate.RequestedLength, candidate.Seed); err != nil {
-			return nil, fmt.Errorf("validate CLRS candidate %d: %w", index, err)
-		}
-		verifier, exists := byCandidate[candidate.ID]
-		if !exists {
-			return nil, fmt.Errorf("CLRS candidate %d has no verifier", index)
-		}
-		pairs = append(pairs, PairedExample{Candidate: candidate, Verifier: verifier})
-		delete(byCandidate, candidate.ID)
-	}
-	if err := cells.complete(); err != nil {
+	pairs, err := pairCandidateExamples(scope, candidates.DatasetName, candidates.Examples, byCandidate)
+	if err != nil {
 		return nil, err
 	}
 	if len(byCandidate) != 0 {

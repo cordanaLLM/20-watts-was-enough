@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { access, open, readFile, unlink } from "node:fs/promises";
+import fs from "node:fs/promises";
 import path from "node:path";
 
 export const RUN_LOCK_SCHEMA = 1;
@@ -37,13 +37,61 @@ export class RunLockContentionError extends Error {
   }
 }
 
+async function closeHandleSafely(handle) {
+  try {
+    await handle.close();
+  } catch (error) {
+    if (error?.code !== "ENOENT") return error;
+  }
+  return null;
+}
+
+async function cleanupFailedLock(handle, lockPath, error) {
+  const cleanupErrors = [];
+  const closeError = await closeHandleSafely(handle);
+  if (closeError) cleanupErrors.push(closeError);
+  try {
+    await fs.unlink(lockPath);
+  } catch (unlinkError) {
+    if (unlinkError?.code !== "ENOENT") {
+      cleanupErrors.push(unlinkError);
+    }
+  }
+  if (cleanupErrors.length > 0) {
+    throw new AggregateError([error, ...cleanupErrors], `Failed to acquire run lock: ${error.message}`, { cause: error });
+  }
+  throw error;
+}
+
+async function executeRelease(handle, lockPath, ownership, token) {
+  let document;
+  try {
+    document = JSON.parse(await fs.readFile(lockPath, "utf8"));
+  } catch (error) {
+    const closeError = await closeHandleSafely(handle);
+    if (closeError) {
+      throw new AggregateError([error, closeError], `Run lock disappeared or became unreadable before release: ${error.message}`, { cause: error });
+    }
+    throw new Error(`Run lock disappeared or became unreadable before release: ${error.message}`, { cause: error });
+  }
+  if (!ownershipMatches(document, ownership, token)) {
+    const closeError = await closeHandleSafely(handle);
+    if (closeError) {
+      throw new Error("Run lock ownership changed; refusing to remove a lock not owned by this lease.", { cause: closeError });
+    }
+    throw new Error("Run lock ownership changed; refusing to remove a lock not owned by this lease.");
+  }
+  await handle.close();
+  await fs.unlink(lockPath);
+}
+
 export async function acquireRunLock({ outputDirectory, runnerId }) {
   if (typeof runnerId !== "string" || runnerId.trim() === "") {
     throw new TypeError("Run lock requires a non-empty runnerId.");
   }
   const resolvedOutput = resolvedOutputDirectory(outputDirectory);
   const lockPath = runLockPath(resolvedOutput);
-  await access(path.dirname(resolvedOutput));
+  await fs.access(path.dirname(resolvedOutput));
   const token = randomBytes(32);
   const ownership = Object.freeze({
     schema: RUN_LOCK_SCHEMA,
@@ -57,7 +105,7 @@ export async function acquireRunLock({ outputDirectory, runnerId }) {
   });
   let handle;
   try {
-    handle = await open(lockPath, "wx", 0o600);
+    handle = await fs.open(lockPath, "wx", 0o600);
   } catch (error) {
     if (error.code === "EEXIST") throw new RunLockContentionError(lockPath);
     throw error;
@@ -66,9 +114,7 @@ export async function acquireRunLock({ outputDirectory, runnerId }) {
     await handle.writeFile(`${JSON.stringify(ownership, null, 2)}\n`, "utf8");
     await handle.sync();
   } catch (error) {
-    await handle.close().catch(() => {});
-    await unlink(lockPath).catch(() => {});
-    throw error;
+    await cleanupFailedLock(handle, lockPath, error);
   }
 
   let closed = false;
@@ -77,22 +123,8 @@ export async function acquireRunLock({ outputDirectory, runnerId }) {
     ownership,
     async release() {
       if (closed) return false;
-      let document;
-      try {
-        document = JSON.parse(await readFile(lockPath, "utf8"));
-      } catch (error) {
-        await handle.close().catch(() => {});
-        closed = true;
-        throw new Error(`Run lock disappeared or became unreadable before release: ${error.message}`, { cause: error });
-      }
-      if (!ownershipMatches(document, ownership, token)) {
-        await handle.close().catch(() => {});
-        closed = true;
-        throw new Error("Run lock ownership changed; refusing to remove a lock not owned by this lease.");
-      }
-      await handle.close();
       closed = true;
-      await unlink(lockPath);
+      await executeRelease(handle, lockPath, ownership, token);
       return true;
     },
   });

@@ -14,6 +14,23 @@ the exact diff; this file records why the project changed.
   The remaining 123 findings carry a `#nosec` mark at their line that
   names the check or fixed source that makes the value safe; no file
   mode changed.
+- The CLRS generator lock moves certifi from 2026.7.22 to 2026.10.19 for
+  PYSEC-2026-4320 through a certifi-only package cutoff; every other package
+  stays as locked
+  ([Decision 0113](decisions/0113-lift-the-certifi-cutoff-in-the-clrs-generator.md)).
+  The retained SBOM bundle that CI checks moves to the
+  `clrs-sbom-bundle-2026-10-21` prerelease, scanned from the image rebuilt
+  with the new lock.
+- The Go toolchain moves from 1.27.2 to 1.27.3 for CVE-2026-111943 in
+  `crypto/x509`, which the container smoke Trivy scan reports in the static
+  `20w` image. The builder image `golang:1.27.3-trixie` is pinned by digest
+  `604106102d33` in `tooling/Dockerfile` and
+  `tooling/clrs-specialist/Dockerfile`, and the version moves everywhere it
+  is bound: both Go module files, the release identity checks in `ci.yml`
+  and `release-build.yml`, `tooling/internal/releasebuild/build.go`, the
+  engineering policy and its test, and the contributor guides. The Go module
+  file is a render-free book source, so the book provenance is re-recorded
+  without a render (Decision 0090).
 - Container smoke CI scans the four images it builds with a pinned Trivy
   0.76.0 and fails on any HIGH or CRITICAL advisory that has a fixed version;
   a planted lodash 4.17.15 proves the scanner and its database work first.
@@ -34,6 +51,16 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Renew the declared-verify npm skip in `scripts/declared-verify-npm.mjs` to
+  2026-10-25 (category B, three days): the engine fix for
+  cordanaLLM/praetor#1385 is still open, and since 2026-10-22 every
+  pre-push gate fails on the expired skip.
+- Validate the shape of `topics.json` and `translations/manifest.json` with
+  JSON Schemas under `scripts/schemas/`, compiled once through the shared
+  Ajv factory, instead of hand-written field, pattern and length checks.
+  Cross-field and file-system rules stay in code; tests bind the schema
+  limits to the exported limit constants and plant an extra field, a bad
+  slug and an all-zero source revision.
 - The `20w` command line keeps its `flag` parsing and the release module graph
   keeps Goldmark as its only dependency; kong and spdx/tools-golang are not
   adopted ([Decision 0112](decisions/0112-keep-the-20w-cli-and-release-module-graph-without-kong-or-spdx-tools-golang.md)).

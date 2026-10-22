@@ -56,7 +56,9 @@ func (writer promiseCaptureWriter) Write(body []byte) (int, error) {
 		if writer.stderr {
 			buffer = &capture.stderr
 		}
-		_, _ = buffer.Write(body[:accepted])
+		if _, err := buffer.Write(body[:accepted]); err != nil {
+			return 0, fmt.Errorf("write capture buffer: %w", err)
+		}
 		capture.remaining -= accepted
 	}
 	if accepted < int64(len(body)) {

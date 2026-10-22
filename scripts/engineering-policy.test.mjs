@@ -894,7 +894,7 @@ test("CI lane jobs enforce the locked Node and Go runtime policies", () => {
   assert.deepEqual(
     validateGoRuntimeWorkflowObject(uncachedGo, "lane-research", ".github/workflows/ci.yml"),
     [
-      ".github/workflows/ci.yml: job lane-research must use Go 1.27.2 from tooling/go.mod with tooling/go.sum caching",
+      ".github/workflows/ci.yml: job lane-research must use Go 1.27.3 from tooling/go.mod with tooling/go.sum caching",
     ],
   );
 });
@@ -1205,7 +1205,7 @@ test("Go workflows use tooling/go.mod and the Go CodeQL lane", () => {
     (step) => step.uses?.startsWith("github/codeql-action/init@"),
   ).with.languages = "javascript-typescript";
   assert.deepEqual(validateGoCodeQlWorkflowObject(tampered), [
-    ".github/workflows/codeql.yml: job analyze-go must use Go 1.27.2 from tooling/go.mod with tooling/go.sum caching",
+    ".github/workflows/codeql.yml: job analyze-go must use Go 1.27.3 from tooling/go.mod with tooling/go.sum caching",
     ".github/workflows/codeql.yml: analyze-go must initialize CodeQL autobuild for Go",
     ".github/workflows/codeql.yml: Go CodeQL must keep its exact fail-closed initialization and analysis boundary",
   ]);
@@ -3586,7 +3586,7 @@ test("container policy withholds arm64 and enforces exact-digest runtime identit
   const executionFinding = ".github/workflows/release-build.yml: candidate images must run tooling plus smoke, analyze, and validate by digest before tagging";
   for (const [from, to] of [
     ['if [[ "$tooling_identity" != "$expected_tooling_identity" ]]; then', "if false; then"],
-    ['"go_version":"go1.27.2"', '"go_version":"go1.28.0"'],
+    ['"go_version":"go1.27.3"', '"go_version":"go1.28.0"'],
     ['if [[ "$fixture_007_node" != "v26.11.1" ]]; then', "if false; then"],
     ['"Python 3.15.0"', '"Python 3.15.1"'],
     ['numpy.__version__ == \\"2.5.4\\"', 'numpy.__version__ == \\"2.5.5\\"'],
@@ -4451,7 +4451,7 @@ test("verify-all skips npm steps only inside the declared-verify stage without n
   assert.equal(declaredVerifyAction({ env: {}, hasNodeModules: false, today: lastDay }), "run");
   assert.equal(declaredVerifyAction({ env: stage, hasNodeModules: true, today: lastDay }), "run");
   // From the day after the exception expires the skip fails.
-  assert.equal(declaredVerifyAction({ env: stage, hasNodeModules: false, today: "2026-10-22" }), "expired");
+  assert.equal(declaredVerifyAction({ env: stage, hasNodeModules: false, today: "2026-10-26" }), "expired");
   assert.equal(DECLARED_VERIFY_EXCEPTION.category, "B");
   const makefile = readFileSync("Makefile", "utf8");
   assert.doesNotMatch(makefile, /'npm' 'run'/u, "every npm step in the Makefile goes through the exception script");

@@ -15,7 +15,7 @@ func TestTrackedGeneratorWheelhouseManifestLocksEveryRuntimePackage(t *testing.T
 	manifest, _, _, _ := trackedGeneratorWheelhouseManifest(t)
 	if manifest.PackageCount != generatorRuntimePackageCount || manifest.ArtifactCount != generatorRuntimePackageCount ||
 		manifest.DownloadedWheelCount != 60 || manifest.SourceBuiltWheelCount != 1 ||
-		manifest.TotalSizeBytes != 823_936_696 {
+		manifest.TotalSizeBytes != 823_936_177 {
 		t.Fatalf("tracked wheelhouse counts/bytes = %#v", manifest)
 	}
 	if len(manifest.Artifacts) != generatorRuntimePackageCount || manifest.Artifacts[0].Package != "absl-py" ||
@@ -105,7 +105,7 @@ func TestGeneratorWheelhouseManifestRejectsArtifactAndRecipeDrift(t *testing.T) 
 		),
 		"wrong authority": strings.Replace(valid, `"authority": "NO_RESULT"`, `"authority": "RESULT"`, 1),
 		"package count":   strings.Replace(valid, `"package_count": 61`, `"package_count": 60`, 1),
-		"byte total":      strings.Replace(valid, `"total_size_bytes": 823936696`, `"total_size_bytes": 823936697`, 1),
+		"byte total":      strings.Replace(valid, `"total_size_bytes": 823936177`, `"total_size_bytes": 823936178`, 1),
 		"mutable base": strings.Replace(
 			valid,
 			input.Python.BaseImage,
@@ -458,7 +458,7 @@ func TestWriteNewGeneratorWheelhouseManifestAnchorsParentAndPreservesReplacement
 			}
 			return os.WriteFile(output, replacement, 0o644)
 		})
-		if err == nil || !strings.Contains(err.Error(), "not the expected regular file") {
+		if err == nil || !strings.Contains(err.Error(), "not the expected regular file") || !strings.Contains(err.Error(), "was left untouched") {
 			t.Fatalf("write after name replacement error = %v", err)
 		}
 		retained, readErr := os.ReadFile(output)
@@ -474,7 +474,7 @@ func TestWriteNewGeneratorWheelhouseManifestAnchorsParentAndPreservesReplacement
 		_, _, err := writeNewGeneratorWheelhouseManifestWithInterlock(t.TempDir(), output, body, func() error {
 			return os.WriteFile(output, replacement, 0o644)
 		})
-		if err == nil || !strings.Contains(err.Error(), "bytes do not match") {
+		if err == nil || !strings.Contains(err.Error(), "bytes do not match") || !strings.Contains(err.Error(), "was left untouched") {
 			t.Fatalf("write after same-inode byte replacement error = %v", err)
 		}
 		retained, readErr := os.ReadFile(output)
