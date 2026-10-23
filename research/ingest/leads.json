@@ -240,7 +240,7 @@
           ],
           "milestone_title": "Ongoing — Research and upstream watch",
           "created_at": "2026-09-15T18:32:45Z",
-          "updated_at": "2026-10-15T20:37:30Z",
+          "updated_at": "2026-10-19T04:57:38Z",
           "closed_at": null,
           "author_type": "User",
           "tier": "untiered",
@@ -250,9 +250,9 @@
             "arxiv_ids": [],
             "release_tags": []
           },
-          "content_hash": "97f93ea331e06e3097c6bed875eb33e4013c25117143ed8059ecae013a53c31d",
-          "fetched_at": "2026-10-17T02:07:01.951Z",
-          "watermark": ""
+          "content_hash": "92d41245f1c8ab2975c6cbe729c0fd395e765135ec9978f6e6118ebd81ff568d",
+          "fetched_at": "2026-10-23T04:37:44.418Z",
+          "watermark": "2026-10-19T02:06:16.979Z"
         }
       ],
       "private_origin_count": 0,
@@ -273,7 +273,7 @@
           ],
           "milestone_title": "Ongoing — Research and upstream watch",
           "created_at": "2026-10-10T14:02:20Z",
-          "updated_at": "2026-10-15T20:37:25Z",
+          "updated_at": "2026-10-19T04:54:05Z",
           "closed_at": null,
           "author_type": "User",
           "tier": "untiered",
@@ -284,8 +284,8 @@
             "release_tags": []
           },
           "content_hash": "c7c2306700765d710f97953ac6ab4a6423a4f2ac8f683e36cba99dd7d8f1dfbd",
-          "fetched_at": "2026-10-17T02:07:01.951Z",
-          "watermark": ""
+          "fetched_at": "2026-10-23T04:37:44.418Z",
+          "watermark": "2026-10-19T02:06:16.979Z"
         }
       ],
       "private_origin_count": 0,
@@ -307,7 +307,7 @@
           ],
           "milestone_title": "Ongoing — Research and upstream watch",
           "created_at": "2026-10-10T15:50:37Z",
-          "updated_at": "2026-10-15T20:37:21Z",
+          "updated_at": "2026-10-19T04:55:31Z",
           "closed_at": null,
           "author_type": "User",
           "tier": "untiered",
@@ -317,9 +317,9 @@
             "arxiv_ids": [],
             "release_tags": []
           },
-          "content_hash": "bdfca7105bec6a195960eb821b1b1c34f5dc9e7f0834d39f5d9fa16c75cc7517",
-          "fetched_at": "2026-10-17T02:07:01.951Z",
-          "watermark": ""
+          "content_hash": "deb9052606b2003c64f5ef4656d8765b7b566f215ab2f313e50a8fd146fc8d03",
+          "fetched_at": "2026-10-23T04:37:44.418Z",
+          "watermark": "2026-10-19T02:06:16.979Z"
         }
       ],
       "private_origin_count": 0,
@@ -340,7 +340,7 @@
           ],
           "milestone_title": "Ongoing — Research and upstream watch",
           "created_at": "2026-10-10T15:50:39Z",
-          "updated_at": "2026-10-15T20:37:19Z",
+          "updated_at": "2026-10-19T04:56:56Z",
           "closed_at": null,
           "author_type": "User",
           "tier": "untiered",
@@ -351,8 +351,8 @@
             "release_tags": []
           },
           "content_hash": "e2d86651a41ff12f74cf77d5421ba3681ac2ab035427b7e6009f490572ab8563",
-          "fetched_at": "2026-10-17T02:07:01.951Z",
-          "watermark": ""
+          "fetched_at": "2026-10-23T04:37:44.418Z",
+          "watermark": "2026-10-19T02:06:16.979Z"
         }
       ],
       "private_origin_count": 0,
@@ -366,7 +366,7 @@
           "node_id": "I_kwDOSBdLbc8AAAABWVp50g",
           "title": "Track Dependabot alert 35: braces 3.0.3 has no patched release (exception until 2027-01-10)",
           "url": "https://github.com/golusoris/golusoris/issues/801",
-          "state": "open",
+          "state": "closed",
           "visibility": "public",
           "labels": [
             "dependencies",
@@ -374,8 +374,8 @@
           ],
           "milestone_title": "Ongoing — Research and upstream watch",
           "created_at": "2026-10-10T18:26:04Z",
-          "updated_at": "2026-10-15T20:37:27Z",
-          "closed_at": null,
+          "updated_at": "2026-10-19T04:53:40Z",
+          "closed_at": "2026-10-19T04:53:40Z",
           "author_type": "User",
           "tier": "untiered",
           "source_links": {
@@ -385,8 +385,8 @@
             "release_tags": []
           },
           "content_hash": "733869a84725c397e20f2d2386eac2dd379edc6c78ed21accf496aa5b1b483bf",
-          "fetched_at": "2026-10-17T02:07:01.951Z",
-          "watermark": ""
+          "fetched_at": "2026-10-23T04:37:44.418Z",
+          "watermark": "2026-10-19T02:06:16.979Z"
         }
       ],
       "private_origin_count": 0,
