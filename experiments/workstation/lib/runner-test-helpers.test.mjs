@@ -221,7 +221,7 @@ test("temporaryOutput and cleanup manage frozen directory fixtures under tmp", a
   await writeFile(path.join(fixture1.parent, "marker.txt"), "ok");
   await writeFile(path.join(fixture2.parent, "marker.txt"), "ok");
 
-  await cleanup(fixture1, fixture2, null, undefined, {});
+  await cleanup(fixture1, fixture2);
   await assert.rejects(() => readFile(path.join(fixture1.parent, "marker.txt")), /ENOENT/u);
   await assert.rejects(() => readFile(path.join(fixture2.parent, "marker.txt")), /ENOENT/u);
 });
@@ -229,6 +229,9 @@ test("temporaryOutput and cleanup manage frozen directory fixtures under tmp", a
 test("cleanup fails closed when fixture parent is outside the temporary root", async () => {
   const unsafeFixture = { parent: "/var/tmp/unsafe-escape" };
   await assert.rejects(() => cleanup(unsafeFixture), assert.AssertionError);
+  await assert.rejects(() => cleanup({}), TypeError);
+  const many = Array.from({ length: 33 }, () => ({ parent: path.join(process.cwd(), "tmp", "never-created") }));
+  await assert.rejects(() => cleanup(...many), /at most 32 fixtures/);
 });
 
 test("assertResumeMatchesUninterruptedExecution validates clean resume reproducibility", async () => {
@@ -292,6 +295,16 @@ test("assertResumeMatchesUninterruptedExecution rejects when execution diverges 
       }),
       assert.AssertionError,
     );
+
+    const stalledResumeExecute = async () => ({ complete: false });
+    await assert.rejects(
+      () => assertResumeMatchesUninterruptedExecution({
+        execute: stalledResumeExecute,
+        resumed,
+        complete,
+      }),
+      assert.AssertionError,
+    );
   } finally {
     await cleanup(resumed, complete);
   }
@@ -311,10 +324,18 @@ test("assertCliExecutionRejections validates expected rejections for CLI partiti
     return true;
   };
 
-  await assertCliExecutionRejections({ main: createMockMain(false) });
+  const confirmationPattern = /private partitions are not executable/;
+  await assertCliExecutionRejections({ main: createMockMain(false), confirmationPattern });
 
   await assert.rejects(
-    () => assertCliExecutionRejections({ main: createMockMain(true) }),
+    () => assertCliExecutionRejections({ main: createMockMain(true), confirmationPattern }),
+    assert.AssertionError,
+  );
+  await assert.rejects(
+    () => assertCliExecutionRejections({
+      main: createMockMain(false),
+      confirmationPattern: /confirmation and transfer are inaccessible/,
+    }),
     assert.AssertionError,
   );
 });

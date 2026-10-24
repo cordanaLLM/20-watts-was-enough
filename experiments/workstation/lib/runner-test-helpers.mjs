@@ -10,18 +10,18 @@ import path from "node:path";
 
 const defaultTemporaryRoot = path.join(process.cwd(), "tmp");
 
-export async function temporaryOutput(prefix, baseRoot = defaultTemporaryRoot) {
-  await mkdir(baseRoot, { recursive: true });
-  const parent = await mkdtemp(path.join(baseRoot, prefix));
+const maxCleanupFixtures = 32;
+const maxRejectedOptions = 16;
+
+export async function temporaryOutput(prefix) {
+  await mkdir(defaultTemporaryRoot, { recursive: true });
+  const parent = await mkdtemp(path.join(defaultTemporaryRoot, prefix));
   return Object.freeze({ parent, output: path.join(parent, "run") });
 }
 
 export async function cleanup(...fixtures) {
-  const boundedFixtures = fixtures.slice(0, 32);
-  for (const fixture of boundedFixtures) {
-    if (!fixture?.parent) {
-      continue;
-    }
+  assert.ok(fixtures.length <= maxCleanupFixtures, `cleanup accepts at most ${maxCleanupFixtures} fixtures`);
+  for (const fixture of fixtures) {
     assert.ok(fixture.parent.startsWith(defaultTemporaryRoot));
     await rm(fixture.parent, { recursive: true, force: true });
   }
@@ -31,11 +31,11 @@ export async function assertResumeMatchesUninterruptedExecution({
   execute,
   resumed,
   complete,
-  resumedOutput = resumed?.output ?? resumed,
-  completeOutput = complete?.output ?? complete,
   maxWorkUnits = 7,
   extraChecks = () => {},
 }) {
+  const resumedOutput = resumed.output;
+  const completeOutput = complete.output;
   const partial = await execute({
     profile: "smoke",
     output: resumedOutput,
@@ -63,7 +63,7 @@ export async function assertResumeMatchesUninterruptedExecution({
 
 export async function assertCliExecutionRejections({
   main,
-  confirmationPattern = /private partitions are not executable|confirmation and transfer are inaccessible/,
+  confirmationPattern,
   rejectedOptions = [["--seeds", "private.json"]],
 }) {
   await assert.rejects(
@@ -74,8 +74,11 @@ export async function assertCliExecutionRejections({
     () => main(["node", "runner.mjs", "smoke", "--profile", "smoke"]),
     /requires --output/,
   );
-  const boundedOptions = rejectedOptions.slice(0, 16);
-  for (const option of boundedOptions) {
+  assert.ok(
+    rejectedOptions.length <= maxRejectedOptions,
+    `at most ${maxRejectedOptions} rejected options`,
+  );
+  for (const option of rejectedOptions) {
     await assert.rejects(
       () => main(["node", "runner.mjs", "prepare", "--profile", "smoke", ...option]),
       /Unknown or duplicate/,

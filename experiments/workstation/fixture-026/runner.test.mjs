@@ -529,6 +529,7 @@ test("analysis and resume reject noncanonical CRLF JSONL", async () => {
 test("CLI rejects private partitions, meters, GPUs, and implicit output", async () => {
   await assertCliExecutionRejections({
     main,
+    confirmationPattern: /private partitions are not executable/,
     rejectedOptions: [
       ["--meter", "device.json"],
       ["--gpu", "true"],

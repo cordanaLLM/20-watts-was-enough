@@ -163,6 +163,7 @@ test("analysis rejects an altered chained diagnostic value", async () => {
 test("CLI exposes no private partition, apparatus, meter, or implicit output", async () => {
   await assertCliExecutionRejections({
     main,
+    confirmationPattern: /private partitions are not executable/,
     rejectedOptions: [["--meter", "device.json"]],
   });
 });

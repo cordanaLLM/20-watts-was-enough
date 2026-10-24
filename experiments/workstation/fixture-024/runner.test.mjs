@@ -112,5 +112,5 @@ test("analysis rejects an altered chained record", async () => {
 });
 
 test("CLI has no confirmation or transfer action and requires explicit outputs", async () => {
-  await assertCliExecutionRejections({ main });
+  await assertCliExecutionRejections({ main, confirmationPattern: /private partitions are not executable/ });
 });

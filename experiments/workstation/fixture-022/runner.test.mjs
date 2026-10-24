@@ -618,5 +618,5 @@ test("analysis rejects an altered chained protected metric", async () => {
 });
 
 test("CLI exposes no confirmation or transfer action and rejects seed injection", async () => {
-  await assertCliExecutionRejections({ main });
+  await assertCliExecutionRejections({ main, confirmationPattern: /private partitions are not executable/ });
 });
