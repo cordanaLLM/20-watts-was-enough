@@ -1,15 +1,28 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
 import {
+  assertCheckpointSchemaRejections,
   assertCliOptionRejections,
   assertDeterministicSmokeExecution,
   assertReleaseExecutionRequiresDigest,
+  cleanupSymlinkFixture,
   corruptRawEventsFirstRow,
+  rehashCheckpoint,
   releaseEnvironment,
   releaseIdentityMismatches,
+  writeRehashedCheckpoint,
 } from "./runner-test-helpers.mjs";
 
 test("releaseEnvironment produces valid default and artifact-specific configs", () => {
@@ -202,6 +215,102 @@ test("corruptRawEventsFirstRow rejects on missing directory or non-existent raw-
   const tempDir = await mkdtemp(path.join(process.cwd(), "tmp-corrupt-missing-"));
   try {
     await assert.rejects(() => corruptRawEventsFirstRow(tempDir), /ENOENT/u);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("rehashCheckpoint recomputes checkpoint_sha256 digest over stripped body", () => {
+  const original = {
+    schema: 1,
+    artifact: "fixture-019",
+    records: 1,
+    checkpoint_sha256: "stale-hash",
+  };
+  const rehashed = rehashCheckpoint(original);
+  assert.notEqual(rehashed.checkpoint_sha256, "stale-hash");
+  assert.match(rehashed.checkpoint_sha256, /^[0-9a-f]{64}$/);
+  assert.equal(rehashed.records, 1);
+  assert.equal(rehashed, original);
+  assert.deepEqual(Object.keys(rehashed), ["schema", "artifact", "records", "checkpoint_sha256"]);
+
+  const custom = rehashCheckpoint({ ...original, checkpoint_sha256: "stale-hash" }, {
+    hash: (data) => `mock:${data}`,
+    canonical: (obj) => JSON.stringify(obj),
+  });
+  assert.equal(custom.checkpoint_sha256, 'mock:{"schema":1,"artifact":"fixture-019","records":1}');
+});
+
+test("writeRehashedCheckpoint mutates and writes checkpoint to disk", async () => {
+  const tempDir = await mkdtemp(path.join(process.cwd(), "tmp-rehash-write-"));
+  try {
+    const checkpointPath = path.join(tempDir, "checkpoint.json");
+    await writeFile(checkpointPath, `${JSON.stringify({ schema: 1, records: 1 })}\n`);
+
+    await writeRehashedCheckpoint(checkpointPath, (checkpoint) => {
+      checkpoint.records += 1;
+    });
+    const written = JSON.parse(await readFile(checkpointPath, "utf8"));
+    assert.equal(written.records, 2);
+    assert.match(written.checkpoint_sha256, /^[0-9a-f]{64}$/);
+
+    await writeRehashedCheckpoint(checkpointPath, { schema: 1, records: 5 });
+    const direct = JSON.parse(await readFile(checkpointPath, "utf8"));
+    assert.equal(direct.records, 5);
+    assert.match(direct.checkpoint_sha256, /^[0-9a-f]{64}$/);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("assertCheckpointSchemaRejections iterates mutations, asserts rejections, and leaves the last mutation on disk", async () => {
+  const tempDir = await mkdtemp(path.join(process.cwd(), "tmp-schema-rejections-"));
+  try {
+    const checkpointPath = path.join(tempDir, "checkpoint.json");
+    const baseline = { schema: 1, records: 1, claim_eligible: false };
+    await writeFile(checkpointPath, `${JSON.stringify(baseline, null, 2)}\n`);
+
+    const observedMutations = [];
+    await assertCheckpointSchemaRejections({
+      checkpointPath,
+      assertRejection: async () => {
+        const current = JSON.parse(await readFile(checkpointPath, "utf8"));
+        observedMutations.push(current);
+        if (current.claim_eligible !== true && current.records !== "1") {
+          throw new Error("expected mutation");
+        }
+      },
+    });
+
+    assert.equal(observedMutations.length, 2);
+    assert.equal(observedMutations[0].claim_eligible, true);
+    assert.equal(observedMutations[1].records, "1");
+
+    const last = JSON.parse(await readFile(checkpointPath, "utf8"));
+    assert.equal(last.records, "1");
+    assert.equal(last.claim_eligible, false);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("cleanupSymlinkFixture safely cleans junction, parent, and outside directories", async () => {
+  const tempDir = await mkdtemp(path.join(process.cwd(), "tmp-cleanup-symlink-"));
+  const parent = path.join(tempDir, "parent");
+  const outside = path.join(tempDir, "outside");
+  const junction = path.join(tempDir, "standalone-link");
+  await mkdir(parent, { recursive: true });
+  await mkdir(outside, { recursive: true });
+  await symlink(outside, junction, "junction");
+  try {
+    await cleanupSymlinkFixture({ junction, parent, outside });
+
+    await assert.rejects(() => lstat(junction), /ENOENT/u);
+    await assert.rejects(() => stat(parent), /ENOENT/u);
+    await assert.rejects(() => stat(outside), /ENOENT/u);
+
+    await cleanupSymlinkFixture({ junction, parent, outside });
+    await cleanupSymlinkFixture({ junction: null, parent: null, outside: null });
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }

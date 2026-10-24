@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, rm, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
+
+import { canonicalize, sha256Hex } from "./checkpoint-ledger.mjs";
 
 export async function assertCliOptionRejections(main) {
   await assert.rejects(
@@ -74,4 +76,56 @@ export async function corruptRawEventsFirstRow(
   mutate(first);
   rows[0] = JSON.stringify(first);
   await writeFile(rawPath, `${rows.join("\n")}\n`);
+}
+
+export function rehashCheckpoint(checkpoint, {
+  hash = sha256Hex,
+  canonical = canonicalize,
+} = {}) {
+  const body = { ...checkpoint };
+  delete body.checkpoint_sha256;
+  checkpoint.checkpoint_sha256 = hash(canonical(body));
+  return checkpoint;
+}
+
+export async function writeRehashedCheckpoint(checkpointPath, mutateOrCheckpoint, options = {}) {
+  let checkpoint;
+  if (typeof mutateOrCheckpoint === "function") {
+    checkpoint = JSON.parse(await readFile(checkpointPath, "utf8"));
+    mutateOrCheckpoint(checkpoint);
+  } else {
+    checkpoint = mutateOrCheckpoint;
+  }
+  const rehashed = rehashCheckpoint(checkpoint, options);
+  await writeFile(checkpointPath, `${JSON.stringify(rehashed, null, 2)}\n`);
+  return rehashed;
+}
+
+export async function assertCheckpointSchemaRejections({
+  checkpointPath,
+  assertRejection,
+  mutations = [
+    (checkpoint) => { checkpoint.claim_eligible = true; },
+    (checkpoint) => { checkpoint.records = String(checkpoint.records); },
+  ],
+  hash = sha256Hex,
+  canonical = canonicalize,
+}) {
+  const original = JSON.parse(await readFile(checkpointPath, "utf8"));
+  for (const mutate of mutations) {
+    const checkpoint = structuredClone(original);
+    mutate(checkpoint);
+    await writeRehashedCheckpoint(checkpointPath, checkpoint, { hash, canonical });
+    await assertRejection();
+  }
+}
+
+export async function cleanupSymlinkFixture({ junction, parent, outside }) {
+  if (junction) {
+    await unlink(junction).catch((error) => {
+      if (error?.code !== "ENOENT") throw error;
+    });
+  }
+  if (parent) await rm(parent, { recursive: true, force: true });
+  if (outside) await rm(outside, { recursive: true, force: true });
 }
