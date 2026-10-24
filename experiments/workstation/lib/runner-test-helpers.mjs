@@ -84,17 +84,14 @@ export function rehashCheckpoint(checkpoint, {
 } = {}) {
   const body = { ...checkpoint };
   delete body.checkpoint_sha256;
-  return {
-    ...body,
-    checkpoint_sha256: hash(canonical(body)),
-  };
+  checkpoint.checkpoint_sha256 = hash(canonical(body));
+  return checkpoint;
 }
 
 export async function writeRehashedCheckpoint(checkpointPath, mutateOrCheckpoint, options = {}) {
   let checkpoint;
   if (typeof mutateOrCheckpoint === "function") {
-    const original = JSON.parse(await readFile(checkpointPath, "utf8"));
-    checkpoint = structuredClone(original);
+    checkpoint = JSON.parse(await readFile(checkpointPath, "utf8"));
     mutateOrCheckpoint(checkpoint);
   } else {
     checkpoint = mutateOrCheckpoint;
@@ -115,15 +112,11 @@ export async function assertCheckpointSchemaRejections({
   canonical = canonicalize,
 }) {
   const original = JSON.parse(await readFile(checkpointPath, "utf8"));
-  try {
-    for (const mutate of mutations) {
-      const checkpoint = structuredClone(original);
-      mutate(checkpoint);
-      await writeRehashedCheckpoint(checkpointPath, checkpoint, { hash, canonical });
-      await assertRejection();
-    }
-  } finally {
-    await writeFile(checkpointPath, `${JSON.stringify(original, null, 2)}\n`);
+  for (const mutate of mutations) {
+    const checkpoint = structuredClone(original);
+    mutate(checkpoint);
+    await writeRehashedCheckpoint(checkpointPath, checkpoint, { hash, canonical });
+    await assertRejection();
   }
 }
 

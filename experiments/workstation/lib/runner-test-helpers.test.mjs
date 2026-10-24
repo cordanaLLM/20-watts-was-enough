@@ -231,8 +231,10 @@ test("rehashCheckpoint recomputes checkpoint_sha256 digest over stripped body", 
   assert.notEqual(rehashed.checkpoint_sha256, "stale-hash");
   assert.match(rehashed.checkpoint_sha256, /^[0-9a-f]{64}$/);
   assert.equal(rehashed.records, 1);
+  assert.equal(rehashed, original);
+  assert.deepEqual(Object.keys(rehashed), ["schema", "artifact", "records", "checkpoint_sha256"]);
 
-  const custom = rehashCheckpoint(original, {
+  const custom = rehashCheckpoint({ ...original, checkpoint_sha256: "stale-hash" }, {
     hash: (data) => `mock:${data}`,
     canonical: (obj) => JSON.stringify(obj),
   });
@@ -261,7 +263,7 @@ test("writeRehashedCheckpoint mutates and writes checkpoint to disk", async () =
   }
 });
 
-test("assertCheckpointSchemaRejections iterates mutations, asserts rejections, and restores original checkpoint", async () => {
+test("assertCheckpointSchemaRejections iterates mutations, asserts rejections, and leaves the last mutation on disk", async () => {
   const tempDir = await mkdtemp(path.join(process.cwd(), "tmp-schema-rejections-"));
   try {
     const checkpointPath = path.join(tempDir, "checkpoint.json");
@@ -284,8 +286,9 @@ test("assertCheckpointSchemaRejections iterates mutations, asserts rejections, a
     assert.equal(observedMutations[0].claim_eligible, true);
     assert.equal(observedMutations[1].records, "1");
 
-    const restored = JSON.parse(await readFile(checkpointPath, "utf8"));
-    assert.deepEqual(restored, baseline);
+    const last = JSON.parse(await readFile(checkpointPath, "utf8"));
+    assert.equal(last.records, "1");
+    assert.equal(last.claim_eligible, false);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
