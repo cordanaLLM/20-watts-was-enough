@@ -23,7 +23,7 @@ func TestGeneratorDependencyArtifactCutoffBoundaries(t *testing.T) {
 		t.Fatalf("reviewed lock counts/error = %d/%d/%v", count, artifacts, err)
 	}
 	for _, pkg := range packages {
-		if pkg.Name != "certifi" && pkg.Name != "pip" && pkg.Name != "urllib3" && pkg.Name != "wheel" {
+		if pkg.Name != "certifi" && pkg.Name != "pip" && pkg.Name != "setuptools" && pkg.Name != "urllib3" && pkg.Name != "wheel" {
 			continue
 		}
 		cutoffText := input.Resolver.ExcludeNewer

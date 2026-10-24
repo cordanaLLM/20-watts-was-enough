@@ -52,7 +52,7 @@ the controller, validator and fixture-import boundary.
   authority fields. The Promise MIT text is retained at
   [`LICENSES/promise-MIT.txt`](../../LICENSES/promise-MIT.txt); the manifest
   binds its source and built-wheel paths, hash and size. The complete selected
-  set is 825,756,027 bytes; those bytes remain ignored build inputs rather than
+  set is 825,757,191 bytes; those bytes remain ignored build inputs rather than
   Git content.
 - [`image-contract.json`](image-contract.json) reuses the repository's pinned
   Buildx, BuildKit and timestamp-rewrite authority; fixes resource and runtime
