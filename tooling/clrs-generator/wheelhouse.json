@@ -12,7 +12,7 @@
   "artifact_count": 62,
   "downloaded_wheel_count": 61,
   "source_built_wheel_count": 1,
-  "total_size_bytes": 825757191,
+  "total_size_bytes": 825757190,
   "artifacts": [
     {
       "package": "absl-py",
@@ -353,8 +353,8 @@
       "kind": "source-built-wheel",
       "filename": "promise-2.3-py3-none-any.whl",
       "url": "",
-      "sha256": "bef8aedf1f65bca04bed59a7dd784f94075ceeb61c13ea9aaf86c91f569f861b",
-      "size_bytes": 21582
+      "sha256": "e9fa8772ebc9d24e4357d671f8194cd1d95875732533a43f5b5f5e472160cac2",
+      "size_bytes": 21581
     },
     {
       "package": "protobuf",
