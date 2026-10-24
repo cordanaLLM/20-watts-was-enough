@@ -1,5 +1,15 @@
 import { createHash } from "node:crypto";
 
+import { Pcg64Dxsm } from "../lib/pcg64-dxsm.mjs";
+import {
+  formatSeedHex,
+  formatStreamPreimage,
+  uint32SeedBytes,
+} from "../lib/stream-seed.mjs";
+import { exactKeys } from "../lib/exact-keys.mjs";
+
+export { Pcg64Dxsm };
+
 export const FIXTURE_027_GENERATOR_VERSION = "fixture-027.rin-t01-generator.v2";
 export const FIXTURE_027_CLASSES = Object.freeze([
   "zero-load-control",
@@ -10,86 +20,34 @@ export const FIXTURE_027_CLASSES = Object.freeze([
   "interface-schema-invalid",
 ]);
 
-const MASK_64 = (1n << 64n) - 1n;
-const MASK_128 = (1n << 128n) - 1n;
-const MULTIPLIER = 0x2360ed051fc65da44385df649fccf645n;
-const DXSM_MULTIPLIER = 0xda942042e4dd58b5n;
-const TWO_POW_53 = 9007199254740992;
-
-function littleEndianBigInt(bytes) {
-  let value = 0n;
-  for (let index = bytes.length - 1; index >= 0; index -= 1) value = (value << 8n) | BigInt(bytes[index]);
-  return value;
-}
-
-export class Pcg64Dxsm {
-  constructor(literalSeed) {
-    const digest = createHash("sha256").update(String(literalSeed), "utf8").digest();
-    const initialState = littleEndianBigInt(digest.subarray(0, 16));
-    const selector = littleEndianBigInt(digest.subarray(16, 32));
-    this.increment = ((selector << 1n) | 1n) & MASK_128;
-    this.state = 0n;
-    this.advance();
-    this.state = (this.state + initialState) & MASK_128;
-    this.advance();
-  }
-
-  advance() {
-    this.state = (this.state * MULTIPLIER + this.increment) & MASK_128;
-  }
-
-  nextUint64() {
-    const old = this.state;
-    this.advance();
-    let high = (old >> 64n) & MASK_64;
-    const low = (old & MASK_64) | 1n;
-    high ^= high >> 32n;
-    high = (high * DXSM_MULTIPLIER) & MASK_64;
-    high ^= high >> 48n;
-    return (high * low) & MASK_64;
-  }
-
-  uniform() {
-    return Number(this.nextUint64() >> 11n) / TWO_POW_53;
-  }
-
-  range(minimum, maximum) {
-    return minimum + (maximum - minimum) * this.uniform();
-  }
-}
+const FIXTURE_027_SCOPES = Object.freeze(new Set([
+  "dgp",
+  "observation",
+  "arm-init",
+  "action-outcome",
+  "analysis",
+]));
 
 export function publicSeedBytes(seed) {
-  if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffff_ffff) {
-    throw new Error("Fixture 027 public seed must be an unsigned integer.");
-  }
-  const bytes = Buffer.alloc(8);
-  bytes.writeBigUInt64LE(BigInt(seed));
-  return bytes;
+  return uint32SeedBytes(seed, "Fixture 027 public");
 }
 
 export function publicSeedHex(seed) {
-  return publicSeedBytes(seed).toString("hex").toUpperCase();
+  return formatSeedHex(publicSeedBytes(seed));
 }
 
 export function fixture027StreamPreimage({ phase, protocol, seed, scope, canonicalId }) {
-  if (!new Set(["development", "confirmation", "transfer", "ablation"]).has(phase)) {
-    throw new Error("Fixture 027 stream phase is invalid.");
-  }
-  if (protocol !== "RIN-T01") throw new Error("Fixture 027 stream protocol is invalid.");
-  if (!new Set(["dgp", "observation", "arm-init", "action-outcome", "analysis"]).has(scope)) {
-    throw new Error("Fixture 027 stream scope is invalid.");
-  }
-  if (!/^(0|[1-9][0-9]*)$/.test(String(canonicalId))) {
-    throw new Error("Fixture 027 stream canonical ID must be unpadded ASCII decimal.");
-  }
-  return `F027-v1|${phase}|${protocol}|${publicSeedHex(seed)}|${scope}|${canonicalId}`;
-}
-
-function exactKeys(value, keys) {
-  return value
-    && typeof value === "object"
-    && !Array.isArray(value)
-    && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
+  return formatStreamPreimage({
+    version: "F027-v1",
+    phase,
+    protocol,
+    seedHex: publicSeedHex(seed),
+    scope,
+    canonicalId,
+    label: "Fixture 027",
+    isValidProtocol: (candidate) => candidate === "RIN-T01",
+    validScopes: FIXTURE_027_SCOPES,
+  });
 }
 
 export function validateFixture027Config(config) {

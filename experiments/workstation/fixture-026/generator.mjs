@@ -1,5 +1,11 @@
 import { createHash } from "node:crypto";
 
+import {
+  formatSeedHex,
+  formatStreamPreimage,
+} from "../lib/stream-seed.mjs";
+import { exactKeys } from "../lib/exact-keys.mjs";
+
 export const FIXTURE_026_GENERATOR_VERSION = "fixture-026.rsd-t01-generator.v2";
 export const FIXTURE_026_RNG_CONTRACT = Object.freeze({
   family: "PCG-CM-DXSM 128/64",
@@ -105,29 +111,30 @@ export function publicSeedBytes(seed) {
   return bytes;
 }
 
+const FIXTURE_026_SCOPES = Object.freeze(new Set([
+  "dgp",
+  "observation",
+  "policy",
+  "evaluation",
+  "analysis",
+]));
+
 export function publicSeedHex(seed) {
-  return publicSeedBytes(seed).toString("hex").toUpperCase();
+  return formatSeedHex(publicSeedBytes(seed));
 }
 
 export function fixture026StreamPreimage({ phase, protocol, seed, scope, canonicalId }) {
-  if (!new Set(["development", "confirmation", "transfer", "ablation"]).has(phase)) {
-    throw new Error("Fixture 026 stream phase is invalid.");
-  }
-  if (protocol !== "RSD-T01") throw new Error("Fixture 026 stream protocol is invalid.");
-  if (!new Set(["dgp", "observation", "policy", "evaluation", "analysis"]).has(scope)) {
-    throw new Error("Fixture 026 stream scope is invalid.");
-  }
-  if (!/^(0|[1-9][0-9]*)$/.test(String(canonicalId))) {
-    throw new Error("Fixture 026 stream canonical ID must be unpadded ASCII decimal.");
-  }
-  return `F026-v2|${phase}|${protocol}|${publicSeedHex(seed)}|${scope}|${canonicalId}`;
-}
-
-function exactKeys(value, keys) {
-  return value
-    && typeof value === "object"
-    && !Array.isArray(value)
-    && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
+  return formatStreamPreimage({
+    version: "F026-v2",
+    phase,
+    protocol,
+    seedHex: publicSeedHex(seed),
+    scope,
+    canonicalId,
+    label: "Fixture 026",
+    isValidProtocol: (candidate) => candidate === "RSD-T01",
+    validScopes: FIXTURE_026_SCOPES,
+  });
 }
 
 export function validateFixture026Config(config) {

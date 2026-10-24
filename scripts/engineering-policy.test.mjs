@@ -30,6 +30,9 @@ import {
   engineManagedWorkflowPaths,
   formatFindings,
   generatedHookJobSkips,
+  supersededRunCancellationWorkflowPaths,
+  supersededRunConcurrencyGroup,
+  validateSupersededRunCancellationWorkflowObject,
   validateCiExperimentImageWorkflowObject,
   validateCiCodeShapeResetWorkflowObject,
   validateCiNativeReleaseWorkflowObject,
@@ -606,6 +609,117 @@ test("workflow validation rejects ambient writes, unbounded concurrency, and cre
   ]);
 });
 
+test("superseded pull-request runs cancel on branches while main runs never cancel", () => {
+  assert.deepEqual([...supersededRunCancellationWorkflowPaths], [
+    ".github/workflows/ci.yml",
+    ".github/workflows/codeql.yml",
+    ".github/workflows/scorecard.yml",
+  ]);
+
+  // Positive: real ci.yml, codeql.yml, scorecard.yml give no finding.
+  for (const relativePath of supersededRunCancellationWorkflowPaths) {
+    const valid = parse(readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8"));
+    assert.deepEqual(
+      validateSupersededRunCancellationWorkflowObject(valid, relativePath),
+      [],
+      relativePath,
+    );
+  }
+
+  // Negative: cancel-in-progress false -> finding
+  const cancelInProgressFalse = {
+    on: { pull_request: { branches: ["main"] } },
+    concurrency: {
+      group: supersededRunConcurrencyGroup,
+      "cancel-in-progress": false,
+    },
+    jobs: { build: {} },
+  };
+  assert.deepEqual(
+    validateSupersededRunCancellationWorkflowObject(cancelInProgressFalse, "custom.yml"),
+    [
+      `custom.yml: concurrency must cancel superseded runs on every ref except main (group ${supersededRunConcurrencyGroup}, cancel-in-progress true)`,
+    ],
+  );
+
+  // Negative: group `${{ github.workflow }}-${{ github.ref }}` (would cancel main) -> finding
+  const cancelsMain = {
+    on: { pull_request: { branches: ["main"] } },
+    concurrency: {
+      group: "${{ github.workflow }}-${{ github.ref }}",
+      "cancel-in-progress": true,
+    },
+    jobs: { build: {} },
+  };
+  assert.deepEqual(
+    validateSupersededRunCancellationWorkflowObject(cancelsMain, "custom.yml"),
+    [
+      `custom.yml: concurrency must cancel superseded runs on every ref except main (group ${supersededRunConcurrencyGroup}, cancel-in-progress true)`,
+    ],
+  );
+
+  // Negative: new workflow with on.pull_request and no concurrency -> finding
+  const noConcurrency = {
+    on: { pull_request: { branches: ["main"] } },
+    jobs: { build: {} },
+  };
+  assert.deepEqual(
+    validateSupersededRunCancellationWorkflowObject(noConcurrency, "custom.yml"),
+    [
+      `custom.yml: concurrency must cancel superseded runs on every ref except main (group ${supersededRunConcurrencyGroup}, cancel-in-progress true)`,
+    ],
+  );
+
+  // Negative: on: [pull_request] array form -> finding
+  const arrayFormNoConcurrency = {
+    on: ["pull_request"],
+    jobs: { build: {} },
+  };
+  assert.deepEqual(
+    validateSupersededRunCancellationWorkflowObject(arrayFormNoConcurrency, "custom.yml"),
+    [
+      `custom.yml: concurrency must cancel superseded runs on every ref except main (group ${supersededRunConcurrencyGroup}, cancel-in-progress true)`,
+    ],
+  );
+
+  const arrayFormWrongGroup = {
+    on: ["pull_request", "push"],
+    concurrency: {
+      group: "${{ github.workflow }}-${{ github.ref }}",
+      "cancel-in-progress": true,
+    },
+    jobs: { build: {} },
+  };
+  assert.deepEqual(
+    validateSupersededRunCancellationWorkflowObject(arrayFormWrongGroup, "custom.yml"),
+    [
+      `custom.yml: concurrency must cancel superseded runs on every ref except main (group ${supersededRunConcurrencyGroup}, cancel-in-progress true)`,
+    ],
+  );
+
+  // Boundary: on: { pull_request_target: {} } only -> no finding
+  const pullRequestTargetOnly = {
+    on: { pull_request_target: { branches: ["main"] } },
+    concurrency: {
+      group: "${{ github.workflow }}-${{ github.event.pull_request.number }}",
+      "cancel-in-progress": false,
+    },
+    jobs: { label: {} },
+  };
+  assert.deepEqual(
+    validateSupersededRunCancellationWorkflowObject(pullRequestTargetOnly, ".github/workflows/labeler.yml"),
+    [],
+  );
+
+  for (const name of ["labeler", "pr-title"]) {
+    const prTargetWorkflow = workflow(name);
+    assert.deepEqual(
+      validateSupersededRunCancellationWorkflowObject(prTargetWorkflow, `.github/workflows/${name}.yml`),
+      [],
+    );
+  }
+});
+
 test("public-repository workflows cannot request self-hosted or dynamic runners", () => {
   const label = "arc-cauda-lusoris-20-watts";
   assert.deepEqual(validatePublicRepositoryRunnerWorkflowObject({
@@ -894,7 +1008,7 @@ test("CI lane jobs enforce the locked Node and Go runtime policies", () => {
   assert.deepEqual(
     validateGoRuntimeWorkflowObject(uncachedGo, "lane-research", ".github/workflows/ci.yml"),
     [
-      ".github/workflows/ci.yml: job lane-research must use Go 1.27.2 from tooling/go.mod with tooling/go.sum caching",
+      ".github/workflows/ci.yml: job lane-research must use Go 1.27.3 from tooling/go.mod with tooling/go.sum caching",
     ],
   );
 });
@@ -1205,7 +1319,7 @@ test("Go workflows use tooling/go.mod and the Go CodeQL lane", () => {
     (step) => step.uses?.startsWith("github/codeql-action/init@"),
   ).with.languages = "javascript-typescript";
   assert.deepEqual(validateGoCodeQlWorkflowObject(tampered), [
-    ".github/workflows/codeql.yml: job analyze-go must use Go 1.27.2 from tooling/go.mod with tooling/go.sum caching",
+    ".github/workflows/codeql.yml: job analyze-go must use Go 1.27.3 from tooling/go.mod with tooling/go.sum caching",
     ".github/workflows/codeql.yml: analyze-go must initialize CodeQL autobuild for Go",
     ".github/workflows/codeql.yml: Go CodeQL must keep its exact fail-closed initialization and analysis boundary",
   ]);
@@ -3586,7 +3700,7 @@ test("container policy withholds arm64 and enforces exact-digest runtime identit
   const executionFinding = ".github/workflows/release-build.yml: candidate images must run tooling plus smoke, analyze, and validate by digest before tagging";
   for (const [from, to] of [
     ['if [[ "$tooling_identity" != "$expected_tooling_identity" ]]; then', "if false; then"],
-    ['"go_version":"go1.27.2"', '"go_version":"go1.28.0"'],
+    ['"go_version":"go1.27.3"', '"go_version":"go1.28.0"'],
     ['if [[ "$fixture_007_node" != "v26.11.1" ]]; then', "if false; then"],
     ['"Python 3.15.0"', '"Python 3.15.1"'],
     ['numpy.__version__ == \\"2.5.4\\"', 'numpy.__version__ == \\"2.5.5\\"'],
@@ -4078,7 +4192,7 @@ test("no other workflow file can claim the engine-managed carve-out", (t) => {
       refused.includes(`.github/workflows/${name}: concurrency must define a group and explicit cancel-in-progress boolean`),
       `${name}: ${refused.join(" | ")}`,
     );
-    assert.ok(refused.some((finding) => finding.includes("persist-credentials")), name);
+    assert.ok(refused.some((finding) => finding.includes("unapproved external action")), name);
   }
   assert.deepEqual(about(findings, "praetor-api.yml"), []);
   assert.deepEqual(about(findings, "praetor-docs.yml"), []);
@@ -4208,8 +4322,8 @@ test("engine-file exception lists are well formed and fail closed when they are 
   assert.deepEqual(engineFileExceptionFindings(LINT_EXCEPTIONS, "rules"), []);
   assert.deepEqual(engineFileExceptionFindings(TYPE_CHECK_EXCEPTIONS, "diagnostics"), []);
   assert.deepEqual(LINT_EXCEPTIONS.map((entry) => [entry.path, entry.expires, entry.rules.length]), [
-    ["tools/figures/dist/loader.js", engineFileLastDay, 1],
-    ["tools/figures/dist/player.js", engineFileLastDay, 15],
+    ["tools/figures/player/loader.js", engineFileLastDay, 1],
+    ["tools/figures/player/player.js", engineFileLastDay, 15],
   ]);
   const base = plainEntry(LINT_EXCEPTIONS[1], "rules");
   const label = "engine-file exception 0";
@@ -4258,7 +4372,7 @@ test("engine-file exceptions apply through their last day and compare calendar d
   assert.deepEqual(overrides[0].rules, { "@typescript-eslint/no-unused-expressions": "off" });
   const mixed = [{ ...plainEntry(LINT_EXCEPTIONS[0], "rules"), expires: "2026-10-10" }, LINT_EXCEPTIONS[1]];
   assert.deepEqual(lintExceptionOverrides(mixed, "2026-10-11").map((override) => override.files), [
-    ["tools/figures/dist/player.js"],
+    ["tools/figures/player/player.js"],
   ]);
   assert.equal(createEslintConfig({ today: engineFileLastDay }).length, createEslintConfig({ today: engineFileNextDay }).length + 2);
 });
@@ -4276,7 +4390,7 @@ test("the lint exceptions hide exactly the rules their two files trip, and nothi
   narrowed[1].rules = narrowed[1].rules.filter((rule) => rule !== "no-undef");
   assert.deepEqual(await lintRuleIds("2026-10-11", narrowed), {
     ...clean,
-    "tools/figures/dist/player.js": ["no-undef"],
+    "tools/figures/player/player.js": ["no-undef"],
   });
 });
 
@@ -4288,9 +4402,9 @@ test("a lint exception covers its own file and no neighbour", async () => {
   });
   const source = "export const pattern = /a\\-b/;\nif (pattern) {}\n";
   for (const [filePath, expected] of [
-    ["tools/figures/dist/player.js", []],
-    ["tools/figures/dist/player.test.js", ["no-empty", "no-useless-escape"]],
-    ["tools/figures/dist/nested/player.js", ["no-empty", "no-useless-escape"]],
+    ["tools/figures/player/player.js", []],
+    ["tools/figures/player/player.test.js", ["no-empty", "no-useless-escape"]],
+    ["tools/figures/player/nested/player.js", ["no-empty", "no-useless-escape"]],
     ["tools/figures/player.js", ["no-empty", "no-useless-escape"]],
     ["scripts/player.js", ["no-empty", "no-useless-escape"]],
   ]) {
@@ -4451,7 +4565,7 @@ test("verify-all skips npm steps only inside the declared-verify stage without n
   assert.equal(declaredVerifyAction({ env: {}, hasNodeModules: false, today: lastDay }), "run");
   assert.equal(declaredVerifyAction({ env: stage, hasNodeModules: true, today: lastDay }), "run");
   // From the day after the exception expires the skip fails.
-  assert.equal(declaredVerifyAction({ env: stage, hasNodeModules: false, today: "2026-10-22" }), "expired");
+  assert.equal(declaredVerifyAction({ env: stage, hasNodeModules: false, today: "2026-10-26" }), "expired");
   assert.equal(DECLARED_VERIFY_EXCEPTION.category, "B");
   const makefile = readFileSync("Makefile", "utf8");
   assert.doesNotMatch(makefile, /'npm' 'run'/u, "every npm step in the Makefile goes through the exception script");

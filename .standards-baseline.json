@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "generated_at": "2026-10-13T18:34:11Z",
+  "generated_at": "2026-10-21T22:29:42Z",
   "repository": "cordanaLLM/20-watts-was-enough",
-  "commit_sha": "5173c8710d317244e62424bc82f5913ce6a13d77",
-  "total_infractions": 626,
+  "commit_sha": "b649b90ff127dddd142c7ff5f30f9d715fc9ba36",
+  "total_infractions": 493,
   "infractions": [
     {
       "rule_id": "HISS-04",
@@ -1334,7 +1334,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "experiments/workstation/candidate-010/source-bundle.mjs",
-      "line_number": 360,
+      "line_number": 361,
       "symbol": "discoverCandidate010SourceFiles",
       "message": "Function 'discoverCandidate010SourceFiles' (95 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:discoverCandidate010SourceFiles",
@@ -1343,7 +1343,7 @@
     {
       "rule_id": "HISS-01",
       "file_path": "experiments/workstation/candidate-010/source-bundle.mjs",
-      "line_number": 688,
+      "line_number": 689,
       "symbol": "resolveGitReference",
       "message": "Direct recursion in resolveGitReference; the call graph must form an acyclic DAG",
       "anchor": "fn:resolveGitReference",
@@ -1958,60 +1958,6 @@
     },
     {
       "rule_id": "HISS-04",
-      "file_path": "experiments/workstation/fixture-026/rsd-t02-arm-bank.mjs",
-      "line_number": 363,
-      "symbol": "assertArmBankConfigShape",
-      "message": "Function 'assertArmBankConfigShape' (62 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:assertArmBankConfigShape",
-      "fingerprint": "experiments/workstation/fixture-026/rsd-t02-arm-bank.mjs:HISS-04:fn:assertArmBankConfigShape#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "experiments/workstation/fixture-026/rsd-t02-arm-bank.mjs",
-      "line_number": 664,
-      "symbol": "mechanismPolicy",
-      "message": "Function 'mechanismPolicy' (65 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:mechanismPolicy",
-      "fingerprint": "experiments/workstation/fixture-026/rsd-t02-arm-bank.mjs:HISS-04:fn:mechanismPolicy#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "experiments/workstation/fixture-026/rsd-t02-arm-bank.mjs",
-      "line_number": 901,
-      "symbol": "assertFixture026RsdT02ArmResponse",
-      "message": "Function 'assertFixture026RsdT02ArmResponse' (71 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:assertFixture026RsdT02ArmResponse",
-      "fingerprint": "experiments/workstation/fixture-026/rsd-t02-arm-bank.mjs:HISS-04:fn:assertFixture026RsdT02ArmResponse#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "experiments/workstation/fixture-026/rsd-t02-arm-bank.mjs",
-      "line_number": 982,
-      "symbol": "attachFixture026RsdT02ArmResponse",
-      "message": "Function 'attachFixture026RsdT02ArmResponse' (121 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:attachFixture026RsdT02ArmResponse",
-      "fingerprint": "experiments/workstation/fixture-026/rsd-t02-arm-bank.mjs:HISS-04:fn:attachFixture026RsdT02ArmResponse#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "experiments/workstation/fixture-026/rsd-t02-arm-bank.mjs",
-      "line_number": 1144,
-      "symbol": "buildFixture026RsdT02ArmCommitment",
-      "message": "Function 'buildFixture026RsdT02ArmCommitment' (88 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:buildFixture026RsdT02ArmCommitment",
-      "fingerprint": "experiments/workstation/fixture-026/rsd-t02-arm-bank.mjs:HISS-04:fn:buildFixture026RsdT02ArmCommitment#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "experiments/workstation/fixture-026/rsd-t02-arm-bank.mjs",
-      "line_number": 1240,
-      "symbol": "assertFixture026RsdT02ArmCommitment",
-      "message": "Function 'assertFixture026RsdT02ArmCommitment' (76 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:assertFixture026RsdT02ArmCommitment",
-      "fingerprint": "experiments/workstation/fixture-026/rsd-t02-arm-bank.mjs:HISS-04:fn:assertFixture026RsdT02ArmCommitment#1"
-    },
-    {
-      "rule_id": "HISS-04",
       "file_path": "experiments/workstation/fixture-026/rsd-t02-contract.mjs",
       "line_number": 664,
       "symbol": "assertFixture026RsdT02Registry",
@@ -2592,7 +2538,7 @@
       "file_path": "experiments/workstation/fixture-026/rsd-t02-run-lock.mjs",
       "line_number": 189,
       "symbol": "release",
-      "message": "Function 'release' (61 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
+      "message": "Function 'release' (62 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:release",
       "fingerprint": "experiments/workstation/fixture-026/rsd-t02-run-lock.mjs:HISS-04:fn:release#1"
     },
@@ -2601,7 +2547,7 @@
       "file_path": "experiments/workstation/fixture-026/rsd-t02-run-lock.mjs",
       "line_number": 141,
       "symbol": "acquireRunLock",
-      "message": "Function 'acquireRunLock' (111 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
+      "message": "Function 'acquireRunLock' (112 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:acquireRunLock",
       "fingerprint": "experiments/workstation/fixture-026/rsd-t02-run-lock.mjs:HISS-04:fn:acquireRunLock#1"
     },
@@ -2989,7 +2935,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/generate-plots.mjs",
-      "line_number": 251,
+      "line_number": 252,
       "symbol": "phaseSelectivePreservation",
       "message": "Function 'phaseSelectivePreservation' (65 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:phaseSelectivePreservation",
@@ -2998,7 +2944,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/generate-plots.mjs",
-      "line_number": 421,
+      "line_number": 422,
       "symbol": "fixtureLayoutSelection",
       "message": "Function 'fixtureLayoutSelection' (88 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:fixtureLayoutSelection",
@@ -3007,7 +2953,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/generate-plots.mjs",
-      "line_number": 608,
+      "line_number": 609,
       "symbol": "stressPathMemory",
       "message": "Function 'stressPathMemory' (66 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:stressPathMemory",
@@ -3016,7 +2962,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/generate-plots.mjs",
-      "line_number": 789,
+      "line_number": 790,
       "symbol": "paretoDominanceUncertainty",
       "message": "Function 'paretoDominanceUncertainty' (78 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:paretoDominanceUncertainty",
@@ -3025,7 +2971,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/generate-plots.mjs",
-      "line_number": 868,
+      "line_number": 869,
       "symbol": "activeAcquisitionFrontier",
       "message": "Function 'activeAcquisitionFrontier' (97 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:activeAcquisitionFrontier",
@@ -3034,7 +2980,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/generate-plots.mjs",
-      "line_number": 1018,
+      "line_number": 1019,
       "symbol": "memoryActionPriceEnvelope",
       "message": "Function 'memoryActionPriceEnvelope' (89 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:memoryActionPriceEnvelope",
@@ -3043,7 +2989,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/generate-plots.mjs",
-      "line_number": 1108,
+      "line_number": 1109,
       "symbol": "memoryKernelTruncation",
       "message": "Function 'memoryKernelTruncation' (66 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:memoryKernelTruncation",
@@ -3052,7 +2998,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/generate-plots.mjs",
-      "line_number": 1175,
+      "line_number": 1176,
       "symbol": "hystereticMemoryLoop",
       "message": "Function 'hystereticMemoryLoop' (73 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:hystereticMemoryLoop",
@@ -3061,7 +3007,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/generate-plots.mjs",
-      "line_number": 1249,
+      "line_number": 1250,
       "symbol": "finiteDiffusionBoundaryTurnover",
       "message": "Function 'finiteDiffusionBoundaryTurnover' (84 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:finiteDiffusionBoundaryTurnover",
@@ -3070,7 +3016,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/generate-plots.mjs",
-      "line_number": 1334,
+      "line_number": 1335,
       "symbol": "slowManifoldFoldBoundary",
       "message": "Function 'slowManifoldFoldBoundary' (67 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:slowManifoldFoldBoundary",
@@ -3079,7 +3025,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/generate-plots.mjs",
-      "line_number": 1402,
+      "line_number": 1403,
       "symbol": "missionProfileDamage",
       "message": "Function 'missionProfileDamage' (98 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:missionProfileDamage",
@@ -3088,7 +3034,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/generate-plots.mjs",
-      "line_number": 1501,
+      "line_number": 1502,
       "symbol": "interfaceQualifiedScaleSymmetry",
       "message": "Function 'interfaceQualifiedScaleSymmetry' (227 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:interfaceQualifiedScaleSymmetry",
@@ -3097,7 +3043,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/generate-plots.mjs",
-      "line_number": 1729,
+      "line_number": 1730,
       "symbol": "interfaceQualifiedRetroactivity",
       "message": "Function 'interfaceQualifiedRetroactivity' (151 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:interfaceQualifiedRetroactivity",
@@ -3106,7 +3052,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/generate-plots.mjs",
-      "line_number": 1881,
+      "line_number": 1882,
       "symbol": "historyConditionedPositionContrast",
       "message": "Function 'historyConditionedPositionContrast' (127 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:historyConditionedPositionContrast",
@@ -3115,7 +3061,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/generate-plots.mjs",
-      "line_number": 2009,
+      "line_number": 2010,
       "symbol": "rsdT01FamilyPropertyOverlap",
       "message": "Function 'rsdT01FamilyPropertyOverlap' (88 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:rsdT01FamilyPropertyOverlap",
@@ -3124,7 +3070,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/generate-plots.mjs",
-      "line_number": 2098,
+      "line_number": 2099,
       "symbol": "fastBoundaryLayerNorms",
       "message": "Function 'fastBoundaryLayerNorms' (76 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:fastBoundaryLayerNorms",
@@ -3133,7 +3079,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/generate-plots.mjs",
-      "line_number": 2175,
+      "line_number": 2176,
       "symbol": "repeatedStimulusSkippingCell",
       "message": "Function 'repeatedStimulusSkippingCell' (66 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:repeatedStimulusSkippingCell",
@@ -3142,7 +3088,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/generate-plots.mjs",
-      "line_number": 2242,
+      "line_number": 2243,
       "symbol": "rsdT02LineageCoverage",
       "message": "Function 'rsdT02LineageCoverage' (84 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:rsdT02LineageCoverage",
@@ -3151,7 +3097,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/generate-plots.mjs",
-      "line_number": 2327,
+      "line_number": 2328,
       "symbol": "rsdT02ProceduralSeedMap",
       "message": "Function 'rsdT02ProceduralSeedMap' (100 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:rsdT02ProceduralSeedMap",
@@ -3160,7 +3106,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/generate-plots.mjs",
-      "line_number": 2428,
+      "line_number": 2429,
       "symbol": "rsdT02PolicyWorkEnvelope",
       "message": "Function 'rsdT02PolicyWorkEnvelope' (70 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:rsdT02PolicyWorkEnvelope",
@@ -3169,7 +3115,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/generate-plots.mjs",
-      "line_number": 2499,
+      "line_number": 2500,
       "symbol": "rsdT02PowerEffectCurve",
       "message": "Function 'rsdT02PowerEffectCurve' (107 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:rsdT02PowerEffectCurve",
@@ -3178,7 +3124,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/generate-plots.mjs",
-      "line_number": 2607,
+      "line_number": 2608,
       "symbol": "rsdT02BootstrapCalibration",
       "message": "Function 'rsdT02BootstrapCalibration' (119 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:rsdT02BootstrapCalibration",
@@ -3192,24 +3138,6 @@
       "message": "Direct recursion in euroDescendants; the call graph must form an acyclic DAG",
       "anchor": "fn:euroDescendants",
       "fingerprint": "scripts/generate-taxonomy-depth.mjs:HISS-01:fn:euroDescendants#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "scripts/github-pages.test.mjs",
-      "line_number": 170,
-      "symbol": "withPortalBrowser",
-      "message": "Function 'withPortalBrowser' (66 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:withPortalBrowser",
-      "fingerprint": "scripts/github-pages.test.mjs:HISS-04:fn:withPortalBrowser#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "scripts/github-pages.test.mjs",
-      "line_number": 369,
-      "symbol": "exerciseResponsiveCorpusDrawer",
-      "message": "Function 'exerciseResponsiveCorpusDrawer' (66 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:exerciseResponsiveCorpusDrawer",
-      "fingerprint": "scripts/github-pages.test.mjs:HISS-04:fn:exerciseResponsiveCorpusDrawer#1"
     },
     {
       "rule_id": "HISS-01",
@@ -3264,15 +3192,6 @@
       "fingerprint": "scripts/lib/book-pdf-semantic-audit.mjs:HISS-02:fn:inspectEvidenceRoot#1"
     },
     {
-      "rule_id": "HISS-04",
-      "file_path": "scripts/lib/css-authority.mjs",
-      "line_number": 223,
-      "symbol": "validateCssAuthority",
-      "message": "Function 'validateCssAuthority' (78 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:validateCssAuthority",
-      "fingerprint": "scripts/lib/css-authority.mjs:HISS-04:fn:validateCssAuthority#1"
-    },
-    {
       "rule_id": "HISS-01",
       "file_path": "scripts/lib/portal-documents.mjs",
       "line_number": 7,
@@ -3301,7 +3220,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/lib/third-party-notices.mjs",
-      "line_number": 93,
+      "line_number": 112,
       "symbol": "collectPackageNotices",
       "message": "Function 'collectPackageNotices' (66 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:collectPackageNotices",
@@ -3310,9 +3229,9 @@
     {
       "rule_id": "HISS-04",
       "file_path": "scripts/lib/third-party-notices.mjs",
-      "line_number": 160,
+      "line_number": 214,
       "symbol": "renderThirdPartyNotices",
-      "message": "Function 'renderThirdPartyNotices' (79 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
+      "message": "Function 'renderThirdPartyNotices' (63 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:renderThirdPartyNotices",
       "fingerprint": "scripts/lib/third-party-notices.mjs:HISS-04:fn:renderThirdPartyNotices#1"
     },
@@ -3416,51 +3335,6 @@
       "fingerprint": "scripts/lib/workstation-manifests.mjs:HISS-04:fn:validateExecutionManifest#1"
     },
     {
-      "rule_id": "HISS-04",
-      "file_path": "scripts/mermaid-browser.test.mjs",
-      "line_number": 509,
-      "symbol": "exerciseArrowKeyScrollsRegion",
-      "message": "Function 'exerciseArrowKeyScrollsRegion' (89 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:exerciseArrowKeyScrollsRegion",
-      "fingerprint": "scripts/mermaid-browser.test.mjs:HISS-04:fn:exerciseArrowKeyScrollsRegion#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "scripts/mermaid-browser.test.mjs",
-      "line_number": 652,
-      "symbol": "assertPrintRetiresOverflowSemantics",
-      "message": "Function 'assertPrintRetiresOverflowSemantics' (66 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:assertPrintRetiresOverflowSemantics",
-      "fingerprint": "scripts/mermaid-browser.test.mjs:HISS-04:fn:assertPrintRetiresOverflowSemantics#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "scripts/mermaid-browser.test.mjs",
-      "line_number": 771,
-      "symbol": "assertBookOverflowRegions",
-      "message": "Function 'assertBookOverflowRegions' (64 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:assertBookOverflowRegions",
-      "fingerprint": "scripts/mermaid-browser.test.mjs:HISS-04:fn:assertBookOverflowRegions#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "scripts/mermaid-browser.test.mjs",
-      "line_number": 836,
-      "symbol": "assertBookReflowSurface",
-      "message": "Function 'assertBookReflowSurface' (95 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:assertBookReflowSurface",
-      "fingerprint": "scripts/mermaid-browser.test.mjs:HISS-04:fn:assertBookReflowSurface#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "scripts/mermaid-browser.test.mjs",
-      "line_number": 932,
-      "symbol": "assertMobilePortalSurface",
-      "message": "Function 'assertMobilePortalSurface' (102 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:assertMobilePortalSurface",
-      "fingerprint": "scripts/mermaid-browser.test.mjs:HISS-04:fn:assertMobilePortalSurface#1"
-    },
-    {
       "rule_id": "HISS-01",
       "file_path": "scripts/prepare-reader-artifacts.mjs",
       "line_number": 39,
@@ -3477,60 +3351,6 @@
       "message": "Function 'prepareReaderArtifacts' (99 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:prepareReaderArtifacts",
       "fingerprint": "scripts/prepare-reader-artifacts.mjs:HISS-04:fn:prepareReaderArtifacts#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "scripts/prepare-release-assets.mjs",
-      "line_number": 356,
-      "symbol": "buildSpdxDocument",
-      "message": "Function 'buildSpdxDocument' (72 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:buildSpdxDocument",
-      "fingerprint": "scripts/prepare-release-assets.mjs:HISS-04:fn:buildSpdxDocument#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "scripts/prepare-release-assets.mjs",
-      "line_number": 530,
-      "symbol": "prepareReleaseAssets",
-      "message": "Function 'prepareReleaseAssets' (98 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:prepareReleaseAssets",
-      "fingerprint": "scripts/prepare-release-assets.mjs:HISS-04:fn:prepareReleaseAssets#1"
-    },
-    {
-      "rule_id": "HISS-01",
-      "file_path": "scripts/prepare-release-assets.test.mjs",
-      "line_number": 77,
-      "symbol": "directorySnapshot",
-      "message": "Direct recursion in directorySnapshot; the call graph must form an acyclic DAG",
-      "anchor": "fn:directorySnapshot",
-      "fingerprint": "scripts/prepare-release-assets.test.mjs:HISS-01:fn:directorySnapshot#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "scripts/prepare-release-assets.test.mjs",
-      "line_number": 85,
-      "symbol": "createFixture",
-      "message": "Function 'createFixture' (95 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:createFixture",
-      "fingerprint": "scripts/prepare-release-assets.test.mjs:HISS-04:fn:createFixture#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "scripts/research-object-header-browser.test.mjs",
-      "line_number": 128,
-      "symbol": "assertHydratedResearchObject",
-      "message": "Function 'assertHydratedResearchObject' (71 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:assertHydratedResearchObject",
-      "fingerprint": "scripts/research-object-header-browser.test.mjs:HISS-04:fn:assertHydratedResearchObject#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "scripts/research-object-header-browser.test.mjs",
-      "line_number": 200,
-      "symbol": "assertFocusedDocumentEntry",
-      "message": "Function 'assertFocusedDocumentEntry' (78 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:assertFocusedDocumentEntry",
-      "fingerprint": "scripts/research-object-header-browser.test.mjs:HISS-04:fn:assertFocusedDocumentEntry#1"
     },
     {
       "rule_id": "HISS-01",
@@ -3561,310 +3381,8 @@
     },
     {
       "rule_id": "HISS-04",
-      "file_path": "tooling/cmd/20w/github_metadata.go",
-      "line_number": 38,
-      "symbol": "syncGitHubMetadata",
-      "message": "Function 'syncGitHubMetadata' (105 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:syncGitHubMetadata",
-      "fingerprint": "tooling/cmd/20w/github_metadata.go:HISS-04:fn:syncGitHubMetadata#1"
-    },
-    {
-      "rule_id": "HISS-02",
-      "file_path": "tooling/cmd/20w/main.go",
-      "line_number": 178,
-      "message": "Context without a deadline reaches a call; derive it with context.WithTimeout or context.WithDeadline",
-      "anchor": "fn:runCIWorkstation",
-      "fingerprint": "tooling/cmd/20w/main.go:HISS-02:fn:runCIWorkstation#1"
-    },
-    {
-      "rule_id": "HISS-02",
-      "file_path": "tooling/cmd/20w/main.go",
-      "line_number": 371,
-      "message": "Context without a deadline reaches a call; derive it with context.WithTimeout or context.WithDeadline",
-      "anchor": "fn:runPublicationRenderPDFWithRenderer",
-      "fingerprint": "tooling/cmd/20w/main.go:HISS-02:fn:runPublicationRenderPDFWithRenderer#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/cmd/20w/pdf_tools.go",
-      "line_number": 38,
-      "symbol": "runPublicationReproducePDFToolsImage",
-      "message": "Function 'runPublicationReproducePDFToolsImage' (72 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:runPublicationReproducePDFToolsImage",
-      "fingerprint": "tooling/cmd/20w/pdf_tools.go:HISS-04:fn:runPublicationReproducePDFToolsImage#1"
-    },
-    {
-      "rule_id": "HISS-02",
-      "file_path": "tooling/internal/ciplancli/cli.go",
-      "line_number": 69,
-      "message": "Context without a deadline reaches a call; derive it with context.WithTimeout or context.WithDeadline",
-      "anchor": "fn:runPlan",
-      "fingerprint": "tooling/internal/ciplancli/cli.go:HISS-02:fn:runPlan#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsbellmanford/adapter.go",
-      "line_number": 136,
-      "symbol": "BindDataset",
-      "message": "Function 'BindDataset' (62 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:BindDataset",
-      "fingerprint": "tooling/internal/clrsbellmanford/adapter.go:HISS-04:fn:BindDataset#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsbinary/adapter.go",
-      "line_number": 136,
-      "symbol": "BindDataset",
-      "message": "Function 'BindDataset' (62 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:BindDataset",
-      "fingerprint": "tooling/internal/clrsbinary/adapter.go:HISS-04:fn:BindDataset#1"
-    },
-    {
-      "rule_id": "HISS-02",
-      "file_path": "tooling/internal/clrscontext/context_test.go",
-      "line_number": 47,
-      "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
-      "anchor": "fn:TestContextTarIsDeterministicAndNormalised",
-      "fingerprint": "tooling/internal/clrscontext/context_test.go:HISS-02:fn:TestContextTarIsDeterministicAndNormalised#1"
-    },
-    {
-      "rule_id": "HISS-02",
-      "file_path": "tooling/internal/clrscontext/files.go",
-      "line_number": 21,
-      "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
-      "anchor": "fn:realDirectory",
-      "fingerprint": "tooling/internal/clrscontext/files.go:HISS-02:fn:realDirectory#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrscontext/publish.go",
-      "line_number": 14,
-      "symbol": "publishContext",
-      "message": "Function 'publishContext' (80 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:publishContext",
-      "fingerprint": "tooling/internal/clrscontext/publish.go:HISS-04:fn:publishContext#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsfixture/generation_run.go",
-      "line_number": 99,
-      "symbol": "runGeneratorFixtures",
-      "message": "Function 'runGeneratorFixtures' (70 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:runGeneratorFixtures",
-      "fingerprint": "tooling/internal/clrsfixture/generation_run.go:HISS-04:fn:runGeneratorFixtures#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsfixture/generation_run_receipt.go",
-      "line_number": 173,
-      "symbol": "checkGenerationCommands",
-      "message": "Function 'checkGenerationCommands' (67 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:checkGenerationCommands",
-      "fingerprint": "tooling/internal/clrsfixture/generation_run_receipt.go:HISS-04:fn:checkGenerationCommands#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/clrsfixture/identity.go",
-      "line_number": 51,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:identityBuilder.addBytes",
-      "fingerprint": "tooling/internal/clrsfixture/identity.go:HISS-07:fn:identityBuilder.addBytes#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/clrsfixture/identity.go",
-      "line_number": 52,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:identityBuilder.addBytes",
-      "fingerprint": "tooling/internal/clrsfixture/identity.go:HISS-07:fn:identityBuilder.addBytes#2"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsfixture/image_dependency.go",
-      "line_number": 63,
-      "symbol": "renderGeneratorProject",
-      "message": "Function 'renderGeneratorProject' (73 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:renderGeneratorProject",
-      "fingerprint": "tooling/internal/clrsfixture/image_dependency.go:HISS-04:fn:renderGeneratorProject#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsfixture/image_wheelhouse.go",
-      "line_number": 92,
-      "symbol": "validate",
-      "message": "Function 'validate' (82 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:GeneratorWheelhouseManifest.validate",
-      "fingerprint": "tooling/internal/clrsfixture/image_wheelhouse.go:HISS-04:fn:GeneratorWheelhouseManifest.validate#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsfixture/image_wheelhouse.go",
-      "line_number": 238,
-      "symbol": "lockedPromiseSourceBuild",
-      "message": "Function 'lockedPromiseSourceBuild' (83 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:lockedPromiseSourceBuild",
-      "fingerprint": "tooling/internal/clrsfixture/image_wheelhouse.go:HISS-04:fn:lockedPromiseSourceBuild#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsfixture/image_wheelhouse.go",
-      "line_number": 500,
-      "symbol": "writeNewGeneratorWheelhouseManifestWithInterlock",
-      "message": "Function 'writeNewGeneratorWheelhouseManifestWithInterlock' (130 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:writeNewGeneratorWheelhouseManifestWithInterlock",
-      "fingerprint": "tooling/internal/clrsfixture/image_wheelhouse.go:HISS-04:fn:writeNewGeneratorWheelhouseManifestWithInterlock#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/clrsfixture/image_wheelhouse.go",
-      "line_number": 551,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:writeNewGeneratorWheelhouseManifestWithInterlock",
-      "fingerprint": "tooling/internal/clrsfixture/image_wheelhouse.go:HISS-07:fn:writeNewGeneratorWheelhouseManifestWithInterlock#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/clrsfixture/image_wheelhouse.go",
-      "line_number": 555,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:writeNewGeneratorWheelhouseManifestWithInterlock",
-      "fingerprint": "tooling/internal/clrsfixture/image_wheelhouse.go:HISS-07:fn:writeNewGeneratorWheelhouseManifestWithInterlock#2"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsfixture/image_wheelhouse.go",
-      "line_number": 631,
-      "symbol": "loadGeneratorWheelhouseInputs",
-      "message": "Function 'loadGeneratorWheelhouseInputs' (62 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:loadGeneratorWheelhouseInputs",
-      "fingerprint": "tooling/internal/clrsfixture/image_wheelhouse.go:HISS-04:fn:loadGeneratorWheelhouseInputs#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsfixture/image_wheelhouse.go",
-      "line_number": 694,
-      "symbol": "inspectMaterializedGeneratorWheelhouse",
-      "message": "Function 'inspectMaterializedGeneratorWheelhouse' (75 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:inspectMaterializedGeneratorWheelhouse",
-      "fingerprint": "tooling/internal/clrsfixture/image_wheelhouse.go:HISS-04:fn:inspectMaterializedGeneratorWheelhouse#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsfixture/image_wheelhouse.go",
-      "line_number": 780,
-      "symbol": "readGeneratorWheelhouseSnapshot",
-      "message": "Function 'readGeneratorWheelhouseSnapshot' (63 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:readGeneratorWheelhouseSnapshot",
-      "fingerprint": "tooling/internal/clrsfixture/image_wheelhouse.go:HISS-04:fn:readGeneratorWheelhouseSnapshot#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsfixture/import.go",
-      "line_number": 211,
-      "symbol": "PairExamples",
-      "message": "Function 'PairExamples' (64 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:PairExamples",
-      "fingerprint": "tooling/internal/clrsfixture/import.go:HISS-04:fn:PairExamples#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsfixture/loaded_image.go",
-      "line_number": 101,
-      "symbol": "prepareGeneratorLoadedImage",
-      "message": "Function 'prepareGeneratorLoadedImage' (70 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:prepareGeneratorLoadedImage",
-      "fingerprint": "tooling/internal/clrsfixture/loaded_image.go:HISS-04:fn:prepareGeneratorLoadedImage#1"
-    },
-    {
-      "rule_id": "HISS-01",
-      "file_path": "tooling/internal/clrsfixture/loaded_image_docker.go",
-      "line_number": 138,
-      "symbol": "loadedImageExitCauses",
-      "message": "Direct recursion in loadedImageExitCauses; the call graph must form an acyclic DAG",
-      "anchor": "fn:loadedImageExitCauses",
-      "fingerprint": "tooling/internal/clrsfixture/loaded_image_docker.go:HISS-01:fn:loadedImageExitCauses#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsfixture/oci_archive.go",
-      "line_number": 106,
-      "symbol": "scanGeneratorOCI",
-      "message": "Function 'scanGeneratorOCI' (72 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:scanGeneratorOCI",
-      "fingerprint": "tooling/internal/clrsfixture/oci_archive.go:HISS-04:fn:scanGeneratorOCI#1"
-    },
-    {
-      "rule_id": "HISS-02",
-      "file_path": "tooling/internal/clrsfixture/oci_archive.go",
-      "line_number": 114,
-      "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
-      "anchor": "fn:scanGeneratorOCI",
-      "fingerprint": "tooling/internal/clrsfixture/oci_archive.go:HISS-02:fn:scanGeneratorOCI#1"
-    },
-    {
-      "rule_id": "HISS-02",
-      "file_path": "tooling/internal/clrsfixture/oci_archive.go",
-      "line_number": 159,
-      "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
-      "anchor": "fn:scanGeneratorOCI",
-      "fingerprint": "tooling/internal/clrsfixture/oci_archive.go:HISS-02:fn:scanGeneratorOCI#2"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/clrsfixture/promise_command.go",
-      "line_number": 59,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:promiseCaptureWriter.Write",
-      "fingerprint": "tooling/internal/clrsfixture/promise_command.go:HISS-07:fn:promiseCaptureWriter.Write#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsfixture/promise_container.go",
-      "line_number": 120,
-      "symbol": "runPromiseContainer",
-      "message": "Function 'runPromiseContainer' (83 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:runPromiseContainer",
-      "fingerprint": "tooling/internal/clrsfixture/promise_container.go:HISS-04:fn:runPromiseContainer#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsinsertion/adapter.go",
-      "line_number": 136,
-      "symbol": "BindDataset",
-      "message": "Function 'BindDataset' (62 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:BindDataset",
-      "fingerprint": "tooling/internal/clrsinsertion/adapter.go:HISS-04:fn:BindDataset#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsmatrixchain/adapter.go",
-      "line_number": 136,
-      "symbol": "BindDataset",
-      "message": "Function 'BindDataset' (62 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:BindDataset",
-      "fingerprint": "tooling/internal/clrsmatrixchain/adapter.go:HISS-04:fn:BindDataset#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsrunner/registry.go",
-      "line_number": 117,
-      "symbol": "Invoke",
-      "message": "Function 'Invoke' (79 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:Registry.Invoke",
-      "fingerprint": "tooling/internal/clrsrunner/registry.go:HISS-04:fn:Registry.Invoke#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/clrsrunner/run.go",
-      "line_number": 88,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:readRequestContext",
-      "fingerprint": "tooling/internal/clrsrunner/run.go:HISS-07:fn:readRequestContext#1"
-    },
-    {
-      "rule_id": "HISS-04",
       "file_path": "tooling/internal/clrssegments/adapter.go",
-      "line_number": 137,
+      "line_number": 136,
       "symbol": "BindDataset",
       "message": "Function 'BindDataset' (62 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:BindDataset",
@@ -3873,63 +3391,10 @@
     {
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/clrssegments/adapter.go",
-      "line_number": 312,
+      "line_number": 311,
       "message": "Context without a deadline reaches a call; derive it with context.WithTimeout or context.WithDeadline",
       "anchor": "fn:bindPair",
       "fingerprint": "tooling/internal/clrssegments/adapter.go:HISS-02:fn:bindPair#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsshakedown/check.go",
-      "line_number": 18,
-      "symbol": "Check",
-      "message": "Function 'Check' (83 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:Check",
-      "fingerprint": "tooling/internal/clrsshakedown/check.go:HISS-04:fn:Check#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsshakedown/check_events.go",
-      "line_number": 17,
-      "symbol": "checkEvents",
-      "message": "Function 'checkEvents' (61 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:checkEvents",
-      "fingerprint": "tooling/internal/clrsshakedown/check_events.go:HISS-04:fn:checkEvents#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/clrsshakedown/run.go",
-      "line_number": 17,
-      "symbol": "run",
-      "message": "Function 'run' (79 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:run",
-      "fingerprint": "tooling/internal/clrsshakedown/run.go:HISS-04:fn:run#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/docscheck/mermaid.go",
-      "line_number": 62,
-      "symbol": "validateMermaid",
-      "message": "Function 'validateMermaid' (94 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:validateMermaid",
-      "fingerprint": "tooling/internal/docscheck/mermaid.go:HISS-04:fn:validateMermaid#1"
-    },
-    {
-      "rule_id": "HISS-02",
-      "file_path": "tooling/internal/docscheck/mermaid.go",
-      "line_number": 78,
-      "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
-      "anchor": "fn:validateMermaid",
-      "fingerprint": "tooling/internal/docscheck/mermaid.go:HISS-02:fn:validateMermaid#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/experiment/catalog.go",
-      "line_number": 87,
-      "symbol": "LoadCatalog",
-      "message": "Function 'LoadCatalog' (62 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:LoadCatalog",
-      "fingerprint": "tooling/internal/experiment/catalog.go:HISS-04:fn:LoadCatalog#1"
     },
     {
       "rule_id": "HISS-02",
@@ -3972,49 +3437,9 @@
       "fingerprint": "tooling/internal/experimentcli/clrs_shakedown.go:HISS-02:fn:runShakedownWithActions#1"
     },
     {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/githubapi/client.go",
-      "line_number": 39,
-      "message": "Legacy panic invocation in production code path",
-      "anchor": "fn:newReadRetryClient",
-      "fingerprint": "tooling/internal/githubapi/client.go:HISS-07:fn:newReadRetryClient#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/githubapi/client.go",
-      "line_number": 42,
-      "message": "Legacy panic invocation in production code path",
-      "anchor": "fn:newReadRetryClient",
-      "fingerprint": "tooling/internal/githubapi/client.go:HISS-07:fn:newReadRetryClient#2"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/githubapi/client.go",
-      "line_number": 68,
-      "message": "Legacy panic invocation in production code path",
-      "anchor": "fn:readRetryClient.Do",
-      "fingerprint": "tooling/internal/githubapi/client.go:HISS-07:fn:readRetryClient.Do#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/githubapi/client.go",
-      "line_number": 109,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:discardIntermediateResponse",
-      "fingerprint": "tooling/internal/githubapi/client.go:HISS-07:fn:discardIntermediateResponse#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/githubapi/client.go",
-      "line_number": 110,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:discardIntermediateResponse",
-      "fingerprint": "tooling/internal/githubapi/client.go:HISS-07:fn:discardIntermediateResponse#2"
-    },
-    {
       "rule_id": "HISS-04",
       "file_path": "tooling/internal/githubprmetadata/repair.go",
-      "line_number": 76,
+      "line_number": 78,
       "symbol": "PreflightRepair",
       "message": "Function 'PreflightRepair' (105 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:PreflightRepair",
@@ -4023,7 +3448,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "tooling/internal/githubprmetadata/repair.go",
-      "line_number": 187,
+      "line_number": 189,
       "symbol": "Apply",
       "message": "Function 'Apply' (62 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:RepairPlan.Apply",
@@ -4032,7 +3457,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "tooling/internal/githubprmetadata/repair.go",
-      "line_number": 250,
+      "line_number": 252,
       "symbol": "listRepairPage",
       "message": "Function 'listRepairPage' (72 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:listRepairPage",
@@ -4041,7 +3466,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "tooling/internal/githubprmetadata/sync.go",
-      "line_number": 242,
+      "line_number": 241,
       "symbol": "syncAttempt",
       "message": "Function 'syncAttempt' (91 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:syncAttempt",
@@ -4050,7 +3475,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "tooling/internal/githubprmetadata/sync.go",
-      "line_number": 334,
+      "line_number": 333,
       "symbol": "syncClosedAttempt",
       "message": "Function 'syncClosedAttempt' (65 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:syncClosedAttempt",
@@ -4059,7 +3484,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/githubprmetadata/sync.go",
-      "line_number": 512,
+      "line_number": 511,
       "message": "Legacy panic invocation in production code path",
       "anchor": "fn:referencedManagedIssue",
       "fingerprint": "tooling/internal/githubprmetadata/sync.go:HISS-07:fn:referencedManagedIssue#1"
@@ -4067,7 +3492,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "tooling/internal/nodeimage/package.go",
-      "line_number": 89,
+      "line_number": 91,
       "symbol": "Package",
       "message": "Function 'Package' (77 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:Package",
@@ -4076,7 +3501,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/nodeimage/package.go",
-      "line_number": 131,
+      "line_number": 133,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:Package",
       "fingerprint": "tooling/internal/nodeimage/package.go:HISS-07:fn:Package#1"
@@ -4084,7 +3509,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "tooling/internal/nodeimage/package.go",
-      "line_number": 235,
+      "line_number": 237,
       "symbol": "copyRegularFile",
       "message": "Function 'copyRegularFile' (67 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:copyRegularFile",
@@ -4093,7 +3518,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/nodeimage/package.go",
-      "line_number": 321,
+      "line_number": 323,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:writeChecksumManifest",
       "fingerprint": "tooling/internal/nodeimage/package.go:HISS-07:fn:writeChecksumManifest#1"
@@ -4101,7 +3526,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/nodeimage/package.go",
-      "line_number": 326,
+      "line_number": 328,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:writeChecksumManifest",
       "fingerprint": "tooling/internal/nodeimage/package.go:HISS-07:fn:writeChecksumManifest#2"
@@ -4109,40 +3534,15 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/nodeimage/package.go",
-      "line_number": 341,
+      "line_number": 343,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:writeExclusive",
       "fingerprint": "tooling/internal/nodeimage/package.go:HISS-07:fn:writeExclusive#1"
     },
     {
       "rule_id": "HISS-07",
-      "file_path": "tooling/internal/ocimanifest/manifest.go",
-      "line_number": 142,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:Write",
-      "fingerprint": "tooling/internal/ocimanifest/manifest.go:HISS-07:fn:Write#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/ocimanifest/manifest.go",
-      "line_number": 144,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:Write",
-      "fingerprint": "tooling/internal/ocimanifest/manifest.go:HISS-07:fn:Write#2"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/ocimanifest/manifest.go",
-      "line_number": 161,
-      "symbol": "Load",
-      "message": "Function 'Load' (72 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:Load",
-      "fingerprint": "tooling/internal/ocimanifest/manifest.go:HISS-04:fn:Load#1"
-    },
-    {
-      "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/archive.go",
-      "line_number": 87,
+      "line_number": 89,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:copyVerifiedArchive",
       "fingerprint": "tooling/internal/pdfrender/archive.go:HISS-07:fn:copyVerifiedArchive#1"
@@ -4150,23 +3550,15 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/archive.go",
-      "line_number": 200,
+      "line_number": 202,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:downloadChromeArchive",
       "fingerprint": "tooling/internal/pdfrender/archive.go:HISS-07:fn:downloadChromeArchive#1"
     },
     {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/pdfrender/command.go",
-      "line_number": 223,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:boundedOutput.Write",
-      "fingerprint": "tooling/internal/pdfrender/command.go:HISS-07:fn:boundedOutput.Write#1"
-    },
-    {
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/pdfrender/image_proof_command.go",
-      "line_number": 58,
+      "line_number": 60,
       "message": "exec.Command takes no context, so no deadline bounds it; use exec.CommandContext",
       "anchor": "fn:localReproducibilityExecutor.inspectImageArchive",
       "fingerprint": "tooling/internal/pdfrender/image_proof_command.go:HISS-02:fn:localReproducibilityExecutor.inspectImageArchive#1"
@@ -4174,7 +3566,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/image_proof_command.go",
-      "line_number": 88,
+      "line_number": 90,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:inspectImageProofCommand",
       "fingerprint": "tooling/internal/pdfrender/image_proof_command.go:HISS-07:fn:inspectImageProofCommand#1"
@@ -4182,7 +3574,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/image_proof_command.go",
-      "line_number": 94,
+      "line_number": 96,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:inspectImageProofCommand",
       "fingerprint": "tooling/internal/pdfrender/image_proof_command.go:HISS-07:fn:inspectImageProofCommand#2"
@@ -4190,7 +3582,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/image_proof_command.go",
-      "line_number": 95,
+      "line_number": 97,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:inspectImageProofCommand",
       "fingerprint": "tooling/internal/pdfrender/image_proof_command.go:HISS-07:fn:inspectImageProofCommand#3"
@@ -4198,7 +3590,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/image_proof_command.go",
-      "line_number": 104,
+      "line_number": 106,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:inspectImageProofCommand",
       "fingerprint": "tooling/internal/pdfrender/image_proof_command.go:HISS-07:fn:inspectImageProofCommand#4"
@@ -4206,7 +3598,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/image_proof_command.go",
-      "line_number": 105,
+      "line_number": 107,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:inspectImageProofCommand",
       "fingerprint": "tooling/internal/pdfrender/image_proof_command.go:HISS-07:fn:inspectImageProofCommand#5"
@@ -4230,7 +3622,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/publication.go",
-      "line_number": 59,
+      "line_number": 61,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:createPublicationLock",
       "fingerprint": "tooling/internal/pdfrender/publication.go:HISS-07:fn:createPublicationLock#1"
@@ -4238,7 +3630,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/publication.go",
-      "line_number": 64,
+      "line_number": 66,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:createPublicationLock",
       "fingerprint": "tooling/internal/pdfrender/publication.go:HISS-07:fn:createPublicationLock#2"
@@ -4246,7 +3638,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/publication.go",
-      "line_number": 67,
+      "line_number": 69,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:createPublicationLock",
       "fingerprint": "tooling/internal/pdfrender/publication.go:HISS-07:fn:createPublicationLock#3"
@@ -4254,7 +3646,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/publication.go",
-      "line_number": 160,
+      "line_number": 162,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:publishRenderPair",
       "fingerprint": "tooling/internal/pdfrender/publication.go:HISS-07:fn:publishRenderPair#1"
@@ -4262,7 +3654,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/publication.go",
-      "line_number": 171,
+      "line_number": 173,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:publishRenderPair",
       "fingerprint": "tooling/internal/pdfrender/publication.go:HISS-07:fn:publishRenderPair#2"
@@ -4270,7 +3662,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/publication.go",
-      "line_number": 213,
+      "line_number": 215,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:replacePublishedPair",
       "fingerprint": "tooling/internal/pdfrender/publication.go:HISS-07:fn:replacePublishedPair#1"
@@ -4278,50 +3670,15 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/publication.go",
-      "line_number": 296,
+      "line_number": 298,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:copyRegularFileExclusive",
       "fingerprint": "tooling/internal/pdfrender/publication.go:HISS-07:fn:copyRegularFileExclusive#1"
     },
     {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/pdfrender/render.go",
-      "line_number": 88,
-      "symbol": "renderWithDependencies",
-      "message": "Function 'renderWithDependencies' (123 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:renderWithDependencies",
-      "fingerprint": "tooling/internal/pdfrender/render.go:HISS-04:fn:renderWithDependencies#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/pdfrender/render.go",
-      "line_number": 473,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:cleanupContainer",
-      "fingerprint": "tooling/internal/pdfrender/render.go:HISS-07:fn:cleanupContainer#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/pdfrender/reproducibility.go",
-      "line_number": 84,
-      "symbol": "verifyCachedProofWithDependencies",
-      "message": "Function 'verifyCachedProofWithDependencies' (160 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:verifyCachedProofWithDependencies",
-      "fingerprint": "tooling/internal/pdfrender/reproducibility.go:HISS-04:fn:verifyCachedProofWithDependencies#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/pdfrender/reproducibility.go",
-      "line_number": 268,
-      "symbol": "reproducibilityBuild",
-      "message": "Function 'reproducibilityBuild' (62 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:reproducibilityBuild",
-      "fingerprint": "tooling/internal/pdfrender/reproducibility.go:HISS-04:fn:reproducibilityBuild#1"
-    },
-    {
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/pdfrender/reproducibility_receipt.go",
-      "line_number": 222,
+      "line_number": 223,
       "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
       "anchor": "fn:hashContextFile",
       "fingerprint": "tooling/internal/pdfrender/reproducibility_receipt.go:HISS-02:fn:hashContextFile#1"
@@ -4329,7 +3686,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/reproducibility_receipt.go",
-      "line_number": 248,
+      "line_number": 249,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:writeReproducibilityDigestField",
       "fingerprint": "tooling/internal/pdfrender/reproducibility_receipt.go:HISS-07:fn:writeReproducibilityDigestField#1"
@@ -4337,7 +3694,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/reproducibility_receipt.go",
-      "line_number": 249,
+      "line_number": 250,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:writeReproducibilityDigestField",
       "fingerprint": "tooling/internal/pdfrender/reproducibility_receipt.go:HISS-07:fn:writeReproducibilityDigestField#2"
@@ -4345,7 +3702,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "tooling/internal/pdfrender/reproducibility_receipt.go",
-      "line_number": 361,
+      "line_number": 362,
       "symbol": "retainReproducibilityMismatch",
       "message": "Function 'retainReproducibilityMismatch' (70 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:retainReproducibilityMismatch",
@@ -4354,7 +3711,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/reproducibility_receipt.go",
-      "line_number": 442,
+      "line_number": 443,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:writeReproducibilityMismatchArtifact",
       "fingerprint": "tooling/internal/pdfrender/reproducibility_receipt.go:HISS-07:fn:writeReproducibilityMismatchArtifact#1"
@@ -4362,7 +3719,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdfrender/reproducibility_receipt.go",
-      "line_number": 555,
+      "line_number": 556,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:writeReproducibilityReceipt",
       "fingerprint": "tooling/internal/pdfrender/reproducibility_receipt.go:HISS-07:fn:writeReproducibilityReceipt#1"
@@ -4378,7 +3735,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "tooling/internal/pdftools/candidate_output.go",
-      "line_number": 56,
+      "line_number": 58,
       "symbol": "prepareCandidateOutputPlan",
       "message": "Function 'prepareCandidateOutputPlan' (64 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:prepareCandidateOutputPlan",
@@ -4387,7 +3744,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdftools/candidate_output.go",
-      "line_number": 466,
+      "line_number": 468,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:verifyInstalledCandidateArtifact",
       "fingerprint": "tooling/internal/pdftools/candidate_output.go:HISS-07:fn:verifyInstalledCandidateArtifact#1"
@@ -4395,7 +3752,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdftools/candidate_output.go",
-      "line_number": 473,
+      "line_number": 475,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:verifyInstalledCandidateArtifact",
       "fingerprint": "tooling/internal/pdftools/candidate_output.go:HISS-07:fn:verifyInstalledCandidateArtifact#2"
@@ -4403,7 +3760,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdftools/candidate_output.go",
-      "line_number": 479,
+      "line_number": 481,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:verifyInstalledCandidateArtifact",
       "fingerprint": "tooling/internal/pdftools/candidate_output.go:HISS-07:fn:verifyInstalledCandidateArtifact#3"
@@ -4411,7 +3768,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdftools/candidate_output.go",
-      "line_number": 485,
+      "line_number": 487,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:verifyInstalledCandidateArtifact",
       "fingerprint": "tooling/internal/pdftools/candidate_output.go:HISS-07:fn:verifyInstalledCandidateArtifact#4"
@@ -4444,24 +3801,16 @@
     {
       "rule_id": "HISS-04",
       "file_path": "tooling/internal/pdftools/contract.go",
-      "line_number": 198,
+      "line_number": 200,
       "symbol": "validateDeliveryAndLimits",
       "message": "Function 'validateDeliveryAndLimits' (70 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:validateDeliveryAndLimits",
       "fingerprint": "tooling/internal/pdftools/contract.go:HISS-04:fn:validateDeliveryAndLimits#1"
     },
     {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/pdftools/docker_command.go",
-      "line_number": 100,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:boundedDockerOutput.Write",
-      "fingerprint": "tooling/internal/pdftools/docker_command.go:HISS-07:fn:boundedDockerOutput.Write#1"
-    },
-    {
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/pdftools/docker_command.go",
-      "line_number": 187,
+      "line_number": 156,
       "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
       "anchor": "fn:monitorBoundedDockerOutputs",
       "fingerprint": "tooling/internal/pdftools/docker_command.go:HISS-02:fn:monitorBoundedDockerOutputs#1"
@@ -4469,7 +3818,7 @@
     {
       "rule_id": "HISS-04",
       "file_path": "tooling/internal/pdftools/docker_command.go",
-      "line_number": 263,
+      "line_number": 232,
       "symbol": "walkBoundedTree",
       "message": "Function 'walkBoundedTree' (89 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
       "anchor": "fn:walkBoundedTree",
@@ -4478,7 +3827,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdftools/docker_command.go",
-      "line_number": 297,
+      "line_number": 266,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:walkBoundedTree",
       "fingerprint": "tooling/internal/pdftools/docker_command.go:HISS-07:fn:walkBoundedTree#1"
@@ -4486,7 +3835,7 @@
     {
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/pdftools/docker_command.go",
-      "line_number": 300,
+      "line_number": 269,
       "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
       "anchor": "fn:walkBoundedTree",
       "fingerprint": "tooling/internal/pdftools/docker_command.go:HISS-02:fn:walkBoundedTree#1"
@@ -4494,7 +3843,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdftools/docker_command.go",
-      "line_number": 306,
+      "line_number": 275,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:walkBoundedTree",
       "fingerprint": "tooling/internal/pdftools/docker_command.go:HISS-07:fn:walkBoundedTree#2"
@@ -4502,7 +3851,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdftools/docker_command.go",
-      "line_number": 311,
+      "line_number": 280,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:walkBoundedTree",
       "fingerprint": "tooling/internal/pdftools/docker_command.go:HISS-07:fn:walkBoundedTree#3"
@@ -4510,7 +3859,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdftools/docker_command.go",
-      "line_number": 317,
+      "line_number": 286,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:walkBoundedTree",
       "fingerprint": "tooling/internal/pdftools/docker_command.go:HISS-07:fn:walkBoundedTree#4"
@@ -4518,7 +3867,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdftools/docker_command.go",
-      "line_number": 321,
+      "line_number": 290,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:walkBoundedTree",
       "fingerprint": "tooling/internal/pdftools/docker_command.go:HISS-07:fn:walkBoundedTree#5"
@@ -4526,7 +3875,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdftools/docker_command.go",
-      "line_number": 327,
+      "line_number": 296,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:walkBoundedTree",
       "fingerprint": "tooling/internal/pdftools/docker_command.go:HISS-07:fn:walkBoundedTree#6"
@@ -4534,7 +3883,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdftools/docker_command.go",
-      "line_number": 331,
+      "line_number": 300,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:walkBoundedTree",
       "fingerprint": "tooling/internal/pdftools/docker_command.go:HISS-07:fn:walkBoundedTree#7"
@@ -4542,7 +3891,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdftools/docker_command.go",
-      "line_number": 342,
+      "line_number": 311,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:walkBoundedTree",
       "fingerprint": "tooling/internal/pdftools/docker_command.go:HISS-07:fn:walkBoundedTree#8"
@@ -4600,7 +3949,7 @@
     {
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/pdftools/image_archive.go",
-      "line_number": 169,
+      "line_number": 170,
       "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
       "anchor": "fn:projectBaseTarEntries",
       "fingerprint": "tooling/internal/pdftools/image_archive.go:HISS-02:fn:projectBaseTarEntries#1"
@@ -4608,7 +3957,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdftools/image_archive.go",
-      "line_number": 392,
+      "line_number": 393,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:openBoundedRegular",
       "fingerprint": "tooling/internal/pdftools/image_archive.go:HISS-07:fn:openBoundedRegular#1"
@@ -4616,7 +3965,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdftools/image_archive.go",
-      "line_number": 416,
+      "line_number": 417,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:writeExactStream",
       "fingerprint": "tooling/internal/pdftools/image_archive.go:HISS-07:fn:writeExactStream#1"
@@ -4624,7 +3973,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdftools/image_archive.go",
-      "line_number": 418,
+      "line_number": 419,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:writeExactStream",
       "fingerprint": "tooling/internal/pdftools/image_archive.go:HISS-07:fn:writeExactStream#2"
@@ -4632,7 +3981,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdftools/image_archive.go",
-      "line_number": 446,
+      "line_number": 447,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:writeExactBytes",
       "fingerprint": "tooling/internal/pdftools/image_archive.go:HISS-07:fn:writeExactBytes#1"
@@ -4640,7 +3989,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/pdftools/image_archive.go",
-      "line_number": 448,
+      "line_number": 449,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:writeExactBytes",
       "fingerprint": "tooling/internal/pdftools/image_archive.go:HISS-07:fn:writeExactBytes#2"
@@ -4801,460 +4150,9 @@
       "fingerprint": "tooling/internal/pdftools/publication_output_linux_amd64.go:HISS-09:fn:rawLinkat#2"
     },
     {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/pdftools/receipt.go",
-      "line_number": 204,
-      "symbol": "newReproductionReceipt",
-      "message": "Function 'newReproductionReceipt' (99 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:newReproductionReceipt",
-      "fingerprint": "tooling/internal/pdftools/receipt.go:HISS-04:fn:newReproductionReceipt#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/pdftools/receipt.go",
-      "line_number": 573,
-      "symbol": "writeReproductionReceiptCheckedAtRoot",
-      "message": "Function 'writeReproductionReceiptCheckedAtRoot' (96 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:writeReproductionReceiptCheckedAtRoot",
-      "fingerprint": "tooling/internal/pdftools/receipt.go:HISS-04:fn:writeReproductionReceiptCheckedAtRoot#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/pdftools/reproduce.go",
-      "line_number": 28,
-      "symbol": "ReproduceFinalImage",
-      "message": "Function 'ReproduceFinalImage' (126 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:ReproduceFinalImage",
-      "fingerprint": "tooling/internal/pdftools/reproduce.go:HISS-04:fn:ReproduceFinalImage#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/pdftools/reproduce.go",
-      "line_number": 155,
-      "symbol": "finishSuccessfulReproduction",
-      "message": "Function 'finishSuccessfulReproduction' (77 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:finishSuccessfulReproduction",
-      "fingerprint": "tooling/internal/pdftools/reproduce.go:HISS-04:fn:finishSuccessfulReproduction#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/pdftools/reproduction_build.go",
-      "line_number": 174,
-      "symbol": "runApkoBuild",
-      "message": "Function 'runApkoBuild' (89 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:runApkoBuild",
-      "fingerprint": "tooling/internal/pdftools/reproduction_build.go:HISS-04:fn:runApkoBuild#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/pdftools/reproduction_build.go",
-      "line_number": 553,
-      "symbol": "validateReproductionBuilder",
-      "message": "Function 'validateReproductionBuilder' (72 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:validateReproductionBuilder",
-      "fingerprint": "tooling/internal/pdftools/reproduction_build.go:HISS-04:fn:validateReproductionBuilder#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/pdftools/reproduction_context.go",
-      "line_number": 72,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:writeNormalizedContextFile",
-      "fingerprint": "tooling/internal/pdftools/reproduction_context.go:HISS-07:fn:writeNormalizedContextFile#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/pdftools/reproduction_context.go",
-      "line_number": 74,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:writeNormalizedContextFile",
-      "fingerprint": "tooling/internal/pdftools/reproduction_context.go:HISS-07:fn:writeNormalizedContextFile#2"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/pdftools/reproduction_context.go",
-      "line_number": 96,
-      "symbol": "inspectNoticeContext",
-      "message": "Function 'inspectNoticeContext' (74 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:inspectNoticeContext",
-      "fingerprint": "tooling/internal/pdftools/reproduction_context.go:HISS-04:fn:inspectNoticeContext#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/pdftools/reproduction_context.go",
-      "line_number": 172,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:writeContextDigestField",
-      "fingerprint": "tooling/internal/pdftools/reproduction_context.go:HISS-07:fn:writeContextDigestField#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/pdftools/reproduction_context.go",
-      "line_number": 173,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:writeContextDigestField",
-      "fingerprint": "tooling/internal/pdftools/reproduction_context.go:HISS-07:fn:writeContextDigestField#2"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/pdftools/runtime.go",
-      "line_number": 91,
-      "symbol": "inspectFinalRuntime",
-      "message": "Function 'inspectFinalRuntime' (74 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:inspectFinalRuntime",
-      "fingerprint": "tooling/internal/pdftools/runtime.go:HISS-04:fn:inspectFinalRuntime#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/pdftools/runtime.go",
-      "line_number": 246,
-      "symbol": "inspectRuntimeContainment",
-      "message": "Function 'inspectRuntimeContainment' (70 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:inspectRuntimeContainment",
-      "fingerprint": "tooling/internal/pdftools/runtime.go:HISS-04:fn:inspectRuntimeContainment#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/pdftools/source_bundle.go",
-      "line_number": 206,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:writeDeterministicSourceBundle",
-      "fingerprint": "tooling/internal/pdftools/source_bundle.go:HISS-07:fn:writeDeterministicSourceBundle#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/pdftools/source_bundle.go",
-      "line_number": 207,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:writeDeterministicSourceBundle",
-      "fingerprint": "tooling/internal/pdftools/source_bundle.go:HISS-07:fn:writeDeterministicSourceBundle#2"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/pdftools/source_bundle.go",
-      "line_number": 213,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:writeDeterministicSourceBundle",
-      "fingerprint": "tooling/internal/pdftools/source_bundle.go:HISS-07:fn:writeDeterministicSourceBundle#3"
-    },
-    {
-      "rule_id": "HISS-02",
-      "file_path": "tooling/internal/pdftools/source_bundle_test.go",
-      "line_number": 94,
-      "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
-      "anchor": "fn:readSourceBundle",
-      "fingerprint": "tooling/internal/pdftools/source_bundle_test.go:HISS-02:fn:readSourceBundle#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/publictransport/verify.go",
-      "line_number": 106,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:requestHead",
-      "fingerprint": "tooling/internal/publictransport/verify.go:HISS-07:fn:requestHead#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/releasebuild/build.go",
-      "line_number": 91,
-      "symbol": "Build",
-      "message": "Function 'Build' (63 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:Build",
-      "fingerprint": "tooling/internal/releasebuild/build.go:HISS-04:fn:Build#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/releasebuild/build.go",
-      "line_number": 114,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:Build",
-      "fingerprint": "tooling/internal/releasebuild/build.go:HISS-07:fn:Build#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/releasebuild/build.go",
-      "line_number": 383,
-      "symbol": "renderGoSBOM",
-      "message": "Function 'renderGoSBOM' (69 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:renderGoSBOM",
-      "fingerprint": "tooling/internal/releasebuild/build.go:HISS-04:fn:renderGoSBOM#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/releasebuild/command.go",
-      "line_number": 37,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:boundedOutput.Write",
-      "fingerprint": "tooling/internal/releasebuild/command.go:HISS-07:fn:boundedOutput.Write#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/releasecheck/inventory.go",
-      "line_number": 44,
-      "symbol": "ValidateAssetInventory",
-      "message": "Function 'ValidateAssetInventory' (73 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:ValidateAssetInventory",
-      "fingerprint": "tooling/internal/releasecheck/inventory.go:HISS-04:fn:ValidateAssetInventory#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/releasecheck/release_state.go",
-      "line_number": 86,
-      "symbol": "ResolveReleaseState",
-      "message": "Function 'ResolveReleaseState' (84 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:GHReleaseStateResolver.ResolveReleaseState",
-      "fingerprint": "tooling/internal/releasecheck/release_state.go:HISS-04:fn:GHReleaseStateResolver.ResolveReleaseState#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/releasecheck/remote_assets.go",
-      "line_number": 80,
-      "symbol": "FetchReleaseAssets",
-      "message": "Function 'FetchReleaseAssets' (75 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:FetchReleaseAssets",
-      "fingerprint": "tooling/internal/releasecheck/remote_assets.go:HISS-04:fn:FetchReleaseAssets#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/releasecheck/remote_assets.go",
-      "line_number": 120,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:FetchReleaseAssets",
-      "fingerprint": "tooling/internal/releasecheck/remote_assets.go:HISS-07:fn:FetchReleaseAssets#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/releasecheck/remote_assets.go",
-      "line_number": 156,
-      "symbol": "buildRemoteAssetExpectations",
-      "message": "Function 'buildRemoteAssetExpectations' (87 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:buildRemoteAssetExpectations",
-      "fingerprint": "tooling/internal/releasecheck/remote_assets.go:HISS-04:fn:buildRemoteAssetExpectations#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/releasecheck/remote_assets.go",
-      "line_number": 368,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:createExclusiveOutputDirectory",
-      "fingerprint": "tooling/internal/releasecheck/remote_assets.go:HISS-07:fn:createExclusiveOutputDirectory#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/releasecheck/remote_assets.go",
-      "line_number": 374,
-      "symbol": "downloadReleaseAsset",
-      "message": "Function 'downloadReleaseAsset' (66 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:downloadReleaseAsset",
-      "fingerprint": "tooling/internal/releasecheck/remote_assets.go:HISS-04:fn:downloadReleaseAsset#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/releasecheck/remote_assets.go",
-      "line_number": 388,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:downloadReleaseAsset",
-      "fingerprint": "tooling/internal/releasecheck/remote_assets.go:HISS-07:fn:downloadReleaseAsset#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/releasecheck/remote_assets.go",
-      "line_number": 390,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:downloadReleaseAsset",
-      "fingerprint": "tooling/internal/releasecheck/remote_assets.go:HISS-07:fn:downloadReleaseAsset#2"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/releasecheck/remote_assets.go",
-      "line_number": 465,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:boundedAssetWriter.Write",
-      "fingerprint": "tooling/internal/releasecheck/remote_assets.go:HISS-07:fn:boundedAssetWriter.Write#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/releasecheck/tag.go",
-      "line_number": 164,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:boundedBuffer.Write",
-      "fingerprint": "tooling/internal/releasecheck/tag.go:HISS-07:fn:boundedBuffer.Write#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/releaseimage/inspect.go",
-      "line_number": 152,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:boundedRoundTripper.RoundTrip",
-      "fingerprint": "tooling/internal/releaseimage/inspect.go:HISS-07:fn:boundedRoundTripper.RoundTrip#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/releaseimage/inspect.go",
-      "line_number": 156,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:boundedRoundTripper.RoundTrip",
-      "fingerprint": "tooling/internal/releaseimage/inspect.go:HISS-07:fn:boundedRoundTripper.RoundTrip#2"
-    },
-    {
-      "rule_id": "HISS-02",
-      "file_path": "tooling/internal/releaseimage/inspect.go",
-      "line_number": 220,
-      "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
-      "anchor": "fn:inspectExisting",
-      "fingerprint": "tooling/internal/releaseimage/inspect.go:HISS-02:fn:inspectExisting#1"
-    },
-    {
-      "rule_id": "HISS-02",
-      "file_path": "tooling/internal/specialistcontrol/admission.go",
-      "line_number": 329,
-      "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
-      "anchor": "fn:Admission.wait",
-      "fingerprint": "tooling/internal/specialistcontrol/admission.go:HISS-02:fn:Admission.wait#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/specialistcontrol/admission.go",
-      "line_number": 423,
-      "symbol": "selectLocked",
-      "message": "Function 'selectLocked' (70 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:Admission.selectLocked",
-      "fingerprint": "tooling/internal/specialistcontrol/admission.go:HISS-04:fn:Admission.selectLocked#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/specialistcontrol/admission.go",
-      "line_number": 720,
-      "symbol": "plannedSpecialistLocked",
-      "message": "Function 'plannedSpecialistLocked' (67 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:Admission.plannedSpecialistLocked",
-      "fingerprint": "tooling/internal/specialistcontrol/admission.go:HISS-04:fn:Admission.plannedSpecialistLocked#1"
-    },
-    {
-      "rule_id": "HISS-02",
-      "file_path": "tooling/internal/specialistcontrol/admission_test.go",
-      "line_number": 1216,
-      "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
-      "anchor": "fn:TestAdmissionReservationNeverOversubscribesUnderRace",
-      "fingerprint": "tooling/internal/specialistcontrol/admission_test.go:HISS-02:fn:TestAdmissionReservationNeverOversubscribesUnderRace#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/specialistcontrol/policy.go",
-      "line_number": 547,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:bindRequest",
-      "fingerprint": "tooling/internal/specialistcontrol/policy.go:HISS-07:fn:bindRequest#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/specialistcontrol/policy.go",
-      "line_number": 548,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:bindRequest",
-      "fingerprint": "tooling/internal/specialistcontrol/policy.go:HISS-07:fn:bindRequest#2"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/specialistcontrol/policy.go",
-      "line_number": 553,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:bindRequest",
-      "fingerprint": "tooling/internal/specialistcontrol/policy.go:HISS-07:fn:bindRequest#3"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/specialistcontrol/policy.go",
-      "line_number": 555,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:bindRequest",
-      "fingerprint": "tooling/internal/specialistcontrol/policy.go:HISS-07:fn:bindRequest#4"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/specialistcontrol/policy.go",
-      "line_number": 560,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:bindRequest",
-      "fingerprint": "tooling/internal/specialistcontrol/policy.go:HISS-07:fn:bindRequest#5"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/specialistcontrol/policy.go",
-      "line_number": 561,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:bindRequest",
-      "fingerprint": "tooling/internal/specialistcontrol/policy.go:HISS-07:fn:bindRequest#6"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/specialistcontrol/policy.go",
-      "line_number": 568,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:bindRequest",
-      "fingerprint": "tooling/internal/specialistcontrol/policy.go:HISS-07:fn:bindRequest#7"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/specialistcontrol/policy.go",
-      "line_number": 570,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:bindRequest",
-      "fingerprint": "tooling/internal/specialistcontrol/policy.go:HISS-07:fn:bindRequest#8"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/specialistcontrol/policy.go",
-      "line_number": 578,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:bindCandidate",
-      "fingerprint": "tooling/internal/specialistcontrol/policy.go:HISS-07:fn:bindCandidate#1"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/specialistcontrol/policy.go",
-      "line_number": 580,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:bindCandidate",
-      "fingerprint": "tooling/internal/specialistcontrol/policy.go:HISS-07:fn:bindCandidate#2"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/specialistcontrol/policy.go",
-      "line_number": 581,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:bindCandidate",
-      "fingerprint": "tooling/internal/specialistcontrol/policy.go:HISS-07:fn:bindCandidate#3"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/specialistcontrol/policy.go",
-      "line_number": 583,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:bindCandidate",
-      "fingerprint": "tooling/internal/specialistcontrol/policy.go:HISS-07:fn:bindCandidate#4"
-    },
-    {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/specialistcontrol/policy.go",
-      "line_number": 584,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:bindCandidate",
-      "fingerprint": "tooling/internal/specialistcontrol/policy.go:HISS-07:fn:bindCandidate#5"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/specialistcontrol/runner.go",
-      "line_number": 88,
-      "symbol": "Run",
-      "message": "Function 'Run' (128 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:Runner.Run",
-      "fingerprint": "tooling/internal/specialistcontrol/runner.go:HISS-04:fn:Runner.Run#1"
-    },
-    {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/translationbundle/files.go",
-      "line_number": 366,
+      "line_number": 357,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:writeNewFile",
       "fingerprint": "tooling/internal/translationbundle/files.go:HISS-07:fn:writeNewFile#1"
@@ -5262,7 +4160,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/translationbundle/files.go",
-      "line_number": 370,
+      "line_number": 361,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:writeNewFile",
       "fingerprint": "tooling/internal/translationbundle/files.go:HISS-07:fn:writeNewFile#2"
@@ -5270,7 +4168,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/translationbundle/files.go",
-      "line_number": 374,
+      "line_number": 365,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:writeNewFile",
       "fingerprint": "tooling/internal/translationbundle/files.go:HISS-07:fn:writeNewFile#3"
@@ -5278,7 +4176,7 @@
     {
       "rule_id": "HISS-02",
       "file_path": "tooling/internal/translationbundle/files.go",
-      "line_number": 406,
+      "line_number": 397,
       "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
       "anchor": "fn:nearestRealAncestor",
       "fingerprint": "tooling/internal/translationbundle/files.go:HISS-02:fn:nearestRealAncestor#1"
@@ -5286,7 +4184,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/translationbundle/files.go",
-      "line_number": 451,
+      "line_number": 442,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:writeCandidateDirectory",
       "fingerprint": "tooling/internal/translationbundle/files.go:HISS-07:fn:writeCandidateDirectory#1"
@@ -5294,7 +4192,7 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/translationbundle/files.go",
-      "line_number": 455,
+      "line_number": 446,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:writeCandidateDirectory",
       "fingerprint": "tooling/internal/translationbundle/files.go:HISS-07:fn:writeCandidateDirectory#2"
@@ -5302,28 +4200,10 @@
     {
       "rule_id": "HISS-07",
       "file_path": "tooling/internal/translationbundle/files.go",
-      "line_number": 456,
+      "line_number": 447,
       "message": "Legacy unchecked error assignment",
       "anchor": "fn:writeCandidateDirectory",
       "fingerprint": "tooling/internal/translationbundle/files.go:HISS-07:fn:writeCandidateDirectory#3"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/workstationrunner/inventory.go",
-      "line_number": 53,
-      "symbol": "freezeWorkstationInventory",
-      "message": "Function 'freezeWorkstationInventory' (63 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:freezeWorkstationInventory",
-      "fingerprint": "tooling/internal/workstationrunner/inventory.go:HISS-04:fn:freezeWorkstationInventory#1"
-    },
-    {
-      "rule_id": "HISS-04",
-      "file_path": "tooling/internal/workstationrunner/inventory.go",
-      "line_number": 259,
-      "symbol": "loadManifestFullTests",
-      "message": "Function 'loadManifestFullTests' (71 LOC) exceeds HISS-04 / NASA Rule 4 limit of 60 LOC",
-      "anchor": "fn:loadManifestFullTests",
-      "fingerprint": "tooling/internal/workstationrunner/inventory.go:HISS-04:fn:loadManifestFullTests#1"
     },
     {
       "rule_id": "HISS-09",
@@ -5390,22 +4270,6 @@
       "fingerprint": "tooling/internal/workstationrunner/process_tree_windows.go:HISS-09:fn:resumeWindowsProcess#3"
     },
     {
-      "rule_id": "HISS-07",
-      "file_path": "tooling/internal/workstationrunner/runner.go",
-      "line_number": 96,
-      "message": "Legacy unchecked error assignment",
-      "anchor": "fn:boundedOutput.Write",
-      "fingerprint": "tooling/internal/workstationrunner/runner.go:HISS-07:fn:boundedOutput.Write#1"
-    },
-    {
-      "rule_id": "HISS-02",
-      "file_path": "tooling/internal/workstationrunner/runner_test.go",
-      "line_number": 106,
-      "message": "Unbounded for loop without an exit condition (for {} / for ;; )",
-      "anchor": "fn:runHelper",
-      "fingerprint": "tooling/internal/workstationrunner/runner_test.go:HISS-02:fn:runHelper#1"
-    },
-    {
       "rule_id": "HISS-04",
       "file_path": "vite.pages.config.ts",
       "line_number": 131,
@@ -5435,7 +4299,7 @@
     {
       "rule_id": "HISS-01",
       "file_path": "tooling/internal/strictjson/validate.go",
-      "line_number": 80,
+      "line_number": 92,
       "symbol": "scanArray",
       "message": "Call cycle through scanArray -\u003e scanObject -\u003e scanValue -\u003e scanArray; the call graph must form an acyclic DAG",
       "anchor": "fn:scanArray",

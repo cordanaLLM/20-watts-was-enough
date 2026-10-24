@@ -327,6 +327,49 @@ test("discovery rejects an unlisted production module and an unregistered test",
   }
 });
 
+function nestedDirectory(root, levels) {
+  return path.join(root, ...Array.from({ length: levels }, (_, index) => `d${index}`));
+}
+
+test("discovery walks empty nesting to depth 32 and refuses depth 33", async () => {
+  const fixture = await temporaryCoverageFixture();
+  try {
+    await mkdir(nestedDirectory(fixture.candidateRoot, 32), { recursive: true });
+    assert.equal((await discoverCandidate010SourceFiles(fixture.options)).production_modules.length, 2);
+    await mkdir(nestedDirectory(fixture.candidateRoot, 33));
+    await assert.rejects(
+      discoverCandidate010SourceFiles(fixture.options),
+      /source discovery exceeded maximum depth of 32/,
+    );
+  } finally {
+    await rm(fixture.temporary, { recursive: true, force: true });
+  }
+});
+
+test("frozen source verification walks nesting to depth 32 and refuses depth 33", async () => {
+  const sourceRoot = await mkdtemp(path.join(os.tmpdir(), "20w-c010-deep-source-"));
+  try {
+    await writeFile(path.join(sourceRoot, "entry.mjs"), "export const value = 1;\n");
+    const expectedBundle = await computeSourceBundle({
+      root: sourceRoot,
+      sourceFiles: ["entry.mjs"],
+      vcs: { source_commit: "d".repeat(40), worktree_state: "committed-capsule-fixture" },
+    });
+    await mkdir(nestedDirectory(sourceRoot, 32), { recursive: true });
+    await assert.rejects(
+      verifyCandidate010SourceBundleAtRoot({ sourceRoot, expectedBundle }),
+      /inventory does not exactly match/,
+    );
+    await mkdir(nestedDirectory(sourceRoot, 33));
+    await assert.rejects(
+      verifyCandidate010SourceBundleAtRoot({ sourceRoot, expectedBundle }),
+      /exceeded maximum directory depth of 32/,
+    );
+  } finally {
+    await rm(sourceRoot, { recursive: true, force: true });
+  }
+});
+
 test("discovery enforces production and registered-test import closure and classifies every candidate file", async () => {
   const fixture = await temporaryCoverageFixture();
   try {

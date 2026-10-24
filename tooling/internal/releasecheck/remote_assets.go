@@ -599,7 +599,7 @@ func (GHReleaseAssetClient) DownloadReleaseAsset(
 func runBoundedGHCommand(ctx context.Context, stdout, stderr io.Writer, arguments ...string) error {
 	requestContext, cancel := context.WithTimeout(ctx, githubAPIRequestTimeout)
 	defer cancel()
-	command := exec.CommandContext(requestContext, "gh", arguments...)
+	command := exec.CommandContext(requestContext, "gh", arguments...) //#nosec G204 -- fixed gh CLI binary with bounded arguments
 	command.Stdout = stdout
 	command.Stderr = stderr
 	command.WaitDelay = githubAPICommandWaitDelay

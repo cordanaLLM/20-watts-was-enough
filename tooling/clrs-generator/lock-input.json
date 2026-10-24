@@ -30,6 +30,9 @@
     "prerelease": "if-necessary",
     "exclude_newer": "2026-08-31T13:22:50Z",
     "exclude_newer_package": {
+      "certifi": "2026-10-21T00:00:00Z",
+      "pip": "2026-10-21T00:00:00Z",
+      "setuptools": "2026-10-19T20:20:00Z",
       "urllib3": "2026-09-16T00:00:00Z"
     }
   },
@@ -106,6 +109,10 @@
     }
   ],
   "supplemental_requirements": [
+    {
+      "requirement": "pip==26.2.2",
+      "reason": "replaces the base image's ensurepip pip whose vendored certifi carries PYSEC-2026-4320"
+    },
     {
       "requirement": "tqdm==4.70.0",
       "reason": "the pinned generator imports tqdm directly but the upstream requirements file does not name it"

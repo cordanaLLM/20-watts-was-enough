@@ -214,25 +214,9 @@ func newReproductionReceipt(
 	comparison ReproductionComparison,
 	candidate *ReproductionCandidate,
 ) ReproductionReceipt {
-	status := "construction-mismatch"
-	if comparison.AllMatch {
-		status = "local-construction-pass"
-	}
-	if candidate != nil {
-		status = "local-candidate-preparation-pass"
-	}
-	baseReceipts := make([]ReproductionBuild, len(bases))
-	for index, build := range bases {
-		baseReceipts[index] = reproductionBuildReceipt(build.Sequence, build.Image, &build.SPDX, &build.SPDXIndex)
-	}
-	finalReceipts := make([]ReproductionBuild, len(finals))
-	for index, build := range finals {
-		finalReceipts[index] = reproductionBuildReceipt(build.Sequence, build.Image.Identity, nil, nil)
-	}
-	builder := authority.renderer.Lock.Builder
 	receipt := ReproductionReceipt{
 		Schema:           reproductionReceiptSchema,
-		Status:           status,
+		Status:           reproductionStatus(comparison, candidate),
 		Scope:            "local-pdf-tools-final-image-reproduction",
 		Authority:        "NO_RESULT",
 		ScientificResult: false,
@@ -248,39 +232,7 @@ func newReproductionReceipt(
 			ResultAuthority: authority.contract.ResultAuthority,
 			Platform:        authority.contract.Platform,
 		},
-		Builders: ReproductionBuilders{
-			ApkoImage:                  authority.contract.Builder.Image,
-			ApkoVersion:                apkoBuilder.Version,
-			ApkoRevision:               apkoBuilder.Revision,
-			ApkoGoVersion:              apkoBuilder.GoVersion,
-			ApkoTreeState:              apkoBuilder.TreeState,
-			ApkoBuildDate:              apkoBuilder.BuildDate,
-			ApkoRequestedNetwork:       "docker-default",
-			ApkoRequestedReadOnlyRoot:  true,
-			ApkoRequestedCapabilities:  "drop-all",
-			ApkoRequestedNoNewPrivs:    true,
-			ApkoRequestedMemoryBytes:   authority.contract.Limits.ApkoMemoryBytes,
-			ApkoRequestedMemorySwap:    authority.contract.Limits.ApkoMemoryBytes,
-			ApkoRequestedPIDs:          authority.contract.Limits.ApkoPIDs,
-			ApkoRequestedTemporary:     authority.contract.Limits.ApkoTemporaryBytes,
-			BuildxVersion:              builder.BuildxVersion,
-			BuildxRevision:             builder.BuildxRevision,
-			BuildKitImage:              builder.BuildKitImage,
-			BuildKitVersion:            builder.BuildKitVersion,
-			FreshBuildKits:             reproductionBuildCount,
-			DaemonNetwork:              "none",
-			DaemonPrivileged:           true,
-			DaemonAllowedEntitlements:  []string{"network.host"},
-			RequestedBuildEntitlements: []string{},
-			DaemonMemoryBytes:          authority.contract.Limits.BuildKitMemoryBytes,
-			DaemonPIDs:                 authority.contract.Limits.BuildKitPIDs,
-			DaemonCPUPeriod:            authority.contract.Limits.BuildKitCPUPeriod,
-			DaemonCPUQuota:             authority.contract.Limits.BuildKitCPUQuota,
-			DaemonMaximumParallelism:   1,
-			NoCache:                    true,
-			FinalNetwork:               authority.contract.Runtime.Network,
-			RemotePush:                 false,
-		},
+		Builders:   reproductionBuildersReceipt(authority, apkoBuilder),
 		Comparator: comparator,
 		Context: ReproductionContext{
 			SHA256:           contextIdentity.SHA256,
@@ -289,8 +241,8 @@ func newReproductionReceipt(
 			DockerfileSHA256: contextIdentity.Dockerfile,
 			SourceDateEpoch:  authority.contract.SourceDateEpoch,
 		},
-		BaseBuilds:  baseReceipts,
-		FinalBuilds: finalReceipts,
+		BaseBuilds:  baseBuildReceipts(bases),
+		FinalBuilds: finalBuildReceipts(finals),
 		Notices:     slices.Clone(inspection.Notices),
 		ManPages:    slices.Clone(inspection.ManPages),
 		Comparison:  comparison,
@@ -301,6 +253,69 @@ func newReproductionReceipt(
 		receipt.Candidate = candidate
 	}
 	return receipt
+}
+
+func reproductionStatus(comparison ReproductionComparison, candidate *ReproductionCandidate) string {
+	if candidate != nil {
+		return "local-candidate-preparation-pass"
+	}
+	if comparison.AllMatch {
+		return "local-construction-pass"
+	}
+	return "construction-mismatch"
+}
+
+func baseBuildReceipts(bases []baseBuild) []ReproductionBuild {
+	receipts := make([]ReproductionBuild, len(bases))
+	for index, build := range bases {
+		receipts[index] = reproductionBuildReceipt(build.Sequence, build.Image, &build.SPDX, &build.SPDXIndex)
+	}
+	return receipts
+}
+
+func finalBuildReceipts(finals []finalBuild) []ReproductionBuild {
+	receipts := make([]ReproductionBuild, len(finals))
+	for index, build := range finals {
+		receipts[index] = reproductionBuildReceipt(build.Sequence, build.Image.Identity, nil, nil)
+	}
+	return receipts
+}
+
+func reproductionBuildersReceipt(authority checkedAuthority, apkoBuilder apkoBuilderIdentity) ReproductionBuilders {
+	builder := authority.renderer.Lock.Builder
+	return ReproductionBuilders{
+		ApkoImage:                  authority.contract.Builder.Image,
+		ApkoVersion:                apkoBuilder.Version,
+		ApkoRevision:               apkoBuilder.Revision,
+		ApkoGoVersion:              apkoBuilder.GoVersion,
+		ApkoTreeState:              apkoBuilder.TreeState,
+		ApkoBuildDate:              apkoBuilder.BuildDate,
+		ApkoRequestedNetwork:       "docker-default",
+		ApkoRequestedReadOnlyRoot:  true,
+		ApkoRequestedCapabilities:  "drop-all",
+		ApkoRequestedNoNewPrivs:    true,
+		ApkoRequestedMemoryBytes:   authority.contract.Limits.ApkoMemoryBytes,
+		ApkoRequestedMemorySwap:    authority.contract.Limits.ApkoMemoryBytes,
+		ApkoRequestedPIDs:          authority.contract.Limits.ApkoPIDs,
+		ApkoRequestedTemporary:     authority.contract.Limits.ApkoTemporaryBytes,
+		BuildxVersion:              builder.BuildxVersion,
+		BuildxRevision:             builder.BuildxRevision,
+		BuildKitImage:              builder.BuildKitImage,
+		BuildKitVersion:            builder.BuildKitVersion,
+		FreshBuildKits:             reproductionBuildCount,
+		DaemonNetwork:              "none",
+		DaemonPrivileged:           true,
+		DaemonAllowedEntitlements:  []string{"network.host"},
+		RequestedBuildEntitlements: []string{},
+		DaemonMemoryBytes:          authority.contract.Limits.BuildKitMemoryBytes,
+		DaemonPIDs:                 authority.contract.Limits.BuildKitPIDs,
+		DaemonCPUPeriod:            authority.contract.Limits.BuildKitCPUPeriod,
+		DaemonCPUQuota:             authority.contract.Limits.BuildKitCPUQuota,
+		DaemonMaximumParallelism:   1,
+		NoCache:                    true,
+		FinalNetwork:               authority.contract.Runtime.Network,
+		RemotePush:                 false,
+	}
 }
 
 func currentComparatorIdentity(root string) (ReproductionComparator, error) {
@@ -384,7 +399,7 @@ func runBoundedGit(root string, arguments []string, maximum int64) ([]byte, erro
 	stdout := boundedexec.NewOutput(int(maximum))
 	stderr := boundedexec.NewOutput(64 * 1024)
 	commandArguments := append([]string{"-C", root}, arguments...)
-	command := exec.CommandContext(ctx, gitBinary, commandArguments...)
+	command := exec.CommandContext(ctx, gitBinary, commandArguments...) //#nosec G204 -- fixed git binary from LookPath and bounded arguments validated by caller
 	command.Env = boundedDockerEnvironment()
 	command.Stdout = stdout
 	command.Stderr = stderr
@@ -458,8 +473,12 @@ func comparatorSourceIdentity(root string) (string, int, error) {
 	})
 	digest := sha256.New()
 	for _, file := range files {
-		writeContextDigestField(digest, []byte(file.relative))
-		writeContextDigestField(digest, file.body)
+		if err := writeContextDigestField(digest, []byte(file.relative)); err != nil {
+			return "", 0, err
+		}
+		if err := writeContextDigestField(digest, file.body); err != nil {
+			return "", 0, err
+		}
 	}
 	return hex.EncodeToString(digest.Sum(nil)), len(files), nil
 }
@@ -572,6 +591,95 @@ func writeReproductionReceiptChecked(
 	)
 }
 
+func encodeReproductionReceiptBody(receipt ReproductionReceipt, maximum int64) ([]byte, error) {
+	body, err := json.MarshalIndent(receipt, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("encode PDF-tools reproduction receipt: %w", err)
+	}
+	body = append(body, '\n')
+	if maximum <= 0 || int64(len(body)) > maximum {
+		return nil, errors.New("PDF-tools reproduction receipt exceeds its byte boundary")
+	}
+	return body, nil
+}
+
+func validateReproductionReceiptPlacement(repository publicationRootIdentity, targetPath string) (string, error) {
+	cleaned := filepath.Clean(targetPath)
+	relative, err := filepath.Rel(repository.path, cleaned)
+	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+		return "", errors.New("PDF-tools reproduction receipt escapes the repository root")
+	}
+	cleanRelative, err := validateReproductionReceiptRelative(filepath.ToSlash(relative))
+	if err != nil || cleanRelative != relative {
+		return "", errors.New("PDF-tools reproduction receipt path is not an admitted repository-relative JSON path")
+	}
+	return relative, nil
+}
+
+func writeUnnamedReceiptContents(temporary *os.File, temporaryInformation os.FileInfo, body []byte) (os.FileInfo, error) {
+	if _, err := temporary.Write(body); err != nil {
+		return nil, fmt.Errorf("write unnamed PDF-tools reproduction receipt: %w", err)
+	}
+	if err := temporary.Chmod(0o644); err != nil {
+		return nil, fmt.Errorf("normalise unnamed PDF-tools reproduction receipt: %w", err)
+	}
+	if err := temporary.Sync(); err != nil {
+		return nil, fmt.Errorf("sync unnamed PDF-tools reproduction receipt: %w", err)
+	}
+	writtenInformation, err := temporary.Stat()
+	if err != nil || !writtenInformation.Mode().IsRegular() || writtenInformation.Mode().Perm() != 0o644 ||
+		!os.SameFile(temporaryInformation, writtenInformation) || writtenInformation.Size() != int64(len(body)) {
+		return nil, errors.New("unnamed PDF-tools reproduction receipt changed before publication")
+	}
+	return writtenInformation, nil
+}
+
+func confirmPublishedReceipt(parent *pinnedPublicationDirectory, writtenInformation os.FileInfo, name string, body []byte) error {
+	finalInfo, finalError := parent.root.Lstat(name)
+	if finalError != nil || !finalInfo.Mode().IsRegular() || finalInfo.Mode()&os.ModeSymlink != 0 ||
+		!os.SameFile(writtenInformation, finalInfo) || finalInfo.Size() != int64(len(body)) {
+		return errors.New("published PDF-tools reproduction receipt changed during atomic placement")
+	}
+	if err := verifyPublishedReceiptBytes(parent.root, name, finalInfo, body); err != nil {
+		return err
+	}
+	if err := parent.sync(); err != nil {
+		return fmt.Errorf("sync published PDF-tools reproduction receipt: %w", err)
+	}
+	currentInformation, err := parent.root.Lstat(name)
+	if err != nil || !currentInformation.Mode().IsRegular() || currentInformation.Mode()&os.ModeSymlink != 0 ||
+		!os.SameFile(finalInfo, currentInformation) || currentInformation.Size() != int64(len(body)) {
+		return errors.New("published PDF-tools reproduction receipt path changed during confirmation")
+	}
+	return nil
+}
+
+func publishUnnamedReceiptFile(
+	parent *pinnedPublicationDirectory,
+	temporary *os.File,
+	name string,
+	beforePublish func() error,
+	afterLink func(*pinnedPublicationDirectory, string) error,
+) error {
+	if beforePublish != nil {
+		if err := beforePublish(); err != nil {
+			return fmt.Errorf("verify PDF-tools candidate outputs before receipt publication: %w", err)
+		}
+	}
+	if err := parent.verify(); err != nil {
+		return errors.New("PDF-tools reproduction receipt directory changed before publication")
+	}
+	if err := linkUnnamedPublicationFile(temporary, parent.descriptor, name); err != nil {
+		return fmt.Errorf("atomically publish new PDF-tools reproduction receipt: %w", err)
+	}
+	if afterLink != nil {
+		if err := afterLink(parent, name); err != nil {
+			return fmt.Errorf("validate PDF-tools reproduction receipt after atomic publication: %w", err)
+		}
+	}
+	return nil
+}
+
 func writeReproductionReceiptCheckedAtRoot(
 	repository publicationRootIdentity,
 	path string,
@@ -580,22 +688,13 @@ func writeReproductionReceiptCheckedAtRoot(
 	beforePublish func() error,
 	afterLink func(*pinnedPublicationDirectory, string) error,
 ) (returnError error) {
-	body, err := json.MarshalIndent(receipt, "", "  ")
+	body, err := encodeReproductionReceiptBody(receipt, maximum)
 	if err != nil {
-		return fmt.Errorf("encode PDF-tools reproduction receipt: %w", err)
+		return err
 	}
-	body = append(body, '\n')
-	if maximum <= 0 || int64(len(body)) > maximum {
-		return errors.New("PDF-tools reproduction receipt exceeds its byte boundary")
-	}
-	path = filepath.Clean(path)
-	relative, err := filepath.Rel(repository.path, path)
-	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
-		return errors.New("PDF-tools reproduction receipt escapes the repository root")
-	}
-	cleanRelative, err := validateReproductionReceiptRelative(filepath.ToSlash(relative))
-	if err != nil || cleanRelative != relative {
-		return errors.New("PDF-tools reproduction receipt path is not an admitted repository-relative JSON path")
+	relative, err := validateReproductionReceiptPlacement(repository, path)
+	if err != nil {
+		return err
 	}
 	parent, err := openPinnedPublicationDirectory(repository, filepath.Dir(relative), false, nil)
 	if err != nil {
@@ -620,53 +719,14 @@ func writeReproductionReceiptCheckedAtRoot(
 			returnError = errors.Join(returnError, fmt.Errorf("close unnamed PDF-tools reproduction receipt: %w", closeError))
 		}
 	}()
-	if _, err := temporary.Write(body); err != nil {
-		return fmt.Errorf("write unnamed PDF-tools reproduction receipt: %w", err)
-	}
-	if err := temporary.Chmod(0o644); err != nil {
-		return fmt.Errorf("normalise unnamed PDF-tools reproduction receipt: %w", err)
-	}
-	if err := temporary.Sync(); err != nil {
-		return fmt.Errorf("sync unnamed PDF-tools reproduction receipt: %w", err)
-	}
-	writtenInformation, err := temporary.Stat()
-	if err != nil || !writtenInformation.Mode().IsRegular() || writtenInformation.Mode().Perm() != 0o644 ||
-		!os.SameFile(temporaryInformation, writtenInformation) || writtenInformation.Size() != int64(len(body)) {
-		return errors.New("unnamed PDF-tools reproduction receipt changed before publication")
-	}
-	if beforePublish != nil {
-		if err := beforePublish(); err != nil {
-			return fmt.Errorf("verify PDF-tools candidate outputs before receipt publication: %w", err)
-		}
-	}
-	if err := parent.verify(); err != nil {
-		return errors.New("PDF-tools reproduction receipt directory changed before publication")
-	}
-	if err := linkUnnamedPublicationFile(temporary, parent.descriptor, name); err != nil {
-		return fmt.Errorf("atomically publish new PDF-tools reproduction receipt: %w", err)
-	}
-	if afterLink != nil {
-		if err := afterLink(parent, name); err != nil {
-			return fmt.Errorf("validate PDF-tools reproduction receipt after atomic publication: %w", err)
-		}
-	}
-	finalInfo, finalError := parent.root.Lstat(name)
-	if finalError != nil || !finalInfo.Mode().IsRegular() || finalInfo.Mode()&os.ModeSymlink != 0 ||
-		!os.SameFile(writtenInformation, finalInfo) || finalInfo.Size() != int64(len(body)) {
-		return errors.New("published PDF-tools reproduction receipt changed during atomic placement")
-	}
-	if err := verifyPublishedReceiptBytes(parent.root, name, finalInfo, body); err != nil {
+	writtenInformation, err := writeUnnamedReceiptContents(temporary, temporaryInformation, body)
+	if err != nil {
 		return err
 	}
-	if err := parent.sync(); err != nil {
-		return fmt.Errorf("sync published PDF-tools reproduction receipt: %w", err)
+	if err := publishUnnamedReceiptFile(parent, temporary, name, beforePublish, afterLink); err != nil {
+		return err
 	}
-	currentInformation, err := parent.root.Lstat(name)
-	if err != nil || !currentInformation.Mode().IsRegular() || currentInformation.Mode()&os.ModeSymlink != 0 ||
-		!os.SameFile(finalInfo, currentInformation) || currentInformation.Size() != int64(len(body)) {
-		return errors.New("published PDF-tools reproduction receipt path changed during confirmation")
-	}
-	return nil
+	return confirmPublishedReceipt(parent, writtenInformation, name, body)
 }
 
 func verifyPublishedReceiptBytes(root *os.Root, name string, expected os.FileInfo, body []byte) error {

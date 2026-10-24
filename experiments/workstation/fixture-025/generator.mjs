@@ -1,5 +1,15 @@
 import { createHash } from "node:crypto";
 
+import { Pcg64Dxsm } from "../lib/pcg64-dxsm.mjs";
+import {
+  formatSeedHex,
+  formatStreamPreimage,
+  uint32SeedBytes,
+} from "../lib/stream-seed.mjs";
+import { exactKeys } from "../lib/exact-keys.mjs";
+
+export { Pcg64Dxsm };
+
 export const FIXTURE_025_GENERATOR_VERSION = "fixture-025.ecm-t03-generator.v1";
 
 export const FIXTURE_025_CLASSES = Object.freeze([
@@ -12,102 +22,35 @@ export const FIXTURE_025_CLASSES = Object.freeze([
 
 export const FIXTURE_025_SENTINEL_INDICES = Object.freeze([0, 7, 15, 22, 30, 38, 45, 53, 60]);
 
-const MASK_64 = (1n << 64n) - 1n;
-const MASK_128 = (1n << 128n) - 1n;
-const MULTIPLIER = 0x2360ed051fc65da44385df649fccf645n;
-const DXSM_MULTIPLIER = 0xda942042e4dd58b5n;
-const TWO_POW_53 = 9007199254740992;
-
-function littleEndianBigInt(bytes) {
-  let value = 0n;
-  for (let index = bytes.length - 1; index >= 0; index -= 1) {
-    value = (value << 8n) | BigInt(bytes[index]);
-  }
-  return value;
-}
-
-export class Pcg64Dxsm {
-  constructor(literalSeed) {
-    const digest = createHash("sha256").update(String(literalSeed), "utf8").digest();
-    const initialState = littleEndianBigInt(digest.subarray(0, 16));
-    const selector = littleEndianBigInt(digest.subarray(16, 32));
-    this.increment = ((selector << 1n) | 1n) & MASK_128;
-    this.state = 0n;
-    this.advance();
-    this.state = (this.state + initialState) & MASK_128;
-    this.advance();
-  }
-
-  advance() {
-    this.state = (this.state * MULTIPLIER + this.increment) & MASK_128;
-  }
-
-  nextUint64() {
-    const old = this.state;
-    this.advance();
-    let high = (old >> 64n) & MASK_64;
-    const low = (old & MASK_64) | 1n;
-    high ^= high >> 32n;
-    high = (high * DXSM_MULTIPLIER) & MASK_64;
-    high ^= high >> 48n;
-    return (high * low) & MASK_64;
-  }
-
-  uniform() {
-    return Number(this.nextUint64() >> 11n) / TWO_POW_53;
-  }
-
-  range(minimum, maximum) {
-    return minimum + (maximum - minimum) * this.uniform();
-  }
-
-  logRange(minimum, maximum) {
-    return Math.exp(this.range(Math.log(minimum), Math.log(maximum)));
-  }
-
-  normal() {
-    let first = 0;
-    let second = 0;
-    while (first === 0) first = this.uniform();
-    while (second === 0) second = this.uniform();
-    const radius = Math.sqrt(-2 * Math.log(first));
-    const angle = 2 * Math.PI * second;
-    return radius * Math.cos(angle);
-  }
-}
+const FIXTURE_025_SCOPES = Object.freeze(new Set([
+  "dgp",
+  "observation",
+  "arm-init",
+  "action-outcome",
+  "analysis",
+]));
+const isFixture025Protocol = (protocol) => /^ECM-T(?:0[1-9]|10)$/.test(protocol);
 
 export function publicSeedBytes(seed) {
-  if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffff_ffff) {
-    throw new Error("Fixture 025 public seed must be an unsigned integer.");
-  }
-  const bytes = Buffer.alloc(8);
-  bytes.writeBigUInt64LE(BigInt(seed));
-  return bytes;
+  return uint32SeedBytes(seed, "Fixture 025 public");
 }
 
 export function publicSeedHex(seed) {
-  return publicSeedBytes(seed).toString("hex").toUpperCase();
+  return formatSeedHex(publicSeedBytes(seed));
 }
 
 export function fixture025StreamPreimage({ phase, protocol, seed, scope, canonicalId }) {
-  if (!new Set(["development", "confirmation", "transfer", "ablation"]).has(phase)) {
-    throw new Error("Fixture 025 stream phase is invalid.");
-  }
-  if (!/^ECM-T(?:0[1-9]|10)$/.test(protocol)) throw new Error("Fixture 025 stream protocol is invalid.");
-  if (!new Set(["dgp", "observation", "arm-init", "action-outcome", "analysis"]).has(scope)) {
-    throw new Error("Fixture 025 stream scope is invalid.");
-  }
-  if (!/^(0|[1-9][0-9]*)$/.test(String(canonicalId))) {
-    throw new Error("Fixture 025 stream canonical ID must be unpadded ASCII decimal.");
-  }
-  return `F025-v1|${phase}|${protocol}|${publicSeedHex(seed)}|${scope}|${canonicalId}`;
-}
-
-function exactKeys(value, keys) {
-  return value
-    && typeof value === "object"
-    && !Array.isArray(value)
-    && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
+  return formatStreamPreimage({
+    version: "F025-v1",
+    phase,
+    protocol,
+    seedHex: publicSeedHex(seed),
+    scope,
+    canonicalId,
+    label: "Fixture 025",
+    isValidProtocol: isFixture025Protocol,
+    validScopes: FIXTURE_025_SCOPES,
+  });
 }
 
 export function validateFixture025Config(config) {

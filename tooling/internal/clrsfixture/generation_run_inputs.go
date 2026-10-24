@@ -111,7 +111,7 @@ func currentGenerationProcedure(ctx context.Context, inputs generationRunInputs)
 	if err := rejectGeneratorSymlink(inputs.options.RepositoryRoot, commandDirectory); err != nil {
 		return nil, err
 	}
-	file, err := os.Open(commandDirectory)
+	file, err := os.Open(commandDirectory) //#nosec G304 -- fixed repository directory path verified non-symlink
 	if err != nil {
 		return nil, err
 	}

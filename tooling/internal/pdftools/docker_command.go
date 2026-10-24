@@ -96,7 +96,7 @@ func (localDockerExecutor) run(ctx context.Context, request dockerRequest) (dock
 		return dockerResult{}, errors.New("Docker CLI is required for local PDF-tools reproduction")
 	}
 	arguments := append([]string{"--context", "default"}, request.arguments...)
-	command := exec.CommandContext(commandContext, dockerBinary, arguments...)
+	command := exec.CommandContext(commandContext, dockerBinary, arguments...) //#nosec G204 -- fixed docker binary from LookPath and bounded arguments validated by caller
 	command.Dir = request.directory
 	command.Env = boundedDockerEnvironment()
 	command.Stdout = stdout

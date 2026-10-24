@@ -172,6 +172,15 @@ func BindDataset(
 		return RequestSet{}, Verifier{}, fmt.Errorf("%w: reference count is %d", ErrReferenceLimit, len(pairs))
 	}
 
+	return indexDatasetPairs(runID, specialistID, pairs, limits, verifierLimits)
+}
+
+func indexDatasetPairs(
+	runID, specialistID string,
+	pairs []clrsfixture.PairedExample,
+	limits Limits,
+	verifierLimits VerifierLimits,
+) (RequestSet, Verifier, error) {
 	requestSet := RequestSet{runID: runID, candidates: make([]boundCandidate, 0, len(pairs))}
 	validated := make(map[referenceKey]heldReference, len(pairs))
 	var retainedBytes int64

@@ -95,7 +95,7 @@ func readStableRegularFile(path string, maximumBytes int64, afterRead func() err
 	if before.Size() > maximumBytes {
 		return nil, fmt.Errorf("manifest exceeds the %d-byte limit", maximumBytes)
 	}
-	file, err := os.Open(path)
+	file, err := os.Open(path) //#nosec G304 -- path validated as regular file bounded by maximumBytes
 	if err != nil {
 		return nil, err
 	}

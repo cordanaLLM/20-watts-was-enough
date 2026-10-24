@@ -73,7 +73,7 @@ func validateMermaid(root string, report *collector) (int, []mermaidSource, bool
 }
 
 func scanMermaidEntries(diagramRoot string, report *collector) ([]os.DirEntry, int, bool) {
-	directory, err := os.Open(diagramRoot)
+	directory, err := os.Open(diagramRoot) //#nosec G304 -- fixed assets/diagrams directory inside repository root
 	if err != nil {
 		report.addError("Open Mermaid source directory: %v", err)
 		return nil, 0, false
@@ -317,7 +317,7 @@ func inspectMermaidRepositoryPath(root, relative string, wantDirectory bool) (st
 }
 
 func readBoundedMermaidFile(filename string, maximum int64) (body []byte, returnedErr error) {
-	file, err := os.Open(filename)
+	file, err := os.Open(filename) //#nosec G304 -- filename within assets/diagrams validated as non-symlink inside repository
 	if err != nil {
 		return nil, err
 	}

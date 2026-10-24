@@ -20,7 +20,7 @@ func TestRetainedInputFilesFollowTrackedLocks(t *testing.T) {
 		RetainedSourceArchiveName,
 		"source-build-inputs/promise-2.3.tar.gz",
 		"build-tools/packaging-26.3-py3-none-any.whl",
-		"build-tools/setuptools-84.0.0-py3-none-any.whl",
+		"build-tools/setuptools-84.1.0-py3-none-any.whl",
 		"build-tools/wheel-0.48.0-py3-none-any.whl",
 		"sbom-bundle/derivation-receipt.json",
 		"sbom-bundle/execution-record.json",

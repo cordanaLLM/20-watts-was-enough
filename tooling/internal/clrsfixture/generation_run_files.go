@@ -56,12 +56,10 @@ func newGenerationRunBundle(inputs generationRunInputs) (*os.Root, error) {
 	}
 	after, err := fileidentity.Lstat(parent)
 	if err != nil || !os.SameFile(before, after) || after.Mode() != before.Mode() {
-		bundle.Close()
-		return nil, errors.New("generation output parent changed while creating the fresh bundle")
+		return nil, errors.Join(errors.New("generation output parent changed while creating the fresh bundle"), bundle.Close())
 	}
 	if err := SyncDirectory(root, "."); err != nil {
-		bundle.Close()
-		return nil, err
+		return nil, errors.Join(err, bundle.Close())
 	}
 	return bundle, nil
 }

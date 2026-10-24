@@ -39,7 +39,7 @@ func retainGenerationMismatchAt(
 	}
 	relative := filepath.Join("build", "evidence", "pdf-generation-mismatch-"+identity)
 	root := filepath.Join(repositoryRoot, relative)
-	if err := os.Mkdir(root, 0o755); err != nil {
+	if err := os.Mkdir(root, 0o755); err != nil { //#nosec G301 -- PDF generation mismatch evidence directory must be readable by inspection tools
 		return "", fmt.Errorf("create PDF generation mismatch evidence %s: %w", filepath.ToSlash(relative), err)
 	}
 	location = filepath.ToSlash(relative)
@@ -51,7 +51,7 @@ func retainGenerationMismatchAt(
 	}()
 	for index, pair := range pairs {
 		renderRoot := filepath.Join(root, fmt.Sprintf("render-%d", index+1))
-		if err := os.Mkdir(renderRoot, 0o755); err != nil {
+		if err := os.Mkdir(renderRoot, 0o755); err != nil { //#nosec G301 -- PDF generation mismatch render directory must be readable by inspection tools
 			return location, fmt.Errorf("create PDF generation mismatch render directory: %w", err)
 		}
 		for _, artifact := range pair {

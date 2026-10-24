@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
-import {
-  mkdir,
-  mkdtemp,
-  readFile,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
+
+import {
+  cleanup,
+  corruptRawEventsFirstRow,
+  temporaryOutput,
+} from "../lib/runner-test-helpers.mjs";
 
 import {
   analyzeFixture025,
@@ -16,22 +16,6 @@ import {
   prepareFixture025,
   validateFixture025Output,
 } from "./runner.mjs";
-
-const root = process.cwd();
-const temporaryRoot = path.join(root, "tmp");
-
-async function temporaryOutput(prefix) {
-  await mkdir(temporaryRoot, { recursive: true });
-  const parent = await mkdtemp(path.join(temporaryRoot, prefix));
-  return { parent, output: path.join(parent, "run") };
-}
-
-async function cleanup(...fixtures) {
-  for (const fixture of fixtures) {
-    assert.ok(fixture.parent.startsWith(temporaryRoot));
-    await rm(fixture.parent, { recursive: true, force: true });
-  }
-}
 
 test("smoke preparation exposes one of ten tracks and bounded public work", async () => {
   assert.deepEqual(await prepareFixture025("smoke"), {
@@ -107,12 +91,7 @@ test("analysis rejects an altered chained decision", async () => {
   const fixture = await temporaryOutput("fixture-025-corrupt-");
   try {
     await executeFixture025({ profile: "smoke", output: fixture.output });
-    const rawPath = path.join(fixture.output, "raw-events.jsonl");
-    const rows = (await readFile(rawPath, "utf8")).trimEnd().split("\n");
-    const first = JSON.parse(rows[0]);
-    first.loss += 0.1;
-    rows[0] = JSON.stringify(first);
-    await writeFile(rawPath, `${rows.join("\n")}\n`);
+    await corruptRawEventsFirstRow(fixture.output);
     await assert.rejects(() => analyzeFixture025(fixture.output), /runtime contract|hash/i);
   } finally {
     await cleanup(fixture);

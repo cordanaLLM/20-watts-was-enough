@@ -160,7 +160,7 @@ func prepareProofContext(
 	temporaryRoot string,
 ) (string, ReproducibilityContext, error) {
 	contextRoot := filepath.Join(temporaryRoot, "context")
-	if err := os.Mkdir(contextRoot, 0o755); err != nil {
+	if err := os.Mkdir(contextRoot, 0o755); err != nil { //#nosec G301 -- container build context directory must be readable by container builder
 		return "", ReproducibilityContext{}, fmt.Errorf("create PDF reproducibility build context: %w", err)
 	}
 	if err := verifyBuildxIdentity(ctx, configuration, executor); err != nil {
@@ -499,7 +499,7 @@ func reproducibilityRender(
 	outputDirectory := filepath.Join(temporaryRoot, label, "downloads")
 	workspaceDirectory := filepath.Join(temporaryRoot, label, "workspace-tmp")
 	for _, directory := range []string{outputDirectory, workspaceDirectory} {
-		if err := os.MkdirAll(directory, 0o755); err != nil {
+		if err := os.MkdirAll(directory, 0o755); err != nil { //#nosec G301 -- container bind mount directory must be accessible by container user
 			return result, fmt.Errorf("create isolated PDF reproducibility directory: %w", err)
 		}
 	}
