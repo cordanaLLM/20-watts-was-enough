@@ -5,7 +5,7 @@ import path from "node:path";
 import { canonicalize } from "../lib/checkpoint-ledger.mjs";
 
 const VALID_ACTIONS = new Set(["prepare", "smoke", "run", "analyze", "validate"]);
-const DEFAULT_ALLOWED_OPTIONS = new Set(["profile", "output", "resume"]);
+const ALLOWED_OPTIONS = new Set(["profile", "output", "resume"]);
 const PROFILE_ACTIONS = new Set(["prepare", "smoke", "run"]);
 
 export async function exists(file) {
@@ -30,13 +30,10 @@ export function isInside(root, target) {
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
-export function resolveOutput(root, value, labelOrMessage) {
+export function resolveOutput(root, value, label) {
   const resolved = path.resolve(root, value);
   if (!isInside(root, resolved) || resolved === root) {
-    const message = labelOrMessage.includes(" must stay inside ")
-      ? labelOrMessage
-      : `${labelOrMessage} output must stay inside the repository.`;
-    throw new Error(message);
+    throw new Error(`${label} output must stay inside the repository.`);
   }
   return resolved;
 }
@@ -72,7 +69,7 @@ export function validateSeedDocument(document, message = "Seed document is inval
   return document;
 }
 
-function parseOptionPairs(argv, label, invalidPairErrorMessage, allowedOptions) {
+function parseOptionPairs(argv, label, invalidPairErrorMessage) {
   if ((argv.length - 3) % 2 !== 0) {
     throw new Error("Options require explicit --name value pairs.");
   }
@@ -84,7 +81,7 @@ function parseOptionPairs(argv, label, invalidPairErrorMessage, allowedOptions) 
       throw new Error(invalidPairErrorMessage ?? `Invalid ${label} option pair.`);
     }
     const key = token.slice(2);
-    if (!allowedOptions.has(key) || Object.hasOwn(options, key)) {
+    if (!ALLOWED_OPTIONS.has(key) || Object.hasOwn(options, key)) {
       throw new Error(`Unknown or duplicate ${label} option --${key}.`);
     }
     options[key] = value;
@@ -121,13 +118,12 @@ export function parseRunnerOptions(argv, {
   label = "CMB-X01",
   actionErrorMessage,
   invalidPairErrorMessage,
-  allowedOptions = DEFAULT_ALLOWED_OPTIONS,
 } = {}) {
   const action = argv[2];
   if (!VALID_ACTIONS.has(action)) {
     throw new Error(actionErrorMessage ?? `${label} action must be prepare, smoke, run, analyze, or validate.`);
   }
-  const options = parseOptionPairs(argv, label, invalidPairErrorMessage, allowedOptions);
+  const options = parseOptionPairs(argv, label, invalidPairErrorMessage);
   validateActionConstraints(action, options);
   return { action, options };
 }

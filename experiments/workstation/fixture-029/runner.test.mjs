@@ -269,5 +269,7 @@ test("unavailable private-partition stubs disclose neither seeds nor commitments
 test("CLI exposes no confirmation, held-out, meter, or implicit output action", async () => {
   await assert.rejects(() => main(["node", "runner.mjs", "confirmation", "--profile", "development"]), /private partitions are not executable/);
   await assert.rejects(() => main(["node", "runner.mjs", "smoke", "--profile", "smoke"]), /requires --output/);
-  await assert.rejects(() => main(["node", "runner.mjs", "prepare", "--profile", "smoke", "--meter", "device.json"]), /Unknown or duplicate/);
+  await assert.rejects(() => main(["node", "runner.mjs", "prepare", "--profile", "smoke", "--meter", "device.json"]), /^Error: Unknown or duplicate Fixture 029 option --meter\.$/);
+  await assert.rejects(() => main(["node", "runner.mjs", "prepare", "--Profile", "smoke"]), /^Error: Invalid option pair\.$/);
+  await assert.rejects(() => main(["node", "runner.mjs", "prepare", "--profile"]), /^Error: Options require explicit --name value pairs\.$/);
 });
