@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 
 import { Pcg64Dxsm } from "../lib/pcg64-dxsm.mjs";
+import {
+  formatSeedHex,
+  formatStreamPreimage,
+  uint32SeedBytes,
+} from "../lib/stream-seed.mjs";
+import { exactKeys } from "../lib/exact-keys.mjs";
 
 export { Pcg64Dxsm };
 
@@ -14,38 +20,34 @@ export const FIXTURE_027_CLASSES = Object.freeze([
   "interface-schema-invalid",
 ]);
 
+const FIXTURE_027_SCOPES = Object.freeze(new Set([
+  "dgp",
+  "observation",
+  "arm-init",
+  "action-outcome",
+  "analysis",
+]));
+
 export function publicSeedBytes(seed) {
-  if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffff_ffff) {
-    throw new Error("Fixture 027 public seed must be an unsigned integer.");
-  }
-  const bytes = Buffer.alloc(8);
-  bytes.writeBigUInt64LE(BigInt(seed));
-  return bytes;
+  return uint32SeedBytes(seed, "Fixture 027 public");
 }
 
 export function publicSeedHex(seed) {
-  return publicSeedBytes(seed).toString("hex").toUpperCase();
+  return formatSeedHex(publicSeedBytes(seed));
 }
 
 export function fixture027StreamPreimage({ phase, protocol, seed, scope, canonicalId }) {
-  if (!new Set(["development", "confirmation", "transfer", "ablation"]).has(phase)) {
-    throw new Error("Fixture 027 stream phase is invalid.");
-  }
-  if (protocol !== "RIN-T01") throw new Error("Fixture 027 stream protocol is invalid.");
-  if (!new Set(["dgp", "observation", "arm-init", "action-outcome", "analysis"]).has(scope)) {
-    throw new Error("Fixture 027 stream scope is invalid.");
-  }
-  if (!/^(0|[1-9][0-9]*)$/.test(String(canonicalId))) {
-    throw new Error("Fixture 027 stream canonical ID must be unpadded ASCII decimal.");
-  }
-  return `F027-v1|${phase}|${protocol}|${publicSeedHex(seed)}|${scope}|${canonicalId}`;
-}
-
-function exactKeys(value, keys) {
-  return value
-    && typeof value === "object"
-    && !Array.isArray(value)
-    && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
+  return formatStreamPreimage({
+    version: "F027-v1",
+    phase,
+    protocol,
+    seedHex: publicSeedHex(seed),
+    scope,
+    canonicalId,
+    label: "Fixture 027",
+    isValidProtocol: (candidate) => candidate === "RIN-T01",
+    validScopes: FIXTURE_027_SCOPES,
+  });
 }
 
 export function validateFixture027Config(config) {

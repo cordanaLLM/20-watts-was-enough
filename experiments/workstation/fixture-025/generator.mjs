@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 
 import { Pcg64Dxsm } from "../lib/pcg64-dxsm.mjs";
+import {
+  formatSeedHex,
+  formatStreamPreimage,
+  uint32SeedBytes,
+} from "../lib/stream-seed.mjs";
+import { exactKeys } from "../lib/exact-keys.mjs";
 
 export { Pcg64Dxsm };
 
@@ -16,38 +22,35 @@ export const FIXTURE_025_CLASSES = Object.freeze([
 
 export const FIXTURE_025_SENTINEL_INDICES = Object.freeze([0, 7, 15, 22, 30, 38, 45, 53, 60]);
 
+const FIXTURE_025_SCOPES = Object.freeze(new Set([
+  "dgp",
+  "observation",
+  "arm-init",
+  "action-outcome",
+  "analysis",
+]));
+const isFixture025Protocol = (protocol) => /^ECM-T(?:0[1-9]|10)$/.test(protocol);
+
 export function publicSeedBytes(seed) {
-  if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffff_ffff) {
-    throw new Error("Fixture 025 public seed must be an unsigned integer.");
-  }
-  const bytes = Buffer.alloc(8);
-  bytes.writeBigUInt64LE(BigInt(seed));
-  return bytes;
+  return uint32SeedBytes(seed, "Fixture 025 public");
 }
 
 export function publicSeedHex(seed) {
-  return publicSeedBytes(seed).toString("hex").toUpperCase();
+  return formatSeedHex(publicSeedBytes(seed));
 }
 
 export function fixture025StreamPreimage({ phase, protocol, seed, scope, canonicalId }) {
-  if (!new Set(["development", "confirmation", "transfer", "ablation"]).has(phase)) {
-    throw new Error("Fixture 025 stream phase is invalid.");
-  }
-  if (!/^ECM-T(?:0[1-9]|10)$/.test(protocol)) throw new Error("Fixture 025 stream protocol is invalid.");
-  if (!new Set(["dgp", "observation", "arm-init", "action-outcome", "analysis"]).has(scope)) {
-    throw new Error("Fixture 025 stream scope is invalid.");
-  }
-  if (!/^(0|[1-9][0-9]*)$/.test(String(canonicalId))) {
-    throw new Error("Fixture 025 stream canonical ID must be unpadded ASCII decimal.");
-  }
-  return `F025-v1|${phase}|${protocol}|${publicSeedHex(seed)}|${scope}|${canonicalId}`;
-}
-
-function exactKeys(value, keys) {
-  return value
-    && typeof value === "object"
-    && !Array.isArray(value)
-    && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
+  return formatStreamPreimage({
+    version: "F025-v1",
+    phase,
+    protocol,
+    seedHex: publicSeedHex(seed),
+    scope,
+    canonicalId,
+    label: "Fixture 025",
+    isValidProtocol: isFixture025Protocol,
+    validScopes: FIXTURE_025_SCOPES,
+  });
 }
 
 export function validateFixture025Config(config) {

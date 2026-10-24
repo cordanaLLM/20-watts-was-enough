@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export async function assertCliOptionRejections(main) {
@@ -60,4 +60,18 @@ export async function assertDeterministicSmokeExecution(execute, leftOutput, rig
     await readFile(path.join(leftOutput, "raw-events.jsonl"), "utf8"),
     await readFile(path.join(rightOutput, "raw-events.jsonl"), "utf8"),
   );
+}
+
+export async function corruptRawEventsFirstRow(
+  directory,
+  mutate = (record) => {
+    record.loss += 0.1;
+  },
+) {
+  const rawPath = path.join(directory, "raw-events.jsonl");
+  const rows = (await readFile(rawPath, "utf8")).trimEnd().split("\n");
+  const first = JSON.parse(rows[0]);
+  mutate(first);
+  rows[0] = JSON.stringify(first);
+  await writeFile(rawPath, `${rows.join("\n")}\n`);
 }

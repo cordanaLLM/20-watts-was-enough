@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
@@ -7,6 +7,7 @@ import {
   assertCliOptionRejections,
   assertDeterministicSmokeExecution,
   assertReleaseExecutionRequiresDigest,
+  corruptRawEventsFirstRow,
   releaseEnvironment,
   releaseIdentityMismatches,
 } from "./runner-test-helpers.mjs";
@@ -136,6 +137,27 @@ test("assertDeterministicSmokeExecution passes when runs yield identical event l
   }
 });
 
+test("corruptRawEventsFirstRow mutates the first row with default loss increment and keeps trailing newline", async () => {
+  const tempDir = await mkdtemp(path.join(process.cwd(), "tmp-corrupt-raw-"));
+  try {
+    const rawPath = path.join(tempDir, "raw-events.jsonl");
+    const row1 = { id: 1, loss: 0.5 };
+    const row2 = { id: 2, loss: 0.8 };
+    await writeFile(rawPath, `${JSON.stringify(row1)}\n${JSON.stringify(row2)}\n`);
+
+    await corruptRawEventsFirstRow(tempDir);
+
+    const content = await readFile(rawPath, "utf8");
+    assert.ok(content.endsWith("\n"));
+    const rows = content.trimEnd().split("\n").map(JSON.parse);
+    assert.equal(rows.length, 2);
+    assert.equal(Math.abs(rows[0].loss - 0.6) < 1e-9, true);
+    assert.equal(rows[1].loss, 0.8);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
 test("assertDeterministicSmokeExecution rejects when runs diverge", async () => {
   const tempDir = await mkdtemp(path.join(process.cwd(), "tmp-test-helpers-diverge-"));
   const leftDir = path.join(tempDir, "left");
@@ -154,6 +176,32 @@ test("assertDeterministicSmokeExecution rejects when runs diverge", async () => 
       () => assertDeterministicSmokeExecution(divergingExecute, leftDir, rightDir),
       assert.AssertionError,
     );
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("corruptRawEventsFirstRow accepts a custom mutator callback", async () => {
+  const tempDir = await mkdtemp(path.join(process.cwd(), "tmp-corrupt-custom-"));
+  try {
+    const rawPath = path.join(tempDir, "raw-events.jsonl");
+    await writeFile(rawPath, `${JSON.stringify({ value: 10 })}\n`);
+
+    await corruptRawEventsFirstRow(tempDir, (record) => {
+      record.value = 99;
+    });
+
+    const rows = (await readFile(rawPath, "utf8")).trimEnd().split("\n").map(JSON.parse);
+    assert.equal(rows[0].value, 99);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("corruptRawEventsFirstRow rejects on missing directory or non-existent raw-events.jsonl", async () => {
+  const tempDir = await mkdtemp(path.join(process.cwd(), "tmp-corrupt-missing-"));
+  try {
+    await assert.rejects(() => corruptRawEventsFirstRow(tempDir), /ENOENT/u);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
