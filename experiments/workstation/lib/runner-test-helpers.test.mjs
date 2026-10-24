@@ -5,6 +5,7 @@ import test from "node:test";
 
 import {
   assertCliOptionRejections,
+  assertDeterministicSmokeExecution,
   assertReleaseExecutionRequiresDigest,
   releaseEnvironment,
   releaseIdentityMismatches,
@@ -109,6 +110,50 @@ test("assertReleaseExecutionRequiresDigest fails if run.json exists or execution
       environment: {},
       output: outputDir,
     }));
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("assertDeterministicSmokeExecution passes when runs yield identical event logs", async () => {
+  const tempDir = await mkdtemp(path.join(process.cwd(), "tmp-test-helpers-det-"));
+  const leftDir = path.join(tempDir, "left");
+  const rightDir = path.join(tempDir, "right");
+  await mkdir(leftDir, { recursive: true });
+  await mkdir(rightDir, { recursive: true });
+
+  const profiles = [];
+  const mockExecute = async ({ profile, output }) => {
+    profiles.push(profile);
+    await writeFile(path.join(output, "raw-events.jsonl"), '{"event":1}\n');
+  };
+
+  try {
+    await assertDeterministicSmokeExecution(mockExecute, leftDir, rightDir);
+    assert.deepEqual(profiles, ["smoke", "smoke"]);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("assertDeterministicSmokeExecution rejects when runs diverge", async () => {
+  const tempDir = await mkdtemp(path.join(process.cwd(), "tmp-test-helpers-diverge-"));
+  const leftDir = path.join(tempDir, "left");
+  const rightDir = path.join(tempDir, "right");
+  await mkdir(leftDir, { recursive: true });
+  await mkdir(rightDir, { recursive: true });
+
+  let counter = 0;
+  const divergingExecute = async ({ output }) => {
+    counter += 1;
+    await writeFile(path.join(output, "raw-events.jsonl"), `{"event":${counter}}\n`);
+  };
+
+  try {
+    await assert.rejects(
+      () => assertDeterministicSmokeExecution(divergingExecute, leftDir, rightDir),
+      assert.AssertionError,
+    );
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }

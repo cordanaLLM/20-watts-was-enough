@@ -9,6 +9,7 @@ import { fixture029ScientificPayload, fixture029WorkKey } from "./contract.mjs";
 import {
   analyzeFixture029, executeFixture029, main, prepareFixture029, validateFixture029Output,
 } from "./runner.mjs";
+import { assertDeterministicSmokeExecution } from "../lib/runner-test-helpers.mjs";
 
 const temporaryRoot = path.join(process.cwd(), "tmp");
 
@@ -145,12 +146,7 @@ test("same public inputs produce byte-identical append-only ledgers", async () =
   const left = await temporaryOutput("fixture-029-left-");
   const right = await temporaryOutput("fixture-029-right-");
   try {
-    await executeFixture029({ profile: "smoke", output: left.output });
-    await executeFixture029({ profile: "smoke", output: right.output });
-    assert.equal(
-      await readFile(path.join(left.output, "raw-events.jsonl"), "utf8"),
-      await readFile(path.join(right.output, "raw-events.jsonl"), "utf8"),
-    );
+    await assertDeterministicSmokeExecution(executeFixture029, left.output, right.output);
   } finally {
     await cleanup(left, right);
   }
