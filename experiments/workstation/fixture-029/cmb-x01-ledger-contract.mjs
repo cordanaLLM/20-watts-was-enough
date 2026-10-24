@@ -4,10 +4,10 @@ import {
   CMB_X01_SMOKE_CONFIG,
   validateCmbX01Config,
 } from "./cmb-x01-generator.mjs";
+import { exactKeys } from "../lib/exact-keys.mjs";
 import {
   assertCmbX01ConstructionRecord,
   canonicalCmbX01,
-  exactKeys,
   sha256CmbX01,
 } from "./cmb-x01-contract.mjs";
 

@@ -23,10 +23,13 @@ test("percentile matches golden quantile rankings for 100 integers", () => {
   assert.equal(percentile(array, 0.5), 50);
 });
 
-test("percentile returns null for empty or non-array inputs", () => {
+test("percentile returns null for empty array input", () => {
   assert.equal(percentile([], 0.95), null);
-  assert.equal(percentile(null, 0.95), null);
-  assert.equal(percentile(undefined, 0.95), null);
+});
+
+test("percentile throws TypeError on null or undefined input", () => {
+  assert.throws(() => percentile(null, 0.95), TypeError);
+  assert.throws(() => percentile(undefined, 0.95), TypeError);
 });
 
 test("percentile handles boundary cases: single element, duplicates, and negative numbers", () => {
