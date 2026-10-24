@@ -256,8 +256,11 @@ func parseCanonicalIndex(body string, position, size int) (int, int, error) {
 	if position-start > 1 && body[start] == '0' {
 		return 0, position, errors.New("reference split has a leading zero")
 	}
+	if size <= 0 {
+		return 0, position, errors.New("matrix dimension size must be positive")
+	}
 	parsed, err := strconv.ParseUint(body[start:position], 10, 31)
-	if err != nil || parsed >= uint64(size) {
+	if err != nil || parsed >= uint64(size) { //#nosec G115 -- size bounded >= 1 by preceding positive check
 		return 0, position, fmt.Errorf("reference split is outside 0..%d", size-1)
 	}
 	return int(parsed), position, nil

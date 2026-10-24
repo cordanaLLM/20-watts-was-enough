@@ -10,6 +10,7 @@ import {
   computeSourceBundle,
   verifyCandidate010SourceBundleAtRoot,
 } from "./source-bundle.mjs";
+import { canonicalJson } from "../lib/canonical-json.mjs";
 
 export const RELEASE_CONTRACT_VERSION = "candidate-010.frozen-seed-release.v3";
 
@@ -30,21 +31,7 @@ function sha256(value) {
 }
 
 function canonical(value) {
-  if (value === null || typeof value === "boolean" || typeof value === "string") {
-    return JSON.stringify(value);
-  }
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) throw new TypeError("Release canonicalization rejects non-finite numbers.");
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
-  if (value && typeof value === "object") {
-    return `{${Object.keys(value).sort().map((key) => {
-      if (value[key] === undefined) throw new TypeError(`Release canonicalization rejects undefined at ${key}.`);
-      return `${JSON.stringify(key)}:${canonical(value[key])}`;
-    }).join(",")}}`;
-  }
-  throw new TypeError(`Release canonicalization rejects ${typeof value}.`);
+  return canonicalJson(value, { label: "Release" });
 }
 
 function exactKeys(value, keys) {
@@ -438,27 +425,7 @@ function validateReleaseDocument(document) {
  * Build the sealed metadata document. Building validates the reveal, but does
  * not mark it frozen for execution; only openFrozenSeedRelease may do that.
  */
-export async function createFrozenSeedReleaseContract({
-  root,
-  bindingRoot,
-  sourceRoot,
-  releaseVersion,
-  partition,
-  phase,
-  sourceBundlePath,
-  executionDescriptorPath,
-  runtimeIdentityPath,
-  configPath,
-  designPath,
-  backendRegistryPath,
-  preregistrationPath,
-  commitmentPath,
-  revealPath,
-}) {
-  if (!Number.isSafeInteger(releaseVersion) || releaseVersion < 1) {
-    throw new Error("Frozen release version must be a positive integer.");
-  }
-  validatePartition(partition, phase);
+async function resolveReleaseRoots({ root, bindingRoot, sourceRoot, partition }) {
   const roots = rootRoles({ root, bindingRoot, sourceRoot });
   if (!roots.exactSourceRoot && partition === "confirmation") {
     throw new Error("Legacy single-root development mode cannot create a confirmation release.");
@@ -468,17 +435,10 @@ export async function createFrozenSeedReleaseContract({
   if (roots.exactSourceRoot && samePath(resolvedBindingRoot, resolvedSourceRoot)) {
     throw new Error("Explicit release bindingRoot and sourceRoot roles must be distinct.");
   }
-  const paths = {
-    source_bundle: sourceBundlePath,
-    execution_descriptor: executionDescriptorPath,
-    runtime_identity: runtimeIdentityPath,
-    config: configPath,
-    design: designPath,
-    backend_registry: backendRegistryPath,
-    preregistration: preregistrationPath,
-    commitment: commitmentPath,
-    reveal: revealPath,
-  };
+  return { roots, resolvedBindingRoot, resolvedSourceRoot };
+}
+
+async function collectReleaseBindingsAndSeeds({ resolvedBindingRoot, resolvedSourceRoot, roots, paths, partition, phase }) {
   const bindings = Object.fromEntries(await Promise.all(BINDING_NAMES.map(async (name) => (
     [name, await createBinding(resolvedBindingRoot, paths[name])]
   ))));
@@ -506,6 +466,47 @@ export async function createFrozenSeedReleaseContract({
   if (commitment.partition !== partition || reveal.partition !== partition) {
     throw new Error("Release partition does not match its seed pack.");
   }
+  return { bindings, sourceBundle, executionDescriptor, runtimeIdentity, commitment };
+}
+
+export async function createFrozenSeedReleaseContract({
+  root,
+  bindingRoot,
+  sourceRoot,
+  releaseVersion,
+  partition,
+  phase,
+  sourceBundlePath,
+  executionDescriptorPath,
+  runtimeIdentityPath,
+  configPath,
+  designPath,
+  backendRegistryPath,
+  preregistrationPath,
+  commitmentPath,
+  revealPath,
+}) {
+  if (!Number.isSafeInteger(releaseVersion) || releaseVersion < 1) {
+    throw new Error("Frozen release version must be a positive integer.");
+  }
+  validatePartition(partition, phase);
+  const { roots, resolvedBindingRoot, resolvedSourceRoot } = await resolveReleaseRoots({
+    root, bindingRoot, sourceRoot, partition,
+  });
+  const paths = {
+    source_bundle: sourceBundlePath,
+    execution_descriptor: executionDescriptorPath,
+    runtime_identity: runtimeIdentityPath,
+    config: configPath,
+    design: designPath,
+    backend_registry: backendRegistryPath,
+    preregistration: preregistrationPath,
+    commitment: commitmentPath,
+    reveal: revealPath,
+  };
+  const { bindings, sourceBundle, executionDescriptor, runtimeIdentity, commitment } = await collectReleaseBindingsAndSeeds({
+    resolvedBindingRoot, resolvedSourceRoot, roots, paths, partition, phase,
+  });
   const body = {
     schema: 1,
     contract_version: RELEASE_CONTRACT_VERSION,
@@ -537,25 +538,7 @@ export async function createFrozenSeedReleaseContract({
   return Object.freeze({ ...body, release_sha256: sha256(canonical(body)) });
 }
 
-/**
- * Open a release for execution. The `frozen_release` capability is created only
- * after every bound byte, source file, seed commitment, phase and disjointness
- * check succeeds.
- */
-export async function openFrozenSeedRelease({
-  root,
-  bindingRoot,
-  sourceRoot,
-  releasePath,
-  expectedPartition,
-  phase,
-  disjointWith,
-  executionDescriptor,
-  runtimeIdentity,
-}) {
-  if (!Array.isArray(disjointWith)) {
-    throw new Error("Opening a frozen release requires an explicit disjointWith seed-pack array.");
-  }
+async function resolveOpenReleaseRoots({ root, bindingRoot, sourceRoot, expectedPartition }) {
   const roots = rootRoles({ root, bindingRoot, sourceRoot });
   if (!roots.exactSourceRoot && expectedPartition === "confirmation") {
     throw new Error("Legacy single-root development mode cannot open a confirmation release.");
@@ -565,16 +548,17 @@ export async function openFrozenSeedRelease({
   if (roots.exactSourceRoot && samePath(resolvedBindingRoot, resolvedSourceRoot)) {
     throw new Error("Explicit release bindingRoot and sourceRoot roles must be distinct.");
   }
-  const resolvedReleasePath = await containedRegularFile(
-    resolvedBindingRoot,
-    releasePath,
-    "Frozen release",
-    { relativeOnly: false },
-  );
-  const release = validateReleaseDocument(JSON.parse(await readFile(resolvedReleasePath, "utf8")));
-  if (release.partition !== expectedPartition || release.phase !== phase || expectedPartition !== phase) {
-    throw new Error(`Frozen release may only open for exact partition and phase ${release.partition}.`);
-  }
+  return { roots, resolvedBindingRoot, resolvedSourceRoot };
+}
+
+async function validateOpenReleaseExecRuntime({
+  resolvedBindingRoot,
+  resolvedSourceRoot,
+  roots,
+  release,
+  executionDescriptor,
+  runtimeIdentity,
+}) {
   const resolvedBindings = {};
   for (const name of BINDING_NAMES) {
     resolvedBindings[name] = await readBinding(resolvedBindingRoot, release.bindings[name], name);
@@ -610,6 +594,10 @@ export async function openFrozenSeedRelease({
     || release.runtime_identity.executable_sha256 !== boundExecutionRuntime.runtimeIdentity.runtime.executable_sha256
     || release.runtime_identity.package_lock_sha256 !== boundExecutionRuntime.runtimeIdentity.package_lock.sha256
   ) throw new Error("Release execution/runtime identity metadata disagree with their bound artifacts.");
+  return resolvedBindings;
+}
+
+async function validateOpenReleaseSeedsAndDisjointness({ resolvedBindings, release, phase, disjointWith }) {
   const commitment = await inspectSeedCommitment(resolvedBindings.commitment.file);
   const reveal = await revealSeedPack({
     commitmentPath: resolvedBindings.commitment.file,
@@ -634,6 +622,47 @@ export async function openFrozenSeedRelease({
     partitions.add(pack.partition);
   }
   assertDisjointSeedPacks([reveal, ...disjointWith]);
+  return reveal;
+}
+
+/**
+ * Open a release for execution. The `frozen_release` capability is created only
+ * after every bound byte, source file, seed commitment, phase and disjointness
+ * check succeeds.
+ */
+export async function openFrozenSeedRelease({
+  root,
+  bindingRoot,
+  sourceRoot,
+  releasePath,
+  expectedPartition,
+  phase,
+  disjointWith,
+  executionDescriptor,
+  runtimeIdentity,
+}) {
+  if (!Array.isArray(disjointWith)) {
+    throw new Error("Opening a frozen release requires an explicit disjointWith seed-pack array.");
+  }
+  const { roots, resolvedBindingRoot, resolvedSourceRoot } = await resolveOpenReleaseRoots({
+    root, bindingRoot, sourceRoot, expectedPartition,
+  });
+  const resolvedReleasePath = await containedRegularFile(
+    resolvedBindingRoot,
+    releasePath,
+    "Frozen release",
+    { relativeOnly: false },
+  );
+  const release = validateReleaseDocument(JSON.parse(await readFile(resolvedReleasePath, "utf8")));
+  if (release.partition !== expectedPartition || release.phase !== phase || expectedPartition !== phase) {
+    throw new Error(`Frozen release may only open for exact partition and phase ${release.partition}.`);
+  }
+  const resolvedBindings = await validateOpenReleaseExecRuntime({
+    resolvedBindingRoot, resolvedSourceRoot, roots, release, executionDescriptor, runtimeIdentity,
+  });
+  const reveal = await validateOpenReleaseSeedsAndDisjointness({
+    resolvedBindings, release, phase, disjointWith,
+  });
   return Object.freeze({
     schema: 1,
     contract_version: release.contract_version,

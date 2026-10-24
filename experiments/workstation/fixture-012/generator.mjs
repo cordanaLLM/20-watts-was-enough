@@ -1,3 +1,6 @@
+import { exactKeys } from "../lib/exact-keys.mjs";
+import { mulberry32, normal } from "../lib/mulberry32.mjs";
+
 export const FIXTURE_012_GENERATOR_VERSION = "fixture-012.layout-population-generator.v1";
 
 const configKeys = Object.freeze([
@@ -20,30 +23,6 @@ const configKeys = Object.freeze([
   "modeled_work_units_per_observation",
   "modeled_energy_j_per_observation",
 ]);
-
-function exactKeys(value, keys) {
-  return value
-    && typeof value === "object"
-    && !Array.isArray(value)
-    && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
-}
-
-function mulberry32(seed) {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let value = state;
-    value = Math.imul(value ^ (value >>> 15), value | 1);
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function normal(random) {
-  const left = Math.max(Number.MIN_VALUE, random());
-  const right = random();
-  return Math.sqrt(-2 * Math.log(left)) * Math.cos(2 * Math.PI * right);
-}
 
 function requireFraction(value, { positive = false } = {}) {
   return Number.isFinite(value) && (positive ? value > 0 : value >= 0) && value < 1;

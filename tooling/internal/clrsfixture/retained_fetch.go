@@ -120,7 +120,7 @@ func fetchRetainedFile(ctx context.Context, client *http.Client, file retainedIn
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected HTTP status %d", response.StatusCode)
 	}
-	handle, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	handle, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) //#nosec G304 -- path within retained input directory built from locked relative name
 	if err != nil {
 		return err
 	}

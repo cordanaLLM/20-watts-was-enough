@@ -103,14 +103,21 @@ func runHelper(script string) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(18)
 		}
-		for {
+		const maximumGateReleasePolls = 6000 // 30 s at 5 ms per poll
+		released := false
+		for poll := 0; poll < maximumGateReleasePolls && !released; poll++ {
 			if _, err := os.Lstat("release"); err == nil {
-				break
+				released = true
 			} else if !os.IsNotExist(err) {
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(19)
+			} else {
+				time.Sleep(5 * time.Millisecond)
 			}
-			time.Sleep(5 * time.Millisecond)
+		}
+		if !released {
+			fmt.Fprintln(os.Stderr, "gate was not released within 30 s")
+			os.Exit(26)
 		}
 	case strings.Contains(script, "slow"):
 		time.Sleep(40 * time.Millisecond)

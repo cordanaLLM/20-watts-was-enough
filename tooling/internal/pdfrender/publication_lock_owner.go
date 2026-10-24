@@ -55,7 +55,7 @@ func removeStalePublicationLock(lockPath string) error {
 	if err != nil || !before.Mode().IsRegular() {
 		return errors.New("lock is not a regular file")
 	}
-	file, err := os.Open(lockPath)
+	file, err := os.Open(lockPath) //#nosec G304 -- publication lock file path within repository root
 	if err != nil {
 		return fmt.Errorf("read lock owner: %w", err)
 	}

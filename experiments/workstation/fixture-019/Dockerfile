@@ -51,6 +51,7 @@ RUN set -eu; \
     LC_ALL=C sort -o /tmp/expected-directories /tmp/expected-directories; \
     cmp /tmp/expected-directories /tmp/actual-directories; \
     python -m pip install --no-deps --require-hashes -r requirements-ci.txt; \
+    python -m pip uninstall --yes pip; \
     ln --symbolic libatomic.so.1.2.0 /usr/lib/x86_64-linux-gnu/libatomic.so.1; \
     test "$(node --version)" = "v26.11.1"; \
     test "$(python --version)" = "Python 3.15.0"; \

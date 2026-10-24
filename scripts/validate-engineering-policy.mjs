@@ -20,7 +20,7 @@ const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const defaultRoot = path.resolve(scriptDirectory, "..");
 
 const runtimePolicy = Object.freeze({
-  goVersion: "1.27.2",
+  goVersion: "1.27.3",
   nodeVersion: REQUIRED_NODE_VERSION,
   npmArchiveBytes: 3_054_025,
   npmArchiveSha256: "6666b48816b39b86c3febac7b51a4ee4de6c5ca589c382ad8004b6b113f86677",
@@ -41,7 +41,7 @@ const sbomGenerator = "generator=docker.io/docker/buildkit-syft-scanner@sha256:a
 
 const buildxPolicy = Object.freeze({
   buildkit: "image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8",
-  version: "v0.38.0",
+  version: "v0.38.1",
 });
 
 const releaseMutationGuard = "steps.release-preflight.outputs.release_state != 'published'";
@@ -99,7 +99,7 @@ const approvedActionPins = new Map([
   ["actions/configure-pages", "45bfe0192ca1faeb007ade9deae92b16b8254a0d"],
   ["actions/dependency-review-action", "a1d282b36b6f3519aa1f3fc636f609c47dddb294"],
   ["actions/deploy-pages", "368f82528645a54fb793d4d04e342629a3f51346"],
-  ["actions/download-artifact", "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"],
+  ["actions/download-artifact", "9000827ccba6bdab643e8b6fd33ac0654aef8333"],
   ["actions/labeler", "bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13"],
   ["actions/setup-go", "b7ad1dad31e06c5925ef5d2fc7ad053ef454303e"],
   ["actions/setup-node", "949feb2413d6458794dcd2491c4babbbce0c15c1"],
@@ -113,7 +113,7 @@ const approvedActionPins = new Map([
   ["github/codeql-action/analyze", "24c54180a607b1449ed407dd24f251e4e9147c8d"],
   ["github/codeql-action/init", "24c54180a607b1449ed407dd24f251e4e9147c8d"],
   ["github/codeql-action/upload-sarif", "24c54180a607b1449ed407dd24f251e4e9147c8d"],
-  ["ossf/scorecard-action", "2d1146689b8cda280b9bc96326124645441f03bc"],
+  ["ossf/scorecard-action", "fa7117db83c52d787ae5a89f350999701505d78e"],
 ]);
 
 const requiredFiles = [
@@ -1331,7 +1331,7 @@ function pdfReproducibilitySetupIsExact(step) {
     && step?.if === undefined
     && continueOnErrorIsDisabled(step)
     && Object.keys(step?.with ?? {}).length === 2
-    && step.with.version === "v0.38.0"
+    && step.with.version === buildxPolicy.version
     && step.with["driver-opts"] === pdfReproducibilityBuildKit;
 }
 
@@ -3721,7 +3721,7 @@ function validateReleaseAdmittedExecution(steps, relativePath, findings) {
       'ghcr.io/${IMAGE_REPOSITORY}-fixture-007@${FIXTURE_007_DIGEST}',
       'ghcr.io/${IMAGE_REPOSITORY}-fixture-019@${FIXTURE_019_DIGEST}',
       '"$tooling" version --json',
-      '"go_version":"go1.27.2"',
+      '"go_version":"go1.27.3"',
       '"os":"linux"',
       '"architecture":"amd64"',
       '"$RELEASE_TAG" "$RELEASE_COMMIT" "$RELEASE_TIMESTAMP"',
@@ -4231,6 +4231,7 @@ function expectedWorkstationShardCommands() {
     ["test:workstation:fixture-029:shard-1", workstationShardCommand([
       "experiments/workstation/fixture-029/suite-runner.test.mjs",
       "experiments/workstation/fixture-029/contract.test.mjs",
+      "experiments/workstation/fixture-029/runner-io.test.mjs",
     ])],
     ["test:workstation:fixture-029:shard-2", workstationShardCommand([
       "experiments/workstation/fixture-029/suite-runner-integrity.test.mjs",
@@ -5115,12 +5116,63 @@ export function validateEngineManagedWorkflowObject(workflow, relativePath) {
   return findings;
 }
 
+// A superseded pull-request run cancels so it stops holding jobs under the
+// organisation's job cap; a main run keys its group on the commit and always
+// finishes, because the main rollup needs every commit's result. Paths are
+// matched exactly; engine-managed workflows keep their carve-out.
+export const supersededRunConcurrencyGroup =
+  "${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}";
+
+export const supersededRunCancellationWorkflowPaths = Object.freeze([
+  ".github/workflows/ci.yml",
+  ".github/workflows/codeql.yml",
+  ".github/workflows/scorecard.yml",
+]);
+
+function workflowTriggersOnPullRequest(workflow) {
+  const on = workflow?.on;
+  if (typeof on === "string") return on === "pull_request";
+  if (Array.isArray(on)) return on.includes("pull_request");
+  return on !== null && typeof on === "object" && Object.hasOwn(on, "pull_request");
+}
+
+export function validateSupersededRunCancellationWorkflowObject(
+  workflow,
+  relativePath = "workflow.yml",
+) {
+  if (!workflow || typeof workflow !== "object") {
+    return [];
+  }
+  if (engineManagedWorkflowPaths.includes(relativePath)) {
+    return [];
+  }
+  const applies = supersededRunCancellationWorkflowPaths.includes(relativePath)
+    || workflowTriggersOnPullRequest(workflow);
+  if (!applies) {
+    return [];
+  }
+  const concurrency = workflow.concurrency;
+  if (
+    !concurrency
+    || typeof concurrency !== "object"
+    || Array.isArray(concurrency)
+    || concurrency.group !== supersededRunConcurrencyGroup
+    || concurrency["cancel-in-progress"] !== true
+  ) {
+    return [
+      `${relativePath}: concurrency must cancel superseded runs on every ref except main (group ${supersededRunConcurrencyGroup}, cancel-in-progress true)`,
+    ];
+  }
+  return [];
+}
+
 function validateWorkflowPolicy(workflow, relativePath, lock, findings) {
   if (engineManagedWorkflowPaths.includes(relativePath)) {
     findings.push(...validateEngineManagedWorkflowObject(workflow, relativePath));
     return;
   }
   findings.push(...validateWorkflowObject(workflow, relativePath));
+  findings.push(...validateSupersededRunCancellationWorkflowObject(workflow, relativePath));
   findings.push(...validatePublicRepositoryRunnerWorkflowObject(workflow, relativePath));
   findings.push(...validateNodeSetupWorkflowObject(workflow, relativePath));
   const auditJobName = relativePath === ".github/workflows/ci.yml"

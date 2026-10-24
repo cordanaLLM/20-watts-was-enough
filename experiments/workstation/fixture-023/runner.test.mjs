@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
 import {
   appendFile,
-  mkdir,
-  mkdtemp,
   readdir,
   readFile,
   rm,
@@ -24,22 +22,13 @@ import {
   prepareFixture023,
   validateFixture023Output,
 } from "./runner.mjs";
-
-const root = process.cwd();
-const temporaryRoot = path.join(root, "tmp");
-
-async function temporaryOutput(prefix) {
-  await mkdir(temporaryRoot, { recursive: true });
-  const parent = await mkdtemp(path.join(temporaryRoot, prefix));
-  return { parent, output: path.join(parent, "run") };
-}
-
-async function cleanup(...fixtures) {
-  for (const fixture of fixtures) {
-    assert.ok(fixture.parent.startsWith(temporaryRoot));
-    await rm(fixture.parent, { recursive: true, force: true });
-  }
-}
+import {
+  assertCliExecutionRejections,
+  assertDeterministicSmokeExecution,
+  assertResumeMatchesUninterruptedExecution,
+  cleanup,
+  temporaryOutput,
+} from "../lib/runner-test-helpers.mjs";
 
 function rechain(records) {
   let previous = "0".repeat(64);
@@ -127,12 +116,7 @@ test("same public inputs produce byte-identical raw ledgers", async () => {
   const left = await temporaryOutput("fixture-023-left-");
   const right = await temporaryOutput("fixture-023-right-");
   try {
-    await executeFixture023({ profile: "smoke", output: left.output });
-    await executeFixture023({ profile: "smoke", output: right.output });
-    assert.equal(
-      await readFile(path.join(left.output, "raw-events.jsonl"), "utf8"),
-      await readFile(path.join(right.output, "raw-events.jsonl"), "utf8"),
-    );
+    await assertDeterministicSmokeExecution(executeFixture023, left.output, right.output);
   } finally {
     await cleanup(left, right);
   }
@@ -142,27 +126,12 @@ test("checkpoint resume reproduces uninterrupted raw and checkpoint bytes", asyn
   const resumed = await temporaryOutput("fixture-023-resume-");
   const complete = await temporaryOutput("fixture-023-complete-");
   try {
-    const partial = await executeFixture023({
-      profile: "smoke",
-      output: resumed.output,
+    await assertResumeMatchesUninterruptedExecution({
+      execute: executeFixture023,
+      resumed,
+      complete,
       maxWorkUnits: 17,
     });
-    assert.equal(partial.complete, false);
-    const finished = await executeFixture023({
-      profile: "smoke",
-      output: resumed.output,
-      resume: true,
-    });
-    assert.equal(finished.complete, true);
-    await executeFixture023({ profile: "smoke", output: complete.output });
-    assert.equal(
-      await readFile(path.join(resumed.output, "raw-events.jsonl"), "utf8"),
-      await readFile(path.join(complete.output, "raw-events.jsonl"), "utf8"),
-    );
-    assert.equal(
-      await readFile(path.join(resumed.output, "checkpoint.json"), "utf8"),
-      await readFile(path.join(complete.output, "checkpoint.json"), "utf8"),
-    );
   } finally {
     await cleanup(resumed, complete);
   }
@@ -357,16 +326,8 @@ test("resume atomically rebuilds a torn derivable run document", async () => {
 });
 
 test("CLI exposes no confirmation or transfer action and cannot inject seed files", async () => {
-  await assert.rejects(
-    () => main(["node", "runner.mjs", "confirmation", "--profile", "development"]),
-    /confirmation and transfer are inaccessible/,
-  );
-  await assert.rejects(
-    () => main(["node", "runner.mjs", "smoke", "--profile", "smoke"]),
-    /requires --output/,
-  );
-  await assert.rejects(
-    () => main(["node", "runner.mjs", "prepare", "--profile", "smoke", "--seeds", "private.json"]),
-    /Unknown or duplicate/,
-  );
+  await assertCliExecutionRejections({
+    main,
+    confirmationPattern: /confirmation and transfer are inaccessible/,
+  });
 });

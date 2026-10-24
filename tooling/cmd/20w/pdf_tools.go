@@ -35,6 +35,66 @@ func runPublicationVerifyPDFTools(arguments []string, stdout, stderr io.Writer) 
 	return 0
 }
 
+func parseCandidateOutputOptions(
+	candidateBundle, finalArchive, spdx, sourceBundle string,
+	stderr io.Writer,
+) (*pdftools.CandidateOutputOptions, bool) {
+	candidatePaths := []string{candidateBundle, finalArchive, spdx, sourceBundle}
+	candidateCount := 0
+	for _, path := range candidatePaths {
+		if path != "" {
+			candidateCount++
+		}
+	}
+	if candidateCount != 0 && candidateCount != len(candidatePaths) {
+		fmt.Fprintln(stderr, "publication reproduce-pdf-tools-image requires all of --candidate-bundle, --final-archive, --spdx and --source-bundle")
+		return nil, false
+	}
+	if candidateCount == len(candidatePaths) {
+		return &pdftools.CandidateOutputOptions{
+			PublicationBundlePath: candidateBundle,
+			FinalArchivePath:      finalArchive,
+			SPDXPath:              spdx,
+			SourceBundlePath:      sourceBundle,
+		}, true
+	}
+	return nil, true
+}
+
+func printReproducePDFToolsResult(
+	stdout, stderr io.Writer,
+	result pdftools.ReproductionReceipt,
+	receipt, finalArchive, spdx, sourceBundle string,
+) int {
+	if result.Candidate == nil {
+		fmt.Fprintf(
+			stdout,
+			"Local PDF-tools construction passed under %s; final manifest %s; retained %s.\n",
+			result.Authority,
+			result.FinalBuilds[0].Manifest,
+			receipt,
+		)
+		return 0
+	}
+	if result.Candidate.PublicationBundle == nil {
+		fmt.Fprintln(stderr, "Reproduce local PDF-tools final image: candidate publication identity is missing")
+		return 1
+	}
+	fmt.Fprintf(
+		stdout,
+		"Local PDF-tools construction passed under %s; final manifest %s. NO_RESULT candidate bundle prepared at %s (sha256:%s, %d bytes); non-authoritative convenience copies: %s, %s and %s.\n",
+		result.Authority,
+		result.FinalBuilds[0].Manifest,
+		result.Candidate.PublicationBundle.Path,
+		result.Candidate.PublicationBundle.SHA256,
+		result.Candidate.PublicationBundle.Bytes,
+		finalArchive,
+		spdx,
+		sourceBundle,
+	)
+	return 0
+}
+
 func runPublicationReproducePDFToolsImage(arguments []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("publication reproduce-pdf-tools-image", flag.ContinueOnError)
 	flags.SetOutput(stderr)
@@ -50,23 +110,9 @@ func runPublicationReproducePDFToolsImage(arguments []string, stdout, stderr io.
 		}
 		return 2
 	}
-	candidatePaths := []string{*candidateBundle, *finalArchive, *spdx, *sourceBundle}
-	candidateCount := 0
-	for _, path := range candidatePaths {
-		if path != "" {
-			candidateCount++
-		}
-	}
-	var candidate *pdftools.CandidateOutputOptions
-	if candidateCount != 0 && candidateCount != len(candidatePaths) {
-		fmt.Fprintln(stderr, "publication reproduce-pdf-tools-image requires all of --candidate-bundle, --final-archive, --spdx and --source-bundle")
+	candidate, ok := parseCandidateOutputOptions(*candidateBundle, *finalArchive, *spdx, *sourceBundle, stderr)
+	if !ok {
 		return 2
-	}
-	if candidateCount == len(candidatePaths) {
-		candidate = &pdftools.CandidateOutputOptions{
-			PublicationBundlePath: *candidateBundle,
-			FinalArchivePath:      *finalArchive, SPDXPath: *spdx, SourceBundlePath: *sourceBundle,
-		}
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -79,33 +125,7 @@ func runPublicationReproducePDFToolsImage(arguments []string, stdout, stderr io.
 		fmt.Fprintf(stderr, "Reproduce local PDF-tools final image: %v\n", err)
 		return 1
 	}
-	if result.Candidate == nil {
-		fmt.Fprintf(
-			stdout,
-			"Local PDF-tools construction passed under %s; final manifest %s; retained %s.\n",
-			result.Authority,
-			result.FinalBuilds[0].Manifest,
-			*receipt,
-		)
-	} else {
-		if result.Candidate.PublicationBundle == nil {
-			fmt.Fprintln(stderr, "Reproduce local PDF-tools final image: candidate publication identity is missing")
-			return 1
-		}
-		fmt.Fprintf(
-			stdout,
-			"Local PDF-tools construction passed under %s; final manifest %s. NO_RESULT candidate bundle prepared at %s (sha256:%s, %d bytes); non-authoritative convenience copies: %s, %s and %s.\n",
-			result.Authority,
-			result.FinalBuilds[0].Manifest,
-			result.Candidate.PublicationBundle.Path,
-			result.Candidate.PublicationBundle.SHA256,
-			result.Candidate.PublicationBundle.Bytes,
-			*finalArchive,
-			*spdx,
-			*sourceBundle,
-		)
-	}
-	return 0
+	return printReproducePDFToolsResult(stdout, stderr, result, *receipt, *finalArchive, *spdx, *sourceBundle)
 }
 
 func runPublicationVerifyPDFToolsCandidateBundle(arguments []string, stdout, stderr io.Writer) int {

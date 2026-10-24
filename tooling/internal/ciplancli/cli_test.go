@@ -68,6 +68,16 @@ func TestPlanRejectsArgumentsBeforeBuilding(t *testing.T) {
 	}
 }
 
+func TestPlanRejectsStrayPositionalArguments(t *testing.T) {
+	t.Parallel()
+	var stdout, stderr bytes.Buffer
+	code := RunPlan([]string{"stray"}, &stdout, &stderr)
+	wantStderr := "ci plan accepts no positional arguments: stray\n"
+	if code != 2 || stdout.Len() != 0 || stderr.String() != wantStderr {
+		t.Fatalf("exit=%d stdout=%q stderr=%q, want exit=2 and stderr=%q", code, stdout.String(), stderr.String(), wantStderr)
+	}
+}
+
 func TestPlanRejectsMissingOrMalformedMappingEvenWithFull(t *testing.T) {
 	for _, malformed := range []bool{false, true} {
 		root := planFixture(t)
