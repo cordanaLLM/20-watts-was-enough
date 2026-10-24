@@ -302,12 +302,16 @@ test("cleanupSymlinkFixture safely cleans junction, parent, and outside director
   await mkdir(parent, { recursive: true });
   await mkdir(outside, { recursive: true });
   await symlink(outside, junction, "junction");
+  try {
+    await cleanupSymlinkFixture({ junction, parent, outside });
 
-  await cleanupSymlinkFixture({ junction, parent, outside });
+    await assert.rejects(() => lstat(junction), /ENOENT/u);
+    await assert.rejects(() => stat(parent), /ENOENT/u);
+    await assert.rejects(() => stat(outside), /ENOENT/u);
 
-  await assert.rejects(() => lstat(junction), /ENOENT/u);
-  await assert.rejects(() => stat(parent), /ENOENT/u);
-  await assert.rejects(() => stat(outside), /ENOENT/u);
-
-  await cleanupSymlinkFixture({ junction: null, parent: null, outside: null });
+    await cleanupSymlinkFixture({ junction, parent, outside });
+    await cleanupSymlinkFixture({ junction: null, parent: null, outside: null });
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
 });
