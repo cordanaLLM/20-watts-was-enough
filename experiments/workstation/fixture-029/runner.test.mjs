@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
@@ -9,22 +9,11 @@ import { fixture029ScientificPayload, fixture029WorkKey } from "./contract.mjs";
 import {
   analyzeFixture029, executeFixture029, main, prepareFixture029, validateFixture029Output,
 } from "./runner.mjs";
-import { assertDeterministicSmokeExecution } from "../lib/runner-test-helpers.mjs";
-
-const temporaryRoot = path.join(process.cwd(), "tmp");
-
-async function temporaryOutput(prefix) {
-  await mkdir(temporaryRoot, { recursive: true });
-  const parent = await mkdtemp(path.join(temporaryRoot, prefix));
-  return { parent, output: path.join(parent, "run") };
-}
-
-async function cleanup(...fixtures) {
-  for (const fixture of fixtures) {
-    assert.ok(fixture.parent.startsWith(temporaryRoot));
-    await rm(fixture.parent, { recursive: true, force: true });
-  }
-}
+import {
+  assertDeterministicSmokeExecution,
+  cleanup,
+  temporaryOutput,
+} from "../lib/runner-test-helpers.mjs";
 
 async function rewriteFullyRechainedLedger(output, mutateRecords) {
   const rawPath = path.join(output, "raw-events.jsonl");

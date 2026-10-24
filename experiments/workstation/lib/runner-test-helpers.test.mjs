@@ -14,14 +14,18 @@ import test from "node:test";
 
 import {
   assertCheckpointSchemaRejections,
+  assertCliExecutionRejections,
   assertCliOptionRejections,
   assertDeterministicSmokeExecution,
   assertReleaseExecutionRequiresDigest,
+  assertResumeMatchesUninterruptedExecution,
+  cleanup,
   cleanupSymlinkFixture,
   corruptRawEventsFirstRow,
   rehashCheckpoint,
   releaseEnvironment,
   releaseIdentityMismatches,
+  temporaryOutput,
   writeRehashedCheckpoint,
 } from "./runner-test-helpers.mjs";
 
@@ -218,6 +222,135 @@ test("corruptRawEventsFirstRow rejects on missing directory or non-existent raw-
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
+});
+
+test("temporaryOutput and cleanup manage frozen directory fixtures under tmp", async () => {
+  const fixture1 = await temporaryOutput("test-helper-tmp-1-");
+  const fixture2 = await temporaryOutput("test-helper-tmp-2-");
+  assert.ok(Object.isFrozen(fixture1));
+  assert.equal(fixture1.output, path.join(fixture1.parent, "run"));
+  assert.ok(fixture1.parent.startsWith(path.join(process.cwd(), "tmp")));
+
+  await writeFile(path.join(fixture1.parent, "marker.txt"), "ok");
+  await writeFile(path.join(fixture2.parent, "marker.txt"), "ok");
+
+  await cleanup(fixture1, fixture2);
+  await assert.rejects(() => readFile(path.join(fixture1.parent, "marker.txt")), /ENOENT/u);
+  await assert.rejects(() => readFile(path.join(fixture2.parent, "marker.txt")), /ENOENT/u);
+});
+
+test("cleanup fails closed when fixture parent is outside the temporary root", async () => {
+  const unsafeFixture = { parent: "/var/tmp/unsafe-escape" };
+  await assert.rejects(() => cleanup(unsafeFixture), assert.AssertionError);
+  await assert.rejects(() => cleanup({}), TypeError);
+  const many = Array.from({ length: 33 }, () => ({ parent: path.join(process.cwd(), "tmp", "never-created") }));
+  await assert.rejects(() => cleanup(...many), /at most 32 fixtures/);
+});
+
+test("assertResumeMatchesUninterruptedExecution validates clean resume reproducibility", async () => {
+  const resumed = await temporaryOutput("test-helper-resume-resumed-");
+  const complete = await temporaryOutput("test-helper-resume-complete-");
+  try {
+    await mkdir(resumed.output, { recursive: true });
+    await mkdir(complete.output, { recursive: true });
+
+    const mockExecute = async (options) => {
+      if (options.maxWorkUnits) {
+        await writeFile(path.join(options.output, "raw-events.jsonl"), '{"step":1}\n');
+        await writeFile(path.join(options.output, "checkpoint.json"), '{"step":1}\n');
+        return { complete: false, extra: "checked" };
+      }
+      if (options.resume) {
+        await writeFile(path.join(options.output, "raw-events.jsonl"), '{"step":1}\n{"step":2}\n');
+        await writeFile(path.join(options.output, "checkpoint.json"), '{"step":2}\n');
+        return { complete: true, extra: "checked" };
+      }
+      await writeFile(path.join(options.output, "raw-events.jsonl"), '{"step":1}\n{"step":2}\n');
+      await writeFile(path.join(options.output, "checkpoint.json"), '{"step":2}\n');
+      return { complete: true, extra: "checked" };
+    };
+
+    let checkedCount = 0;
+    const extraChecks = (result) => {
+      assert.equal(result.extra, "checked");
+      checkedCount += 1;
+    };
+
+    await assertResumeMatchesUninterruptedExecution({
+      execute: mockExecute,
+      resumed,
+      complete,
+      extraChecks,
+    });
+    assert.equal(checkedCount, 2);
+  } finally {
+    await cleanup(resumed, complete);
+  }
+});
+
+test("assertResumeMatchesUninterruptedExecution rejects when execution diverges or fails contract", async () => {
+  const resumed = await temporaryOutput("test-helper-diverge-resumed-");
+  const complete = await temporaryOutput("test-helper-diverge-complete-");
+  try {
+    await mkdir(resumed.output, { recursive: true });
+    await mkdir(complete.output, { recursive: true });
+
+    const prematureCompleteExecute = async (options) => {
+      if (options.maxWorkUnits) return { complete: true };
+      return { complete: true };
+    };
+
+    await assert.rejects(
+      () => assertResumeMatchesUninterruptedExecution({
+        execute: prematureCompleteExecute,
+        resumed,
+        complete,
+      }),
+      assert.AssertionError,
+    );
+
+    const stalledResumeExecute = async () => ({ complete: false });
+    await assert.rejects(
+      () => assertResumeMatchesUninterruptedExecution({
+        execute: stalledResumeExecute,
+        resumed,
+        complete,
+      }),
+      assert.AssertionError,
+    );
+  } finally {
+    await cleanup(resumed, complete);
+  }
+});
+
+test("assertCliExecutionRejections validates expected rejections for CLI partition and options", async () => {
+  const createMockMain = (allowConfirmation = false) => async (argv) => {
+    if (!allowConfirmation && argv[2] === "confirmation") {
+      throw new Error("private partitions are not executable.");
+    }
+    if (argv[2] === "smoke" && !argv.includes("--output")) {
+      throw new Error("smoke requires --output.");
+    }
+    if (argv[2] === "prepare" && argv.includes("--seeds")) {
+      throw new Error("Unknown or duplicate option --seeds.");
+    }
+    return true;
+  };
+
+  const confirmationPattern = /private partitions are not executable/;
+  await assertCliExecutionRejections({ main: createMockMain(false), confirmationPattern });
+
+  await assert.rejects(
+    () => assertCliExecutionRejections({ main: createMockMain(true), confirmationPattern }),
+    assert.AssertionError,
+  );
+  await assert.rejects(
+    () => assertCliExecutionRejections({
+      main: createMockMain(false),
+      confirmationPattern: /confirmation and transfer are inaccessible/,
+    }),
+    assert.AssertionError,
+  );
 });
 
 test("rehashCheckpoint recomputes checkpoint_sha256 digest over stripped body", () => {

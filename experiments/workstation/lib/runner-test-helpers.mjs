@@ -1,8 +1,93 @@
 import assert from "node:assert/strict";
-import { readFile, rm, unlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 
 import { canonicalize, sha256Hex } from "./checkpoint-ledger.mjs";
+
+const defaultTemporaryRoot = path.join(process.cwd(), "tmp");
+
+const maxCleanupFixtures = 32;
+const maxRejectedOptions = 16;
+
+export async function temporaryOutput(prefix) {
+  await mkdir(defaultTemporaryRoot, { recursive: true });
+  const parent = await mkdtemp(path.join(defaultTemporaryRoot, prefix));
+  return Object.freeze({ parent, output: path.join(parent, "run") });
+}
+
+export async function cleanup(...fixtures) {
+  assert.ok(fixtures.length <= maxCleanupFixtures, `cleanup accepts at most ${maxCleanupFixtures} fixtures`);
+  for (const fixture of fixtures) {
+    assert.ok(fixture.parent.startsWith(defaultTemporaryRoot));
+    await rm(fixture.parent, { recursive: true, force: true });
+  }
+}
+
+export async function assertResumeMatchesUninterruptedExecution({
+  execute,
+  resumed,
+  complete,
+  maxWorkUnits = 7,
+  extraChecks = () => {},
+}) {
+  const resumedOutput = resumed.output;
+  const completeOutput = complete.output;
+  const partial = await execute({
+    profile: "smoke",
+    output: resumedOutput,
+    maxWorkUnits,
+  });
+  assert.equal(partial.complete, false);
+  extraChecks(partial);
+  const finished = await execute({
+    profile: "smoke",
+    output: resumedOutput,
+    resume: true,
+  });
+  assert.equal(finished.complete, true);
+  extraChecks(finished);
+  await execute({ profile: "smoke", output: completeOutput });
+  assert.equal(
+    await readFile(path.join(resumedOutput, "raw-events.jsonl"), "utf8"),
+    await readFile(path.join(completeOutput, "raw-events.jsonl"), "utf8"),
+  );
+  assert.equal(
+    await readFile(path.join(resumedOutput, "checkpoint.json"), "utf8"),
+    await readFile(path.join(completeOutput, "checkpoint.json"), "utf8"),
+  );
+}
+
+export async function assertCliExecutionRejections({
+  main,
+  confirmationPattern,
+  rejectedOptions = [["--seeds", "private.json"]],
+}) {
+  await assert.rejects(
+    () => main(["node", "runner.mjs", "confirmation", "--profile", "development"]),
+    confirmationPattern,
+  );
+  await assert.rejects(
+    () => main(["node", "runner.mjs", "smoke", "--profile", "smoke"]),
+    /requires --output/,
+  );
+  assert.ok(
+    rejectedOptions.length <= maxRejectedOptions,
+    `at most ${maxRejectedOptions} rejected options`,
+  );
+  for (const option of rejectedOptions) {
+    await assert.rejects(
+      () => main(["node", "runner.mjs", "prepare", "--profile", "smoke", ...option]),
+      /Unknown or duplicate/,
+    );
+  }
+}
 
 export async function assertCliOptionRejections(main) {
   await assert.rejects(
