@@ -29,6 +29,7 @@ import {
   validateFixture026Output,
 } from "./runner.mjs";
 import {
+  assertCheckpointSchemaRejections,
   assertCliExecutionRejections,
   assertDeterministicSmokeExecution,
   assertResumeMatchesUninterruptedExecution,
@@ -222,22 +223,15 @@ test("run and checkpoint authority documents reject unknown fields and type drif
     }
     await writeFile(runPath, `${JSON.stringify(originalRun, null, 2)}\n`);
 
-    const originalCheckpoint = JSON.parse(await readFile(checkpointPath, "utf8"));
-    for (const mutate of [
-      (checkpoint) => { checkpoint.claim_eligible = true; },
-      (checkpoint) => { checkpoint.records = String(checkpoint.records); },
-    ]) {
-      const checkpoint = structuredClone(originalCheckpoint);
-      mutate(checkpoint);
-      const body = { ...checkpoint };
-      delete body.checkpoint_sha256;
-      checkpoint.checkpoint_sha256 = sha256(canonical(body));
-      await writeFile(checkpointPath, `${JSON.stringify(checkpoint, null, 2)}\n`);
-      await assert.rejects(
+    await assertCheckpointSchemaRejections({
+      checkpointPath,
+      assertRejection: () => assert.rejects(
         () => executeFixture026({ profile: "smoke", output: fixture.output, resume: true }),
         /missing or unknown fields|identity mismatch/i,
-      );
-    }
+      ),
+      hash: sha256,
+      canonical,
+    });
   } finally {
     await cleanup(fixture);
   }

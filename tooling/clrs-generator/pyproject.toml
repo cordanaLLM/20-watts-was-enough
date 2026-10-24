@@ -36,4 +36,5 @@ required-environments = [
 [tool.uv.exclude-newer-package]
 certifi = "2026-10-21T00:00:00Z"
 pip = "2026-10-21T00:00:00Z"
+setuptools = "2026-10-19T20:20:00Z"
 urllib3 = "2026-09-16T00:00:00Z"

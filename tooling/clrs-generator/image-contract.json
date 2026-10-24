@@ -10,7 +10,7 @@
   "generation_contract_id": "sha256:cc14fce405e8fa7d4719f1fc906e28d5e4b73235085c8f0722795efded2891a8",
   "lock_input": {
     "path": "tooling/clrs-generator/lock-input.json",
-    "sha256": "bdaccfb27ee888c700b17a4de6471117e2b1d3a72dbce920bcc4b00d0bf9450b"
+    "sha256": "1b65eef5f7b95eace3bf623a4c21325f76afe6c01fc2c42c7aa9d0107ec7da31"
   },
   "builder": {
     "authority_path": "tooling/pdf-renderer/lock.json",
@@ -26,9 +26,9 @@
   "dependency_lock": {
     "state": "locked",
     "project_path": "tooling/clrs-generator/pyproject.toml",
-    "project_sha256": "ebc2953d6ca5f4f6d496c6d587ee6da2aed44a42ad4e573d223595a6fb96acc4",
+    "project_sha256": "73439a1924c16629fe4c3f5fe71717101e95f21a99a10b3c8f7fbe6c0610bfe7",
     "path": "tooling/clrs-generator/uv.lock",
-    "sha256": "cbac28b4acab15f07d722203ead7731ecb9a1f7e9f51c1754de0ca28a5b4cdba",
+    "sha256": "43e7c607591c8cc298ac82d538b895daf15a635027d4591827a79664eaf154af",
     "package_count": 63,
     "artifact_count": 137
   },
@@ -37,7 +37,7 @@
     "dockerfile_path": "tooling/clrs-generator/Dockerfile",
     "dockerfile_sha256": "",
     "wheelhouse_manifest_path": "tooling/clrs-generator/wheelhouse.json",
-    "wheelhouse_manifest_sha256": "c68f7832c4c27e373f7e640b1eb85b8a5082df5594c94e30833392baac2e6ce5",
+    "wheelhouse_manifest_sha256": "8db0ce2a32d5fad36ae1f5883bc01665077ed5a8b8618147a6a44832794df527",
     "context_sha256": "",
     "install_network": "none"
   },
