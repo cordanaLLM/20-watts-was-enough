@@ -30,6 +30,9 @@ import {
   engineManagedWorkflowPaths,
   formatFindings,
   generatedHookJobSkips,
+  supersededRunCancellationWorkflowPaths,
+  supersededRunConcurrencyGroup,
+  validateSupersededRunCancellationWorkflowObject,
   validateCiExperimentImageWorkflowObject,
   validateCiCodeShapeResetWorkflowObject,
   validateCiNativeReleaseWorkflowObject,
@@ -604,6 +607,117 @@ test("workflow validation rejects ambient writes, unbounded concurrency, and cre
     "workflow.yml: concurrency must define a group and explicit cancel-in-progress boolean",
     "workflow.yml: job unsafe step 0 must set checkout persist-credentials to false",
   ]);
+});
+
+test("superseded pull-request runs cancel on branches while main runs never cancel", () => {
+  assert.deepEqual([...supersededRunCancellationWorkflowPaths], [
+    ".github/workflows/ci.yml",
+    ".github/workflows/codeql.yml",
+    ".github/workflows/scorecard.yml",
+  ]);
+
+  // Positive: real ci.yml, codeql.yml, scorecard.yml give no finding.
+  for (const relativePath of supersededRunCancellationWorkflowPaths) {
+    const valid = parse(readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8"));
+    assert.deepEqual(
+      validateSupersededRunCancellationWorkflowObject(valid, relativePath),
+      [],
+      relativePath,
+    );
+  }
+
+  // Negative: cancel-in-progress false -> finding
+  const cancelInProgressFalse = {
+    on: { pull_request: { branches: ["main"] } },
+    concurrency: {
+      group: supersededRunConcurrencyGroup,
+      "cancel-in-progress": false,
+    },
+    jobs: { build: {} },
+  };
+  assert.deepEqual(
+    validateSupersededRunCancellationWorkflowObject(cancelInProgressFalse, "custom.yml"),
+    [
+      `custom.yml: concurrency must cancel superseded runs on every ref except main (group ${supersededRunConcurrencyGroup}, cancel-in-progress true)`,
+    ],
+  );
+
+  // Negative: group `${{ github.workflow }}-${{ github.ref }}` (would cancel main) -> finding
+  const cancelsMain = {
+    on: { pull_request: { branches: ["main"] } },
+    concurrency: {
+      group: "${{ github.workflow }}-${{ github.ref }}",
+      "cancel-in-progress": true,
+    },
+    jobs: { build: {} },
+  };
+  assert.deepEqual(
+    validateSupersededRunCancellationWorkflowObject(cancelsMain, "custom.yml"),
+    [
+      `custom.yml: concurrency must cancel superseded runs on every ref except main (group ${supersededRunConcurrencyGroup}, cancel-in-progress true)`,
+    ],
+  );
+
+  // Negative: new workflow with on.pull_request and no concurrency -> finding
+  const noConcurrency = {
+    on: { pull_request: { branches: ["main"] } },
+    jobs: { build: {} },
+  };
+  assert.deepEqual(
+    validateSupersededRunCancellationWorkflowObject(noConcurrency, "custom.yml"),
+    [
+      `custom.yml: concurrency must cancel superseded runs on every ref except main (group ${supersededRunConcurrencyGroup}, cancel-in-progress true)`,
+    ],
+  );
+
+  // Negative: on: [pull_request] array form -> finding
+  const arrayFormNoConcurrency = {
+    on: ["pull_request"],
+    jobs: { build: {} },
+  };
+  assert.deepEqual(
+    validateSupersededRunCancellationWorkflowObject(arrayFormNoConcurrency, "custom.yml"),
+    [
+      `custom.yml: concurrency must cancel superseded runs on every ref except main (group ${supersededRunConcurrencyGroup}, cancel-in-progress true)`,
+    ],
+  );
+
+  const arrayFormWrongGroup = {
+    on: ["pull_request", "push"],
+    concurrency: {
+      group: "${{ github.workflow }}-${{ github.ref }}",
+      "cancel-in-progress": true,
+    },
+    jobs: { build: {} },
+  };
+  assert.deepEqual(
+    validateSupersededRunCancellationWorkflowObject(arrayFormWrongGroup, "custom.yml"),
+    [
+      `custom.yml: concurrency must cancel superseded runs on every ref except main (group ${supersededRunConcurrencyGroup}, cancel-in-progress true)`,
+    ],
+  );
+
+  // Boundary: on: { pull_request_target: {} } only -> no finding
+  const pullRequestTargetOnly = {
+    on: { pull_request_target: { branches: ["main"] } },
+    concurrency: {
+      group: "${{ github.workflow }}-${{ github.event.pull_request.number }}",
+      "cancel-in-progress": false,
+    },
+    jobs: { label: {} },
+  };
+  assert.deepEqual(
+    validateSupersededRunCancellationWorkflowObject(pullRequestTargetOnly, ".github/workflows/labeler.yml"),
+    [],
+  );
+
+  for (const name of ["labeler", "pr-title"]) {
+    const prTargetWorkflow = workflow(name);
+    assert.deepEqual(
+      validateSupersededRunCancellationWorkflowObject(prTargetWorkflow, `.github/workflows/${name}.yml`),
+      [],
+    );
+  }
 });
 
 test("public-repository workflows cannot request self-hosted or dynamic runners", () => {
