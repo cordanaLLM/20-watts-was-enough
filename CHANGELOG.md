@@ -73,6 +73,10 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Do not verify `cordana.dev` for the GitHub organisation or enforce Pages
+  HTTPS, because TLS terminates at Cloudflare; the takeover risk this leaves
+  is recorded, and the open maintainer action from Decision 0085 is closed
+  ([Decision 0117](decisions/0117-skip-pages-domain-verification-behind-cloudflare.md)).
 - CI, CodeQL and Scorecard cancel a superseded branch run but no longer
   cancel a running `main` run; each `main` commit keeps its own concurrency
   group. The repository policy requires that shape for every workflow with a
