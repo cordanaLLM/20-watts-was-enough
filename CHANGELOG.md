@@ -7,6 +7,13 @@ the exact diff; this file records why the project changed.
 
 ### Security
 
+- Update three transitive npm packages inside their parents' ranges:
+  DOMPurify 3.4.17 under Mermaid (GHSA-cg2g-xh64-v4q7, GHSA-mrv2-3pqr-j5jr,
+  GHSA-c6gr-qvv4-5v3f), Zod 4.6.7 under eslint-plugin-react-hooks
+  (GHSA-mrhx-c7xc-m3w5) and fast-uri 3.1.9 under Ajv (four advisories).
+  `npm audit --audit-level=high` had started failing the pre-push gate's
+  security stage on every branch. Only the lock, the third-party notices
+  and the recorded book provenance change.
 - The Go tooling module passes gosec with the engine's default rules and
   no baseline. Ignored `Close` errors are now joined into the returned
   error, the CLRS prompt parsers refuse a negative size before converting
