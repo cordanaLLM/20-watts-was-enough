@@ -1,7 +1,7 @@
 # CLRS generator image foundation
 
 No generator image is admitted yet. This directory records the exact Linux
-`amd64` dependency graph and the selected 61-file wheelhouse manifest. The
+`amd64` dependency graph and the selected 62-file wheelhouse manifest. The
 committed foundation contains no wheel payload, Dockerfile, complete build
 context or admitted acceptance receipt. Ignored local candidate inputs and
 receipts do not change that status. Registry absence has not been checked;
@@ -22,7 +22,7 @@ the controller, validator and fixture-import boundary.
   CPython 3.13.15 base, uv 0.12.9, resolution cutoff and reviewed Linux `amd64`
   TensorFlow, JAX, JAXlib, NumPy and tqdm wheel candidates.
 - [`pyproject.toml`](pyproject.toml) is derived from those inputs. Its
-  [`uv.lock`](uv.lock) resolves 62 packages and records 135 checksum-closed
+  [`uv.lock`](uv.lock) resolves 63 packages and records 137 checksum-closed
   artifacts. Two isolated runs of the pinned resolver produced identical lock
   bytes. This closes dependency resolution only; it does not prove that the
   source imports or runs.
@@ -34,9 +34,17 @@ the controller, validator and fixture-import boundary.
   [Decision 0100](../../decisions/0100-lift-the-urllib3-cutoff-in-the-clrs-generator.md)
   retains the global cutoff `2026-08-31T13:22:50Z` and lifts only urllib3 to
   `2026-09-16T00:00:00Z`, selecting 2.8.0 without changing other package blocks.
+  [Decision 0113](../../decisions/0113-lift-the-certifi-cutoff-in-the-clrs-generator.md)
+  lifts certifi alone to `2026-10-21T00:00:00Z`, selecting 2026.10.19.
+  [Decision 0114](../../decisions/0114-lock-pip-in-the-clrs-generator.md)
+  adds supplemental requirement `pip==26.2.2` and lifts pip alone to
+  `2026-10-21T00:00:00Z`, replacing ensurepip's pip for PYSEC-2026-4320.
+  [Decision 0118](../../decisions/0118-lock-setuptools-84-1-0-in-the-clrs-generator.md)
+  lifts setuptools alone to `2026-10-19T20:20:00Z`, selecting 84.1.0 for
+  GHSA-xmj3-9gf7-h52w.
 - [`wheelhouse.json`](wheelhouse.json) selects one exact Python 3.13 Linux
-  `amd64` wheel for each of the 61 runtime packages and binds the pinned
-  Bookworm image's glibc 2.36 boundary. Sixty wheels map directly to compatible
+  `amd64` wheel for each of the 62 runtime packages and binds the pinned
+  Bookworm image's glibc 2.36 boundary. Sixty-one wheels map directly to compatible
   artifacts in `uv.lock`; the Go validator rejects musl, WebAssembly,
   free-threaded CPython, other architectures and glibc versions newer than the
   base. `promise==2.3` has no upstream wheel, so the manifest fixes its
@@ -47,7 +55,7 @@ the controller, validator and fixture-import boundary.
   authority fields. The Promise MIT text is retained at
   [`LICENSES/promise-MIT.txt`](../../LICENSES/promise-MIT.txt); the manifest
   binds its source and built-wheel paths, hash and size. The complete selected
-  set is 823,936,696 bytes; those bytes remain ignored build inputs rather than
+  set is 825,757,190 bytes; those bytes remain ignored build inputs rather than
   Git content.
 - [`image-contract.json`](image-contract.json) reuses the repository's pinned
   Buildx, BuildKit and timestamp-rewrite authority; fixes resource and runtime

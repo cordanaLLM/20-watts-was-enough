@@ -11,6 +11,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { canonicalJson } from "../lib/canonical-json.mjs";
 
 import { evaluateConfirmationPreflight } from "./confirmation-preflight.mjs";
 import { buildCounterbalancedEnergyBlockSchedule } from "./energy-acquisition.mjs";
@@ -32,10 +33,7 @@ import { seedListCommitment } from "./seeds/seed-pack.mjs";
 import { computeSourceBundle } from "./source-bundle.mjs";
 
 function canonical(value) {
-  if (value === null || typeof value === "boolean" || typeof value === "string") return JSON.stringify(value);
-  if (typeof value === "number") return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
-  return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`;
+  return canonicalJson(value, { strict: false, label: "Test-v4" });
 }
 
 function sha256(value) {
@@ -148,24 +146,28 @@ async function fileBinding(root, relative) {
   };
 }
 
+function preflightStatisticalPlan() {
+  return {
+    independent_unit: "seed",
+    alpha_familywise: 0.05,
+    power_target: 0.8,
+    multiplicity_family_size: 1,
+    planned_seed_count: 3,
+    endpoints: [{
+      id: "paired-energy",
+      test: "superiority",
+      pilot_variance: 0.0001,
+      pilot_input_sha256: sha256("fixture-pilot"),
+      variance_unit: "paired-seed-contrast",
+      minimum_relevant_effect: 1,
+      noninferiority_margin: null,
+    }],
+  };
+}
+
 function preflightInput() {
   return {
-    statistical_plan: {
-      independent_unit: "seed",
-      alpha_familywise: 0.05,
-      power_target: 0.8,
-      multiplicity_family_size: 1,
-      planned_seed_count: 3,
-      endpoints: [{
-        id: "paired-energy",
-        test: "superiority",
-        pilot_variance: 0.0001,
-        pilot_input_sha256: sha256("fixture-pilot"),
-        variance_unit: "paired-seed-contrast",
-        minimum_relevant_effect: 1,
-        noninferiority_margin: null,
-      }],
-    },
+    statistical_plan: preflightStatisticalPlan(),
     design: {
       scenario_count: 1,
       arm_count: 2,
@@ -249,12 +251,7 @@ function buildSchedule(seeds) {
   });
 }
 
-async function makeFixture() {
-  const container = await mkdtemp(path.join(os.tmpdir(), "20w-c010-release-v4-"));
-  const bindingRoot = path.join(container, "bindings");
-  const sourceRoot = path.join(container, "source");
-  await mkdir(bindingRoot);
-  await mkdir(sourceRoot);
+async function prepareV4FixtureSource(sourceRoot) {
   const sourceBodies = {
     "source-a.mjs": "export const fixture = true;\n",
     "source-b.json": "{\"fixture\":true}\n",
@@ -262,7 +259,7 @@ async function makeFixture() {
   for (const [relative, body] of Object.entries(sourceBodies)) {
     await writeFile(path.join(sourceRoot, relative), body, "utf8");
   }
-  const sourceBundle = await computeSourceBundle({
+  return computeSourceBundle({
     root: sourceRoot,
     sourceFiles: Object.keys(sourceBodies).sort(),
     vcs: {
@@ -270,17 +267,9 @@ async function makeFixture() {
       worktree_state: "frozen-fixture",
     },
   });
-  const runtimeIdentity = makeRuntimeIdentity();
-  const executionDescriptor = makeExecutionDescriptor(sourceBundle, runtimeIdentity);
-  const snapshots = {
-    source_bundle: "source-bundle.json",
-    execution_descriptor: "execution-descriptor.json",
-    runtime_identity: "runtime-identity.json",
-    config: "config.json",
-    design: "design.json",
-    backend_registry: "backend-registry.json",
-    preregistration: "preregistration.json",
-  };
+}
+
+async function writeV4FixtureSnapshots(bindingRoot, snapshots, sourceBundle, executionDescriptor, runtimeIdentity) {
   await writeJson(path.join(bindingRoot, snapshots.source_bundle), sourceBundle);
   await writeJson(path.join(bindingRoot, snapshots.execution_descriptor), executionDescriptor);
   await writeJson(path.join(bindingRoot, snapshots.runtime_identity), runtimeIdentity);
@@ -288,16 +277,10 @@ async function makeFixture() {
   await writeJson(path.join(bindingRoot, snapshots.design), { scenarios: ["fixture"] });
   await writeJson(path.join(bindingRoot, snapshots.backend_registry), { backends: ["fixture"] });
   await writeJson(path.join(bindingRoot, snapshots.preregistration), { id: "fixture" });
+}
 
-  const confirmationSeeds = [11, 22, 33];
-  const heldOutSeeds = [44, 55];
-  const releaseVersion = 1;
-  const releaseSetId = sha256("fixture-release-set");
-  const planBindings = Object.fromEntries(await Promise.all(Object.entries(snapshots).map(async ([name, relative]) => [
-    name,
-    await fileBinding(bindingRoot, relative),
-  ])));
-  const freezeIdentity = {
+function buildFreezeIdentity(sourceBundle, executionDescriptor, runtimeIdentity, planBindings, releaseVersion, confirmationSeeds, heldOutSeeds) {
+  return {
     source_sha256: sourceBundle.source_sha256,
     source_commit: sourceBundle.vcs.source_commit,
     execution_descriptor_sha256: executionDescriptor.descriptor_sha256,
@@ -311,6 +294,21 @@ async function makeFixture() {
     confirmation_seed_count: confirmationSeeds.length,
     held_out_seed_count: heldOutSeeds.length,
   };
+}
+
+function buildV4CommitmentsAndPlan({
+  sourceBundle,
+  executionDescriptor,
+  runtimeIdentity,
+  planBindings,
+  releaseVersion,
+  confirmationSeeds,
+  heldOutSeeds,
+  releaseSetId,
+}) {
+  const freezeIdentity = buildFreezeIdentity(
+    sourceBundle, executionDescriptor, runtimeIdentity, planBindings, releaseVersion, confirmationSeeds, heldOutSeeds,
+  );
   const freezeIdentitySha256 = sha256(canonical(freezeIdentity));
   const commitments = Object.fromEntries([
     ["confirmation", confirmationSeeds],
@@ -364,7 +362,10 @@ async function makeFixture() {
       total_seed_count: confirmationSeeds.length + heldOutSeeds.length,
     },
   };
-  const seedPlan = { ...planBody, plan_sha256: sha256(canonical(planBody)) };
+  return { commitments, seedPlan: { ...planBody, plan_sha256: sha256(canonical(planBody)) } };
+}
+
+async function writeV4SeedArtifacts(bindingRoot, releaseSetId, seedPlan, commitments, confirmationSeeds, heldOutSeeds) {
   const reveals = Object.fromEntries([
     ["confirmation", confirmationSeeds],
     ["held-out", heldOutSeeds],
@@ -395,17 +396,16 @@ async function makeFixture() {
     }])),
     disjointness: "verified",
   };
-  const attestation = {
-    ...attestationBody,
-    attestation_sha256: sha256(canonical(attestationBody)),
-  };
+  const attestation = { ...attestationBody, attestation_sha256: sha256(canonical(attestationBody)) };
   await writeJson(path.join(bindingRoot, "seed-release-plan.json"), seedPlan);
   await writeJson(path.join(bindingRoot, "seed-reveal-attestation.json"), attestation);
   for (const partition of ["confirmation", "held-out"]) {
     await writeJson(path.join(bindingRoot, `${partition}.commit.json`), commitments[partition]);
     await writeJson(path.join(bindingRoot, `${partition}.reveal.json`), reveals[partition]);
   }
+}
 
+async function writeV4BaseReleaseAndPlans(bindingRoot, sourceRoot, releaseVersion, snapshots, confirmationSeeds) {
   const baseRelease = await createFrozenSeedReleaseContract({
     bindingRoot,
     sourceRoot,
@@ -433,8 +433,17 @@ async function makeFixture() {
   await writeJson(path.join(bindingRoot, "confirmation-preflight.json"), preflight);
   await writeJson(path.join(bindingRoot, "energy-block-schedule.json"), schedule);
   await writeJson(path.join(bindingRoot, "energy-acquisition-plan.json"), energyPlan);
+  return { preflight, schedule, energyPlan };
+}
 
-  const createOptions = {
+function buildV4CreateOptions({
+  bindingRoot,
+  sourceRoot,
+  releaseVersion,
+  executionDescriptor,
+  runtimeIdentity,
+}) {
+  return {
     bindingRoot,
     sourceRoot,
     releaseVersion,
@@ -449,6 +458,61 @@ async function makeFixture() {
     executionDescriptor,
     runtimeIdentity,
   };
+}
+
+const V4_FIXTURE_SNAPSHOTS = {
+  source_bundle: "source-bundle.json",
+  execution_descriptor: "execution-descriptor.json",
+  runtime_identity: "runtime-identity.json",
+  config: "config.json",
+  design: "design.json",
+  backend_registry: "backend-registry.json",
+  preregistration: "preregistration.json",
+};
+
+async function collectPlanBindings(bindingRoot, snapshots) {
+  return Object.fromEntries(await Promise.all(Object.entries(snapshots).map(async ([name, relative]) => [
+    name,
+    await fileBinding(bindingRoot, relative),
+  ])));
+}
+
+async function makeFixture() {
+  const container = await mkdtemp(path.join(os.tmpdir(), "20w-c010-release-v4-"));
+  const bindingRoot = path.join(container, "bindings");
+  const sourceRoot = path.join(container, "source");
+  await mkdir(bindingRoot);
+  await mkdir(sourceRoot);
+
+  const sourceBundle = await prepareV4FixtureSource(sourceRoot);
+  const runtimeIdentity = makeRuntimeIdentity();
+  const executionDescriptor = makeExecutionDescriptor(sourceBundle, runtimeIdentity);
+  await writeV4FixtureSnapshots(bindingRoot, V4_FIXTURE_SNAPSHOTS, sourceBundle, executionDescriptor, runtimeIdentity);
+
+  const confirmationSeeds = [11, 22, 33];
+  const heldOutSeeds = [44, 55];
+  const releaseVersion = 1;
+  const releaseSetId = sha256("fixture-release-set");
+  const planBindings = await collectPlanBindings(bindingRoot, V4_FIXTURE_SNAPSHOTS);
+
+  const { commitments, seedPlan } = buildV4CommitmentsAndPlan({
+    sourceBundle,
+    executionDescriptor,
+    runtimeIdentity,
+    planBindings,
+    releaseVersion,
+    confirmationSeeds,
+    heldOutSeeds,
+    releaseSetId,
+  });
+  await writeV4SeedArtifacts(bindingRoot, releaseSetId, seedPlan, commitments, confirmationSeeds, heldOutSeeds);
+  const { preflight, schedule, energyPlan } = await writeV4BaseReleaseAndPlans(
+    bindingRoot, sourceRoot, releaseVersion, V4_FIXTURE_SNAPSHOTS, confirmationSeeds,
+  );
+
+  const createOptions = buildV4CreateOptions({
+    bindingRoot, sourceRoot, releaseVersion, executionDescriptor, runtimeIdentity,
+  });
   const releaseV4 = await createFixtureGate9ReleaseContractV4(createOptions);
   await writeJson(path.join(bindingRoot, "release-v4.json"), releaseV4);
   return {
@@ -617,3 +681,4 @@ test("creation and opening reject undeclared adapter inputs", async () => {
     );
   });
 });
+

@@ -103,12 +103,26 @@ func requestHead(ctx context.Context, client *http.Client, endpoint string) (*ht
 		return nil, err
 	}
 	if response.Body != nil {
-		_, _ = io.CopyN(io.Discard, response.Body, 1)
-		if err := response.Body.Close(); err != nil {
-			return nil, fmt.Errorf("close HEAD response: %w", err)
+		if err := drainAndCloseBody(response.Body); err != nil {
+			return nil, err
 		}
 	}
 	return response, nil
+}
+
+func drainAndCloseBody(body io.ReadCloser) error {
+	var drainErr error
+	if _, err := io.CopyN(io.Discard, body, 1); err != nil && !errors.Is(err, io.EOF) {
+		drainErr = fmt.Errorf("drain HEAD response: %w", err)
+	}
+	if closeErr := body.Close(); closeErr != nil {
+		closeWrapped := fmt.Errorf("close HEAD response: %w", closeErr)
+		if drainErr != nil {
+			return errors.Join(drainErr, closeWrapped)
+		}
+		return closeWrapped
+	}
+	return drainErr
 }
 
 func validateResponse(response *http.Response, expectedStatus int, manifest Manifest) error {

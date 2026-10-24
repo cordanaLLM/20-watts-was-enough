@@ -11,6 +11,10 @@ import {
   validateFixture012Output,
 } from "./runner.mjs";
 import { generateLayoutStudy } from "./generator.mjs";
+import {
+  assertCliOptionRejections,
+  assertDeterministicSmokeExecution,
+} from "../lib/runner-test-helpers.mjs";
 
 const root = process.cwd();
 const temporaryRoot = path.join(root, "tmp");
@@ -89,12 +93,7 @@ test("identical smoke profiles reproduce byte-identical append-only ledgers", as
   const left = await temporaryOutput("fixture-012-left-");
   const right = await temporaryOutput("fixture-012-right-");
   try {
-    await executeFixture012({ profile: "smoke", output: left.output });
-    await executeFixture012({ profile: "smoke", output: right.output });
-    assert.equal(
-      await readFile(path.join(left.output, "raw-events.jsonl"), "utf8"),
-      await readFile(path.join(right.output, "raw-events.jsonl"), "utf8"),
-    );
+    await assertDeterministicSmokeExecution(executeFixture012, left.output, right.output);
   } finally {
     await removeTemporary(left, right);
   }
@@ -214,12 +213,5 @@ test("validation refuses a stored summary that claims scientific authority", asy
 });
 
 test("CLI parsing refuses implicit outputs and undeclared options", async () => {
-  await assert.rejects(
-    () => main(["node", "runner.mjs", "smoke", "--profile", "smoke"]),
-    /requires --output/,
-  );
-  await assert.rejects(
-    () => main(["node", "runner.mjs", "prepare", "--profile", "smoke", "--oracle", "yes"]),
-    /Unknown or duplicate/,
-  );
+  await assertCliOptionRejections(main);
 });

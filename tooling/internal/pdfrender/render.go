@@ -133,7 +133,7 @@ func renderWithLockedBuilder(
 	preparer buildContextPreparer, executor commandExecutor, temporaryRoot string,
 ) (result Result, returnError error) {
 	contextRoot := filepath.Join(temporaryRoot, "context")
-	if err := os.Mkdir(contextRoot, 0o755); err != nil {
+	if err := os.Mkdir(contextRoot, 0o755); err != nil { //#nosec G301 -- container build context directory must be readable by container builder
 		return Result{}, fmt.Errorf("create PDF renderer build context: %w", err)
 	}
 	buildContext, cancelBuild := context.WithTimeout(ctx, time.Duration(configuration.Lock.Limits.BuildSeconds)*time.Second)
@@ -210,10 +210,10 @@ func renderIsolatedPair(ctx context.Context, configuration Configuration, execut
 	for index, label := range []string{"run-a", "run-b"} {
 		outputDirectory := filepath.Join(temporaryRoot, label, "downloads")
 		temporaryDirectory := filepath.Join(temporaryRoot, label, "workspace-tmp")
-		if err := os.MkdirAll(outputDirectory, 0o755); err != nil {
+		if err := os.MkdirAll(outputDirectory, 0o755); err != nil { //#nosec G301 -- container bind mount directory must be accessible by container user
 			return nil, fmt.Errorf("create isolated PDF output: %w", err)
 		}
-		if err := os.MkdirAll(temporaryDirectory, 0o755); err != nil {
+		if err := os.MkdirAll(temporaryDirectory, 0o755); err != nil { //#nosec G301 -- container bind mount directory must be accessible by container user
 			return nil, fmt.Errorf("create isolated PDF temporary directory: %w", err)
 		}
 		if err := runRendererOnce(ctx, configuration, executor, imageID, sourceRef, sourceRevision, outputDirectory, temporaryDirectory, index+1); err != nil {
@@ -394,7 +394,7 @@ func readImageID(path string) (string, error) {
 	if !information.Mode().IsRegular() || information.Mode()&os.ModeSymlink != 0 || information.Size() <= 0 || information.Size() > 80 {
 		return "", errors.New("PDF renderer image ID file must be a bounded regular non-symlink file")
 	}
-	opened, err := os.Open(path)
+	opened, err := os.Open(path) //#nosec G304 -- renderer artifact path validated regular file
 	if err != nil {
 		return "", fmt.Errorf("open PDF renderer image ID: %w", err)
 	}
@@ -435,7 +435,7 @@ func requireContainedDirectory(root, relative string, create bool) error {
 		current = filepath.Join(current, component)
 		information, err := fileidentity.Lstat(current)
 		if errors.Is(err, os.ErrNotExist) && create {
-			if err := os.Mkdir(current, 0o755); err != nil {
+			if err := os.Mkdir(current, 0o755); err != nil { //#nosec G301 -- repository artifact directory must be readable by build and test tooling
 				return fmt.Errorf("create PDF renderer directory %s: %w", relative, err)
 			}
 			continue

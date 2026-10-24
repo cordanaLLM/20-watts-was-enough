@@ -90,6 +90,8 @@ const FIXTURE_026_RUN_KEYS = Object.freeze([
 ]);
 const sourceFiles = Object.freeze([
   "../lib/checkpoint-ledger.mjs",
+  "../lib/exact-keys.mjs",
+  "../lib/stream-seed.mjs",
   "contract.mjs",
   "generator.mjs",
   "registry.mjs",

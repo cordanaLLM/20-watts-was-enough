@@ -121,7 +121,7 @@ func comparisonEntries(ctx context.Context, root, relative string, maximum int) 
 	if err != nil || !before.IsDir() {
 		return nil, nil, fmt.Errorf("fixture directory %s is not a real directory", path)
 	}
-	file, err := os.Open(path)
+	file, err := os.Open(path) //#nosec G304 -- path within fixture root validated as non-symlink real directory
 	if err != nil {
 		return nil, nil, err
 	}

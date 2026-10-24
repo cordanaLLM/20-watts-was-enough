@@ -36,9 +36,11 @@ const moduleNames = Object.freeze([
   "runtime-identity.mjs",
   "source-bundle.mjs",
 ]);
+const sharedLibraryPaths = Object.freeze(["experiments/workstation/lib/canonical-json.mjs"]);
 const sourcePaths = Object.freeze([
   "package-lock.json",
   "package.json",
+  ...sharedLibraryPaths,
   ...moduleNames.map((name) => `${candidateDirectory}/${name}`),
 ].sort());
 
@@ -54,6 +56,17 @@ async function writeJson(file, value) {
   await writeFile(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
+async function copySourceModules(repositoryRoot, candidateRoot) {
+  for (const name of moduleNames) {
+    await copyFile(path.join(worktreeCandidateRoot, name), path.join(candidateRoot, name));
+  }
+  for (const relative of sharedLibraryPaths) {
+    const destination = path.join(repositoryRoot, ...relative.split("/"));
+    await mkdir(path.dirname(destination), { recursive: true });
+    await copyFile(path.join(worktreeRepositoryRoot, ...relative.split("/")), destination);
+  }
+}
+
 async function fixture() {
   const testRoot = await mkdtemp(path.join(os.tmpdir(), "20w authority fixture ü-"));
   const repositoryRoot = path.join(testRoot, "repository Ω with spaces");
@@ -63,9 +76,7 @@ async function fixture() {
   await mkdir(candidateRoot, { recursive: true });
   await mkdir(firstParent);
   await mkdir(secondParent);
-  for (const name of moduleNames) {
-    await copyFile(path.join(worktreeCandidateRoot, name), path.join(candidateRoot, name));
-  }
+  await copySourceModules(repositoryRoot, candidateRoot);
 
   const dependencyMetadata = JSON.parse(await readFile(
     path.join(worktreeRepositoryRoot, "node_modules", "es-module-lexer", "package.json"),
@@ -131,11 +142,13 @@ async function authorityModule(capsule, query = "") {
 }
 
 async function cleanup(value, capsules = []) {
+  const failures = [];
   for (const capsule of capsules) {
-    if (capsule) await destroyExecutionCapsule(capsule).catch(() => {});
+    if (capsule) await destroyExecutionCapsule(capsule).catch((error) => failures.push(error));
   }
   assert.ok(value.testRoot.startsWith(os.tmpdir()));
   await rm(value.testRoot, { recursive: true, force: true });
+  if (failures.length > 0) throw new AggregateError(failures, "Authority fixture capsule cleanup failed.");
 }
 
 test("worktree authority module import fails closed before exporting a usable factory", async () => {

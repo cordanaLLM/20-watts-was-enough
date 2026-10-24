@@ -46,7 +46,7 @@ func readRelative(root, relative, label string, maximum int64) ([]byte, error) {
 	if err != nil || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > maximum {
 		return nil, fmt.Errorf("%s must be a regular file between 1 and %d bytes", label, maximum)
 	}
-	file, err := os.Open(path)
+	file, err := os.Open(path) //#nosec G304 -- repository-relative path validated non-symlink regular file within byte bounds
 	if err != nil {
 		return nil, fmt.Errorf("open %s: %w", label, err)
 	}

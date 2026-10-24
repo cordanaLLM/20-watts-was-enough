@@ -22,13 +22,13 @@ import (
 )
 
 const (
-	generatorRuntimePackageCount = 61
+	generatorRuntimePackageCount = 62
 	generatorSourceDateEpoch     = int64(1_787_658_740)
 	generatorGlibcVersion        = "2.36"
 	generatorMaximumGlibcMinor   = 36
 	promiseWheelFilename         = "promise-2.3-py3-none-any.whl"
-	promiseWheelSHA256           = "bef8aedf1f65bca04bed59a7dd784f94075ceeb61c13ea9aaf86c91f569f861b"
-	promiseWheelSize             = int64(21_582)
+	promiseWheelSHA256           = "e9fa8772ebc9d24e4357d671f8194cd1d95875732533a43f5b5f5e472160cac2"
+	promiseWheelSize             = int64(21_581)
 	promiseLicensePath           = "LICENSES/promise-MIT.txt"
 	promiseLicenseSHA256         = "5d328768394abffaa84512c90783941dd899a62bcc8009a4181e28b2743228ec"
 	promiseLicenseSize           = int64(1_079)
@@ -91,10 +91,9 @@ func ParseGeneratorWheelhouseManifest(
 	return manifest, nil
 }
 
-func (manifest GeneratorWheelhouseManifest) validate(
+func (manifest GeneratorWheelhouseManifest) validateHeader(
 	input GeneratorLockInput,
 	imageContract GeneratorImageContract,
-	packages []lockedGeneratorPackage,
 ) error {
 	if manifest.SchemaVersion != 1 || manifest.Authority != ResultAuthority || manifest.State != "locked-selection" ||
 		manifest.Platform != input.Platform || manifest.PythonVersion != input.Python.Version ||
@@ -111,13 +110,31 @@ func (manifest GeneratorWheelhouseManifest) validate(
 	if manifest.TotalSizeBytes <= 0 || manifest.TotalSizeBytes > imageContract.Limits.DependencyArtifactBytes {
 		return errors.New("generator wheelhouse manifest byte total is invalid")
 	}
-	locked := make(map[string]lockedGeneratorPackage, len(packages))
-	for _, pkg := range packages {
-		if pkg.Name == "twenty-watts-clrs-generator" {
-			continue
+	return nil
+}
+
+func validateWheelhouseArtifactKind(artifact GeneratorWheelhouseEntry, pkg lockedGeneratorPackage) (bool, error) {
+	switch artifact.Kind {
+	case "downloaded-wheel":
+		if !matchesLockedWheel(artifact, pkg.Artifacts) {
+			return false, fmt.Errorf("generator wheelhouse artifact %q is not one exact locked wheel", artifact.Package)
 		}
-		locked[pkg.Name] = pkg
+		return false, nil
+	case "source-built-wheel":
+		if artifact.Package != "promise" || artifact.Filename != promiseWheelFilename || artifact.URL != "" ||
+			artifact.SHA256 != promiseWheelSHA256 || artifact.SizeBytes != promiseWheelSize {
+			return false, errors.New("generator promise wheel differs from the frozen source-build output")
+		}
+		return true, nil
+	default:
+		return false, fmt.Errorf("generator wheelhouse artifact %q has an invalid kind", artifact.Package)
 	}
+}
+
+func validateWheelhouseArtifacts(
+	manifest GeneratorWheelhouseManifest,
+	locked map[string]lockedGeneratorPackage,
+) error {
 	seen := make(map[string]bool, len(manifest.Artifacts))
 	var total int64
 	downloaded := 0
@@ -139,20 +156,14 @@ func (manifest GeneratorWheelhouseManifest) validate(
 			return errors.New("generator wheelhouse byte total overflows")
 		}
 		total += artifact.SizeBytes
-		switch artifact.Kind {
-		case "downloaded-wheel":
-			if !matchesLockedWheel(artifact, pkg.Artifacts) {
-				return fmt.Errorf("generator wheelhouse artifact %q is not one exact locked wheel", artifact.Package)
-			}
-			downloaded++
-		case "source-built-wheel":
-			if artifact.Package != "promise" || artifact.Filename != promiseWheelFilename || artifact.URL != "" ||
-				artifact.SHA256 != promiseWheelSHA256 || artifact.SizeBytes != promiseWheelSize {
-				return errors.New("generator promise wheel differs from the frozen source-build output")
-			}
+		isBuilt, err := validateWheelhouseArtifactKind(artifact, pkg)
+		if err != nil {
+			return err
+		}
+		if isBuilt {
 			built++
-		default:
-			return fmt.Errorf("generator wheelhouse artifact %q has an invalid kind", artifact.Package)
+		} else {
+			downloaded++
 		}
 	}
 	if len(seen) != len(locked) || downloaded != manifest.DownloadedWheelCount ||
@@ -163,6 +174,26 @@ func (manifest GeneratorWheelhouseManifest) validate(
 		if !seen[name] {
 			return fmt.Errorf("generator wheelhouse manifest omits package %q", name)
 		}
+	}
+	return nil
+}
+
+func (manifest GeneratorWheelhouseManifest) validate(
+	input GeneratorLockInput,
+	imageContract GeneratorImageContract,
+	packages []lockedGeneratorPackage,
+) error {
+	if err := manifest.validateHeader(input, imageContract); err != nil {
+		return err
+	}
+	locked := make(map[string]lockedGeneratorPackage, len(packages))
+	for _, pkg := range packages {
+		if pkg.Name != "twenty-watts-clrs-generator" {
+			locked[pkg.Name] = pkg
+		}
+	}
+	if err := validateWheelhouseArtifacts(manifest, locked); err != nil {
+		return err
 	}
 	wantSourceBuild, err := lockedPromiseSourceBuild(input, packages, manifest.Artifacts)
 	if err != nil {
@@ -237,14 +268,12 @@ func compatibleGeneratorManylinuxTag(tag string) bool {
 	return err == nil && minor >= 5 && minor <= generatorMaximumGlibcMinor
 }
 
-func lockedPromiseSourceBuild(
-	input GeneratorLockInput,
+func findPromiseSourceArtifact(
 	packages []lockedGeneratorPackage,
-	selected []GeneratorWheelhouseEntry,
-) (GeneratorWheelSourceBuild, error) {
+	buildPackages map[string]bool,
+) (lockedGeneratorArtifact, map[string]lockedGeneratorPackage, error) {
 	var source lockedGeneratorArtifact
 	sourceCount := 0
-	buildPackages := map[string]bool{"packaging": true, "setuptools": true, "wheel": true}
 	lockedBuildPackages := make(map[string]lockedGeneratorPackage, len(buildPackages))
 	for _, pkg := range packages {
 		if pkg.Name == "promise" {
@@ -261,8 +290,16 @@ func lockedPromiseSourceBuild(
 	}
 	if sourceCount != 1 || source.Package != "promise" || source.Version != "2.3" || source.Wheel ||
 		source.Filename != "promise-2.3.tar.gz" {
-		return GeneratorWheelSourceBuild{}, errors.New("generator promise source artifact is invalid")
+		return lockedGeneratorArtifact{}, nil, errors.New("generator promise source artifact is invalid")
 	}
+	return source, lockedBuildPackages, nil
+}
+
+func resolvePromiseBuildRequirements(
+	selected []GeneratorWheelhouseEntry,
+	buildPackages map[string]bool,
+	lockedBuildPackages map[string]lockedGeneratorPackage,
+) ([]GeneratorWheelhouseEntry, error) {
 	buildRequirements := make([]GeneratorWheelhouseEntry, 0, len(buildPackages))
 	seenBuildPackages := make(map[string]bool, len(buildPackages))
 	for _, artifact := range selected {
@@ -272,7 +309,7 @@ func lockedPromiseSourceBuild(
 		pkg, present := lockedBuildPackages[artifact.Package]
 		if !present || seenBuildPackages[artifact.Package] || artifact.Version != pkg.Version ||
 			artifact.Kind != "downloaded-wheel" || !matchesLockedWheel(artifact, pkg.Artifacts) {
-			return GeneratorWheelSourceBuild{}, fmt.Errorf(
+			return nil, fmt.Errorf(
 				"generator source-build requirement %q is not one selected exact locked wheel",
 				artifact.Package,
 			)
@@ -282,7 +319,7 @@ func lockedPromiseSourceBuild(
 	}
 	for name := range buildPackages {
 		if !seenBuildPackages[name] {
-			return GeneratorWheelSourceBuild{}, fmt.Errorf(
+			return nil, fmt.Errorf(
 				"generator source-build requirement %q is not selected",
 				name,
 			)
@@ -291,6 +328,23 @@ func lockedPromiseSourceBuild(
 	sort.Slice(buildRequirements, func(left, right int) bool {
 		return buildRequirements[left].Package < buildRequirements[right].Package
 	})
+	return buildRequirements, nil
+}
+
+func lockedPromiseSourceBuild(
+	input GeneratorLockInput,
+	packages []lockedGeneratorPackage,
+	selected []GeneratorWheelhouseEntry,
+) (GeneratorWheelSourceBuild, error) {
+	buildPackages := map[string]bool{"packaging": true, "setuptools": true, "wheel": true}
+	source, lockedBuildPackages, err := findPromiseSourceArtifact(packages, buildPackages)
+	if err != nil {
+		return GeneratorWheelSourceBuild{}, err
+	}
+	buildRequirements, err := resolvePromiseBuildRequirements(selected, buildPackages, lockedBuildPackages)
+	if err != nil {
+		return GeneratorWheelSourceBuild{}, err
+	}
 	installCommand := []string{
 		"/opt/build/bin/python", "-m", "pip", "install", "--isolated", "--disable-pip-version-check",
 		"--no-input", "--no-cache-dir", "--no-index", "--no-deps",
@@ -495,91 +549,93 @@ func writeNewGeneratorWheelhouseManifest(wheelhouseDirectory, output string, bod
 	return writeNewGeneratorWheelhouseManifestWithInterlock(wheelhouseDirectory, output, body, nil)
 }
 
-func writeNewGeneratorWheelhouseManifestWithInterlock(
-	wheelhouseDirectory, output string,
-	body []byte,
-	afterClose func() error,
-) (digest string, size int64, writeErr error) {
+func prepareManifestParent(wheelhouseDirectory, output string) (string, string, string, *os.Root, os.FileInfo, error) {
 	if output == "" {
-		return "", 0, errors.New("CLRS generator wheelhouse manifest output is required")
-	}
-	if len(body) == 0 {
-		return "", 0, errors.New("CLRS generator wheelhouse manifest body is required")
+		return "", "", "", nil, nil, errors.New("CLRS generator wheelhouse manifest output is required")
 	}
 	absolute, err := filepath.Abs(output)
 	if err != nil {
-		return "", 0, fmt.Errorf("resolve CLRS generator wheelhouse manifest output: %w", err)
+		return "", "", "", nil, nil, fmt.Errorf("resolve CLRS generator wheelhouse manifest output: %w", err)
 	}
 	absolute = filepath.Clean(absolute)
 	parent, err := cleanGeneratorRoot(filepath.Dir(absolute))
 	if err != nil || parent != filepath.Dir(absolute) {
-		return "", 0, errors.New("CLRS generator wheelhouse manifest output parent must be one real canonical directory")
+		return "", "", "", nil, nil, errors.New("CLRS generator wheelhouse manifest output parent must be one real canonical directory")
 	}
 	wheelhouse, err := cleanGeneratorRoot(wheelhouseDirectory)
 	if err != nil {
-		return "", 0, fmt.Errorf("inspect CLRS generator wheelhouse output boundary: %w", err)
+		return "", "", "", nil, nil, fmt.Errorf("inspect CLRS generator wheelhouse output boundary: %w", err)
 	}
 	if relative, relativeErr := filepath.Rel(wheelhouse, absolute); relativeErr == nil &&
 		(relative == "." || (relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)))) {
-		return "", 0, errors.New("CLRS generator wheelhouse manifest output must be outside the wheel directory")
+		return "", "", "", nil, nil, errors.New("CLRS generator wheelhouse manifest output must be outside the wheel directory")
 	}
 	name := filepath.Base(absolute)
 	if name == "." || name == string(filepath.Separator) {
-		return "", 0, errors.New("CLRS generator wheelhouse manifest output needs a file name")
+		return "", "", "", nil, nil, errors.New("CLRS generator wheelhouse manifest output needs a file name")
 	}
 	namedParentState, err := inspectGeneratorRootPath(parent)
 	if err != nil {
-		return "", 0, fmt.Errorf("inspect CLRS generator wheelhouse manifest output parent: %w", err)
+		return "", "", "", nil, nil, fmt.Errorf("inspect CLRS generator wheelhouse manifest output parent: %w", err)
 	}
 	parentRoot, err := os.OpenRoot(parent)
 	if err != nil {
-		return "", 0, fmt.Errorf("open CLRS generator wheelhouse manifest output parent: %w", err)
+		return "", "", "", nil, nil, fmt.Errorf("open CLRS generator wheelhouse manifest output parent: %w", err)
 	}
-	defer parentRoot.Close()
 	parentState, err := parentRoot.Stat(".")
 	if err != nil || !sameGeneratorDirectoryIdentity(namedParentState, parentState) {
-		return "", 0, errors.New("CLRS generator wheelhouse manifest output parent is not a stable directory")
+		if closeErr := parentRoot.Close(); closeErr != nil {
+			return "", "", "", nil, nil, errors.Join(errors.New("CLRS generator wheelhouse manifest output parent is not a stable directory"), closeErr)
+		}
+		return "", "", "", nil, nil, errors.New("CLRS generator wheelhouse manifest output parent is not a stable directory")
 	}
+	return absolute, parent, name, parentRoot, parentState, nil
+}
+
+// writeManifestFileContent reports created once the new name holds a regular
+// file, so the caller can mark every later failure as leaving that name behind.
+func writeManifestFileContent(parentRoot *os.Root, name string, body []byte) (writtenState os.FileInfo, created bool, writeErr error) {
 	file, err := parentRoot.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
-		return "", 0, fmt.Errorf("create CLRS generator wheelhouse manifest output: %w", err)
+		return nil, false, fmt.Errorf("create CLRS generator wheelhouse manifest output: %w", err)
 	}
 	createdState, err := file.Stat()
 	if err != nil || !createdState.Mode().IsRegular() {
-		_ = file.Close()
-		return "", 0, errors.New("created CLRS generator wheelhouse manifest is not a regular file")
+		if closeErr := file.Close(); closeErr != nil && !errors.Is(closeErr, os.ErrClosed) {
+			return nil, false, errors.Join(errors.New("created CLRS generator wheelhouse manifest is not a regular file"), fmt.Errorf("close irregular manifest output: %w", closeErr))
+		}
+		return nil, false, errors.New("created CLRS generator wheelhouse manifest is not a regular file")
 	}
 	defer func() {
-		_ = file.Close()
-		if writeErr != nil {
-			writeErr = fmt.Errorf(
-				"%w; output name %q was left untouched under the opened output directory",
-				writeErr,
-				name,
-			)
+		if closeErr := file.Close(); closeErr != nil && !errors.Is(closeErr, os.ErrClosed) {
+			writeErr = errors.Join(writeErr, fmt.Errorf("deferred close manifest output: %w", closeErr))
 		}
 	}()
 	if _, err := file.Write(body); err != nil {
-		return "", 0, fmt.Errorf("write CLRS generator wheelhouse manifest: %w", err)
+		return nil, true, fmt.Errorf("write CLRS generator wheelhouse manifest: %w", err)
 	}
 	if err := file.Sync(); err != nil {
-		return "", 0, fmt.Errorf("synchronise CLRS generator wheelhouse manifest: %w", err)
+		return nil, true, fmt.Errorf("synchronise CLRS generator wheelhouse manifest: %w", err)
 	}
 	if err := file.Chmod(0o644); err != nil {
-		return "", 0, fmt.Errorf("set CLRS generator wheelhouse manifest mode: %w", err)
+		return nil, true, fmt.Errorf("set CLRS generator wheelhouse manifest mode: %w", err)
 	}
-	writtenState, err := file.Stat()
+	writtenState, err = file.Stat()
 	if err != nil || !writtenState.Mode().IsRegular() || writtenState.Size() != int64(len(body)) {
-		return "", 0, errors.New("written CLRS generator wheelhouse manifest is not the expected regular file")
+		return nil, true, errors.New("written CLRS generator wheelhouse manifest is not the expected regular file")
 	}
 	if err := file.Close(); err != nil {
-		return "", 0, fmt.Errorf("close CLRS generator wheelhouse manifest: %w", err)
+		return nil, true, fmt.Errorf("close CLRS generator wheelhouse manifest: %w", err)
 	}
-	if afterClose != nil {
-		if err := afterClose(); err != nil {
-			return "", 0, fmt.Errorf("run CLRS generator manifest write interlock: %w", err)
-		}
-	}
+	return writtenState, true, nil
+}
+
+func confirmPublishedManifest(
+	parentRoot *os.Root,
+	name, parent, absolute string,
+	parentState, writtenState os.FileInfo,
+	body []byte,
+) (string, int64, error) {
 	published, err := parentRoot.Open(name)
 	if err != nil {
 		return "", 0, errors.New("published CLRS generator wheelhouse manifest could not be reopened")
@@ -614,7 +670,7 @@ func writeNewGeneratorWheelhouseManifestWithInterlock(
 	if err != nil || !unchangedGeneratorFile(confirmedState, rootInformation) {
 		return "", 0, errors.New("published CLRS generator wheelhouse manifest is not the expected regular file")
 	}
-	namedParentState, err = fileidentity.Lstat(parent)
+	namedParentState, err := fileidentity.Lstat(parent)
 	if err != nil || !sameGeneratorDirectoryIdentity(parentState, namedParentState) {
 		return "", 0, errors.New("CLRS generator wheelhouse manifest output parent changed during creation")
 	}
@@ -626,6 +682,75 @@ func writeNewGeneratorWheelhouseManifestWithInterlock(
 	return rawSHA256(confirmation), int64(len(confirmation)), nil
 }
 
+func writeNewGeneratorWheelhouseManifestWithInterlock(
+	wheelhouseDirectory, output string,
+	body []byte,
+	afterClose func() error,
+) (digest string, size int64, writeErr error) {
+	if output == "" {
+		return "", 0, errors.New("CLRS generator wheelhouse manifest output is required")
+	}
+	if len(body) == 0 {
+		return "", 0, errors.New("CLRS generator wheelhouse manifest body is required")
+	}
+	absolute, parent, name, parentRoot, parentState, err := prepareManifestParent(wheelhouseDirectory, output)
+	if err != nil {
+		return "", 0, err
+	}
+	defer parentRoot.Close()
+	writtenState, created, err := writeManifestFileContent(parentRoot, name, body)
+	defer func() {
+		if writeErr != nil && created {
+			writeErr = fmt.Errorf("%w; output name %q was left untouched under the opened output directory", writeErr, name)
+		}
+	}()
+	if err != nil {
+		return "", 0, err
+	}
+	if afterClose != nil {
+		if err := afterClose(); err != nil {
+			return "", 0, fmt.Errorf("run CLRS generator manifest write interlock: %w", err)
+		}
+	}
+	return confirmPublishedManifest(parentRoot, name, parent, absolute, parentState, writtenState, body)
+}
+
+func loadGeneratorWheelhouseContracts(root string) (GeneratorLockInput, GeneratorImageContract, error) {
+	sourceBody, err := readGeneratorFile(root, trackedSourcePath, maximumSourceRecordBytes)
+	if err != nil {
+		return GeneratorLockInput{}, GeneratorImageContract{}, err
+	}
+	source, err := ParseSourceRecord(sourceBody)
+	if err != nil {
+		return GeneratorLockInput{}, GeneratorImageContract{}, err
+	}
+	generationBody, err := readGeneratorFile(root, trackedGenerationPath, maximumGenerationContractBytes)
+	if err != nil {
+		return GeneratorLockInput{}, GeneratorImageContract{}, err
+	}
+	generation, err := ParseGenerationContract(generationBody, source)
+	if err != nil {
+		return GeneratorLockInput{}, GeneratorImageContract{}, err
+	}
+	lockInputBody, err := readGeneratorFile(root, trackedLockInputPath, maximumGeneratorLockInputBytes)
+	if err != nil {
+		return GeneratorLockInput{}, GeneratorImageContract{}, err
+	}
+	input, err := ParseGeneratorLockInput(lockInputBody, source)
+	if err != nil {
+		return GeneratorLockInput{}, GeneratorImageContract{}, err
+	}
+	imageBody, err := readGeneratorFile(root, trackedImageContractPath, maximumGeneratorImageContractBytes)
+	if err != nil {
+		return GeneratorLockInput{}, GeneratorImageContract{}, err
+	}
+	imageContract, err := ParseGeneratorImageContract(imageBody, lockInputBody, source, generation)
+	if err != nil {
+		return GeneratorLockInput{}, GeneratorImageContract{}, err
+	}
+	return input, imageContract, nil
+}
+
 func loadGeneratorWheelhouseInputs(
 	repositoryRoot string,
 ) (GeneratorLockInput, GeneratorImageContract, []byte, error) {
@@ -633,35 +758,7 @@ func loadGeneratorWheelhouseInputs(
 	if err != nil {
 		return GeneratorLockInput{}, GeneratorImageContract{}, nil, err
 	}
-	sourceBody, err := readGeneratorFile(root, trackedSourcePath, maximumSourceRecordBytes)
-	if err != nil {
-		return GeneratorLockInput{}, GeneratorImageContract{}, nil, err
-	}
-	source, err := ParseSourceRecord(sourceBody)
-	if err != nil {
-		return GeneratorLockInput{}, GeneratorImageContract{}, nil, err
-	}
-	generationBody, err := readGeneratorFile(root, trackedGenerationPath, maximumGenerationContractBytes)
-	if err != nil {
-		return GeneratorLockInput{}, GeneratorImageContract{}, nil, err
-	}
-	generation, err := ParseGenerationContract(generationBody, source)
-	if err != nil {
-		return GeneratorLockInput{}, GeneratorImageContract{}, nil, err
-	}
-	lockInputBody, err := readGeneratorFile(root, trackedLockInputPath, maximumGeneratorLockInputBytes)
-	if err != nil {
-		return GeneratorLockInput{}, GeneratorImageContract{}, nil, err
-	}
-	input, err := ParseGeneratorLockInput(lockInputBody, source)
-	if err != nil {
-		return GeneratorLockInput{}, GeneratorImageContract{}, nil, err
-	}
-	imageBody, err := readGeneratorFile(root, trackedImageContractPath, maximumGeneratorImageContractBytes)
-	if err != nil {
-		return GeneratorLockInput{}, GeneratorImageContract{}, nil, err
-	}
-	imageContract, err := ParseGeneratorImageContract(imageBody, lockInputBody, source, generation)
+	input, imageContract, err := loadGeneratorWheelhouseContracts(root)
 	if err != nil {
 		return GeneratorLockInput{}, GeneratorImageContract{}, nil, err
 	}
@@ -689,6 +786,64 @@ func loadGeneratorWheelhouseInputs(
 	return input, imageContract, dependencyLockBody, nil
 }
 
+func indexCompatibleGeneratorWheels(packages []lockedGeneratorPackage) (map[string]lockedGeneratorArtifact, error) {
+	byFilename := make(map[string]lockedGeneratorArtifact)
+	for _, pkg := range packages {
+		for _, artifact := range pkg.Artifacts {
+			if artifact.Wheel && compatibleGeneratorWheelFilename(artifact.Filename) {
+				if _, duplicate := byFilename[artifact.Filename]; duplicate {
+					return nil, fmt.Errorf("generator uv lock repeats wheel filename %q", artifact.Filename)
+				}
+				byFilename[artifact.Filename] = artifact
+			}
+		}
+	}
+	return byFilename, nil
+}
+
+func inspectMaterializedWheelhouseEntry(
+	root string,
+	snapshot generatorWheelhouseSnapshotEntry,
+	byFilename map[string]lockedGeneratorArtifact,
+	maximumBytes, total int64,
+) (GeneratorWheelhouseEntry, error) {
+	name := snapshot.Name
+	var selectedEntry GeneratorWheelhouseEntry
+	var expectedSHA256 string
+	var expectedSize int64
+	if name == promiseWheelFilename {
+		expectedSHA256 = promiseWheelSHA256
+		expectedSize = promiseWheelSize
+		selectedEntry = GeneratorWheelhouseEntry{
+			Package: "promise", Version: "2.3", Kind: "source-built-wheel", Filename: name,
+			URL: "", SHA256: expectedSHA256, SizeBytes: expectedSize,
+		}
+	} else {
+		locked, present := byFilename[name]
+		if !present {
+			return GeneratorWheelhouseEntry{}, fmt.Errorf("CLRS generator wheelhouse entry %q is not a compatible uv-lock wheel", name)
+		}
+		expectedSHA256 = locked.SHA256
+		expectedSize = locked.SizeBytes
+		selectedEntry = GeneratorWheelhouseEntry{
+			Package: locked.Package, Version: locked.Version, Kind: "downloaded-wheel", Filename: locked.Filename,
+			URL: locked.URL, SHA256: locked.SHA256, SizeBytes: locked.SizeBytes,
+		}
+	}
+	if snapshot.Information.Size() != expectedSize || expectedSize <= 0 || maximumBytes <= 0 ||
+		expectedSize > limitsSafeAddend(total) || expectedSize > maximumBytes-total {
+		return GeneratorWheelhouseEntry{}, fmt.Errorf("CLRS generator wheelhouse entry %q has an invalid or unbounded size", name)
+	}
+	digest, err := digestGeneratorWheel(filepath.Join(root, name), snapshot.Information, expectedSize)
+	if err != nil {
+		return GeneratorWheelhouseEntry{}, err
+	}
+	if digest != expectedSHA256 {
+		return GeneratorWheelhouseEntry{}, fmt.Errorf("CLRS generator wheelhouse entry %q has the wrong digest", name)
+	}
+	return selectedEntry, nil
+}
+
 func inspectMaterializedGeneratorWheelhouse(
 	directory string,
 	packages []lockedGeneratorPackage,
@@ -702,60 +857,23 @@ func inspectMaterializedGeneratorWheelhouse(
 	if err != nil {
 		return nil, 0, err
 	}
-	byFilename := make(map[string]lockedGeneratorArtifact)
-	for _, pkg := range packages {
-		for _, artifact := range pkg.Artifacts {
-			if artifact.Wheel && compatibleGeneratorWheelFilename(artifact.Filename) {
-				if _, duplicate := byFilename[artifact.Filename]; duplicate {
-					return nil, 0, fmt.Errorf("generator uv lock repeats wheel filename %q", artifact.Filename)
-				}
-				byFilename[artifact.Filename] = artifact
-			}
-		}
+	byFilename, err := indexCompatibleGeneratorWheels(packages)
+	if err != nil {
+		return nil, 0, err
 	}
 	selected := make([]GeneratorWheelhouseEntry, 0, len(initial.Entries))
 	seenPackages := make(map[string]bool, len(initial.Entries))
 	var total int64
 	for _, snapshot := range initial.Entries {
-		name := snapshot.Name
-		var selectedEntry GeneratorWheelhouseEntry
-		var expectedSHA256 string
-		var expectedSize int64
-		if name == promiseWheelFilename {
-			expectedSHA256 = promiseWheelSHA256
-			expectedSize = promiseWheelSize
-			selectedEntry = GeneratorWheelhouseEntry{
-				Package: "promise", Version: "2.3", Kind: "source-built-wheel", Filename: name,
-				URL: "", SHA256: expectedSHA256, SizeBytes: expectedSize,
-			}
-		} else {
-			locked, present := byFilename[name]
-			if !present {
-				return nil, 0, fmt.Errorf("CLRS generator wheelhouse entry %q is not a compatible uv-lock wheel", name)
-			}
-			expectedSHA256 = locked.SHA256
-			expectedSize = locked.SizeBytes
-			selectedEntry = GeneratorWheelhouseEntry{
-				Package: locked.Package, Version: locked.Version, Kind: "downloaded-wheel", Filename: locked.Filename,
-				URL: locked.URL, SHA256: locked.SHA256, SizeBytes: locked.SizeBytes,
-			}
-		}
-		if snapshot.Information.Size() != expectedSize || expectedSize <= 0 || maximumBytes <= 0 ||
-			expectedSize > limitsSafeAddend(total) || expectedSize > maximumBytes-total {
-			return nil, 0, fmt.Errorf("CLRS generator wheelhouse entry %q has an invalid or unbounded size", name)
-		}
-		digest, err := digestGeneratorWheel(filepath.Join(root, name), snapshot.Information, expectedSize)
+		selectedEntry, err := inspectMaterializedWheelhouseEntry(root, snapshot, byFilename, maximumBytes, total)
 		if err != nil {
 			return nil, 0, err
-		}
-		if digest != expectedSHA256 {
-			return nil, 0, fmt.Errorf("CLRS generator wheelhouse entry %q has the wrong digest", name)
 		}
 		if seenPackages[selectedEntry.Package] {
 			return nil, 0, fmt.Errorf("CLRS generator wheelhouse repeats package %q", selectedEntry.Package)
 		}
 		seenPackages[selectedEntry.Package] = true
-		total += expectedSize
+		total += selectedEntry.SizeBytes
 		selected = append(selected, selectedEntry)
 	}
 	if err := confirmGeneratorWheelhouseSnapshot(root, initial); err != nil {
@@ -775,11 +893,55 @@ type generatorWheelhouseSnapshotEntry struct {
 	Information os.FileInfo
 }
 
+func readBoundedWheelhouseDirEntries(directory *os.File, expectedCount int) ([]os.DirEntry, error) {
+	entries := make([]os.DirEntry, 0, expectedCount+1)
+	for len(entries) <= expectedCount {
+		batch, readErr := directory.ReadDir(expectedCount + 1 - len(entries))
+		entries = append(entries, batch...)
+		if errors.Is(readErr, io.EOF) {
+			break
+		}
+		if readErr != nil {
+			return nil, fmt.Errorf("read CLRS generator wheelhouse: %w", readErr)
+		}
+		if len(batch) == 0 {
+			return nil, errors.New("read CLRS generator wheelhouse made no bounded progress")
+		}
+	}
+	if len(entries) != expectedCount {
+		return nil, fmt.Errorf(
+			"CLRS generator wheelhouse contains %d files, want %d",
+			len(entries),
+			expectedCount,
+		)
+	}
+	sort.Slice(entries, func(left, right int) bool { return entries[left].Name() < entries[right].Name() })
+	return entries, nil
+}
+
+func snapshotWheelhouseEntries(root string, entries []os.DirEntry) ([]generatorWheelhouseSnapshotEntry, error) {
+	snapshotEntries := make([]generatorWheelhouseSnapshotEntry, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() || entry.Type()&os.ModeSymlink != 0 || !validGeneratorWheelFilename(entry.Name()) {
+			return nil, fmt.Errorf("CLRS generator wheelhouse entry %q is not one regular wheel", entry.Name())
+		}
+		information, inspectErr := fileidentity.Lstat(filepath.Join(root, entry.Name()))
+		if inspectErr != nil || !information.Mode().IsRegular() || information.Mode()&os.ModeSymlink != 0 ||
+			information.Size() <= 0 {
+			return nil, fmt.Errorf("CLRS generator wheelhouse entry %q changed before hashing", entry.Name())
+		}
+		snapshotEntries = append(snapshotEntries, generatorWheelhouseSnapshotEntry{
+			Name: entry.Name(), Information: information,
+		})
+	}
+	return snapshotEntries, nil
+}
+
 func readGeneratorWheelhouseSnapshot(root string, expectedCount int) (generatorWheelhouseSnapshot, error) {
 	if expectedCount < 1 || expectedCount > generatorRuntimePackageCount {
 		return generatorWheelhouseSnapshot{}, errors.New("CLRS generator wheelhouse expected count is outside the bounded runtime set")
 	}
-	directory, err := os.Open(root)
+	directory, err := os.Open(root) //#nosec G304 -- generator wheelhouse root validated as directory within repository
 	if err != nil {
 		return generatorWheelhouseSnapshot{}, fmt.Errorf("open CLRS generator wheelhouse: %w", err)
 	}
@@ -792,41 +954,13 @@ func readGeneratorWheelhouseSnapshot(root string, expectedCount int) (generatorW
 	if err != nil || !unchangedGeneratorDirectory(opened, named) {
 		return generatorWheelhouseSnapshot{}, errors.New("CLRS generator wheelhouse changed before it was opened")
 	}
-	entries := make([]os.DirEntry, 0, expectedCount+1)
-	for len(entries) <= expectedCount {
-		batch, readErr := directory.ReadDir(expectedCount + 1 - len(entries))
-		entries = append(entries, batch...)
-		if errors.Is(readErr, io.EOF) {
-			break
-		}
-		if readErr != nil {
-			return generatorWheelhouseSnapshot{}, fmt.Errorf("read CLRS generator wheelhouse: %w", readErr)
-		}
-		if len(batch) == 0 {
-			return generatorWheelhouseSnapshot{}, errors.New("read CLRS generator wheelhouse made no bounded progress")
-		}
+	entries, err := readBoundedWheelhouseDirEntries(directory, expectedCount)
+	if err != nil {
+		return generatorWheelhouseSnapshot{}, err
 	}
-	if len(entries) != expectedCount {
-		return generatorWheelhouseSnapshot{}, fmt.Errorf(
-			"CLRS generator wheelhouse contains %d files, want %d",
-			len(entries),
-			expectedCount,
-		)
-	}
-	sort.Slice(entries, func(left, right int) bool { return entries[left].Name() < entries[right].Name() })
-	snapshot := generatorWheelhouseSnapshot{Directory: opened, Entries: make([]generatorWheelhouseSnapshotEntry, 0, len(entries))}
-	for _, entry := range entries {
-		if entry.IsDir() || entry.Type()&os.ModeSymlink != 0 || !validGeneratorWheelFilename(entry.Name()) {
-			return generatorWheelhouseSnapshot{}, fmt.Errorf("CLRS generator wheelhouse entry %q is not one regular wheel", entry.Name())
-		}
-		information, inspectErr := fileidentity.Lstat(filepath.Join(root, entry.Name()))
-		if inspectErr != nil || !information.Mode().IsRegular() || information.Mode()&os.ModeSymlink != 0 ||
-			information.Size() <= 0 {
-			return generatorWheelhouseSnapshot{}, fmt.Errorf("CLRS generator wheelhouse entry %q changed before hashing", entry.Name())
-		}
-		snapshot.Entries = append(snapshot.Entries, generatorWheelhouseSnapshotEntry{
-			Name: entry.Name(), Information: information,
-		})
+	snapshotEntries, err := snapshotWheelhouseEntries(root, entries)
+	if err != nil {
+		return generatorWheelhouseSnapshot{}, err
 	}
 	closed, err := directory.Stat()
 	if err != nil || !unchangedGeneratorDirectory(opened, closed) {
@@ -836,7 +970,7 @@ func readGeneratorWheelhouseSnapshot(root string, expectedCount int) (generatorW
 	if err != nil || !unchangedGeneratorDirectory(closed, named) {
 		return generatorWheelhouseSnapshot{}, errors.New("CLRS generator wheelhouse changed while it was listed")
 	}
-	return snapshot, nil
+	return generatorWheelhouseSnapshot{Directory: opened, Entries: snapshotEntries}, nil
 }
 
 func confirmGeneratorWheelhouseSnapshot(root string, initial generatorWheelhouseSnapshot) error {
@@ -881,7 +1015,7 @@ func digestGeneratorWheelWithInterlock(
 	if err != nil || !unchangedGeneratorFile(initial, namedBefore) {
 		return "", errors.New("CLRS generator wheel changed before it was opened")
 	}
-	input, err := os.Open(file)
+	input, err := os.Open(file) //#nosec G304 -- wheelhouse file path validated by unchangedGeneratorFile checks
 	if err != nil {
 		return "", fmt.Errorf("open CLRS generator wheel: %w", err)
 	}

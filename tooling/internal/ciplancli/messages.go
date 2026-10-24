@@ -20,7 +20,11 @@ func RunMessages(arguments []string, stdout, stderr io.Writer) int {
 	baseRevision := flags.String("base", "", "exact 40-character commit whose history is already accepted")
 	headRevision := flags.String("head", "", "exact 40-character commit to check")
 	messageFile := flags.String("message-file", "", "one commit-message file to check instead of Git history")
-	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 {
+	if err := flags.Parse(arguments); err != nil {
+		return 2
+	}
+	if flags.NArg() != 0 {
+		fmt.Fprintf(stderr, "ci messages accepts no positional arguments: %s\n", flags.Arg(0))
 		return 2
 	}
 	if (*messageFile == "") == (*headRevision == "") || (*messageFile != "" && *baseRevision != "") {

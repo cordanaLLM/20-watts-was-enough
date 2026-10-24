@@ -11,13 +11,13 @@ on:
 permissions: {}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
   cancel-in-progress: true
 
 env:
   # Praetor engine commit the local hooks and `make verify-all` run. Read by
   # .config/lefthook/engine.sh on the workstation; no job in this workflow uses it.
-  PRAETOR_REF: 2d23b292417386fe8259da29690266ce331062c6
+  PRAETOR_REF: 18c50fc7476aeb92011a409bc6b71351a9ded3cf
 
 jobs:
   impact-plan:
@@ -364,7 +364,7 @@ jobs:
       - name: Set up the locked PDF Docker Buildx client
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
-          version: v0.38.0
+          version: v0.38.1
           driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
       - name: Restore the PDF renderer build cache
         id: pdf-renderer-cache
@@ -618,7 +618,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
-          version: v0.38.0
+          version: v0.38.1
           driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
       - name: Build the static 20w image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -687,7 +687,7 @@ jobs:
             .state == "completed" and .reason == "ready" and
             .payload == "[0.424 0.545 0.549 0.603 0.715]\n\n" and
             .build.version == "development" and .build.revision == $revision and
-            .build.go_version == "go1.27.2" and .build.os == "linux" and
+            .build.go_version == "go1.27.3" and .build.os == "linux" and
             .build.architecture == "amd64"
           ' <<<"$response" >/dev/null
       - name: Package the closed Fixture 007 runtime context

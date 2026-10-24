@@ -111,7 +111,7 @@ jobs:
       - name: Set up the locked PDF Docker Buildx client
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
-          version: v0.38.0
+          version: v0.38.1
           driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
       - name: Render the immutable tag-bound book
         env:
@@ -366,7 +366,7 @@ jobs:
         if: steps.release-preflight.outputs.release_state != 'published'
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
-          version: v0.38.0
+          version: v0.38.1
           driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
       - name: Authenticate to GitHub Container Registry
         if: steps.release-preflight.outputs.release_state != 'published'
@@ -636,7 +636,7 @@ jobs:
           tooling_identity="$(docker run --rm --pull never --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             "$tooling" version --json)"
-          expected_tooling_identity="$(printf '{"version":"%s","revision":"%s","built_at":"%s","go_version":"go1.27.2","os":"linux","architecture":"amd64"}' \
+          expected_tooling_identity="$(printf '{"version":"%s","revision":"%s","built_at":"%s","go_version":"go1.27.3","os":"linux","architecture":"amd64"}' \
             "$RELEASE_TAG" "$RELEASE_COMMIT" "$RELEASE_TIMESTAMP")"
           if [[ "$tooling_identity" != "$expected_tooling_identity" ]]; then
             echo "::error::admitted 20w binary identity does not match the tag, commit, timestamp, Go version, OS, and architecture"
@@ -928,7 +928,9 @@ jobs:
             local token_response token
             token_response="$(curl --fail --silent --show-error --max-time 30 \
               "https://ghcr.io/token?scope=repository:${repository}:pull")" || return 1
-            token="$(printf '%s' "$token_response" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')"
+            # Unquoted on purpose: an assignment does not split words, and the Praetor
+            # workflow reader does not nest quotes inside "$(...)".
+            token=$(printf '%s' "$token_response" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
             [[ -n "$token" ]] || return 1
             curl --fail --silent --show-error --max-time 30 --head --output /dev/null \
               --header "Authorization: Bearer ${token}" \
@@ -1140,7 +1142,9 @@ jobs:
             local token_response token
             token_response="$(curl --fail --silent --show-error --max-time 30 \
               "https://ghcr.io/token?scope=repository:${repository}:pull")" || return 1
-            token="$(printf '%s' "$token_response" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')"
+            # Unquoted on purpose: an assignment does not split words, and the Praetor
+            # workflow reader does not nest quotes inside "$(...)".
+            token=$(printf '%s' "$token_response" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
             [[ -n "$token" ]] || return 1
             curl --fail --silent --show-error --max-time 30 --head --output /dev/null \
               --header "Authorization: Bearer ${token}" \

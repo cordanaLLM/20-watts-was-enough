@@ -127,6 +127,9 @@ func TestPromiseFailedRunsRemoveOwnedResources(t *testing.T) {
 			if err == nil || fake.present || !run.CleanupVerified || !run.StagingRemoved {
 				t.Fatalf("failure cleanup: err=%v present=%v run=%+v", err, fake.present, run)
 			}
+			if wantID := fake.id; operation == "create" && run.ContainerID != "" || operation != "create" && run.ContainerID != wantID {
+				t.Fatalf("failed %s run recorded container ID %q, want the created one (%q) after create", operation, run.ContainerID, wantID)
+			}
 			if _, err := bundle.Stat("receipt.json"); !errors.Is(err, os.ErrNotExist) {
 				t.Fatal("failed run wrote success receipt")
 			}

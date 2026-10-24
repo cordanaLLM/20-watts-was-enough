@@ -44,6 +44,7 @@ var descriptors = map[string]descriptor{
 			"experiments/workstation/fixture-007/runner.mjs",
 			"experiments/workstation/fixture-007/seeds/development.json",
 			"experiments/workstation/lib/execution-receipt.mjs",
+			"experiments/workstation/lib/mulberry32.mjs",
 		},
 	},
 	"fixture-019": {
@@ -118,7 +119,7 @@ func Package(options Options) (returnError error) {
 	}
 
 	outputParent := filepath.Dir(outputRoot)
-	if err := os.MkdirAll(outputParent, 0o755); err != nil {
+	if err := os.MkdirAll(outputParent, 0o755); err != nil { //#nosec G301 -- output parent directory must be accessible for packaging build artifacts
 		return fmt.Errorf("create output parent: %w", err)
 	}
 	if _, err := cleanExistingDirectory(outputParent, "output parent"); err != nil {
@@ -257,7 +258,7 @@ func copyRegularFile(repositoryRoot, stagingRoot, relativePath string) (string, 
 		return "", 0, fmt.Errorf("runtime file %s path must not contain symlinks", relativePath)
 	}
 
-	source, err := os.Open(sourcePath)
+	source, err := os.Open(sourcePath) //#nosec G304 -- runtime file path validated as non-symlink regular file within maximumFileBytes
 	if err != nil {
 		return "", 0, fmt.Errorf("open runtime file %s: %w", relativePath, err)
 	}
@@ -272,10 +273,10 @@ func copyRegularFile(repositoryRoot, stagingRoot, relativePath string) (string, 
 	}
 
 	destinationPath := filepath.Join(stagingRoot, filepath.FromSlash(relativePath))
-	if err := os.MkdirAll(filepath.Dir(destinationPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(destinationPath), 0o755); err != nil { //#nosec G301 -- staging runtime directory must be readable in container image build
 		return "", 0, fmt.Errorf("create runtime directory for %s: %w", relativePath, err)
 	}
-	destination, err := os.OpenFile(destinationPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+	destination, err := os.OpenFile(destinationPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644) //#nosec G304,G302 -- runtime file must be world-readable in container image
 	if err != nil {
 		return "", 0, fmt.Errorf("create runtime file %s: %w", relativePath, err)
 	}
@@ -313,7 +314,7 @@ type checksum struct {
 }
 
 func writeChecksumManifest(path string, checksums []checksum) error {
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644) //#nosec G304,G302 -- checksum manifest must be world-readable in container image
 	if err != nil {
 		return fmt.Errorf("create closure checksum manifest: %w", err)
 	}
@@ -335,7 +336,7 @@ func writeChecksumManifest(path string, checksums []checksum) error {
 }
 
 func writeExclusive(path, body string) error {
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644) //#nosec G304,G302 -- packaging metadata must be world-readable in container image
 	if err != nil {
 		return fmt.Errorf("create packaging metadata %s: %w", filepath.Base(path), err)
 	}
@@ -372,7 +373,7 @@ func normalizeContextMetadata(root string) error {
 		if information.Mode().IsRegular() {
 			mode = 0o644
 		}
-		if err := os.Chmod(path, mode); err != nil {
+		if err := os.Chmod(path, mode); err != nil { //#nosec G122 -- staging directory walk, non-regular non-dir rejected by preceding check
 			return err
 		}
 		if information.Mode().IsRegular() {
@@ -381,7 +382,7 @@ func normalizeContextMetadata(root string) error {
 				return err
 			}
 		}
-		if err := os.Chtimes(path, timestamp, timestamp); err != nil {
+		if err := os.Chtimes(path, timestamp, timestamp); err != nil { //#nosec G122 -- staging directory walk, non-regular non-dir rejected by preceding check
 			return err
 		}
 		return nil
@@ -395,7 +396,7 @@ func normalizeContextMetadata(root string) error {
 func deterministicFileTimestamp(path string) (time.Time, error) {
 	// Content-derived metadata keeps fixed input reproducible while preventing
 	// BuildKit from reusing a stale same-size file from a previous context.
-	file, err := os.Open(path)
+	file, err := os.Open(path) //#nosec G304 -- path within staging directory validated regular file
 	if err != nil {
 		return time.Time{}, fmt.Errorf("open generated context file for timestamp: %w", err)
 	}

@@ -10,29 +10,15 @@ import {
   prepareFixture007,
   validateFixture007Output,
 } from "./runner.mjs";
+import {
+  assertCliOptionRejections,
+  assertReleaseExecutionRequiresDigest,
+  releaseEnvironment,
+  releaseIdentityMismatches,
+} from "../lib/runner-test-helpers.mjs";
 
 const root = process.cwd();
 const temporaryRoot = path.join(root, "tmp");
-
-function releaseEnvironment(artifact) {
-  return {
-    EXPERIMENT_ARTIFACT: artifact,
-    EXPERIMENT_IMAGE_NAME: `ghcr.io/cordanallm/20-watts-was-enough-${artifact}`,
-    EXPERIMENT_IMAGE_VERSION: "v1.2.3",
-    EXPERIMENT_SOURCE_REVISION: "a".repeat(40),
-    EXPERIMENT_RESULT_AUTHORITY: "NO_RESULT",
-    EXPERIMENT_IMAGE_DIGEST: `sha256:${"b".repeat(64)}`,
-  };
-}
-
-function releaseIdentityMismatches(environment) {
-  return [
-    { ...environment, EXPERIMENT_IMAGE_NAME: `${environment.EXPERIMENT_IMAGE_NAME}-other` },
-    { ...environment, EXPERIMENT_IMAGE_VERSION: "v1.2.4" },
-    { ...environment, EXPERIMENT_SOURCE_REVISION: "c".repeat(40) },
-    { ...environment, EXPERIMENT_IMAGE_DIGEST: `sha256:${"d".repeat(64)}` },
-  ];
-}
 
 async function temporaryOutput(prefix) {
   await mkdir(temporaryRoot, { recursive: true });
@@ -160,14 +146,7 @@ test("analysis refuses a corrupted append-only event", async () => {
 });
 
 test("CLI parsing refuses implicit outputs and unknown options", async () => {
-  await assert.rejects(
-    () => main(["node", "runner.mjs", "smoke", "--profile", "smoke"]),
-    /requires --output/,
-  );
-  await assert.rejects(
-    () => main(["node", "runner.mjs", "prepare", "--profile", "smoke", "--oracle", "yes"]),
-    /Unknown or duplicate/,
-  );
+  await assertCliOptionRejections(main);
 });
 
 test("release image execution fails before output without an explicit digest", async () => {
@@ -175,22 +154,16 @@ test("release image execution fails before output without an explicit digest", a
   const environment = releaseEnvironment("fixture-007");
   delete environment.EXPERIMENT_IMAGE_DIGEST;
   try {
-    await assert.rejects(
-      () => executeFixture007({
+    await assertReleaseExecutionRequiresDigest({
+      execute: () => executeFixture007({
         profile: "smoke",
         output: fixture.output,
         executionEnvironment: environment,
       }),
-      /requires EXPERIMENT_IMAGE_DIGEST/u,
-    );
-    await assert.rejects(
-      () => main(
-        ["node", "runner.mjs", "prepare", "--profile", "smoke"],
-        environment,
-      ),
-      /requires EXPERIMENT_IMAGE_DIGEST/u,
-    );
-    await assert.rejects(() => readFile(path.join(fixture.output, "run.json")), /ENOENT/u);
+      main,
+      environment,
+      output: fixture.output,
+    });
   } finally {
     await rm(fixture.parent, { recursive: true, force: true });
   }

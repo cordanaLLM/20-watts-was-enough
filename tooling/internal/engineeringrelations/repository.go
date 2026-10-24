@@ -68,7 +68,7 @@ func (repo repository) read(relative string, maximumBytes int64) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
-	file, err := os.Open(full)
+	file, err := os.Open(full) //#nosec G304 -- repository-relative path validated as regular file by regularFile
 	if err != nil {
 		return nil, fmt.Errorf("open %s: %w", relative, err)
 	}

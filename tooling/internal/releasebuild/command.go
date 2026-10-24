@@ -37,7 +37,7 @@ func runBoundedCommand(ctx context.Context, directory string, environment []stri
 	commandContext, cancel := context.WithTimeout(ctx, maximumCommandDuration)
 	defer cancel()
 	output := newBoundedOutput(maximumCommandOutputBytes)
-	command := exec.CommandContext(commandContext, executable, arguments...)
+	command := exec.CommandContext(commandContext, executable, arguments...) //#nosec G204 -- bounded release build subprocess with controlled executable and arguments
 	command.Dir = directory
 	command.Env = environment
 	command.Stdout = output
