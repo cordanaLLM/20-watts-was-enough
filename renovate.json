@@ -35,7 +35,7 @@
   "timezone": "Europe/Berlin",
   "constraints": {
     "node": "26.11.1",
-    "npm": "12.2.0"
+    "npm": "12.2.1"
   },
   "schedule": [
     "before 6am on monday"
