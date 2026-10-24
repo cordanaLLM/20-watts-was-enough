@@ -87,7 +87,7 @@ than silently changing its outcome.
 | [0080](0080-impact-scope-local-validation.md) | Impact-scope local validation | superseded by [0088](0088-impact-scope-ci-and-local-validation.md) |
 | [0081](0081-retain-ordinary-pdf-generation-mismatches.md) | Retain ordinary PDF generation mismatches | accepted |
 | [0082](0082-adopt-praetor-repository-governance.md) | Adopt Praetor repository governance | accepted |
-| [0083](0083-transfer-the-repository-to-cordanallm.md) | Transfer the repository to cordanaLLM | accepted; post-transfer step 5 partly superseded by [0085](0085-keep-the-live-main-ruleset-across-the-transfer.md) |
+| [0083](0083-transfer-the-repository-to-cordanallm.md) | Transfer the repository to cordanaLLM | accepted; post-transfer step 5 partly superseded by [0085](0085-keep-the-live-main-ruleset-across-the-transfer.md); post-transfer step 3 domain verification partly superseded by [0117](0117-skip-pages-domain-verification-behind-cloudflare.md) |
 | [0084](0084-multi-topic-research-repository.md) | Host several research topics in one repository | accepted |
 | [0085](0085-keep-the-live-main-ruleset-across-the-transfer.md) | Keep the live main ruleset across the transfer | accepted |
 | 0086 | Not assigned; the number is void and is never reused | void |
@@ -120,3 +120,5 @@ than silently changing its outcome.
 | [0113](0113-lift-the-certifi-cutoff-in-the-clrs-generator.md) | Lift the certifi cutoff in the CLRS generator | accepted |
 | [0114](0114-lock-pip-in-the-clrs-generator.md) | Lock pip in the CLRS generator | accepted |
 | [0115](0115-move-the-renderer-lock-to-buildx-0-38-1-and-let-the-update-bot-carry-it.md) | Move the renderer lock to Buildx 0.38.1 and let the update bot carry it | accepted |
+| [0116](0116-cancel-superseded-branch-runs-and-let-main-runs-finish.md) | Cancel superseded branch runs and let main runs finish | accepted |
+| [0117](0117-skip-pages-domain-verification-behind-cloudflare.md) | Skip Pages domain verification behind Cloudflare | accepted |

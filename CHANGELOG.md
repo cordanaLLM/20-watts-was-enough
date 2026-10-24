@@ -7,6 +7,13 @@ the exact diff; this file records why the project changed.
 
 ### Security
 
+- Update three transitive npm packages inside their parents' ranges:
+  DOMPurify 3.4.17 under Mermaid (GHSA-cg2g-xh64-v4q7, GHSA-mrv2-3pqr-j5jr,
+  GHSA-c6gr-qvv4-5v3f), Zod 4.6.7 under eslint-plugin-react-hooks
+  (GHSA-mrhx-c7xc-m3w5) and fast-uri 3.1.9 under Ajv (four advisories).
+  `npm audit --audit-level=high` had started failing the pre-push gate's
+  security stage on every branch. Only the lock, the third-party notices
+  and the recorded book provenance change.
 - The Go tooling module passes gosec with the engine's default rules and
   no baseline. Ignored `Close` errors are now joined into the returned
   error, the CLRS prompt parsers refuse a negative size before converting
@@ -66,6 +73,15 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Do not verify `cordana.dev` for the GitHub organisation or enforce Pages
+  HTTPS, because TLS terminates at Cloudflare; the takeover risk this leaves
+  is recorded, and the open maintainer action from Decision 0085 is closed
+  ([Decision 0117](decisions/0117-skip-pages-domain-verification-behind-cloudflare.md)).
+- CI, CodeQL and Scorecard cancel a superseded branch run but no longer
+  cancel a running `main` run; each `main` commit keeps its own concurrency
+  group. The repository policy requires that shape for every workflow with a
+  `pull_request` trigger
+  ([Decision 0116](decisions/0116-cancel-superseded-branch-runs-and-let-main-runs-finish.md)).
 - Refresh the Praetor adoption with engine 18c50fc74. The engine-managed
   `praetor-api.yml` and `praetor-docs.yml` workflows gain a concurrency group
   per pull request that cancels a superseded pull-request run and lets every
