@@ -27,8 +27,8 @@ const (
 	generatorGlibcVersion        = "2.36"
 	generatorMaximumGlibcMinor   = 36
 	promiseWheelFilename         = "promise-2.3-py3-none-any.whl"
-	promiseWheelSHA256           = "bef8aedf1f65bca04bed59a7dd784f94075ceeb61c13ea9aaf86c91f569f861b"
-	promiseWheelSize             = int64(21_582)
+	promiseWheelSHA256           = "e9fa8772ebc9d24e4357d671f8194cd1d95875732533a43f5b5f5e472160cac2"
+	promiseWheelSize             = int64(21_581)
 	promiseLicensePath           = "LICENSES/promise-MIT.txt"
 	promiseLicenseSHA256         = "5d328768394abffaa84512c90783941dd899a62bcc8009a4181e28b2743228ec"
 	promiseLicenseSize           = int64(1_079)
