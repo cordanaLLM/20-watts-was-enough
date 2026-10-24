@@ -1,16 +1,11 @@
-import assert from "node:assert/strict";
-import {
-  mkdir,
-  mkdtemp,
-  readFile,
-  rm,
-} from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { canonicalize, sha256Hex } from "../lib/checkpoint-ledger.mjs";
 import { executeFixture026RsdT02 } from "./rsd-t02-runner.mjs";
+import { cleanup, temporaryOutput } from "../lib/runner-test-helpers.mjs";
 
-const temporaryRoot = path.join(process.cwd(), "tmp");
+export { cleanup, temporaryOutput };
 
 export const RAW_FILE = "rsd-t02-raw-events.jsonl";
 export const CHECKPOINT_FILE = "rsd-t02-checkpoint.json";
@@ -30,19 +25,6 @@ export const ACTIVE_ARM_IDS = Object.freeze([
   "C-MECHANISM-BANK",
   "C-DUAL",
 ]);
-
-export async function temporaryOutput(prefix) {
-  await mkdir(temporaryRoot, { recursive: true });
-  const parent = await mkdtemp(path.join(temporaryRoot, prefix));
-  return Object.freeze({ parent, output: path.join(parent, "run") });
-}
-
-export async function cleanup(...fixtures) {
-  for (const fixture of fixtures) {
-    assert.ok(fixture.parent.startsWith(temporaryRoot));
-    await rm(fixture.parent, { recursive: true, force: true });
-  }
-}
 
 export function rehashArmCommitment(commitment) {
   const body = { ...commitment };

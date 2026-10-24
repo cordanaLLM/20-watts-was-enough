@@ -1,6 +1,87 @@
 import assert from "node:assert/strict";
-import { readFile, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
+
+const defaultTemporaryRoot = path.join(process.cwd(), "tmp");
+
+export async function temporaryOutput(prefix, baseRoot = defaultTemporaryRoot) {
+  await mkdir(baseRoot, { recursive: true });
+  const parent = await mkdtemp(path.join(baseRoot, prefix));
+  return Object.freeze({ parent, output: path.join(parent, "run") });
+}
+
+export async function cleanup(...fixtures) {
+  const boundedFixtures = fixtures.slice(0, 32);
+  for (const fixture of boundedFixtures) {
+    if (!fixture?.parent) {
+      continue;
+    }
+    assert.ok(fixture.parent.startsWith(defaultTemporaryRoot));
+    await rm(fixture.parent, { recursive: true, force: true });
+  }
+}
+
+export async function assertResumeMatchesUninterruptedExecution({
+  execute,
+  resumed,
+  complete,
+  resumedOutput = resumed?.output ?? resumed,
+  completeOutput = complete?.output ?? complete,
+  maxWorkUnits = 7,
+  extraChecks = () => {},
+}) {
+  const partial = await execute({
+    profile: "smoke",
+    output: resumedOutput,
+    maxWorkUnits,
+  });
+  assert.equal(partial.complete, false);
+  extraChecks(partial);
+  const finished = await execute({
+    profile: "smoke",
+    output: resumedOutput,
+    resume: true,
+  });
+  assert.equal(finished.complete, true);
+  extraChecks(finished);
+  await execute({ profile: "smoke", output: completeOutput });
+  assert.equal(
+    await readFile(path.join(resumedOutput, "raw-events.jsonl"), "utf8"),
+    await readFile(path.join(completeOutput, "raw-events.jsonl"), "utf8"),
+  );
+  assert.equal(
+    await readFile(path.join(resumedOutput, "checkpoint.json"), "utf8"),
+    await readFile(path.join(completeOutput, "checkpoint.json"), "utf8"),
+  );
+}
+
+export async function assertCliExecutionRejections({
+  main,
+  confirmationPattern = /private partitions are not executable|confirmation and transfer are inaccessible/,
+  rejectedOptions = [["--seeds", "private.json"]],
+}) {
+  await assert.rejects(
+    () => main(["node", "runner.mjs", "confirmation", "--profile", "development"]),
+    confirmationPattern,
+  );
+  await assert.rejects(
+    () => main(["node", "runner.mjs", "smoke", "--profile", "smoke"]),
+    /requires --output/,
+  );
+  const boundedOptions = rejectedOptions.slice(0, 16);
+  for (const option of boundedOptions) {
+    await assert.rejects(
+      () => main(["node", "runner.mjs", "prepare", "--profile", "smoke", ...option]),
+      /Unknown or duplicate/,
+    );
+  }
+}
 
 export async function assertCliOptionRejections(main) {
   await assert.rejects(
