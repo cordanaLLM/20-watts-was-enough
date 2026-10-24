@@ -136,7 +136,7 @@ function hashObject(value) {
   return sha256CmbX01(canonicalCmbX01(value));
 }
 
-function exactKeys(value, keys) {
+export function exactKeys(value, keys) {
   return value && typeof value === "object" && !Array.isArray(value)
     && canonicalCmbX01(Object.keys(value).sort()) === canonicalCmbX01([...keys].sort());
 }

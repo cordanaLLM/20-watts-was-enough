@@ -75,3 +75,31 @@ export async function corruptRawEventsFirstRow(
   rows[0] = JSON.stringify(first);
   await writeFile(rawPath, `${rows.join("\n")}\n`);
 }
+
+export async function swapJsonlRows(file, indexA = 0, indexB = 1) {
+  const rows = (await readFile(file, "utf8")).trimEnd().split("\n");
+  if (indexA < 0 || indexB < 0 || indexA >= rows.length || indexB >= rows.length) {
+    throw new RangeError("swapJsonlRows index out of range");
+  }
+  const temp = rows[indexA];
+  rows[indexA] = rows[indexB];
+  rows[indexB] = temp;
+  await writeFile(file, `${rows.join("\n")}\n`);
+}
+
+export async function duplicateJsonlRow(file, index = 0) {
+  const content = await readFile(file, "utf8");
+  const rows = content.trimEnd().split("\n");
+  if (index < 0 || index >= rows.length) {
+    throw new RangeError("duplicateJsonlRow index out of range");
+  }
+  await writeFile(file, `${content}${rows[index]}\n`);
+}
+
+export async function tearJsonlFile(file, bytes = 1) {
+  const raw = await readFile(file, "utf8");
+  if (bytes <= 0 || bytes > raw.length) {
+    throw new RangeError("tearJsonlFile byte count out of range");
+  }
+  await writeFile(file, raw.slice(0, -bytes));
+}

@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { percentile } from "../lib/percentile.mjs";
+
 export const CMB_X01_GENERATOR_VERSION = "fixture-029.cmb-x01-generator.v3";
 
 export const CMB_X01_COUNTERFACTUAL_DRAW_DOMAIN =
@@ -418,12 +420,6 @@ export function decideCmbX01Action(arm, observation, oracleTruth = null) {
     destructive,
     request_replacement: destructive && observation.replacement_authorized,
   });
-}
-
-function percentile(values, fraction) {
-  if (values.length === 0) return null;
-  const ordered = [...values].sort((left, right) => left - right);
-  return ordered[Math.ceil(fraction * ordered.length) - 1];
 }
 
 function potentialGeometryAvailable(seed, world, slotIndex, step, attempt = 0) {

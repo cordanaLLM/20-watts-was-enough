@@ -9,7 +9,12 @@ import { fixture029ScientificPayload, fixture029WorkKey } from "./contract.mjs";
 import {
   analyzeFixture029, executeFixture029, main, prepareFixture029, validateFixture029Output,
 } from "./runner.mjs";
-import { assertDeterministicSmokeExecution } from "../lib/runner-test-helpers.mjs";
+import {
+  assertDeterministicSmokeExecution,
+  duplicateJsonlRow,
+  swapJsonlRows,
+  tearJsonlFile,
+} from "../lib/runner-test-helpers.mjs";
 
 const temporaryRoot = path.join(process.cwd(), "tmp");
 
@@ -217,20 +222,13 @@ test("ledger rejects reordered, duplicated, and torn construction records", asyn
       executeFixture029({ profile: "smoke", output: duplicated.output }),
       executeFixture029({ profile: "smoke", output: torn.output }),
     ]);
-    const reorderPath = path.join(reordered.output, "raw-events.jsonl");
-    const reorderRows = (await readFile(reorderPath, "utf8")).trimEnd().split("\n");
-    [reorderRows[0], reorderRows[1]] = [reorderRows[1], reorderRows[0]];
-    await writeFile(reorderPath, `${reorderRows.join("\n")}\n`);
+    await swapJsonlRows(path.join(reordered.output, "raw-events.jsonl"));
     await assert.rejects(() => analyzeFixture029(reordered.output), /runtime contract|hash/i);
 
-    const duplicatePath = path.join(duplicated.output, "raw-events.jsonl");
-    const duplicateRaw = await readFile(duplicatePath, "utf8");
-    await writeFile(duplicatePath, `${duplicateRaw}${duplicateRaw.split("\n")[0]}\n`);
+    await duplicateJsonlRow(path.join(duplicated.output, "raw-events.jsonl"));
     await assert.rejects(() => analyzeFixture029(duplicated.output), /duplicate|runtime contract|hash/i);
 
-    const tornPath = path.join(torn.output, "raw-events.jsonl");
-    const tornRaw = await readFile(tornPath, "utf8");
-    await writeFile(tornPath, tornRaw.slice(0, -1));
+    await tearJsonlFile(path.join(torn.output, "raw-events.jsonl"));
     await assert.rejects(() => analyzeFixture029(torn.output), /torn trailing record|canonical LF/i);
   } finally {
     await cleanup(reordered, duplicated, torn);

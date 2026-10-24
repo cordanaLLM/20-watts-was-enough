@@ -134,6 +134,7 @@ async function loadInputs(profile) {
     fixture: fixtureDocument,
     audit: auditDocument,
     checkpoint_ledger: path.join(fixtureRoot, "../lib/checkpoint-ledger.mjs"),
+    percentile: path.join(fixtureRoot, "../lib/percentile.mjs"),
     core_generator: path.join(fixtureRoot, "cmb-x01-generator.mjs"),
     core_contract: path.join(fixtureRoot, "cmb-x01-contract.mjs"),
     ledger_contract: path.join(fixtureRoot, "cmb-x01-ledger-contract.mjs"),

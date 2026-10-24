@@ -7,6 +7,7 @@ import {
 import {
   assertCmbX01ConstructionRecord,
   canonicalCmbX01,
+  exactKeys,
   sha256CmbX01,
 } from "./cmb-x01-contract.mjs";
 
@@ -46,11 +47,6 @@ const RECORD_KEYS = Object.freeze([
 const LEDGER_INTEGRITY_KEYS = Object.freeze([
   "sequence", "previous_sha256", "record_sha256",
 ]);
-
-function exactKeys(value, keys) {
-  return value && typeof value === "object" && !Array.isArray(value)
-    && canonicalCmbX01(Object.keys(value).sort()) === canonicalCmbX01([...keys].sort());
-}
 
 function hash64(value) {
   return typeof value === "string" && /^[0-9a-f]{64}$/u.test(value);

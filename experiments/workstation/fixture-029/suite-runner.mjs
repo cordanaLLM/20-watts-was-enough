@@ -32,6 +32,7 @@ const suiteLedgerFormat = "fixture-029.cmb-x01-x04-suite-receipt-ledger.v2";
 const profileNames = new Set(["smoke", "development"]);
 const sourceFiles = Object.freeze({
   checkpoint_ledger: "../lib/checkpoint-ledger.mjs",
+  percentile: "../lib/percentile.mjs",
   suite_contract: "suite-contract.mjs",
   suite_schema: "suite-output.schema.json",
   suite_receipt_schema: "suite-receipt.schema.json",

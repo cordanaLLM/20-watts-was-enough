@@ -20,7 +20,7 @@ export const FIXTURE_029_RUNNER_VERSION = "fixture-029.cmb-x04-runner.v3";
 const fixtureRoot = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(fixtureRoot, "../../..");
 const ledgerFormat = "fixture-029.cmb-x04-ledger.v2";
-const sourceFiles = ["../lib/checkpoint-ledger.mjs", "contract.mjs", "generator.mjs", "output.schema.json", "runner.mjs"];
+const sourceFiles = ["../lib/checkpoint-ledger.mjs", "../lib/percentile.mjs", "contract.mjs", "generator.mjs", "output.schema.json", "runner.mjs"];
 
 async function exists(file) {
   try { await access(file); return true; } catch { return false; }
