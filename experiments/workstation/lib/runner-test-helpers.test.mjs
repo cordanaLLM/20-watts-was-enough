@@ -22,9 +22,12 @@ import {
   cleanup,
   cleanupSymlinkFixture,
   corruptRawEventsFirstRow,
+  duplicateJsonlRow,
   rehashCheckpoint,
   releaseEnvironment,
   releaseIdentityMismatches,
+  swapJsonlRows,
+  tearJsonlFile,
   temporaryOutput,
   writeRehashedCheckpoint,
 } from "./runner-test-helpers.mjs";
@@ -444,6 +447,57 @@ test("cleanupSymlinkFixture safely cleans junction, parent, and outside director
 
     await cleanupSymlinkFixture({ junction, parent, outside });
     await cleanupSymlinkFixture({ junction: null, parent: null, outside: null });
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("swapJsonlRows swaps specified rows and rejects out-of-range index", async () => {
+  const tempDir = await mkdtemp(path.join(process.cwd(), "tmp-swap-rows-"));
+  try {
+    const filePath = path.join(tempDir, "records.jsonl");
+    await writeFile(filePath, '{"row":1}\n{"row":2}\n{"row":3}\n');
+
+    await swapJsonlRows(filePath, 0, 1);
+    const content = await readFile(filePath, "utf8");
+    assert.equal(content, '{"row":2}\n{"row":1}\n{"row":3}\n');
+
+    await assert.rejects(() => swapJsonlRows(filePath, 0, 5), /out of range/u);
+    await assert.rejects(() => swapJsonlRows(filePath, -1, 1), /out of range/u);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("duplicateJsonlRow appends a duplicate of the specified row and rejects out-of-range index", async () => {
+  const tempDir = await mkdtemp(path.join(process.cwd(), "tmp-duplicate-row-"));
+  try {
+    const filePath = path.join(tempDir, "records.jsonl");
+    await writeFile(filePath, '{"row":1}\n{"row":2}\n');
+
+    await duplicateJsonlRow(filePath, 0);
+    const content = await readFile(filePath, "utf8");
+    assert.equal(content, '{"row":1}\n{"row":2}\n{"row":1}\n');
+
+    await assert.rejects(() => duplicateJsonlRow(filePath, 5), /out of range/u);
+    await assert.rejects(() => duplicateJsonlRow(filePath, -1), /out of range/u);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("tearJsonlFile removes the specified number of bytes from the end and rejects invalid byte counts", async () => {
+  const tempDir = await mkdtemp(path.join(process.cwd(), "tmp-tear-file-"));
+  try {
+    const filePath = path.join(tempDir, "records.jsonl");
+    await writeFile(filePath, '{"row":1}\n{"row":2}\n');
+
+    await tearJsonlFile(filePath, 1);
+    const content = await readFile(filePath, "utf8");
+    assert.equal(content, '{"row":1}\n{"row":2}');
+
+    await assert.rejects(() => tearJsonlFile(filePath, 0), /out of range/u);
+    await assert.rejects(() => tearJsonlFile(filePath, 9999), /out of range/u);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
