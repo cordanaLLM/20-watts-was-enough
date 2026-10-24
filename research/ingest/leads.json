@@ -898,7 +898,7 @@
           ],
           "milestone_title": "Ongoing — Research and upstream watch",
           "created_at": "2026-10-15T19:52:39Z",
-          "updated_at": "2026-10-18T16:12:53Z",
+          "updated_at": "2026-10-23T12:54:58Z",
           "closed_at": null,
           "author_type": "User",
           "tier": "untiered",
@@ -924,8 +924,8 @@
             "release_tags": []
           },
           "content_hash": "cd37df33a87b7db396085ece1cf73d7eeec6c46c8bf61a98c84cee64543eb952",
-          "fetched_at": "2026-10-19T02:06:16.979Z",
-          "watermark": "2026-10-18T02:10:19.665Z"
+          "fetched_at": "2026-10-24T02:03:04.551Z",
+          "watermark": "2026-10-23T04:37:44.418Z"
         }
       ],
       "private_origin_count": 0,
