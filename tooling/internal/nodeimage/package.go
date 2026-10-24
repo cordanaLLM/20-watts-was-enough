@@ -44,6 +44,7 @@ var descriptors = map[string]descriptor{
 			"experiments/workstation/fixture-007/runner.mjs",
 			"experiments/workstation/fixture-007/seeds/development.json",
 			"experiments/workstation/lib/execution-receipt.mjs",
+			"experiments/workstation/lib/mulberry32.mjs",
 		},
 	},
 	"fixture-019": {

@@ -11,6 +11,7 @@ import {
   validateFixture012Output,
 } from "./runner.mjs";
 import { generateLayoutStudy } from "./generator.mjs";
+import { assertCliOptionRejections } from "../lib/runner-test-helpers.mjs";
 
 const root = process.cwd();
 const temporaryRoot = path.join(root, "tmp");
@@ -214,12 +215,5 @@ test("validation refuses a stored summary that claims scientific authority", asy
 });
 
 test("CLI parsing refuses implicit outputs and undeclared options", async () => {
-  await assert.rejects(
-    () => main(["node", "runner.mjs", "smoke", "--profile", "smoke"]),
-    /requires --output/,
-  );
-  await assert.rejects(
-    () => main(["node", "runner.mjs", "prepare", "--profile", "smoke", "--oracle", "yes"]),
-    /Unknown or duplicate/,
-  );
+  await assertCliOptionRejections(main);
 });

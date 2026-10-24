@@ -11,28 +11,13 @@ import {
   prepareFixture019,
   validateFixture019,
 } from "./runner.mjs";
+import {
+  assertReleaseExecutionRequiresDigest,
+  releaseEnvironment,
+  releaseIdentityMismatches,
+} from "../lib/runner-test-helpers.mjs";
 
 const root = process.cwd();
-
-function releaseEnvironment() {
-  return {
-    EXPERIMENT_ARTIFACT: "fixture-019",
-    EXPERIMENT_IMAGE_NAME: "ghcr.io/cordanallm/20-watts-was-enough-fixture-019",
-    EXPERIMENT_IMAGE_VERSION: "v1.2.3",
-    EXPERIMENT_SOURCE_REVISION: "a".repeat(40),
-    EXPERIMENT_RESULT_AUTHORITY: "NO_RESULT",
-    EXPERIMENT_IMAGE_DIGEST: `sha256:${"b".repeat(64)}`,
-  };
-}
-
-function releaseIdentityMismatches(environment) {
-  return [
-    { ...environment, EXPERIMENT_IMAGE_NAME: `${environment.EXPERIMENT_IMAGE_NAME}-other` },
-    { ...environment, EXPERIMENT_IMAGE_VERSION: "v1.2.4" },
-    { ...environment, EXPERIMENT_SOURCE_REVISION: "c".repeat(40) },
-    { ...environment, EXPERIMENT_IMAGE_DIGEST: `sha256:${"d".repeat(64)}` },
-  ];
-}
 
 test("smoke execution covers all mandatory FM-T02 cells while private seed packs remain unavailable", async () => {
   const parent = await mkdtemp(path.join(root, "tmp-f019-runner-"));
@@ -108,23 +93,17 @@ test("release image execution fails before output without an explicit digest", a
   const environment = releaseEnvironment();
   delete environment.EXPERIMENT_IMAGE_DIGEST;
   try {
-    await assert.rejects(
-      () => executeFixture019({
+    await assertReleaseExecutionRequiresDigest({
+      execute: () => executeFixture019({
         profile: "smoke",
         output: path.relative(root, output),
         resume: false,
         executionEnvironment: environment,
       }),
-      /requires EXPERIMENT_IMAGE_DIGEST/u,
-    );
-    await assert.rejects(
-      () => main(
-        ["node", "runner.mjs", "prepare", "--profile", "smoke"],
-        environment,
-      ),
-      /requires EXPERIMENT_IMAGE_DIGEST/u,
-    );
-    await assert.rejects(() => readFile(path.join(output, "run.json")), /ENOENT/u);
+      main,
+      environment,
+      output,
+    });
   } finally {
     await rm(parent, { recursive: true, force: true });
   }
@@ -176,7 +155,9 @@ test("output creation refuses a repository junction redirected outside the repos
       /symbolic-link|reparse-point|outside the repository/,
     );
   } finally {
-    await unlink(junction).catch(() => {});
+    await unlink(junction).catch((error) => {
+      if (error?.code !== "ENOENT") throw error;
+    });
     await rm(parent, { recursive: true, force: true });
     await rm(outside, { recursive: true, force: true });
   }
@@ -197,7 +178,9 @@ test("analysis refuses a redirected analysis descendant before writing resamples
     );
     assert.deepEqual(await import("node:fs/promises").then(({ readdir }) => readdir(outside)), []);
   } finally {
-    await unlink(junction).catch(() => {});
+    await unlink(junction).catch((error) => {
+      if (error?.code !== "ENOENT") throw error;
+    });
     await rm(parent, { recursive: true, force: true });
     await rm(outside, { recursive: true, force: true });
   }
