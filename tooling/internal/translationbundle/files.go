@@ -343,7 +343,7 @@ func sameRegularFile(left, right os.FileInfo) bool {
 		left.ModTime().Equal(right.ModTime())
 }
 
-func writeNewFile(path string, body []byte) error {
+func writeNewFile(path string, body []byte) (err error) {
 	if err := prepareRealParent(filepath.Dir(path)); err != nil {
 		return err
 	}
@@ -351,25 +351,38 @@ func writeNewFile(path string, body []byte) error {
 	if err != nil {
 		return err
 	}
-	ok := false
 	defer func() {
-		if !ok {
-			_ = os.Remove(path)
+		if err != nil {
+			err = removeAfterFailure(err, path)
 		}
 	}()
 	if _, err := file.Write(body); err != nil {
-		_ = file.Close()
-		return err
+		return closeAfterFailure(err, file)
 	}
 	if err := file.Sync(); err != nil {
-		_ = file.Close()
-		return err
+		return closeAfterFailure(err, file)
 	}
+	return file.Close()
+}
+
+// closeAfterFailure closes a file after a failed write and keeps both errors.
+func closeAfterFailure(cause error, file *os.File) error {
 	if err := file.Close(); err != nil {
-		return err
+		return errors.Join(cause, fmt.Errorf("close %s after failure: %w", file.Name(), err))
 	}
-	ok = true
-	return nil
+	return cause
+}
+
+// removeAfterFailure removes paths, innermost first, after a failed write and
+// keeps every removal error beside the cause.
+func removeAfterFailure(cause error, paths ...string) error {
+	failures := []error{cause}
+	for _, path := range paths {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			failures = append(failures, fmt.Errorf("remove %s after failure: %w", path, err))
+		}
+	}
+	return errors.Join(failures...)
 }
 
 func prepareRealParent(parent string) error {
@@ -394,7 +407,9 @@ func prepareRealParent(parent string) error {
 func nearestRealAncestor(path string) (string, []string, error) {
 	missing := make([]string, 0, 8)
 	current := path
-	for {
+	// Each step drops one path element, so the element count bounds the walk.
+	maximumSteps := strings.Count(path, string(filepath.Separator)) + 2
+	for step := 0; step < maximumSteps; step++ {
 		information, err := fileidentity.Lstat(current)
 		if err == nil {
 			if !information.IsDir() || information.Mode()&os.ModeSymlink != 0 {
@@ -415,6 +430,7 @@ func nearestRealAncestor(path string) (string, []string, error) {
 		missing = append(missing, filepath.Base(current))
 		current = next
 	}
+	return "", nil, fmt.Errorf("candidate output parent path has more than %d elements", maximumSteps)
 }
 
 func requireRealDirectory(path string) error {
@@ -439,13 +455,12 @@ func writeCandidateDirectory(output string, markdown, receipt []byte) (string, s
 	markdownPath := filepath.Join(output, importedMarkdownName)
 	receiptPath := filepath.Join(output, importedReceiptName)
 	if err := writeNewFile(markdownPath, markdown); err != nil {
-		_ = os.Remove(output)
-		return "", "", fmt.Errorf("write imported candidate Markdown: %w", err)
+		return "", "", removeAfterFailure(fmt.Errorf("write imported candidate Markdown: %w", err), output)
 	}
 	if err := writeNewFile(receiptPath, receipt); err != nil {
-		_ = os.Remove(markdownPath)
-		_ = os.Remove(output)
-		return "", "", fmt.Errorf("write imported candidate receipt: %w", err)
+		return "", "", removeAfterFailure(
+			fmt.Errorf("write imported candidate receipt: %w", err), markdownPath, output,
+		)
 	}
 	return markdownPath, receiptPath, nil
 }
