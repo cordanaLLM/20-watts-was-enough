@@ -965,7 +965,7 @@ test("JavaScript workflows use the exact Node and npm toolchain in order", () =>
       with: { "node-version-file": ".node-version", cache: "npm" },
     },
     { run: "node scripts/install-locked-npm.mjs" },
-    { run: "test \"$(npm --version)\" = \"12.2.0\"" },
+    { run: "test \"$(npm --version)\" = \"12.2.1\"" },
     { run: "npm ci --no-audit" },
   ];
   assert.deepEqual(validateJavaScriptRuntimeWorkflowObject(
@@ -982,8 +982,8 @@ test("JavaScript workflows use the exact Node and npm toolchain in order", () =>
     "quality",
   ), [
     "workflow.yml: job quality must read the Node version from .node-version with the npm cache",
-    "workflow.yml: job quality must install hash-locked npm 12.2.0 after Node setup",
-    "workflow.yml: job quality must verify locked npm 12.2.0 after installation",
+    "workflow.yml: job quality must install hash-locked npm 12.2.1 after Node setup",
+    "workflow.yml: job quality must verify locked npm 12.2.1 after installation",
     "workflow.yml: job quality must run npm ci --no-audit after verifying the locked npm version",
   ]);
 });
@@ -1096,7 +1096,7 @@ test("dependency installation suppresses audit fan-out and one full gate enforce
         with: { "node-version-file": ".node-version", cache: "npm" },
       },
       { run: "node scripts/install-locked-npm.mjs" },
-      { run: "test \"$(npm --version)\" = \"12.2.0\"" },
+      { run: "test \"$(npm --version)\" = \"12.2.1\"" },
       { run: "npm --silent ci" },
     ],
   };
@@ -1289,10 +1289,10 @@ test("one full gate enforces the only explicit dependency audit", () => {
 test("the npm runtime lock binds the exact reviewed registry archive", () => {
   const valid = {
     schema: 1,
-    version: "12.2.0",
-    url: "https://registry.npmjs.org/npm/-/npm-12.2.0.tgz",
-    size: 3_054_025,
-    sha256: "6666b48816b39b86c3febac7b51a4ee4de6c5ca589c382ad8004b6b113f86677",
+    version: "12.2.1",
+    url: "https://registry.npmjs.org/npm/-/npm-12.2.1.tgz",
+    size: 3_062_824,
+    sha256: "228bd64aaef23270dbdbd2cf3d5ef5c467602ef38c4066246cef1984adab9a67",
   };
   assert.deepEqual(validateNpmRuntimeLock(valid), []);
 
@@ -1301,8 +1301,8 @@ test("the npm runtime lock binds the exact reviewed registry archive", () => {
   tampered.extra = true;
   assert.deepEqual(validateNpmRuntimeLock(tampered), [
     "scripts/npm-runtime-lock.json: npm runtime lock contains an unknown or missing field",
-    "scripts/npm-runtime-lock.json: url must be \"https://registry.npmjs.org/npm/-/npm-12.2.0.tgz\"",
-    "scripts/npm-runtime-lock.json: size must be 3054025",
+    "scripts/npm-runtime-lock.json: url must be \"https://registry.npmjs.org/npm/-/npm-12.2.1.tgz\"",
+    "scripts/npm-runtime-lock.json: size must be 3062824",
   ]);
 });
 
@@ -4045,7 +4045,7 @@ test("the update bot updates lock files with the pinned Node and npm", () => {
   const [major, minor, patch] = node.split(".").map(Number);
   assert.deepEqual(withConstraints({ node: `${major}.${minor}.${patch + 1}`, npm }), [nodeFinding]);
   assert.deepEqual(withConstraints({ node: `^${node}`, npm }), [nodeFinding]);
-  assert.deepEqual(withConstraints({ node, npm: "12.2.0-pre" }), [npmFinding]);
+  assert.deepEqual(withConstraints({ node, npm: "12.2.1-pre" }), [npmFinding]);
   assert.deepEqual(withConstraints({ node: Number.parseInt(node, 10), npm }), [nodeFinding]);
 });
 
