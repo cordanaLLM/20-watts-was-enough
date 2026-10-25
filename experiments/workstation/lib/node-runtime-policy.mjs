@@ -1,4 +1,4 @@
-export const REQUIRED_NODE_VERSION = "26.11.1";
+export const REQUIRED_NODE_VERSION = "26.12.0";
 
 export const NODE_NUMERIC_SENTINEL = Object.freeze({
   id: "fixture-026.rsd-t02-ramp-exp-up-4.sample-98.v1",
@@ -39,7 +39,7 @@ export function assertNodeRuntimePolicy(observation = observeNodeRuntime()) {
   const findings = validateNodeRuntimePolicy(observation);
   if (findings.length > 0) {
     throw new Error(
-      `Unsupported Node runtime: ${findings.join("; ")}. Use the official Node.js 26.11.1 binary or the pinned experiment container.`,
+      `Unsupported Node runtime: ${findings.join("; ")}. Use the official Node.js 26.12.0 binary or the pinned experiment container.`,
     );
   }
   return observation;

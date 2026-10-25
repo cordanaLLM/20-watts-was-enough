@@ -15,7 +15,7 @@
     "validate": "node experiments/workstation/fixture-027/runner.mjs validate --output <run-directory>"
   },
   "environment": {
-    "runtime": "Node.js 26.11.1 on a little-endian CPU; binary64 arithmetic only; no GPU",
+    "runtime": "Node.js 26.12.0 on a little-endian CPU; binary64 arithmetic only; no GPU",
     "lockfiles": ["package-lock.json"]
   },
   "hardware": {

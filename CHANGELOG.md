@@ -81,6 +81,17 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- The Node.js runtime moves from 26.11.1 to 26.12.0, the newest release past
+  the seven-day update delay. The version file, `engines`, the lock, the
+  workstation runtime policy, both container base images and the PDF
+  renderer's Node.js image (index digests read from Docker Hub on
+  2026-10-25), the workflow container checks, the experiment manifests,
+  Renovate's `constraints.node` in `renovate.json` and the policy tests move
+  together. The Fixture 026 RSD-T02 runner release binds the runtime policy
+  file by exact bytes, so its closure entry, the release digests, and the
+  null-maturation design that names them are re-bound; the release stays
+  `NO_RESULT` development infrastructure. No seed, configuration, protocol or
+  result authority changes.
 - npm moves from 12.2.0 to 12.2.1. The locked archive in
   `scripts/npm-runtime-lock.json` and `scripts/install-locked-npm.mjs` names
   the new registry tarball by size (3062824 bytes) and SHA-256
