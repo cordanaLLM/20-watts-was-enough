@@ -43,6 +43,8 @@ func runCLRSGenerationWithActions(arguments []string, stdout, stderr io.Writer, 
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+	ctx, deadlineCancel := context.WithTimeout(ctx, clrsfixture.GenerationDeadline)
+	defer deadlineCancel()
 	action := execute
 	if *checkOnly {
 		action = check

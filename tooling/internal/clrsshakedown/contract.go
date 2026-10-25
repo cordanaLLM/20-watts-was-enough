@@ -24,6 +24,11 @@ const (
 	recordTimeout       = 100 * time.Millisecond
 )
 
+// ShakedownDeadline bounds one Run, which runs its work under runTimeout and
+// writes its records on a detached context, or one Check, whose own bound is
+// shorter.
+const ShakedownDeadline = runTimeout
+
 type Options struct {
 	RepositoryRoot, DatasetDirectory, ExpectedTreeSHA256, OutputDirectory, RunID string
 }

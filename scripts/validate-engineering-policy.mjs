@@ -4231,6 +4231,7 @@ function expectedWorkstationShardCommands() {
     ["test:workstation:fixture-029:shard-1", workstationShardCommand([
       "experiments/workstation/fixture-029/suite-runner.test.mjs",
       "experiments/workstation/fixture-029/contract.test.mjs",
+      "experiments/workstation/fixture-029/runner-io.test.mjs",
     ])],
     ["test:workstation:fixture-029:shard-2", workstationShardCommand([
       "experiments/workstation/fixture-029/suite-runner-integrity.test.mjs",
