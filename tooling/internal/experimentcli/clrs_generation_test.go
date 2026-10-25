@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsfixture"
 )
@@ -100,6 +101,28 @@ func TestGenerationCLIRejectsFailedAndSilentShortOutput(t *testing.T) {
 		}
 		if code := runCLRSGenerationWithActions(generationCLIArguments("--check"), generationCLIWriter{cause}, &diagnostic, action, action); code != 1 || !strings.Contains(diagnostic.String(), "output:") {
 			t.Fatalf("output code=%d err=%q", code, diagnostic.String())
+		}
+	}
+}
+
+func TestGenerationCLIEnforcesDeadline(t *testing.T) {
+	for _, mode := range []string{"--execute", "--check"} {
+		called := false
+		action := func(ctx context.Context, _ clrsfixture.GeneratorFixtureRunOptions) (clrsfixture.GeneratorFixtureRun, error) {
+			called = true
+			deadline, ok := ctx.Deadline()
+			if !ok {
+				t.Fatalf("%s: expected generation context to carry a deadline", mode)
+			}
+			remaining := time.Until(deadline)
+			if remaining <= clrsfixture.GenerationDeadline-5*time.Second || remaining > clrsfixture.GenerationDeadline {
+				t.Fatalf("%s: unexpected deadline remaining duration: %v", mode, remaining)
+			}
+			return clrsfixture.GeneratorFixtureRun{}, nil
+		}
+		var out, diagnostic bytes.Buffer
+		if code := runCLRSGenerationWithActions(generationCLIArguments(mode), &out, &diagnostic, action, action); code != 0 || !called {
+			t.Fatalf("%s: code=%d called=%v stderr=%q", mode, code, called, diagnostic.String())
 		}
 	}
 }

@@ -1,5 +1,4 @@
-import { createHash } from "node:crypto";
-import { access, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -23,6 +22,15 @@ import {
   analyzeFixture029, computeFixture029Analysis, executeFixture029, prepareFixture029,
   validateFixture029Output,
 } from "./runner.mjs";
+import {
+  exists,
+  fileSha256,
+  loadJson,
+  parseRunnerOptions,
+  resolveOutput as resolveRunnerOutput,
+  validateSeedDocument as validateSeedDoc,
+  writeJsonStable,
+} from "./runner-io.mjs";
 
 export const FIXTURE_029_SUITE_RUNNER_VERSION = "fixture-029.cmb-x01-x04-suite-runner.v2";
 
@@ -32,6 +40,9 @@ const suiteLedgerFormat = "fixture-029.cmb-x01-x04-suite-receipt-ledger.v2";
 const profileNames = new Set(["smoke", "development"]);
 const sourceFiles = Object.freeze({
   checkpoint_ledger: "../lib/checkpoint-ledger.mjs",
+  exact_keys: "../lib/exact-keys.mjs",
+  percentile: "../lib/percentile.mjs",
+  runner_io: "runner-io.mjs",
   suite_contract: "suite-contract.mjs",
   suite_schema: "suite-output.schema.json",
   suite_receipt_schema: "suite-receipt.schema.json",
@@ -55,66 +66,12 @@ const sourceFiles = Object.freeze({
   audit: "../../../research/audits/2026-08-27-clinical-biotechnology-endogenous-machinery.md",
 });
 
-async function exists(file) {
-  try {
-    await access(file);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function loadJson(file) {
-  return JSON.parse(await readFile(file, "utf8"));
-}
-
-async function fileSha256(file) {
-  return createHash("sha256").update(await readFile(file)).digest("hex");
-}
-
-function isInside(root, target) {
-  const relative = path.relative(root, target);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
-}
-
-function resolveOutput(value) {
-  const resolved = path.resolve(repositoryRoot, value);
-  if (!isInside(repositoryRoot, resolved) || resolved === repositoryRoot) {
-    throw new Error("Fixture 029 suite output must stay inside the repository.");
-  }
-  return resolved;
-}
-
-async function writeJsonStable(file, value) {
-  const body = `${JSON.stringify(value, null, 2)}\n`;
-  try {
-    await writeFile(file, body, { flag: "wx" });
-  } catch (error) {
-    if (error.code !== "EEXIST") throw error;
-    if (canonicalize(JSON.parse(await readFile(file, "utf8"))) !== canonicalize(value)) {
-      throw new Error(`Refusing to replace non-identical ${path.basename(file)}.`, { cause: error });
-    }
-  }
-}
-
-function validateSeedDocument(document) {
-  if (
-    document?.schema !== 1
-    || document.artifact !== "fixture-029"
-    || document.partition !== "development"
-    || document.state !== "public-development"
-    || document.algorithm !== "literal-public-seed-list-v1"
-    // The fixture declares and validates one uint32 seed domain end to end.
-    || document.encoding !== "unsigned-little-endian-uint32"
-    || !Array.isArray(document.seeds)
-    || document.seeds.length < 2
-    || document.seeds.some((seed) => (
-      !Number.isSafeInteger(seed) || seed < 0 || seed > 0xffff_ffff
-    ))
-    || new Set(document.seeds).size !== document.seeds.length
-  ) throw new Error("Fixture 029 suite shared seed document is invalid.");
-  return document;
-}
+const resolveOutput = (value) => resolveRunnerOutput(repositoryRoot, value, "Fixture 029 suite");
+const validateSeedDocument = (document) => validateSeedDoc(
+  document,
+  "Fixture 029 suite shared seed document is invalid.",
+);
+const parseOptions = (argv) => parseRunnerOptions(argv, { label: "Fixture 029 suite" });
 
 async function loadInputs(profile) {
   if (!profileNames.has(profile)) throw new Error("Fixture 029 suite profile is invalid.");
@@ -618,46 +575,6 @@ export async function validateFixture029SuiteOutput(output) {
     comparison_inference_permitted: false,
     ranking_permitted: false,
   });
-}
-
-function parseOptions(argv) {
-  const action = argv[2];
-  if (!new Set(["prepare", "smoke", "run", "analyze", "validate"]).has(action)) {
-    throw new Error("Fixture 029 suite action must be prepare, smoke, run, analyze, or validate.");
-  }
-  if ((argv.length - 3) % 2 !== 0) throw new Error("Options require explicit --name value pairs.");
-  const options = {};
-  for (let index = 3; index < argv.length; index += 2) {
-    const token = argv[index];
-    const value = argv[index + 1];
-    if (!/^--[a-z][a-z-]*$/u.test(token ?? "") || !value || value.startsWith("--")) {
-      throw new Error("Invalid Fixture 029 suite option pair.");
-    }
-    const key = token.slice(2);
-    if (!new Set(["profile", "output", "resume"]).has(key) || Object.hasOwn(options, key)) {
-      throw new Error(`Unknown or duplicate Fixture 029 suite option --${key}.`);
-    }
-    options[key] = value;
-  }
-  if (new Set(["prepare", "smoke", "run"]).has(action)) {
-    if (!profileNames.has(options.profile)) throw new Error(`${action} requires --profile.`);
-  } else if (options.profile !== undefined || options.resume !== undefined) {
-    throw new Error(`${action} does not accept profile or resume.`);
-  }
-  if (action === "smoke" && options.profile !== "smoke") {
-    throw new Error("smoke requires --profile smoke.");
-  }
-  if (action === "run" && options.profile !== "development") {
-    throw new Error("run requires --profile development.");
-  }
-  if (action === "prepare" && (options.output !== undefined || options.resume !== undefined)) {
-    throw new Error("prepare does not accept output or resume.");
-  }
-  if (action !== "prepare" && !options.output) throw new Error(`${action} requires --output.`);
-  if (options.resume !== undefined && !new Set(["true", "false"]).has(options.resume)) {
-    throw new Error("--resume must be true or false.");
-  }
-  return { action, options };
 }
 
 export async function main(argv = process.argv) {
