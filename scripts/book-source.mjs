@@ -170,6 +170,7 @@ const bookSupportSourcePaths = [
   "tooling/internal/pdfrender/archive.go",
   "tooling/internal/pdfrender/build_cache.go",
   "tooling/internal/pdfrender/build_cache_inventory.go",
+  "tooling/internal/pdfrender/cached_builder.go",
   "tooling/internal/pdfrender/command.go",
   "tooling/internal/pdfrender/dockerfile.go",
   "tooling/internal/pdfrender/generation_mismatch.go",

@@ -81,6 +81,12 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Local `20w publication render-pdf --ref main` runs reuse one cached
+  BuildKit builder bound to the locked BuildKit image and build without
+  `--pull`, so digest-pinned base images download once instead of on every
+  run; tag renders keep a fresh builder with `--pull`, and the run report
+  names the builder path that ran
+  ([Decision 0119](decisions/0119-reuse-one-cached-builder-for-local-book-renders.md)).
 - Do not verify `cordana.dev` for the GitHub organisation or enforce Pages
   HTTPS, because TLS terminates at Cloudflare; the takeover risk this leaves
   is recorded, and the open maintainer action from Decision 0085 is closed
