@@ -2,12 +2,14 @@ package experimentcli
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsfixture"
 )
@@ -141,5 +143,26 @@ func writeCLIComparisonFile(t *testing.T, path string, body []byte) {
 	}
 	if err := os.WriteFile(path, body, 0o600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestCompareFixturesEnforcesDeadline(t *testing.T) {
+	called := false
+	action := func(ctx context.Context, _ clrsfixture.FixtureComparisonOptions) (clrsfixture.FixtureComparison, error) {
+		called = true
+		deadline, ok := ctx.Deadline()
+		if !ok {
+			t.Fatal("expected compare fixtures context to carry a deadline")
+		}
+		remaining := time.Until(deadline)
+		if remaining <= clrsfixture.CompareDeadline-5*time.Second || remaining > clrsfixture.CompareDeadline {
+			t.Fatalf("unexpected deadline remaining duration: %v", remaining)
+		}
+		return clrsfixture.FixtureComparison{State: "fixtures-byte-equal-and-import-valid"}, nil
+	}
+	var stdout, stderr bytes.Buffer
+	code := runExperimentCompareCLRSFixturesWith([]string{"--root", ".", "--first", "first", "--second", "second"}, &stdout, &stderr, action)
+	if code != 0 || !called {
+		t.Fatalf("exit code = %d, called = %v, stderr = %s", code, called, stderr.String())
 	}
 }

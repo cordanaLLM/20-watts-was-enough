@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
@@ -9,22 +9,14 @@ import { fixture029ScientificPayload, fixture029WorkKey } from "./contract.mjs";
 import {
   analyzeFixture029, executeFixture029, main, prepareFixture029, validateFixture029Output,
 } from "./runner.mjs";
-import { assertDeterministicSmokeExecution } from "../lib/runner-test-helpers.mjs";
-
-const temporaryRoot = path.join(process.cwd(), "tmp");
-
-async function temporaryOutput(prefix) {
-  await mkdir(temporaryRoot, { recursive: true });
-  const parent = await mkdtemp(path.join(temporaryRoot, prefix));
-  return { parent, output: path.join(parent, "run") };
-}
-
-async function cleanup(...fixtures) {
-  for (const fixture of fixtures) {
-    assert.ok(fixture.parent.startsWith(temporaryRoot));
-    await rm(fixture.parent, { recursive: true, force: true });
-  }
-}
+import {
+  assertDeterministicSmokeExecution,
+  cleanup,
+  duplicateJsonlRow,
+  swapJsonlRows,
+  tearJsonlFile,
+  temporaryOutput,
+} from "../lib/runner-test-helpers.mjs";
 
 async function rewriteFullyRechainedLedger(output, mutateRecords) {
   const rawPath = path.join(output, "raw-events.jsonl");
@@ -217,20 +209,13 @@ test("ledger rejects reordered, duplicated, and torn construction records", asyn
       executeFixture029({ profile: "smoke", output: duplicated.output }),
       executeFixture029({ profile: "smoke", output: torn.output }),
     ]);
-    const reorderPath = path.join(reordered.output, "raw-events.jsonl");
-    const reorderRows = (await readFile(reorderPath, "utf8")).trimEnd().split("\n");
-    [reorderRows[0], reorderRows[1]] = [reorderRows[1], reorderRows[0]];
-    await writeFile(reorderPath, `${reorderRows.join("\n")}\n`);
+    await swapJsonlRows(path.join(reordered.output, "raw-events.jsonl"));
     await assert.rejects(() => analyzeFixture029(reordered.output), /runtime contract|hash/i);
 
-    const duplicatePath = path.join(duplicated.output, "raw-events.jsonl");
-    const duplicateRaw = await readFile(duplicatePath, "utf8");
-    await writeFile(duplicatePath, `${duplicateRaw}${duplicateRaw.split("\n")[0]}\n`);
+    await duplicateJsonlRow(path.join(duplicated.output, "raw-events.jsonl"));
     await assert.rejects(() => analyzeFixture029(duplicated.output), /duplicate|runtime contract|hash/i);
 
-    const tornPath = path.join(torn.output, "raw-events.jsonl");
-    const tornRaw = await readFile(tornPath, "utf8");
-    await writeFile(tornPath, tornRaw.slice(0, -1));
+    await tearJsonlFile(path.join(torn.output, "raw-events.jsonl"));
     await assert.rejects(() => analyzeFixture029(torn.output), /torn trailing record|canonical LF/i);
   } finally {
     await cleanup(reordered, duplicated, torn);
@@ -271,5 +256,7 @@ test("unavailable private-partition stubs disclose neither seeds nor commitments
 test("CLI exposes no confirmation, held-out, meter, or implicit output action", async () => {
   await assert.rejects(() => main(["node", "runner.mjs", "confirmation", "--profile", "development"]), /private partitions are not executable/);
   await assert.rejects(() => main(["node", "runner.mjs", "smoke", "--profile", "smoke"]), /requires --output/);
-  await assert.rejects(() => main(["node", "runner.mjs", "prepare", "--profile", "smoke", "--meter", "device.json"]), /Unknown or duplicate/);
+  await assert.rejects(() => main(["node", "runner.mjs", "prepare", "--profile", "smoke", "--meter", "device.json"]), /^Error: Unknown or duplicate Fixture 029 option --meter\.$/);
+  await assert.rejects(() => main(["node", "runner.mjs", "prepare", "--Profile", "smoke"]), /^Error: Invalid option pair\.$/);
+  await assert.rejects(() => main(["node", "runner.mjs", "prepare", "--profile"]), /^Error: Options require explicit --name value pairs\.$/);
 });

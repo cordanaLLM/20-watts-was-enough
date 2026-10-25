@@ -16,6 +16,11 @@ import (
 )
 
 const comparisonTimeout = 30 * time.Second
+
+// CompareDeadline bounds one CompareFixtures call, which runs all of its work
+// under comparisonTimeout.
+const CompareDeadline = comparisonTimeout
+
 const maximumComparisonReportBytes = 64 << 10
 const comparisonTreeDomain = "20w/clrs-fixture-tree/v1\x00"
 

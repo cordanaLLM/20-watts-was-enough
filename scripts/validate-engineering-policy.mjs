@@ -110,9 +110,9 @@ const approvedActionPins = new Map([
   ["docker/login-action", "dbcb813823bdd20940b903addbd779551569679f"],
   ["docker/metadata-action", "dc802804100637a589fabce1cb79ff13a1411302"],
   ["docker/setup-buildx-action", "f87e5991a6d7451dcb8d9637bfbc97413f497069"],
-  ["github/codeql-action/analyze", "24c54180a607b1449ed407dd24f251e4e9147c8d"],
-  ["github/codeql-action/init", "24c54180a607b1449ed407dd24f251e4e9147c8d"],
-  ["github/codeql-action/upload-sarif", "24c54180a607b1449ed407dd24f251e4e9147c8d"],
+  ["github/codeql-action/analyze", "6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee"],
+  ["github/codeql-action/init", "6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee"],
+  ["github/codeql-action/upload-sarif", "6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee"],
   ["ossf/scorecard-action", "fa7117db83c52d787ae5a89f350999701505d78e"],
 ]);
 
@@ -4231,6 +4231,7 @@ function expectedWorkstationShardCommands() {
     ["test:workstation:fixture-029:shard-1", workstationShardCommand([
       "experiments/workstation/fixture-029/suite-runner.test.mjs",
       "experiments/workstation/fixture-029/contract.test.mjs",
+      "experiments/workstation/fixture-029/runner-io.test.mjs",
     ])],
     ["test:workstation:fixture-029:shard-2", workstationShardCommand([
       "experiments/workstation/fixture-029/suite-runner-integrity.test.mjs",
