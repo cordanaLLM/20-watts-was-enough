@@ -273,7 +273,8 @@ func createLockedBuilder(ctx context.Context, configuration Configuration, execu
 	}
 	name := fmt.Sprintf("pdf20w-%d-%s", os.Getpid(), identity)
 	if err := createNamedBuilder(ctx, configuration, executor, name); err != nil {
-		return "", err
+		cleanupError := removeBuilder(executor, name, configuration.Lock.Limits.OutputBytes)
+		return "", errors.Join(err, cleanupError)
 	}
 	return name, nil
 }
