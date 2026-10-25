@@ -445,10 +445,11 @@ func runPublicationRenderPDFWithRenderer(arguments []string, stdout, stderr io.W
 	}
 	fmt.Fprintf(
 		stdout,
-		"PDF publication rendered twice identically with %s (%s, lock sha256:%s).\n",
+		"PDF publication rendered twice identically with %s (%s, lock sha256:%s, %s).\n",
 		result.ImageID,
 		result.Platform,
 		result.LockSHA256,
+		result.Builder,
 	)
 	return 0
 }
