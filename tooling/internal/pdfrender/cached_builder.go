@@ -60,6 +60,10 @@ func ensureCachedBuilder(ctx context.Context, configuration Configuration, execu
 		if inspectError := inspectCachedBuilder(ctx, configuration, executor, name); inspectError != nil {
 			return "", errors.Join(err, inspectError)
 		}
+		return name, nil
+	}
+	if inspectError := inspectCachedBuilder(ctx, configuration, executor, name); inspectError != nil {
+		return "", inspectError
 	}
 	return name, nil
 }
@@ -85,9 +89,8 @@ func inspectCachedBuilder(ctx context.Context, configuration Configuration, exec
 	return nil
 }
 
-// removeOutdatedCachedBuilders removes cached builders bound to an earlier
-// BuildKit lock. Builders outside the cached prefix are never touched.
-func removeOutdatedCachedBuilders(ctx context.Context, configuration Configuration, executor commandExecutor, current string) error {
+// listBuilders reads the names of all registered Docker Buildx builders.
+func listBuilders(ctx context.Context, configuration Configuration, executor commandExecutor) ([]string, error) {
 	output, err := executor.run(ctx, commandRequest{
 		operation:  "list Docker BuildKit builders",
 		directory:  configuration.RepositoryRoot,
@@ -96,23 +99,71 @@ func removeOutdatedCachedBuilders(ctx context.Context, configuration Configurati
 		arguments:  []string{"buildx", "ls", "--format", "{{.Name}}"},
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	names := strings.Fields(string(output))
 	if len(names) > maximumListedBuilders {
-		return fmt.Errorf("Docker Buildx lists more than %d builders", maximumListedBuilders)
+		return nil, fmt.Errorf("Docker Buildx lists more than %d builders", maximumListedBuilders)
+	}
+	return names, nil
+}
+
+func isOutdatedCachedBuilder(name, current string, removed []string) bool {
+	return name != current && cachedBuilderNamePattern.MatchString(name) && !slices.Contains(removed, name)
+}
+
+// removeOutdatedCachedBuilders removes cached builders bound to an earlier
+// BuildKit lock. Builders outside the cached prefix are never touched.
+func removeOutdatedCachedBuilders(ctx context.Context, configuration Configuration, executor commandExecutor, current string) error {
+	names, err := listBuilders(ctx, configuration, executor)
+	if err != nil {
+		return err
 	}
 	var removed []string
 	for _, name := range names {
-		if name == current || !cachedBuilderNamePattern.MatchString(name) || slices.Contains(removed, name) {
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("remove outdated cached builders: %w", err)
+		}
+		if !isOutdatedCachedBuilder(name, current, removed) {
 			continue
 		}
-		if err := removeBuilder(executor, name, configuration.Lock.Limits.OutputBytes); err != nil {
-			return fmt.Errorf("remove outdated cached builder %s: %w", name, err)
+		if err := removeCachedBuilder(ctx, configuration, executor, name); err != nil {
+			return err
 		}
 		removed = append(removed, name)
 	}
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("remove outdated cached builders: %w", err)
+	}
 	return nil
+}
+
+// removeCachedBuilder removes one outdated cached builder under caller context.
+// When another process removed it concurrently, re-listing confirms absence.
+func removeCachedBuilder(ctx context.Context, configuration Configuration, executor commandExecutor, name string) error {
+	removeCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	_, err := executor.run(removeCtx, commandRequest{
+		operation:  "remove locked Docker BuildKit builder",
+		directory:  configuration.RepositoryRoot,
+		timeout:    60 * time.Second,
+		outputSize: configuration.Lock.Limits.OutputBytes,
+		arguments:  []string{"buildx", "rm", "--force", name},
+	})
+	if err == nil {
+		return nil
+	}
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("remove outdated cached builder %s: %w", name, err)
+	}
+	remaining, listError := listBuilders(ctx, configuration, executor)
+	if listError != nil {
+		return fmt.Errorf("remove outdated cached builder %s: %w", name, errors.Join(err, listError))
+	}
+	if !slices.Contains(remaining, name) {
+		return nil
+	}
+	return fmt.Errorf("remove outdated cached builder %s: %w", name, err)
 }
 
 // cachedBuildArguments drops --pull: both FROM lines name immutable digests,
