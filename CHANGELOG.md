@@ -81,6 +81,12 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- npm moves from 12.2.0 to 12.2.1. The locked archive in
+  `scripts/npm-runtime-lock.json` and `scripts/install-locked-npm.mjs` names
+  the new registry tarball by size (3062824 bytes) and SHA-256
+  (`228bd64aaef2`). The `packageManager` field, the install and verify steps in
+  the CI, Pages and release workflows, Renovate's `constraints.npm`, the
+  engineering policy and its test, and the contributor guide move with it.
 - Local `20w publication render-pdf --ref main` runs reuse one cached
   BuildKit builder bound to the locked BuildKit image and build without
   `--pull`, so digest-pinned base images download once instead of on every
