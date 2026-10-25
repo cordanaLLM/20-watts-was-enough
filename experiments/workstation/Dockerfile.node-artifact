@@ -1,4 +1,4 @@
-FROM node:26.11.1-trixie-slim@sha256:193fe51b64e77981119c98c2002c9e32a70e2f006fb4d25068ce0558998917f0
+FROM node:26.12.0-trixie-slim@sha256:e556a144463cc8dc53afe8de6d2fa0db5c132fd39ffa232c17641bd40df2bf11
 
 ARG EXPERIMENT_ARTIFACT
 ARG IMAGE_NAME=ghcr.io/cordanallm/20-watts-was-enough-fixture-007
@@ -26,7 +26,7 @@ COPY . /workspace/
 
 RUN set -eu; \
     test "${EXPERIMENT_ARTIFACT}" = "fixture-007"; \
-    test "$(node --version)" = "v26.11.1"; \
+    test "$(node --version)" = "v26.12.0"; \
     rm -r /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx; \
     printf '%s\n' "${IMAGE_NAME}" > /tmp/image-name; \
     grep -Eq '^[a-z0-9][a-z0-9._/-]{0,199}$' /tmp/image-name; \
