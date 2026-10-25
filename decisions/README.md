@@ -123,3 +123,4 @@ than silently changing its outcome.
 | [0116](0116-cancel-superseded-branch-runs-and-let-main-runs-finish.md) | Cancel superseded branch runs and let main runs finish | accepted |
 | [0117](0117-skip-pages-domain-verification-behind-cloudflare.md) | Skip Pages domain verification behind Cloudflare | accepted |
 | [0118](0118-lock-setuptools-84-1-0-in-the-clrs-generator.md) | Lock setuptools 84.1.0 in the CLRS generator | accepted |
+| [0119](0119-reuse-one-cached-builder-for-local-book-renders.md) | Reuse one cached builder for local book renders | accepted |

@@ -40,6 +40,8 @@ type Result struct {
 	ImageID    string
 	LockSHA256 string
 	Platform   string
+	// Builder names the builder path that executed: cached or fresh.
+	Builder string
 }
 
 // Render builds and runs the exact locked PDF renderer.
@@ -48,6 +50,7 @@ func Render(ctx context.Context, options Options) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	configuration.cachedBuilder = usesCachedBuilder(options.SourceRef)
 	if err := verifySourceRevision(
 		ctx,
 		configuration.RepositoryRoot,
@@ -138,20 +141,20 @@ func renderWithLockedBuilder(
 	}
 	buildContext, cancelBuild := context.WithTimeout(ctx, time.Duration(configuration.Lock.Limits.BuildSeconds)*time.Second)
 	defer cancelBuild()
-	builderName, err := prepareRendererBuilder(ctx, buildContext, configuration, preparer, executor, contextRoot)
+	builder, err := prepareRendererBuilder(ctx, buildContext, configuration, preparer, executor, contextRoot)
 	if err != nil {
 		return Result{}, err
 	}
-	builderActive := true
+	builderActive := builder.owned
 	defer func() {
 		if builderActive {
-			if cleanupError := removeBuilder(executor, builderName, configuration.Lock.Limits.OutputBytes); cleanupError != nil {
+			if cleanupError := removeBuilder(executor, builder.name, configuration.Lock.Limits.OutputBytes); cleanupError != nil {
 				returnError = errors.Join(returnError, cleanupError)
 			}
 		}
 	}()
 	iidPath := filepath.Join(temporaryRoot, "renderer.iid")
-	imageID, err := buildRendererImage(ctx, buildContext, configuration, executor, builderName, contextRoot, iidPath)
+	imageID, err := buildRendererImage(ctx, buildContext, configuration, executor, builder, contextRoot, iidPath)
 	if err != nil {
 		return Result{}, err
 	}
@@ -159,39 +162,58 @@ func renderWithLockedBuilder(
 	if err != nil {
 		return Result{}, err
 	}
-	if err := removeBuilder(executor, builderName, configuration.Lock.Limits.OutputBytes); err != nil {
-		return Result{}, err
+	if builderActive {
+		if err := removeBuilder(executor, builder.name, configuration.Lock.Limits.OutputBytes); err != nil {
+			return Result{}, err
+		}
+		builderActive = false
 	}
-	builderActive = false
 	if err := checkAuthorityUnchanged(ctx, configuration); err != nil {
 		return Result{}, err
 	}
 	if err := publishRenderPair(configuration.RepositoryRoot, artifacts); err != nil {
 		return Result{}, err
 	}
-	return Result{ImageID: imageID, LockSHA256: configuration.LockSHA256, Platform: configuration.Lock.Platform}, nil
+	return Result{
+		ImageID:    imageID,
+		LockSHA256: configuration.LockSHA256,
+		Platform:   configuration.Lock.Platform,
+		Builder:    describeBuilder(builder),
+	}, nil
 }
 
-func prepareRendererBuilder(ctx, buildContext context.Context, configuration Configuration, preparer buildContextPreparer, executor commandExecutor, contextRoot string) (string, error) {
+func prepareRendererBuilder(
+	ctx, buildContext context.Context, configuration Configuration,
+	preparer buildContextPreparer, executor commandExecutor, contextRoot string,
+) (rendererBuilder, error) {
 	if err := verifyBuildxIdentity(buildContext, configuration, executor); err != nil {
-		return "", err
+		return rendererBuilder{}, err
 	}
 	if err := preparer.prepare(buildContext, configuration, contextRoot); err != nil {
-		return "", fmt.Errorf("prepare PDF renderer build context: %w", err)
+		return rendererBuilder{}, fmt.Errorf("prepare PDF renderer build context: %w", err)
 	}
 	if err := checkAuthorityUnchanged(ctx, configuration); err != nil {
-		return "", err
+		return rendererBuilder{}, err
 	}
-	return createLockedBuilder(buildContext, configuration, executor)
+	if configuration.cachedBuilder {
+		name, err := ensureCachedBuilder(buildContext, configuration, executor)
+		return rendererBuilder{name: name}, err
+	}
+	name, err := createLockedBuilder(buildContext, configuration, executor)
+	return rendererBuilder{name: name, owned: true}, err
 }
 
-func buildRendererImage(ctx, buildContext context.Context, configuration Configuration, executor commandExecutor, builderName, contextRoot, iidPath string) (string, error) {
+func buildRendererImage(ctx, buildContext context.Context, configuration Configuration, executor commandExecutor, builder rendererBuilder, contextRoot, iidPath string) (string, error) {
+	arguments := cachedBuildArguments(configuration, builder.name, contextRoot, iidPath)
+	if builder.owned {
+		arguments = buildArguments(configuration, builder.name, contextRoot, iidPath)
+	}
 	buildOutput, err := executor.run(buildContext, commandRequest{
 		operation:  "build pinned PDF renderer image",
 		directory:  configuration.RepositoryRoot,
 		timeout:    time.Duration(configuration.Lock.Limits.BuildSeconds) * time.Second,
 		outputSize: configuration.Lock.Limits.OutputBytes,
-		arguments:  buildArguments(configuration, builderName, contextRoot, iidPath),
+		arguments:  arguments,
 	})
 	if err != nil {
 		return "", err
@@ -250,7 +272,15 @@ func createLockedBuilder(ctx context.Context, configuration Configuration, execu
 		return "", err
 	}
 	name := fmt.Sprintf("pdf20w-%d-%s", os.Getpid(), identity)
-	_, err = executor.run(ctx, commandRequest{
+	if err := createNamedBuilder(ctx, configuration, executor, name); err != nil {
+		cleanupError := removeBuilder(executor, name, configuration.Lock.Limits.OutputBytes)
+		return "", errors.Join(err, cleanupError)
+	}
+	return name, nil
+}
+
+func createNamedBuilder(ctx context.Context, configuration Configuration, executor commandExecutor, name string) error {
+	_, err := executor.run(ctx, commandRequest{
 		operation:  "create locked Docker BuildKit builder",
 		directory:  configuration.RepositoryRoot,
 		timeout:    time.Duration(configuration.Lock.Limits.BuildSeconds) * time.Second,
@@ -264,10 +294,7 @@ func createLockedBuilder(ctx context.Context, configuration Configuration, execu
 			"--bootstrap",
 		},
 	})
-	if err != nil {
-		return "", err
-	}
-	return name, nil
+	return err
 }
 
 func runRendererOnce(

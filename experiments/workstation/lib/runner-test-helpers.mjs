@@ -1,6 +1,93 @@
 import assert from "node:assert/strict";
-import { readFile, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
+
+import { canonicalize, sha256Hex } from "./checkpoint-ledger.mjs";
+
+const defaultTemporaryRoot = path.join(process.cwd(), "tmp");
+
+const maxCleanupFixtures = 32;
+const maxRejectedOptions = 16;
+
+export async function temporaryOutput(prefix) {
+  await mkdir(defaultTemporaryRoot, { recursive: true });
+  const parent = await mkdtemp(path.join(defaultTemporaryRoot, prefix));
+  return Object.freeze({ parent, output: path.join(parent, "run") });
+}
+
+export async function cleanup(...fixtures) {
+  assert.ok(fixtures.length <= maxCleanupFixtures, `cleanup accepts at most ${maxCleanupFixtures} fixtures`);
+  for (const fixture of fixtures) {
+    assert.ok(fixture.parent.startsWith(defaultTemporaryRoot));
+    await rm(fixture.parent, { recursive: true, force: true });
+  }
+}
+
+export async function assertResumeMatchesUninterruptedExecution({
+  execute,
+  resumed,
+  complete,
+  maxWorkUnits = 7,
+  extraChecks = () => {},
+}) {
+  const resumedOutput = resumed.output;
+  const completeOutput = complete.output;
+  const partial = await execute({
+    profile: "smoke",
+    output: resumedOutput,
+    maxWorkUnits,
+  });
+  assert.equal(partial.complete, false);
+  extraChecks(partial);
+  const finished = await execute({
+    profile: "smoke",
+    output: resumedOutput,
+    resume: true,
+  });
+  assert.equal(finished.complete, true);
+  extraChecks(finished);
+  await execute({ profile: "smoke", output: completeOutput });
+  assert.equal(
+    await readFile(path.join(resumedOutput, "raw-events.jsonl"), "utf8"),
+    await readFile(path.join(completeOutput, "raw-events.jsonl"), "utf8"),
+  );
+  assert.equal(
+    await readFile(path.join(resumedOutput, "checkpoint.json"), "utf8"),
+    await readFile(path.join(completeOutput, "checkpoint.json"), "utf8"),
+  );
+}
+
+export async function assertCliExecutionRejections({
+  main,
+  confirmationPattern,
+  rejectedOptions = [["--seeds", "private.json"]],
+}) {
+  await assert.rejects(
+    () => main(["node", "runner.mjs", "confirmation", "--profile", "development"]),
+    confirmationPattern,
+  );
+  await assert.rejects(
+    () => main(["node", "runner.mjs", "smoke", "--profile", "smoke"]),
+    /requires --output/,
+  );
+  assert.ok(
+    rejectedOptions.length <= maxRejectedOptions,
+    `at most ${maxRejectedOptions} rejected options`,
+  );
+  for (const option of rejectedOptions) {
+    await assert.rejects(
+      () => main(["node", "runner.mjs", "prepare", "--profile", "smoke", ...option]),
+      /Unknown or duplicate/,
+    );
+  }
+}
 
 export async function assertCliOptionRejections(main) {
   await assert.rejects(
@@ -74,4 +161,84 @@ export async function corruptRawEventsFirstRow(
   mutate(first);
   rows[0] = JSON.stringify(first);
   await writeFile(rawPath, `${rows.join("\n")}\n`);
+}
+
+export async function swapJsonlRows(file, indexA = 0, indexB = 1) {
+  const rows = (await readFile(file, "utf8")).trimEnd().split("\n");
+  if (indexA < 0 || indexB < 0 || indexA >= rows.length || indexB >= rows.length) {
+    throw new RangeError("swapJsonlRows index out of range");
+  }
+  const temp = rows[indexA];
+  rows[indexA] = rows[indexB];
+  rows[indexB] = temp;
+  await writeFile(file, `${rows.join("\n")}\n`);
+}
+
+export async function duplicateJsonlRow(file, index = 0) {
+  const content = await readFile(file, "utf8");
+  const rows = content.trimEnd().split("\n");
+  if (index < 0 || index >= rows.length) {
+    throw new RangeError("duplicateJsonlRow index out of range");
+  }
+  await writeFile(file, `${content}${rows[index]}\n`);
+}
+
+export async function tearJsonlFile(file, bytes = 1) {
+  const raw = await readFile(file, "utf8");
+  if (bytes <= 0 || bytes > raw.length) {
+    throw new RangeError("tearJsonlFile byte count out of range");
+  }
+  await writeFile(file, raw.slice(0, -bytes));
+}
+
+export function rehashCheckpoint(checkpoint, {
+  hash = sha256Hex,
+  canonical = canonicalize,
+} = {}) {
+  const body = { ...checkpoint };
+  delete body.checkpoint_sha256;
+  checkpoint.checkpoint_sha256 = hash(canonical(body));
+  return checkpoint;
+}
+
+export async function writeRehashedCheckpoint(checkpointPath, mutateOrCheckpoint, options = {}) {
+  let checkpoint;
+  if (typeof mutateOrCheckpoint === "function") {
+    checkpoint = JSON.parse(await readFile(checkpointPath, "utf8"));
+    mutateOrCheckpoint(checkpoint);
+  } else {
+    checkpoint = mutateOrCheckpoint;
+  }
+  const rehashed = rehashCheckpoint(checkpoint, options);
+  await writeFile(checkpointPath, `${JSON.stringify(rehashed, null, 2)}\n`);
+  return rehashed;
+}
+
+export async function assertCheckpointSchemaRejections({
+  checkpointPath,
+  assertRejection,
+  mutations = [
+    (checkpoint) => { checkpoint.claim_eligible = true; },
+    (checkpoint) => { checkpoint.records = String(checkpoint.records); },
+  ],
+  hash = sha256Hex,
+  canonical = canonicalize,
+}) {
+  const original = JSON.parse(await readFile(checkpointPath, "utf8"));
+  for (const mutate of mutations) {
+    const checkpoint = structuredClone(original);
+    mutate(checkpoint);
+    await writeRehashedCheckpoint(checkpointPath, checkpoint, { hash, canonical });
+    await assertRejection();
+  }
+}
+
+export async function cleanupSymlinkFixture({ junction, parent, outside }) {
+  if (junction) {
+    await unlink(junction).catch((error) => {
+      if (error?.code !== "ENOENT") throw error;
+    });
+  }
+  if (parent) await rm(parent, { recursive: true, force: true });
+  if (outside) await rm(outside, { recursive: true, force: true });
 }

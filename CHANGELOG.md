@@ -81,6 +81,29 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- The Node.js runtime moves from 26.11.1 to 26.12.0, the newest release past
+  the seven-day update delay. The version file, `engines`, the lock, the
+  workstation runtime policy, both container base images and the PDF
+  renderer's Node.js image (index digests read from Docker Hub on
+  2026-10-25), the workflow container checks, the experiment manifests,
+  Renovate's `constraints.node` in `renovate.json` and the policy tests move
+  together. The Fixture 026 RSD-T02 runner release binds the runtime policy
+  file by exact bytes, so its closure entry, the release digests, and the
+  null-maturation design that names them are re-bound; the release stays
+  `NO_RESULT` development infrastructure. No seed, configuration, protocol or
+  result authority changes.
+- npm moves from 12.2.0 to 12.2.1. The locked archive in
+  `scripts/npm-runtime-lock.json` and `scripts/install-locked-npm.mjs` names
+  the new registry tarball by size (3062824 bytes) and SHA-256
+  (`228bd64aaef2`). The `packageManager` field, the install and verify steps in
+  the CI, Pages and release workflows, Renovate's `constraints.npm`, the
+  engineering policy and its test, and the contributor guide move with it.
+- Local `20w publication render-pdf --ref main` runs reuse one cached
+  BuildKit builder bound to the locked BuildKit image and build without
+  `--pull`, so digest-pinned base images download once instead of on every
+  run; tag renders keep a fresh builder with `--pull`, and the run report
+  names the builder path that ran
+  ([Decision 0119](decisions/0119-reuse-one-cached-builder-for-local-book-renders.md)).
 - Do not verify `cordana.dev` for the GitHub organisation or enforce Pages
   HTTPS, because TLS terminates at Cloudflare; the takeover risk this leaves
   is recorded, and the open maintainer action from Decision 0085 is closed
@@ -207,6 +230,12 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- PDF renderer builders no longer outlive a failed or cancelled run.
+  Removing outdated cached builders stops when the run is cancelled or its
+  build deadline expires, tolerates a parallel render that removed the same
+  builder first, and a per-run builder whose creation fails is removed
+  instead of left behind; a newly created cached builder is inspected
+  against the BuildKit lock before use.
 - A `20w` command that rejects its arguments now says why on standard error. Twenty of 29 commands exited with code 2 and printed nothing for a stray positional argument or a missing required flag. `ci plan`, `ci messages` and `publication verify-pdf-reproducibility`, together with the `ci-plan` and `pdf-proof` binaries that share their parsers, now print a one-line diagnosis; every other such command prints `invalid arguments` and its line from the `20w` usage text. Exit codes are unchanged.
 - The CLRS shakedown no longer fails a case whose journal write takes longer than 100 ms. The decision, invocation, verification and terminal events were recorded under a fixed 100 ms deadline separate from the case deadline, so a slow file sync on Windows reported an event that was already on disk as a deadline failure. Each record deadline now follows the case deadline; the three journal events keep 100 ms as the floor so that a case that overran still records its event (#322).
 - The installed-dependency drift test for PDF reproducibility no longer fails intermittently. The two proof builds run concurrently, so the test's edit to `package.json` could land while the other build's preflight read the file. The test wrote with a truncating write, which let that preflight see an empty file and report a size error instead of drift. The test helper now replaces the file through a renamed temporary file, retrying the rename a bounded number of times on Windows, and the test accepts each of the three drift refusals the timing can produce (#319).

@@ -15,7 +15,7 @@
     "validate": "node experiments/workstation/fixture-029/suite-runner.mjs validate --output <run-directory>"
   },
   "environment": {
-    "runtime": "Node.js 26.11.1 on a little-endian CPU; binary64 arithmetic only; no GPU",
+    "runtime": "Node.js 26.12.0 on a little-endian CPU; binary64 arithmetic only; no GPU",
     "lockfiles": ["package-lock.json"]
   },
   "hardware": {
@@ -56,6 +56,7 @@
       "experiments/workstation/fixture-029/cmb-x01-contract.test.mjs",
       "experiments/workstation/fixture-029/cmb-x01-runner.test.mjs",
       "experiments/workstation/fixture-029/contract.test.mjs",
+      "experiments/workstation/fixture-029/runner-io.test.mjs",
       "experiments/workstation/fixture-029/runner.test.mjs",
       "experiments/workstation/fixture-029/suite-runner-integrity.test.mjs",
       "experiments/workstation/fixture-029/suite-runner.test.mjs"
@@ -64,6 +65,7 @@
       "experiments/workstation/fixture-029/cmb-x01-contract.test.mjs",
       "experiments/workstation/fixture-029/cmb-x01-runner.test.mjs",
       "experiments/workstation/fixture-029/contract.test.mjs",
+      "experiments/workstation/fixture-029/runner-io.test.mjs",
       "experiments/workstation/fixture-029/runner.test.mjs",
       "experiments/workstation/fixture-029/suite-runner-integrity.test.mjs",
       "experiments/workstation/fixture-029/suite-runner.test.mjs"

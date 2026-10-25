@@ -155,10 +155,10 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - name: Install locked npm 12.2.0
+      - name: Install locked npm 12.2.1
         run: node scripts/install-locked-npm.mjs
-      - name: Verify locked npm 12.2.0
-        run: test "$(npm --version)" = "12.2.0"
+      - name: Verify locked npm 12.2.1
+        run: test "$(npm --version)" = "12.2.1"
       - name: Install locked dependencies
         run: npm ci --no-audit
       - name: Reject high-severity dependency advisories
@@ -192,10 +192,10 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - name: Install locked npm 12.2.0
+      - name: Install locked npm 12.2.1
         run: node scripts/install-locked-npm.mjs
-      - name: Verify locked npm 12.2.0
-        run: test "$(npm --version)" = "12.2.0"
+      - name: Verify locked npm 12.2.1
+        run: test "$(npm --version)" = "12.2.1"
       - name: Install locked dependencies
         run: npm ci --no-audit
       - name: Run common impact checks
@@ -323,10 +323,10 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - name: Install locked npm 12.2.0
+      - name: Install locked npm 12.2.1
         run: node scripts/install-locked-npm.mjs
-      - name: Verify locked npm 12.2.0
-        run: test "$(npm --version)" = "12.2.0"
+      - name: Verify locked npm 12.2.1
+        run: test "$(npm --version)" = "12.2.1"
       - name: Install locked dependencies
         run: npm ci --no-audit
       - name: Run release checks
@@ -355,10 +355,10 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - name: Install locked npm 12.2.0
+      - name: Install locked npm 12.2.1
         run: node scripts/install-locked-npm.mjs
-      - name: Verify locked npm 12.2.0
-        run: test "$(npm --version)" = "12.2.0"
+      - name: Verify locked npm 12.2.1
+        run: test "$(npm --version)" = "12.2.1"
       - name: Install locked dependencies
         run: npm ci --no-audit
       - name: Set up the locked PDF Docker Buildx client
@@ -449,10 +449,10 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - name: Install locked npm 12.2.0
+      - name: Install locked npm 12.2.1
         run: node scripts/install-locked-npm.mjs
-      - name: Verify locked npm 12.2.0
-        run: test "$(npm --version)" = "12.2.0"
+      - name: Verify locked npm 12.2.1
+        run: test "$(npm --version)" = "12.2.1"
       - name: Install locked dependencies
         run: npm ci --no-audit
       - name: Use the locked Python runtime
@@ -481,10 +481,10 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - name: Install locked npm 12.2.0
+      - name: Install locked npm 12.2.1
         run: node scripts/install-locked-npm.mjs
-      - name: Verify locked npm 12.2.0
-        run: test "$(npm --version)" = "12.2.0"
+      - name: Verify locked npm 12.2.1
+        run: test "$(npm --version)" = "12.2.1"
       - name: Install locked dependencies
         run: npm ci --no-audit
       - name: Run site checks
@@ -509,10 +509,10 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - name: Install locked npm 12.2.0
+      - name: Install locked npm 12.2.1
         run: node scripts/install-locked-npm.mjs
-      - name: Verify locked npm 12.2.0
-        run: test "$(npm --version)" = "12.2.0"
+      - name: Verify locked npm 12.2.1
+        run: test "$(npm --version)" = "12.2.1"
       - name: Install locked dependencies
         run: npm ci --no-audit
       - name: Run site browser checks
@@ -536,10 +536,10 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - name: Install locked npm 12.2.0
+      - name: Install locked npm 12.2.1
         run: node scripts/install-locked-npm.mjs
-      - name: Verify locked npm 12.2.0
-        run: test "$(npm --version)" = "12.2.0"
+      - name: Verify locked npm 12.2.1
+        run: test "$(npm --version)" = "12.2.1"
       - name: Install locked dependencies
         run: npm ci --no-audit
       - name: Validate the workstation inventory and core
@@ -577,10 +577,10 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - name: Install locked npm 12.2.0
+      - name: Install locked npm 12.2.1
         run: node scripts/install-locked-npm.mjs
-      - name: Verify locked npm 12.2.0
-        run: test "$(npm --version)" = "12.2.0"
+      - name: Verify locked npm 12.2.1
+        run: test "$(npm --version)" = "12.2.1"
       - name: Install locked dependencies
         run: npm ci --no-audit
       - name: Run the allowlisted artifact test script
@@ -713,8 +713,8 @@ jobs:
           node_version="$(docker run --rm --pull never --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             --entrypoint node 20w-fixture-007:test --version)"
-          if [[ "$node_version" != "v26.11.1" ]]; then
-            echo "::error::Fixture 007 Node.js runtime is $node_version, want v26.11.1"
+          if [[ "$node_version" != "v26.12.0" ]]; then
+            echo "::error::Fixture 007 Node.js runtime is $node_version, want v26.12.0"
             exit 1
           fi
           volume="20w-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-fixture-007"
@@ -754,7 +754,7 @@ jobs:
           docker run --rm --pull never --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             --entrypoint sh 20w-fixture-019:test -c \
-            'test "$(node --version)" = "v26.11.1" && test "$(python --version)" = "Python 3.15.0" && python -c "import numpy; assert numpy.__version__ == \"2.5.4\""'
+            'test "$(node --version)" = "v26.12.0" && test "$(python --version)" = "Python 3.15.0" && python -c "import numpy; assert numpy.__version__ == \"2.5.4\""'
           docker run --rm --pull never --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             20w-fixture-019:test prepare --profile smoke
