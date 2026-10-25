@@ -30,10 +30,10 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - name: Install locked npm 12.2.0
+      - name: Install locked npm 12.2.1
         run: node scripts/install-locked-npm.mjs
-      - name: Verify locked npm 12.2.0
-        run: test "$(npm --version)" = "12.2.0"
+      - name: Verify locked npm 12.2.1
+        run: test "$(npm --version)" = "12.2.1"
       - name: Install locked dependencies
         run: npm ci --no-audit
       - name: Verify the closed source-publication allowlist
