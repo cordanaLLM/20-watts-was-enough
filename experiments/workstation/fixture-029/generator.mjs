@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { percentile } from "../lib/percentile.mjs";
+
 export const FIXTURE_029_GENERATOR_VERSION = "fixture-029.cmb-x04-generator.v4";
 
 export const FIXTURE_029_ARMS = Object.freeze([
@@ -181,12 +183,6 @@ function survives(parameters, unit, wrapped) {
   const base = (1 - parameters.transit_hazard_per_stage) ** parameters.transit_stages;
   const stabilization = wrapped ? parameters.stabilization_fraction * parameters.association_strength : 0;
   return unit < bounded(base + (1 - base) * stabilization);
-}
-
-function percentile(values, fraction) {
-  if (values.length === 0) return null;
-  const ordered = [...values].sort((left, right) => left - right);
-  return ordered[Math.ceil(fraction * ordered.length) - 1];
 }
 
 function canonical(value) {

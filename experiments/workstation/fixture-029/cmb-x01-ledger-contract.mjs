@@ -4,6 +4,7 @@ import {
   CMB_X01_SMOKE_CONFIG,
   validateCmbX01Config,
 } from "./cmb-x01-generator.mjs";
+import { exactKeys } from "../lib/exact-keys.mjs";
 import {
   assertCmbX01ConstructionRecord,
   canonicalCmbX01,
@@ -46,11 +47,6 @@ const RECORD_KEYS = Object.freeze([
 const LEDGER_INTEGRITY_KEYS = Object.freeze([
   "sequence", "previous_sha256", "record_sha256",
 ]);
-
-function exactKeys(value, keys) {
-  return value && typeof value === "object" && !Array.isArray(value)
-    && canonicalCmbX01(Object.keys(value).sort()) === canonicalCmbX01([...keys].sort());
-}
 
 function hash64(value) {
   return typeof value === "string" && /^[0-9a-f]{64}$/u.test(value);
