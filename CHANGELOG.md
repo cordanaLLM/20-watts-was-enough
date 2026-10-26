@@ -86,6 +86,12 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Record the move of the public reader from React and Vite to prerendered
+  SvelteKit through sveltesentio (Decision 0121). Markdown stays the only
+  source, and the build keeps every route, heading anchor, the language
+  control and the PDF entry. The record names the build-time math, Mermaid and
+  static-preset gaps filed with sveltesentio, and orders the pull requests so
+  React leaves last.
 - The labeler and pull-request title workflows run on `pull_request`
   instead of `pull_request_target`. Fork pull requests skip the label and
   milestone writes and get a notice naming what to set by hand. The
