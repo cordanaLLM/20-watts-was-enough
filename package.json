@@ -57,7 +57,7 @@
     "test:research-gates": "node --test --experimental-test-isolation=none scripts/research-gates.test.mjs",
     "test:site": "npm run test:site-unit && npm run test:site-browser",
     "test:site-browser": "node scripts/run-in-loopback-netns.mjs node --test --experimental-test-isolation=process --test-concurrency=2 scripts/book-fragment-browser.test.mjs scripts/book-print-tail-browser.test.mjs scripts/mermaid-browser.test.mjs scripts/research-object-header-browser.test.mjs",
-    "test:site-unit": "npm run validate:css-authority && node scripts/run-in-loopback-netns.mjs node --test --experimental-test-isolation=none scripts/lib/browser-wait.test.mjs scripts/lib/host-test-deadline.test.mjs scripts/lib/pages-dev-server.test.mjs scripts/book-route.test.mjs scripts/book-edition-surface.test.mjs scripts/css-authority.test.mjs scripts/github-pages.test.mjs scripts/language-access.test.mjs scripts/pages-base.test.mjs scripts/pages-seo.test.mjs scripts/prepare-reader-artifacts.test.mjs scripts/publication-unification.test.mjs scripts/research-object-header.test.mjs",
+    "test:site-unit": "npm run validate:css-authority && node scripts/run-in-loopback-netns.mjs node --test --experimental-test-isolation=none scripts/lib/browser-wait.test.mjs scripts/lib/host-test-deadline.test.mjs scripts/lib/pages-dev-server.test.mjs scripts/book-route.test.mjs scripts/book-edition-surface.test.mjs scripts/css-authority.test.mjs scripts/github-pages.test.mjs scripts/language-access.test.mjs scripts/pages-base.test.mjs scripts/pages-seo.test.mjs scripts/prepare-reader-artifacts.test.mjs scripts/publication-unification.test.mjs scripts/render-markdown-parity.test.mjs scripts/research-object-header.test.mjs",
     "validate:css-authority": "node scripts/validate-css-authority.mjs",
     "validate:translations": "node scripts/validate-translations.mjs",
     "test:translations": "node --test --experimental-test-isolation=none scripts/translation-manifest.test.mjs scripts/translation-pages.test.mjs scripts/translation-vite-build.test.mjs",
@@ -126,8 +126,10 @@
     "react-markdown": "10.1.0",
     "rehype-katex": "7.0.1",
     "rehype-slug": "6.0.0",
+    "rehype-stringify": "10.0.1",
     "remark-gfm": "4.0.1",
-    "remark-math": "6.0.0"
+    "remark-math": "6.0.0",
+    "remark-rehype": "11.1.2"
   },
   "overrides": {
     "mermaid@12.2.0": {
