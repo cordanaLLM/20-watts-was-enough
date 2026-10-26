@@ -86,6 +86,12 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Record the move of the public reader from React and Vite to prerendered
+  SvelteKit through sveltesentio (Decision 0121). Markdown stays the only
+  source, and the build keeps every route, heading anchor, the language
+  control and the PDF entry. The record names the build-time math, Mermaid and
+  static-preset gaps filed with sveltesentio, and orders the pull requests so
+  React leaves last.
 - The Node.js runtime moves from 26.11.1 to 26.12.0, the newest release past
   the seven-day update delay. The version file, `engines`, the lock, the
   workstation runtime policy, both container base images and the PDF
