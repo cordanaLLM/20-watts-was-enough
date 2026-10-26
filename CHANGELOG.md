@@ -86,6 +86,11 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- The labeler and pull-request title workflows run on `pull_request`
+  instead of `pull_request_target`. Fork pull requests skip the label and
+  milestone writes and get a notice naming what to set by hand. The
+  `main` ruleset file requires `Apply pull-request metadata` as well
+  ([Decision 0122](decisions/0122-run-pull-request-metadata-and-title-checks-on-pull-request.md)).
 - The Node.js runtime moves from 26.11.1 to 26.12.0, the newest release past
   the seven-day update delay. The version file, `engines`, the lock, the
   workstation runtime policy, both container base images and the PDF
