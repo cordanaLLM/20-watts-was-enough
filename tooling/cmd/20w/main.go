@@ -213,9 +213,12 @@ func runCIPlan(arguments []string, stdout, stderr io.Writer) int {
 
 const (
 	workstationSuiteDeadline = workstationrunner.MaximumSuiteDuration
-	// One render spends at most the lock's build and render limits; five
-	// minutes cover the revision, Buildx and cleanup commands around them.
-	publicationRenderDeadline = time.Duration(pdfrenderlock.MaximumBuildSeconds+pdfrenderlock.MaximumRenderSeconds)*time.Second +
+	// One render spends at most the lock's build and render limits, with
+	// prepare and build each getting the build limit and the base fetch
+	// its own phase; five minutes cover the revision, Buildx and cleanup
+	// commands around them.
+	publicationRenderDeadline = time.Duration(2*pdfrenderlock.MaximumBuildSeconds+pdfrenderlock.MaximumRenderSeconds)*time.Second +
+		pdfrender.MaximumBaseFetchDuration +
 		5*time.Minute
 )
 

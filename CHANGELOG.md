@@ -234,6 +234,12 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- PDF renderer base images are fetched in their own bounded phase before
+  the image build: 10 minutes per attempt, 3 attempts per image, 30 minutes
+  for the phase. A slow first fill after a digest change now fails naming
+  the image instead of exhausting the image build's `build_seconds` window,
+  which the build keeps in full
+  ([Decision 0120](decisions/0120-fetch-renderer-base-images-in-a-bounded-phase.md)).
 - PDF renderer builders no longer outlive a failed or cancelled run.
   Removing outdated cached builders stops when the run is cancelled or its
   build deadline expires, tolerates a parallel render that removed the same
