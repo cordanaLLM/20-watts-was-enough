@@ -126,4 +126,5 @@ than silently changing its outcome.
 | [0119](0119-reuse-one-cached-builder-for-local-book-renders.md) | Reuse one cached builder for local book renders | accepted |
 | [0120](0120-fetch-renderer-base-images-in-a-bounded-phase.md) | Fetch renderer base images in a bounded phase | accepted |
 | [0121](0121-replace-react-with-sveltekit-via-sveltesentio.md) | Replace the React reader with prerendered SvelteKit through sveltesentio | accepted |
+| [0122](0122-run-pull-request-metadata-and-title-checks-on-pull-request.md) | Run pull-request metadata and title checks on `pull_request` | accepted |
 | [0123](0123-adopt-fleet-own-releases-at-once-and-wait-three-days-for-outside-updates.md) | Adopt fleet-own releases at once and wait three days for outside updates | accepted |

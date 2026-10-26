@@ -1,7 +1,7 @@
 name: Labeler
 
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, edited, synchronize, reopened, closed]
 
 permissions:
@@ -24,22 +24,25 @@ jobs:
     steps:
       # Metadata-only: never check out or execute pull-request code here.
       - name: Apply path labels
-        if: github.event.action != 'closed'
+        if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7.0.0
         with:
           sync-labels: true
       - name: Check out trusted main
+        if: github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: refs/heads/main
           persist-credentials: false
           allow-unsafe-pr-checkout: false
       - name: Use Go 1.27
+        if: github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: tooling/go.mod
           cache-dependency-path: tooling/go.sum
       - name: Project the managed issue metadata
+        if: github.event.pull_request.head.repo.full_name == github.repository
         env:
           GH_TOKEN: ${{ github.token }}
           PULL_REQUEST: ${{ github.event.pull_request.number }}
@@ -51,3 +54,9 @@ jobs:
           --pull-request "$PULL_REQUEST"
           --event-action "$PULL_REQUEST_ACTION"
           --merged "$PULL_REQUEST_MERGED"
+      - name: Report metadata to set by hand
+        if: github.event.pull_request.head.repo.full_name != github.repository
+        env:
+          PULL_REQUEST: ${{ github.event.pull_request.number }}
+        run: >-
+          echo "::notice::Fork pull request #${PULL_REQUEST} cannot receive automatic metadata writes; set path labels per .github/labeler.yml and milestone per .github/issue-milestones.json by hand."

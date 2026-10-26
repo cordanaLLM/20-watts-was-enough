@@ -2244,21 +2244,21 @@ export function validateRepositoryMetadataSyncWorkflowObject(
 }
 
 function pullRequestMetadataTriggerIsExact(trigger) {
-  const pullRequestTarget = trigger?.pull_request_target;
+  const pullRequest = trigger?.pull_request;
   const expectedTypes = ["opened", "edited", "synchronize", "reopened", "closed"];
   return (
     Object.keys(trigger ?? {}).length === 1
-    && Object.keys(pullRequestTarget ?? {}).length === 1
-    && Array.isArray(pullRequestTarget?.types)
-    && pullRequestTarget.types.length === expectedTypes.length
-    && expectedTypes.every((type) => pullRequestTarget.types.includes(type))
+    && Object.keys(pullRequest ?? {}).length === 1
+    && Array.isArray(pullRequest?.types)
+    && pullRequest.types.length === expectedTypes.length
+    && expectedTypes.every((type) => pullRequest.types.includes(type))
   );
 }
 
 function pullRequestLabelerStepIsExact(labeler) {
   return (
     actionUses(labeler, "actions/labeler")
-    && labeler?.if === "github.event.action != 'closed'"
+    && labeler?.if === "github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository"
     && propertiesMatch(labeler?.with, { "sync-labels": true })
     && Object.keys(labeler?.with ?? {}).length === 1
   );
@@ -2267,6 +2267,7 @@ function pullRequestLabelerStepIsExact(labeler) {
 function pullRequestTrustedCheckoutIsExact(checkout) {
   return (
     actionUses(checkout, "actions/checkout")
+    && checkout?.if === "github.event.pull_request.head.repo.full_name == github.repository"
     && propertiesMatch(checkout?.with, {
       ref: "refs/heads/main",
       "persist-credentials": false,
@@ -2279,6 +2280,7 @@ function pullRequestTrustedCheckoutIsExact(checkout) {
 function pullRequestGoSetupIsExact(setup) {
   return (
     actionUses(setup, "actions/setup-go")
+    && setup?.if === "github.event.pull_request.head.repo.full_name == github.repository"
     && propertiesMatch(setup?.with, {
       "go-version-file": "tooling/go.mod",
       "cache-dependency-path": "tooling/go.sum",
@@ -2289,7 +2291,8 @@ function pullRequestGoSetupIsExact(setup) {
 
 function pullRequestSynchronizationIsExact(synchronization, expectedCommand) {
   return (
-    synchronization?.run === expectedCommand
+    synchronization?.if === "github.event.pull_request.head.repo.full_name == github.repository"
+    && synchronization?.run === expectedCommand
     && propertiesMatch(synchronization?.env, {
       GH_TOKEN: "${{ github.token }}",
       PULL_REQUEST: "${{ github.event.pull_request.number }}",
@@ -2300,9 +2303,21 @@ function pullRequestSynchronizationIsExact(synchronization, expectedCommand) {
   );
 }
 
+function pullRequestForkNoticeStepIsExact(notice, expectedNoticeCommand) {
+  return (
+    notice?.name === "Report metadata to set by hand"
+    && notice?.if === "github.event.pull_request.head.repo.full_name != github.repository"
+    && notice?.run === expectedNoticeCommand
+    && propertiesMatch(notice?.env, {
+      PULL_REQUEST: "${{ github.event.pull_request.number }}",
+    })
+    && Object.keys(notice?.env ?? {}).length === 1
+  );
+}
+
 function pullRequestMetadataStepsAreExact(steps) {
-  if (!Array.isArray(steps) || steps.length !== 4) return false;
-  const [labeler, checkout, setup, synchronization] = steps;
+  if (!Array.isArray(steps) || steps.length !== 5) return false;
+  const [labeler, checkout, setup, synchronization, notice] = steps;
   const expectedCommand = [
     "go -C tooling run ./cmd/20w github sync-pr-metadata",
     '--root .. --repository "$GITHUB_REPOSITORY"',
@@ -2310,14 +2325,16 @@ function pullRequestMetadataStepsAreExact(steps) {
     '--event-action "$PULL_REQUEST_ACTION"',
     '--merged "$PULL_REQUEST_MERGED"',
   ].join(" ");
+  const expectedNoticeCommand =
+    'echo "::notice::Fork pull request #${PULL_REQUEST} cannot receive automatic metadata writes; set path labels per .github/labeler.yml and milestone per .github/issue-milestones.json by hand."';
   return (
     pullRequestLabelerStepIsExact(labeler)
     && pullRequestTrustedCheckoutIsExact(checkout)
     && pullRequestGoSetupIsExact(setup)
     && pullRequestSynchronizationIsExact(synchronization, expectedCommand)
-    && [labeler, checkout, setup, synchronization].every(continueOnErrorIsDisabled)
-    && [labeler, checkout, setup, synchronization].every((step) => step?.shell === undefined)
-    && [checkout, setup, synchronization].every((step) => step?.if === undefined)
+    && pullRequestForkNoticeStepIsExact(notice, expectedNoticeCommand)
+    && [labeler, checkout, setup, synchronization, notice].every(continueOnErrorIsDisabled)
+    && [labeler, checkout, setup, synchronization, notice].every((step) => step?.shell === undefined)
   );
 }
 
@@ -4726,9 +4743,9 @@ function pullRequestTitleWorkflowIsExact(workflow) {
       "name", "on", "permissions", "concurrency", "jobs",
     ].includes(key))
     && Object.keys(workflow?.on ?? {}).length === 1
-    && pullRequestTitleTriggerIsExact(workflow?.on?.pull_request_target)
+    && pullRequestTitleTriggerIsExact(workflow?.on?.pull_request)
     && Object.keys(workflow?.permissions ?? {}).length === 0
-    && workflow?.concurrency?.group === "${{ github.workflow }}-${{ github.event.pull_request.number }}"
+    && workflow?.concurrency?.group === supersededRunConcurrencyGroup
     && workflow?.concurrency?.["cancel-in-progress"] === true
     && Object.keys(workflow?.concurrency ?? {}).length === 2
     && workflow?.defaults === undefined
@@ -5129,6 +5146,11 @@ export const supersededRunCancellationWorkflowPaths = Object.freeze([
   ".github/workflows/scorecard.yml",
 ]);
 
+// Metadata events queue in order; cancelling drops label/milestone writes.
+export const serialisedPullRequestWorkflowPaths = Object.freeze([
+  ".github/workflows/labeler.yml",
+]);
+
 function workflowTriggersOnPullRequest(workflow) {
   const on = workflow?.on;
   if (typeof on === "string") return on === "pull_request";
@@ -5143,7 +5165,10 @@ export function validateSupersededRunCancellationWorkflowObject(
   if (!workflow || typeof workflow !== "object") {
     return [];
   }
-  if (engineManagedWorkflowPaths.includes(relativePath)) {
+  if (
+    engineManagedWorkflowPaths.includes(relativePath)
+    || serialisedPullRequestWorkflowPaths.includes(relativePath)
+  ) {
     return [];
   }
   const applies = supersededRunCancellationWorkflowPaths.includes(relativePath)
