@@ -92,6 +92,11 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Renovate adopts fleet-own releases immediately with zero minimum release
+  age and waits three days for outside updates, superseding the seven-day delay
+  ([Decision 0123](decisions/0123-adopt-fleet-own-releases-at-once-and-wait-three-days-for-outside-updates.md)).
+  `renovate.json` drops top-level `minimumReleaseAge` to inherit three days from
+  `plurano/horistes`, with nine outside forks excluded by pattern.
 - Record the move of the public reader from React and Vite to prerendered
   SvelteKit through sveltesentio (Decision 0121). Markdown stays the only
   source, and the build keeps every route, heading anchor, the language
