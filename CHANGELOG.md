@@ -73,7 +73,8 @@ the exact diff; this file records why the project changed.
 - `.bestpractices.json` records the OpenSSF Best Practices passing-level
   answers from measured repository facts, so the badge form can be filled
   from one reviewed file. Each Met or N/A answer points at the file, line
-  or setting that supports it.
+  or setting that supports it. The README shows the resulting badge for
+  project 15946, which bestpractices.dev rates passing.
 - `run-clrs-shakedown-container` runs and checks the frozen development tree
   through two bounded local containers selected by exact loaded image ID.
   Go owns pre-start configuration checks, host-written failure evidence and
