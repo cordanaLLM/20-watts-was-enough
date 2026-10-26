@@ -103,6 +103,7 @@ const bookSupportSourcePaths = [
   "app/lib/book-document-id.mjs",
   "app/lib/eu-languages.mjs",
   "app/lib/language-access.mjs",
+  "app/lib/markdown-pipeline.ts",
   "app/lib/publication.mjs",
   "app/lib/publication-revision.mjs",
   "app/lib/readiness.ts",

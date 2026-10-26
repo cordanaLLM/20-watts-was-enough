@@ -70,6 +70,12 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- Render each canonical Markdown document to static HTML on the server
+  with the reader's unified pipeline, the first code step of Decision 0121.
+  `scripts/render-markdown-parity.test.mjs` requires byte-equal output
+  with the React reader for every portal and book document; the server
+  output omits the `node="[object Object]"` attribute the React link
+  component leaks.
 - `.bestpractices.json` records the OpenSSF Best Practices passing-level
   answers from measured repository facts, so the badge form can be filled
   from one reviewed file. Each Met or N/A answer points at the file, line
