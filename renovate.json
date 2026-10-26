@@ -40,7 +40,6 @@
   "schedule": [
     "before 6am on monday"
   ],
-  "minimumReleaseAge": "7 days",
   "internalChecksFilter": "strict",
   "prConcurrentLimit": 3,
   "prHourlyLimit": 2,
@@ -92,6 +91,49 @@
         "npm"
       ],
       "rangeStrategy": "pin"
+    },
+    {
+      "description": "Adopt fleet-own releases at once (Decision 0123); forks of outside projects keep the preset waiting time.",
+      "matchPackageNames": [
+        "@sveltesentio/**",
+        "golusoris/**",
+        "github.com/golusoris/**",
+        "ghcr.io/golusoris/**",
+        "cordanaLLM/**",
+        "github.com/cordanaLLM/**",
+        "ghcr.io/cordanaLLM/**",
+        "plurano/**",
+        "github.com/plurano/**",
+        "ghcr.io/plurano/**",
+        "goph-arr/**",
+        "github.com/goph-arr/**",
+        "ghcr.io/goph-arr/**",
+        "VMAFx/**",
+        "github.com/VMAFx/**",
+        "ghcr.io/VMAFx/**",
+        "jellysin/**",
+        "github.com/jellysin/**",
+        "ghcr.io/jellysin/**",
+        "vidiko/**",
+        "github.com/vidiko/**",
+        "ghcr.io/vidiko/**",
+        "tekmora/**",
+        "github.com/tekmora/**",
+        "ghcr.io/tekmora/**",
+        "lusoris/**",
+        "github.com/lusoris/**",
+        "ghcr.io/lusoris/**",
+        "!/^(github\\.com\\/|ghcr\\.io\\/)?VMAFx\\/netflix-vmaf-contributions(\\/|$)/i",
+        "!/^(github\\.com\\/|ghcr\\.io\\/)?lusoris\\/llama-swap(\\/|$)/i",
+        "!/^(github\\.com\\/|ghcr\\.io\\/)?lusoris\\/controller-tools(\\/|$)/i",
+        "!/^(github\\.com\\/|ghcr\\.io\\/)?lusoris\\/hindsight(\\/|$)/i",
+        "!/^(github\\.com\\/|ghcr\\.io\\/)?lusoris\\/Vulkan-ValidationLayers(\\/|$)/i",
+        "!/^(github\\.com\\/|ghcr\\.io\\/)?lusoris\\/helm-charts(\\/|$)/i",
+        "!/^(github\\.com\\/|ghcr\\.io\\/)?lusoris\\/paperclip(\\/|$)/i",
+        "!/^(github\\.com\\/|ghcr\\.io\\/)?lusoris\\/model_server(\\/|$)/i",
+        "!/^(github\\.com\\/|ghcr\\.io\\/)?lusoris\\/paperclip-aperture(\\/|$)/i"
+      ],
+      "minimumReleaseAge": null
     },
     {
       "description": "Major upgrades require an explicit compatibility review.",
