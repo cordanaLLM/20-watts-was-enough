@@ -1,6 +1,6 @@
 FROM node:26.12.0-trixie-slim@sha256:e556a144463cc8dc53afe8de6d2fa0db5c132fd39ffa232c17641bd40df2bf11 AS node-runtime
 
-FROM python:3.15.0-slim-trixie@sha256:d802f03223b9e00604cd54574bcac1a4638914c43683d3f0afd6ebee35f25313
+FROM python:3.15.0-slim-trixie@sha256:f5b92f2a669a4c347044f29367f31983280b648250ca94dea66f98c53bc87e58
 
 ARG IMAGE_VERSION=development
 ARG IMAGE_NAME=ghcr.io/cordanallm/20-watts-was-enough-fixture-019
