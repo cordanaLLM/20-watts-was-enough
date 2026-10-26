@@ -30,6 +30,7 @@ import {
   engineManagedWorkflowPaths,
   formatFindings,
   generatedHookJobSkips,
+  serialisedPullRequestWorkflowPaths,
   supersededRunCancellationWorkflowPaths,
   supersededRunConcurrencyGroup,
   validateSupersededRunCancellationWorkflowObject,
@@ -711,13 +712,29 @@ test("superseded pull-request runs cancel on branches while main runs never canc
     [],
   );
 
-  for (const name of ["labeler", "pr-title"]) {
-    const prTargetWorkflow = workflow(name);
+  assert.deepEqual([...serialisedPullRequestWorkflowPaths], [".github/workflows/labeler.yml"]);
+  for (const relativePath of serialisedPullRequestWorkflowPaths) {
+    const serialisedWorkflow = workflow(relativePath.replace(/^\.github\/workflows\/|\.yml$/g, ""));
     assert.deepEqual(
-      validateSupersededRunCancellationWorkflowObject(prTargetWorkflow, `.github/workflows/${name}.yml`),
+      validateSupersededRunCancellationWorkflowObject(serialisedWorkflow, relativePath),
       [],
     );
   }
+
+  const nonListedQueuedWorkflow = {
+    on: { pull_request: { types: ["opened"] } },
+    concurrency: {
+      group: "${{ github.workflow }}-${{ github.event.pull_request.number }}",
+      "cancel-in-progress": false,
+      queue: "max",
+    },
+  };
+  assert.deepEqual(
+    validateSupersededRunCancellationWorkflowObject(nonListedQueuedWorkflow, ".github/workflows/custom.yml"),
+    [
+      `.github/workflows/custom.yml: concurrency must cancel superseded runs on every ref except main (group ${supersededRunConcurrencyGroup}, cancel-in-progress true)`,
+    ],
+  );
 });
 
 test("public-repository workflows cannot request self-hosted or dynamic runners", () => {
@@ -2749,10 +2766,28 @@ test("pull-request metadata uses only trusted main and explicit bounded authorit
   assert.deepEqual(validatePullRequestMetadataWorkflowObject(valid), []);
 
   const missingEdited = structuredClone(valid);
-  missingEdited.on.pull_request_target.types = missingEdited.on.pull_request_target.types.filter(
+  missingEdited.on.pull_request.types = missingEdited.on.pull_request.types.filter(
     (type) => type !== "edited",
   );
   assert.ok(validatePullRequestMetadataWorkflowObject(missingEdited).includes(triggerFinding));
+
+  const pullRequestTargetTrigger = structuredClone(valid);
+  pullRequestTargetTrigger.on = {
+    pull_request_target: structuredClone(valid.on.pull_request),
+  };
+  assert.ok(validatePullRequestMetadataWorkflowObject(pullRequestTargetTrigger).includes(triggerFinding));
+
+  const unguardedMetadataStep = structuredClone(valid);
+  delete unguardedMetadataStep.jobs.label.steps.find(
+    (step) => step.run?.includes("sync-pr-metadata"),
+  ).if;
+  assert.ok(validatePullRequestMetadataWorkflowObject(unguardedMetadataStep).includes(stepsFinding));
+
+  const missingForkNotice = structuredClone(valid);
+  missingForkNotice.jobs.label.steps = missingForkNotice.jobs.label.steps.filter(
+    (step) => step.name !== "Report metadata to set by hand",
+  );
+  assert.ok(validatePullRequestMetadataWorkflowObject(missingForkNotice).includes(stepsFinding));
 
   const broadPermission = structuredClone(valid);
   broadPermission.jobs.label.permissions.contents = "write";
@@ -2829,10 +2864,16 @@ test("the label manifest closes the accepted pull-request title types", () => {
   assert.deepEqual(validatePullRequestTitleTypeAuthority(valid, manifest), []);
 
   const staleOnEdit = structuredClone(valid);
-  staleOnEdit.on.pull_request_target.types = staleOnEdit.on.pull_request_target.types.filter(
+  staleOnEdit.on.pull_request.types = staleOnEdit.on.pull_request.types.filter(
     (event) => event !== "edited",
   );
   assert.deepEqual(validatePullRequestTitleTypeAuthority(staleOnEdit, manifest), [finding]);
+
+  const pullRequestTargetTrigger = structuredClone(valid);
+  pullRequestTargetTrigger.on = {
+    pull_request_target: structuredClone(valid.on.pull_request),
+  };
+  assert.deepEqual(validatePullRequestTitleTypeAuthority(pullRequestTargetTrigger, manifest), [finding]);
 
   const missingType = structuredClone(valid);
   const titleStep = missingType.jobs["pr-title"].steps.find(
