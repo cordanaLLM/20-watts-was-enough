@@ -379,8 +379,11 @@ stage identities and links from the canonical
 percentages count associated issues and pull requests, not scientific evidence.
 The mapping names its repository and stable issue numbers.
 
-The trusted `pull_request_target` workflow runs the related
-`20w github sync-pr-metadata` command after path labelling. A pull request opts
+The `pull_request` labeler workflow runs the related
+`20w github sync-pr-metadata` command after path labelling. For a fork pull
+request it skips both writes and emits a notice naming the labels and
+milestone to set by hand
+([Decision 0122](../decisions/0122-run-pull-request-metadata-and-title-checks-on-pull-request.md)). A pull request opts
 in with one explicit stand-alone reference such as `Tracks #12`. The referenced
 number must identify one mapped, open issue whose remote milestone and managed
 type, severity, status and area labels are complete. The issue map supplies the
