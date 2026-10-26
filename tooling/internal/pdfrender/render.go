@@ -128,20 +128,21 @@ func renderWithDependencies(
 			returnError = errors.Join(returnError, fmt.Errorf("remove PDF renderer staging root: %w", removeError))
 		}
 	}()
-	return renderWithLockedBuilder(ctx, configuration, sourceRef, sourceRevision, preparer, executor, temporaryRoot)
+	return renderWithLockedBuilder(ctx, configuration, sourceRef, sourceRevision, preparer, executor, temporaryRoot, defaultBaseFetchPolicy)
 }
 
 func renderWithLockedBuilder(
 	ctx context.Context, configuration Configuration, sourceRef, sourceRevision string,
 	preparer buildContextPreparer, executor commandExecutor, temporaryRoot string,
+	fetchPolicy baseFetchPolicy,
 ) (result Result, returnError error) {
 	contextRoot := filepath.Join(temporaryRoot, "context")
 	if err := os.Mkdir(contextRoot, 0o755); err != nil { //#nosec G301 -- container build context directory must be readable by container builder
 		return Result{}, fmt.Errorf("create PDF renderer build context: %w", err)
 	}
-	buildContext, cancelBuild := context.WithTimeout(ctx, time.Duration(configuration.Lock.Limits.BuildSeconds)*time.Second)
-	defer cancelBuild()
-	builder, err := prepareRendererBuilder(ctx, buildContext, configuration, preparer, executor, contextRoot)
+	prepareContext, cancelPrepare := context.WithTimeout(ctx, time.Duration(configuration.Lock.Limits.BuildSeconds)*time.Second)
+	defer cancelPrepare()
+	builder, err := prepareRendererBuilder(ctx, prepareContext, configuration, preparer, executor, contextRoot)
 	if err != nil {
 		return Result{}, err
 	}
@@ -153,6 +154,11 @@ func renderWithLockedBuilder(
 			}
 		}
 	}()
+	if err := fetchBaseImages(ctx, configuration, executor, builder.name, filepath.Join(temporaryRoot, "base-fetch"), fetchPolicy); err != nil {
+		return Result{}, err
+	}
+	buildContext, cancelBuild := context.WithTimeout(ctx, time.Duration(configuration.Lock.Limits.BuildSeconds)*time.Second)
+	defer cancelBuild()
 	iidPath := filepath.Join(temporaryRoot, "renderer.iid")
 	imageID, err := buildRendererImage(ctx, buildContext, configuration, executor, builder, contextRoot, iidPath)
 	if err != nil {
