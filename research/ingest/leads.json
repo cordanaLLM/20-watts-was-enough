@@ -762,9 +762,9 @@
             "enhancement",
             "research-watch"
           ],
-          "milestone_title": "Ongoing — Research and upstream watch",
+          "milestone_title": "0.8",
           "created_at": "2026-10-11T02:10:59Z",
-          "updated_at": "2026-10-17T17:38:48Z",
+          "updated_at": "2026-10-26T15:35:03Z",
           "closed_at": null,
           "author_type": "User",
           "tier": "untiered",
@@ -774,9 +774,9 @@
             "arxiv_ids": [],
             "release_tags": []
           },
-          "content_hash": "5704b3cb2c0708c6b398c395260dbb4d4f6047658e1263065744582f680e1dc7",
-          "fetched_at": "2026-10-18T02:10:19.665Z",
-          "watermark": "2026-10-17T02:07:01.951Z"
+          "content_hash": "65440f3735e5d5ade1e0060239bb679f2d276f91e4b1d87dfcdb29766da0df36",
+          "fetched_at": "2026-10-27T02:10:52.798Z",
+          "watermark": "2026-10-24T02:03:04.551Z"
         }
       ],
       "private_origin_count": 0,
