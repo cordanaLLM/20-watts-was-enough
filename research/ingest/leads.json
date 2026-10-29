@@ -393,6 +393,117 @@
       "content_duplicate_of": []
     },
     {
+      "canonical_key": "issue:I_kwDOSBdLbc8AAAABaq4diw",
+      "origins": [
+        {
+          "stable_key": "golusoris/golusoris#1175",
+          "node_id": "I_kwDOSBdLbc8AAAABaq4diw",
+          "title": "refactor(auth/oauth2server): evaluate go-oauth2/oauth2 as the protocol engine",
+          "url": "https://github.com/golusoris/golusoris/issues/1175",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "P2-medium",
+            "enhancement",
+            "hygiene",
+            "research-watch",
+            "security"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-28T18:10:09Z",
+          "updated_at": "2026-10-28T20:21:22Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "3814f2033a08b2b223c5d7276256bddf215e4158c71a496078f75e95481dc634",
+          "fetched_at": "2026-10-29T02:01:44.258Z",
+          "watermark": "2026-10-28T02:04:06.308Z"
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOSBdLbc8AAAABaq4qoA",
+      "origins": [
+        {
+          "stable_key": "golusoris/golusoris#1182",
+          "node_id": "I_kwDOSBdLbc8AAAABaq4qoA",
+          "title": "refactor(ai/llm): evaluate provider SDKs for the OpenAI, Anthropic and Ollama wire clients",
+          "url": "https://github.com/golusoris/golusoris/issues/1182",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "P3-low",
+            "ai",
+            "enhancement",
+            "hygiene",
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-28T18:10:22Z",
+          "updated_at": "2026-10-28T20:21:21Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "5142e42258fe3a6a8cd1c2f8137f523758bc09a0d1e56a524dd565b0aeca1929",
+          "fetched_at": "2026-10-29T02:01:44.258Z",
+          "watermark": "2026-10-28T02:04:06.308Z"
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOSBdLbc8AAAABaq4sdQ",
+      "origins": [
+        {
+          "stable_key": "golusoris/golusoris#1183",
+          "node_id": "I_kwDOSBdLbc8AAAABaq4sdQ",
+          "title": "refactor(auth/session): evaluate alexedwards/scs as the session engine",
+          "url": "https://github.com/golusoris/golusoris/issues/1183",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "P3-low",
+            "enhancement",
+            "hygiene",
+            "research-watch",
+            "security"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-10-28T18:10:23Z",
+          "updated_at": "2026-10-28T20:21:21Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "6ecb6b6acf7502734215c772fa23fc91f35bf09a23a15f89c63b5cdccb1d0fd0",
+          "fetched_at": "2026-10-29T02:01:44.258Z",
+          "watermark": "2026-10-28T02:04:06.308Z"
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
       "canonical_key": "issue:I_kwDOSqOYRs8AAAABVLHplA",
       "origins": [
         {
