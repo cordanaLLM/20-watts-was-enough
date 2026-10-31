@@ -458,7 +458,7 @@ jobs:
       - name: Use the locked Python runtime
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.15.0'
+          python-version: '3.15.2'
       - name: Run research checks
         run: npm run check:lane-research
 
@@ -568,7 +568,7 @@ jobs:
         if: contains(format(' {0} ', matrix.scripts), ' test:workstation:fixture-019 ')
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.15.0'
+          python-version: '3.15.2'
       - name: Install the locked scientific runtime for Fixture 019
         if: contains(format(' {0} ', matrix.scripts), ' test:workstation:fixture-019 ')
         run: python -m pip install --disable-pip-version-check --no-deps --require-hashes -r requirements-ci.txt
