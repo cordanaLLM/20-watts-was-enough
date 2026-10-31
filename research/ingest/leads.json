@@ -962,6 +962,39 @@
       "content_duplicate_of": []
     },
     {
+      "canonical_key": "issue:I_kwDOVC-MNc8AAAABbN8Ktg",
+      "origins": [
+        {
+          "stable_key": "VMAFx/ffmpeg-patches#139",
+          "node_id": "I_kwDOVC-MNc8AAAABbN8Ktg",
+          "title": "Re-check Vulkan frame-release validation after FFmpeg PR 24970 merges",
+          "url": "https://github.com/VMAFx/ffmpeg-patches/issues/139",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "research-watch"
+          ],
+          "milestone_title": "v0.6.0",
+          "created_at": "2026-10-30T15:01:42Z",
+          "updated_at": "2026-10-30T15:01:43Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "b577cd5287c08755251becf2f8f549e5edd99ccbdbfd3891469e4d506ba876a1",
+          "fetched_at": "2026-10-31T02:01:06.753Z",
+          "watermark": "2026-10-30T02:02:38.643Z"
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
       "canonical_key": "issue:I_kwDOVE4LYc8AAAABWc_NSA",
       "origins": [
         {
