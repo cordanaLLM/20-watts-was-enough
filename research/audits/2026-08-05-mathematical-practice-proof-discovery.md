@@ -410,7 +410,7 @@ edge must carry a reconstructible proof obligation and versioned dependencies.
 search, best-first and Monte Carlo tree search, proof planning, hammers, and
 domain-specific decomposition.
 
-**Exact deduplication.** [P-001 selective activation](../principle-registry.md#p-001--selective-activation-and-routing),
+**Exact deduplication.** [P-001 selective activation](../principle-registry.md#p-001--selective-allocation),
 [P-002 local autonomy and escalation](../principle-registry.md#p-002--local-autonomy-with-exception-escalation),
 and [P-008 compartmentalization](../principle-registry.md#p-008--compartmentalized-interaction).
 Assurance fields belong to [Candidate 009](../../experiments/candidates/009-graded-assurance-envelopes.md),
@@ -461,7 +461,7 @@ discrimination trees, hammers, graph reachability, build systems, and existing
 formal libraries. Learned premise selection such as DeepMath is already an AI
 null ([Alemi et al. 2016](https://arxiv.org/abs/1606.04442)).
 
-**Exact deduplication.** [P-001 selective routing](../principle-registry.md#p-001--selective-activation-and-routing),
+**Exact deduplication.** [P-001 selective routing](../principle-registry.md#p-001--selective-allocation),
 [P-012 lifetime-matched memory](../principle-registry.md#p-012--memory-matched-to-information-lifetime),
 and [P-013 externalized state](../principle-registry.md#p-013--externalized-shared-state).
 Library inheritance is [Candidate 019](../../experiments/candidates/019-audited-cumulative-inheritance.md),
@@ -557,7 +557,7 @@ separate preservation/orbit certificates before using them to prune search.
 synthesis, canonical labeling, symmetry-breaking predicates, equivariant
 models, quotient types, and domain-specific conservation laws.
 
-**Exact deduplication.** [P-001 selective activation](../principle-registry.md#p-001--selective-activation-and-routing),
+**Exact deduplication.** [P-001 selective activation](../principle-registry.md#p-001--selective-allocation),
 [P-004 diversity/selection](../principle-registry.md#p-004--diversity-selection-and-protection),
 and [P-010 structural offloading](../principle-registry.md#p-010--structural-offloading-and-co-design).
 Invariant admission evidence belongs to [Candidate 009](../../experiments/candidates/009-graded-assurance-envelopes.md);
@@ -748,7 +748,7 @@ calculus; retain a proof DAG that an independent checker can replay.
 **Strongest mature null.** Vampire, E, SPASS-like saturation, portfolios,
 hand/auto-tuned schedules, and TPTP/CASC evaluation.
 
-**Exact deduplication.** [P-001 selective activation](../principle-registry.md#p-001--selective-activation-and-routing),
+**Exact deduplication.** [P-001 selective activation](../principle-registry.md#p-001--selective-allocation),
 [P-004 selection](../principle-registry.md#p-004--diversity-selection-and-protection),
 and [P-006 anti-saturation feedback](../principle-registry.md#p-006--homeostatic-negative-feedback).
 No candidate gains distinct support; [Candidate 004](../../experiments/candidates/004-closed-endogenous-curriculum.md)
@@ -797,7 +797,7 @@ safe evaluation, calibrated abstention, and a separate kernel define acceptance.
 MCTS search, k-nearest premise selection, saturation portfolios, and matched
 language-model sampling without reinforcement learning.
 
-**Exact deduplication.** [P-001 selective routing](../principle-registry.md#p-001--selective-activation-and-routing),
+**Exact deduplication.** [P-001 selective routing](../principle-registry.md#p-001--selective-allocation),
 [P-004 variation/selection](../principle-registry.md#p-004--diversity-selection-and-protection),
 [P-007 residual allocation](../principle-registry.md#p-007--prediction-error-allocation),
 and [P-012 retained proof skill](../principle-registry.md#p-012--memory-matched-to-information-lifetime).
@@ -945,7 +945,7 @@ models as challenge artifacts.
 **Strongest mature null.** CP-SAT, MiniZinc portfolios, SAT/SMT, integer
 programming, Alloy/model finders, answer-set programming, and exhaustive search.
 
-**Exact deduplication.** [P-001 selective routing](../principle-registry.md#p-001--selective-activation-and-routing),
+**Exact deduplication.** [P-001 selective routing](../principle-registry.md#p-001--selective-allocation),
 [P-003 failed-assignment trace](../principle-registry.md#p-003--temporary-trace-before-commitment),
 and [P-007 residual search](../principle-registry.md#p-007--prediction-error-allocation).
 Countermodel support metadata belongs to [Candidate 014](../../experiments/candidates/014-versioned-observation-contract.md),
@@ -1166,7 +1166,7 @@ and lifecycle state separately measurable.
 
 | Principle | Mathematical-practice manifestation | Disposition |
 | --- | --- | --- |
-| [P-001](../principle-registry.md#p-001--selective-activation-and-routing) | goal, clause, premise, tactic, variable, and constraint selection | mature search/routing null |
+| [P-001](../principle-registry.md#p-001--selective-allocation) | goal, clause, premise, tactic, variable, and constraint selection | mature search/routing null |
 | [P-002](../principle-registry.md#p-002--local-autonomy-with-exception-escalation) | local tactic/theory solver closes a goal or escalates an obligation | mature modular-prover null |
 | [P-003](../principle-registry.md#p-003--temporary-trace-before-commitment) | conjecture, failed assignment, counterexample, proof sketch, provisional lemma | mature search-state null |
 | [P-004](../principle-registry.md#p-004--diversity-selection-and-protection) | conjecture/program/proof candidates, survivor selection, checked retention | mature synthesis/search null |

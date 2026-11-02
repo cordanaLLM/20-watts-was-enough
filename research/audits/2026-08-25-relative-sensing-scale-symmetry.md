@@ -146,8 +146,8 @@ behavior, intervention, and time support separately.
 The recurring solution family decomposes into four already-owned functions:
 
 1. **Reference state.** A slower variable retains a background against which a
-   faster input is compared. This refines [P-003](../principle-registry.md#p-003--temporary-traces-with-provenance)
-   and [P-012](../principle-registry.md#p-012--lifetime-matched-memory).
+   faster input is compared. This refines [P-003](../principle-registry.md#p-003--temporary-trace-before-commitment)
+   and [P-012](../principle-registry.md#p-012--memory-matched-to-information-lifetime).
 2. **Stabilizing adaptation.** Feedback or feed-forward cancellation restores
    an output after a change. This routes to
    [P-006](../principle-registry.md#p-006--homeostatic-negative-feedback).
@@ -156,7 +156,7 @@ The recurring solution family decomposes into four already-owned functions:
    creating a new principle.
 4. **Stored structure.** Receptor abundance can embody a stimulus-specific
    background state. This is an instance of
-   [P-010](../principle-registry.md#p-010--structural-consolidation), not a new
+   [P-010](../principle-registry.md#p-010--structural-offloading-and-co-design), not a new
    receptor-themed architecture.
 
 The density-qualified social-amoeba result additionally touches transient

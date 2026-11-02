@@ -1398,7 +1398,7 @@ describes the exact statement here, not a broader interpretation.
 - **Open issue:** The boundary between useful restart and destructive
   overcorrection must be measured for each stress regime.
 - **Used by:** [cellular quality-control audit](audits/2026-08-05-cellular-quality-control.md),
-  [P-003](principle-registry.md#p-003--reversible-commitment),
+  [P-003](principle-registry.md#p-003--temporary-trace-before-commitment),
   [P-006](principle-registry.md#p-006--homeostatic-negative-feedback).
 
 ### C-090
@@ -1413,7 +1413,7 @@ describes the exact statement here, not a broader interpretation.
 - **Open issue:** Generality across substrates and the quantitative
   repair-versus-degradation decision rule remain unresolved.
 - **Used by:** [cellular quality-control audit](audits/2026-08-05-cellular-quality-control.md),
-  [P-003](principle-registry.md#p-003--reversible-commitment),
+  [P-003](principle-registry.md#p-003--temporary-trace-before-commitment),
   [P-009](principle-registry.md#p-009--maintenance-plane).
 
 ### C-091
@@ -1428,7 +1428,7 @@ describes the exact statement here, not a broader interpretation.
 - **Open issue:** Sequestration can be protective, degradative, saturated, or
   harmful depending on cargo and context.
 - **Used by:** [cellular quality-control audit](audits/2026-08-05-cellular-quality-control.md),
-  [P-008](principle-registry.md#p-008--modular-containment),
+  [P-008](principle-registry.md#p-008--compartmentalized-interaction),
   [P-009](principle-registry.md#p-009--maintenance-plane).
 
 ### C-092
@@ -1458,7 +1458,7 @@ describes the exact statement here, not a broader interpretation.
   trigger scope and parallel turnover routes must remain explicit.
 - **Open issue:** Physiological trigger regimes and pathway redundancy.
 - **Used by:** [cellular quality-control audit](audits/2026-08-05-cellular-quality-control.md),
-  [P-003](principle-registry.md#p-003--reversible-commitment),
+  [P-003](principle-registry.md#p-003--temporary-trace-before-commitment),
   [P-009](principle-registry.md#p-009--maintenance-plane).
 
 ### C-094
@@ -1489,7 +1489,7 @@ describes the exact statement here, not a broader interpretation.
 - **Open issue:** Action thresholds, verification, pathogen exploitation, and
   whether staged action beats parallel action require direct tests.
 - **Used by:** [cellular quality-control audit](audits/2026-08-05-cellular-quality-control.md),
-  [P-003](principle-registry.md#p-003--reversible-commitment),
+  [P-003](principle-registry.md#p-003--temporary-trace-before-commitment),
   [P-006](principle-registry.md#p-006--homeostatic-negative-feedback),
   [P-009](principle-registry.md#p-009--maintenance-plane).
 
@@ -10839,7 +10839,7 @@ describes the exact statement here, not a broader interpretation.
   post-occupancy evaluation, and asset management at equal lifecycle budget in
   at least two asset classes.
 - **Used by:** [Candidate 001](../experiments/candidates/001-adaptive-topology.md)
-  and [OQ-054](open-questions.md#oq-054).
+  and [OQ-054](open-questions.md#synthesis).
 
 ### C-726
 
@@ -11166,7 +11166,7 @@ describes the exact statement here, not a broader interpretation.
   and failure costs it preserves and show that the omitted state does not alter
   intervention or recovery decisions.
 - **Used by:** the [immune-state evaluation contract](principle-registry.md#immune-state-lifecycle-evaluation-contract)
-  and [OQ-055](open-questions.md#oq-055).
+  and [OQ-055](open-questions.md#synthesis).
 
 ### C-745
 
@@ -11198,7 +11198,7 @@ describes the exact statement here, not a broader interpretation.
   ordinary state machine, calibrated risk model, least-privilege policy, and
   resource-aware controller under equal information and lifecycle budgets.
 - **Used by:** the [immune-state evaluation contract](principle-registry.md#immune-state-lifecycle-evaluation-contract)
-  and [OQ-055](open-questions.md#oq-055), with its AI-system test in
+  and [OQ-055](open-questions.md#synthesis), with its AI-system test in
   [Fixture F-013](../experiments/fixtures/013-immune-state-lifecycle-evaluation.md);
   it is not a principle or candidate.
 
@@ -11740,7 +11740,7 @@ describes the exact statement here, not a broader interpretation.
   and rehearsal under partner turnover, delay, role, motif, and lifecycle-cost
   interventions.
 - **Used by:** the [music co-adaptation benchmark](principle-registry.md#shared-clock-free-predictive-co-adaptation-benchmark)
-  and [OQ-056](open-questions.md#oq-056); it is not a principle or candidate.
+  and [OQ-056](open-questions.md#synthesis); it is not a principle or candidate.
 
 ### C-781
 
@@ -20788,7 +20788,7 @@ describes the exact statement here, not a broader interpretation.
   reachable-opportunity interval coverage under schedule and network changes.
 - **Open question:** does the gain survive a mature network-accessibility model,
   trajectory uncertainty, selection correction, and strict privacy budget?
-- **Used by:** [SG-T04](audits/2026-08-24-spatial-geography-support-scale-mobility-place.md#sg-t04--residence-proxy-versus-feasible-space-time-context),
+- **Used by:** [SG-T04](audits/2026-08-24-spatial-geography-support-scale-mobility-place.md#sg-t04--residence-proxy-versus-feasible-space--time-context),
   Candidates [007](../experiments/candidates/007-endogenous-observation-surveillance.md),
   [013](../experiments/candidates/013-deficit-capability-routing.md),
   [014](../experiments/candidates/014-versioned-observation-contract.md), and
@@ -23774,7 +23774,7 @@ tracks C-1497--C-1505 as one no-promotion evaluation bundle.
   back-action that survives complete systems controls?
 - **Direct test:** [Fixture F-027](../experiments/fixtures/027-interface-qualified-retroactivity-insulation.md),
   [`RIN-T01`](../experiments/fixtures/027-interface-qualified-retroactivity-insulation.md#rin-t01--mass-action-source-mechanism-and-reduced-model-boundary).
-- **Traceability:** [source audit](audits/2026-08-25-interface-qualified-retroactivity-insulation.md#c-1550) · [mathematical contract](../math/interface-qualified-retroactivity.md) · [affected chapter](../concept/07-cross-domain-convergence.md#interconnection-is-an-intervention).
+- **Traceability:** [source audit](audits/2026-08-25-interface-qualified-retroactivity-insulation.md#c-1550--finite-binding-changes-source-dynamics) · [mathematical contract](../math/interface-qualified-retroactivity.md) · [affected chapter](../concept/07-cross-domain-convergence.md#interconnection-is-an-intervention).
 
 ### C-1551
 
@@ -23800,7 +23800,7 @@ tracks C-1497--C-1505 as one no-promotion evaluation bundle.
 - **Open question:** do any finite AI activation or cache interfaces exhibit a
   comparable signed state effect rather than only delayed delivery?
 - **Direct test:** [`RIN-T02`](../experiments/fixtures/027-interface-qualified-retroactivity-insulation.md#rin-t02--signed-transient-response).
-- **Traceability:** [source audit](audits/2026-08-25-interface-qualified-retroactivity-insulation.md#c-1551) · [affected chapter](../concept/30-sparse-predictive-compute.md#a-bounded-interface-still-needs-a-back-action-test).
+- **Traceability:** [source audit](audits/2026-08-25-interface-qualified-retroactivity-insulation.md#c-1551--signed-transient-response-in-one-transcription-module) · [affected chapter](../concept/30-sparse-predictive-compute.md#a-bounded-interface-still-needs-a-back-action-test).
 
 ### C-1552
 
@@ -23832,7 +23832,7 @@ tracks C-1497--C-1505 as one no-promotion evaluation bundle.
 - **Open question:** which AI service summaries hide connection-specific
   dynamic degradation despite equal average throughput?
 - **Direct test:** [`RIN-T03`](../experiments/fixtures/027-interface-qualified-retroactivity-insulation.md#rin-t03--operating-regime-and-bandwidth).
-- **Traceability:** [source audit](audits/2026-08-25-interface-qualified-retroactivity-insulation.md#c-1552) · [affected chapter](../concept/30-sparse-predictive-compute.md#a-bounded-interface-still-needs-a-back-action-test).
+- **Traceability:** [source audit](audits/2026-08-25-interface-qualified-retroactivity-insulation.md#c-1552--covalent-cycle-dynamics-depend-on-operating-regime) · [affected chapter](../concept/30-sparse-predictive-compute.md#a-bounded-interface-still-needs-a-back-action-test).
 
 ### C-1553
 
@@ -23859,7 +23859,7 @@ tracks C-1497--C-1505 as one no-promotion evaluation bundle.
 - **Open question:** can low-overhead digital telemetry distinguish held,
   copied and producer-owned state without perturbing the path it measures?
 - **Direct test:** [`RIN-T04`](../experiments/fixtures/027-interface-qualified-retroactivity-insulation.md#rin-t04--observation-interface-and-noise-memory).
-- **Traceability:** [source audit](audits/2026-08-25-interface-qualified-retroactivity-insulation.md#c-1553) · [affected chapter](../concept/30-sparse-predictive-compute.md#a-bounded-interface-still-needs-a-back-action-test).
+- **Traceability:** [source audit](audits/2026-08-25-interface-qualified-retroactivity-insulation.md#c-1553--observation-interface-and-noise-memory) · [affected chapter](../concept/30-sparse-predictive-compute.md#a-bounded-interface-still-needs-a-back-action-test).
 
 ### C-1554
 
@@ -23885,7 +23885,7 @@ tracks C-1497--C-1505 as one no-promotion evaluation bundle.
 - **Open question:** where is the latency--staleness--memory--work frontier for
   real model-serving activation paths?
 - **Direct test:** [`RIN-T05`](../experiments/fixtures/027-interface-qualified-retroactivity-insulation.md#rin-t05--timescale-separated-insulation).
-- **Traceability:** [source audit](audits/2026-08-25-interface-qualified-retroactivity-insulation.md#c-1554) · [affected chapter](../concept/70-system-synthesis.md#a-subscriber-can-change-its-producer).
+- **Traceability:** [source audit](audits/2026-08-25-interface-qualified-retroactivity-insulation.md#c-1554--timescale-separated-load-driver) · [affected chapter](../concept/70-system-synthesis.md#a-subscriber-can-change-its-producer).
 
 ### C-1555
 
@@ -23911,7 +23911,7 @@ tracks C-1497--C-1505 as one no-promotion evaluation bundle.
 - **Open question:** when does preserving shared producer dynamics beat
   replication or recomputation over a complete lifecycle?
 - **Direct test:** [`RIN-T06`](../experiments/fixtures/027-interface-qualified-retroactivity-insulation.md#rin-t06--producer-preservation-with-delivered-service).
-- **Traceability:** [source audit](audits/2026-08-25-interface-qualified-retroactivity-insulation.md#c-1555) · [affected chapter](../concept/70-system-synthesis.md#a-subscriber-can-change-its-producer).
+- **Traceability:** [source audit](audits/2026-08-25-interface-qualified-retroactivity-insulation.md#c-1555--preserve-producer-and-deliver-load-service) · [affected chapter](../concept/70-system-synthesis.md#a-subscriber-can-change-its-producer).
 
 ### C-1556
 
@@ -23938,7 +23938,7 @@ tracks C-1497--C-1505 as one no-promotion evaluation bundle.
 - **Open question:** which physical interface mechanisms occupy the best
   measured distortion--service--energy frontier on the target workstation?
 - **Direct test:** [`RIN-T07`](../experiments/fixtures/027-interface-qualified-retroactivity-insulation.md#rin-t07--insulation-resource-and-energy-frontier).
-- **Traceability:** [source audit](audits/2026-08-25-interface-qualified-retroactivity-insulation.md#c-1556) · [mathematical contract](../math/interface-qualified-retroactivity.md) · [affected chapter](../concept/80-energy-model.md).
+- **Traceability:** [source audit](audits/2026-08-25-interface-qualified-retroactivity-insulation.md#c-1556--model-scoped-insulation--fuel-frontier) · [mathematical contract](../math/interface-qualified-retroactivity.md) · [affected chapter](../concept/80-energy-model.md).
 
 ### C-1557
 
@@ -23965,7 +23965,7 @@ tracks C-1497--C-1505 as one no-promotion evaluation bundle.
 - **Open question:** can load-aware admission select that envelope online
   without costing more than it saves?
 - **Direct test:** [`RIN-T08`](../experiments/fixtures/027-interface-qualified-retroactivity-insulation.md#rin-t08--weak-coupling-counterexample-and-service-boundary).
-- **Traceability:** [source audit](audits/2026-08-25-interface-qualified-retroactivity-insulation.md#c-1557) · [affected chapter](../concept/80-energy-model.md).
+- **Traceability:** [source audit](audits/2026-08-25-interface-qualified-retroactivity-insulation.md#c-1557--weak-coupling-counterexample-and-boundary) · [affected chapter](../concept/80-energy-model.md).
 
 ### C-1558
 
@@ -23994,7 +23994,7 @@ tracks C-1497--C-1505 as one no-promotion evaluation bundle.
 - **Open question:** what minimum intervention set separates these causal
   families in a live heterogeneous serving system?
 - **Direct test:** [`RIN-T09`](../experiments/fixtures/027-interface-qualified-retroactivity-insulation.md#rin-t09--direct-back-action-versus-shared-resource-contention).
-- **Traceability:** [source audit](audits/2026-08-25-interface-qualified-retroactivity-insulation.md#c-1558) · [affected chapter](../concept/07-cross-domain-convergence.md#interconnection-is-an-intervention).
+- **Traceability:** [source audit](audits/2026-08-25-interface-qualified-retroactivity-insulation.md#c-1558--direct-back-action-versus-generic-shared-resource-coupling) · [affected chapter](../concept/07-cross-domain-convergence.md#interconnection-is-an-intervention).
 
 ### C-1559
 
@@ -24023,7 +24023,7 @@ tracks C-1497--C-1505 as one no-promotion evaluation bundle.
 - **Open question:** does any artificial interface retain a distinct useful
   residual after tuned explicit filters and queue policies are included?
 - **Direct test:** [`RIN-T10`](../experiments/fixtures/027-interface-qualified-retroactivity-insulation.md#rin-t10--suppress-preserve-or-use-back-action).
-- **Traceability:** [source audit](audits/2026-08-25-interface-qualified-retroactivity-insulation.md#c-1559) · [mathematical contract](../math/interface-qualified-retroactivity.md) · [affected chapter](../concept/07-cross-domain-convergence.md#interconnection-is-an-intervention).
+- **Traceability:** [source audit](audits/2026-08-25-interface-qualified-retroactivity-insulation.md#c-1559--suppress-preserve-or-intentionally-use-coupling) · [mathematical contract](../math/interface-qualified-retroactivity.md) · [affected chapter](../concept/07-cross-domain-convergence.md#interconnection-is-an-intervention).
 
 ### C-1560
 

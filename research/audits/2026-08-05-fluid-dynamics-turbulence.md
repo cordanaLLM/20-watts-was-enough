@@ -62,7 +62,7 @@ The strongest findings are:
 After deduplication, these findings refine existing [P-001 selective
 allocation](../principle-registry.md#p-001--selective-allocation), [P-002 local
 resolution](../principle-registry.md#p-002--local-autonomy-with-exception-escalation),
-[P-006 slower feedback](../principle-registry.md#p-006--slower-negative-feedback),
+[P-006 slower feedback](../principle-registry.md#p-006--homeostatic-negative-feedback),
 [P-007 prediction-error allocation](../principle-registry.md#p-007--prediction-error-allocation),
 [P-008 compartmentalization](../principle-registry.md#p-008--compartmentalized-interaction),
 [P-009 maintenance](../principle-registry.md#p-009--maintenance-plane),

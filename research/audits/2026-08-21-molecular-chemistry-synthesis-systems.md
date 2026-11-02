@@ -505,7 +505,7 @@ inference, and model-predictive control.
 **Deduplication.** Catalytic bottlenecks and transport qualification are already
 bounded by [C-1283](../claims.md#c-1283). Local specialization belongs under
 [P-001](../principle-registry.md#p-001--selective-allocation), while context and
-degradation belong under [P-006](../principle-registry.md#p-006--homeostatic-feedback)
+degradation belong under [P-006](../principle-registry.md#p-006--homeostatic-negative-feedback)
 and [P-009](../principle-registry.md#p-009--maintenance-plane). No new principle
 is warranted.
 
@@ -543,8 +543,8 @@ finite-state controllers, PID, model-predictive control, Bayesian optimization
 of schedules, event-triggered control, and explicit context broadcasting.
 
 **Deduplication.** The transfer composes
-[P-006](../principle-registry.md#p-006--homeostatic-feedback),
-[P-010](../principle-registry.md#p-010--structural-offloading), and
+[P-006](../principle-registry.md#p-006--homeostatic-negative-feedback),
+[P-010](../principle-registry.md#p-010--structural-offloading-and-co-design), and
 [P-011](../principle-registry.md#p-011--transient-communication-coalitions).
 Candidate homes are
 [Candidate 002](../../experiments/candidates/002-multiscale-context-broadcast.md),
@@ -584,7 +584,7 @@ and feedback control evaluated at the same external work budget.
 **Deduplication.** Nonequilibrium driving and transient lifetime are already
 bounded by [C-162](../claims.md#c-162), [C-166](../claims.md#c-166), and
 [C-172](../claims.md#c-172). Structural work belongs under
-[P-010](../principle-registry.md#p-010--structural-offloading); the closest test
+[P-010](../principle-registry.md#p-010--structural-offloading-and-co-design); the closest test
 homes are [Candidate 006](../../experiments/candidates/006-reversible-physical-skill.md)
 and [Fixture F-010](../../experiments/fixtures/010-boundary-qualified-physical-computation.md).
 
@@ -619,7 +619,7 @@ data/model versioning.
 
 **Deduplication.** The architectural destination is
 [P-007](../principle-registry.md#p-007--prediction-error-allocation) with
-[P-013](../principle-registry.md#p-013--environmental-shared-state),
+[P-013](../principle-registry.md#p-013--externalized-shared-state),
 [Candidate 014](../../experiments/candidates/014-versioned-observation-contract.md),
 [Fixture F-007](../../experiments/fixtures/007-operator-qualified-optical-inference.md),
 and [Fixture F-011](../../experiments/fixtures/011-operator-qualified-active-chemical-sensing.md).

@@ -99,6 +99,8 @@ type collector struct {
 	truncated          bool
 	run                options
 	usedLinkExceptions map[int]struct{}
+	inventory          map[string]markdownDocument
+	anchorsCache       map[string]map[string]struct{}
 }
 
 func (c *collector) addError(format string, arguments ...any) {
@@ -145,6 +147,7 @@ func validateWith(repositoryRoot string, run options) Result {
 
 	report := &collector{run: run, usedLinkExceptions: make(map[int]struct{}, len(run.linkExceptions))}
 	documents, markdownComplete := loadMarkdown(realRoot, report)
+	report.initInventory(documents)
 	for _, document := range documents {
 		validateLinks(realRoot, document, report)
 		validateControlCharacters(document, report)
@@ -278,8 +281,56 @@ func validateLinks(root string, document markdownDocument, report *collector) {
 	}
 }
 
+func isExternalTarget(raw string, parsed *url.URL) bool {
+	return parsed.IsAbs() || parsed.Host != "" || strings.HasPrefix(raw, "//")
+}
+
+func resolveLocalCandidate(root, dir, decoded string) string {
+	if strings.HasPrefix(decoded, "/") {
+		return filepath.Clean(filepath.Join(root, filepath.FromSlash(strings.TrimLeft(decoded, "/"))))
+	}
+	return filepath.Clean(filepath.Join(dir, filepath.FromSlash(decoded)))
+}
+
+func validateFileTarget(root string, document markdownDocument, candidate, raw string, report *collector) (string, bool) {
+	if _, err := os.Stat(candidate); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			report.addError("Inspect link in %s: %s (%v)", document.relative, raw, err)
+		} else if !report.admitsBrokenLink(document.relative, raw) {
+			report.addError("Broken link in %s: %s", document.relative, raw)
+		}
+		return "", false
+	}
+	realCandidate, err := filepath.EvalSymlinks(candidate)
+	if err != nil {
+		report.addError("Resolve link in %s: %s (%v)", document.relative, raw, err)
+		return "", false
+	}
+	if !inside(root, realCandidate) {
+		report.addError("Local link resolves outside repository root in %s: %s", document.relative, raw)
+		return "", false
+	}
+	return realCandidate, true
+}
+
+func checkTargetFragment(document markdownDocument, raw, candidate, realCandidate string, report *collector) {
+	hashIndex := strings.Index(raw, "#")
+	if hashIndex == -1 || !strings.EqualFold(filepath.Ext(candidate), ".md") {
+		return
+	}
+	targetDoc, found := report.documentByPath(candidate, realCandidate)
+	if !found {
+		return
+	}
+	validateFragment(document, targetDoc, raw, raw[hashIndex+1:], report)
+}
+
 func validateLocalTarget(root string, document markdownDocument, raw string, report *collector) {
-	if raw == "" || strings.HasPrefix(raw, "#") {
+	if raw == "" {
+		return
+	}
+	if strings.HasPrefix(raw, "#") {
+		validateFragment(document, document, raw, raw[1:], report)
 		return
 	}
 	parsed, err := url.Parse(raw)
@@ -287,7 +338,7 @@ func validateLocalTarget(root string, document markdownDocument, raw string, rep
 		report.addError("Invalid link in %s: %s (%v)", document.relative, raw, err)
 		return
 	}
-	if parsed.IsAbs() || parsed.Host != "" || strings.HasPrefix(raw, "//") {
+	if isExternalTarget(raw, parsed) {
 		return
 	}
 	decoded, err := url.PathUnescape(parsed.EscapedPath())
@@ -298,33 +349,16 @@ func validateLocalTarget(root string, document markdownDocument, raw string, rep
 	if decoded == "" {
 		return
 	}
-	var candidate string
-	if strings.HasPrefix(decoded, "/") {
-		candidate = filepath.Join(root, filepath.FromSlash(strings.TrimLeft(decoded, "/")))
-	} else {
-		candidate = filepath.Join(filepath.Dir(document.absolute), filepath.FromSlash(decoded))
-	}
-	candidate = filepath.Clean(candidate)
+	candidate := resolveLocalCandidate(root, filepath.Dir(document.absolute), decoded)
 	if !inside(root, candidate) {
 		report.addError("Local link escapes repository root in %s: %s", document.relative, raw)
 		return
 	}
-	if _, err := os.Stat(candidate); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			report.addError("Inspect link in %s: %s (%v)", document.relative, raw, err)
-		} else if !report.admitsBrokenLink(document.relative, raw) {
-			report.addError("Broken link in %s: %s", document.relative, raw)
-		}
+	realCandidate, ok := validateFileTarget(root, document, candidate, raw, report)
+	if !ok {
 		return
 	}
-	realCandidate, err := filepath.EvalSymlinks(candidate)
-	if err != nil {
-		report.addError("Resolve link in %s: %s (%v)", document.relative, raw, err)
-		return
-	}
-	if !inside(root, realCandidate) {
-		report.addError("Local link resolves outside repository root in %s: %s", document.relative, raw)
-	}
+	checkTargetFragment(document, raw, candidate, realCandidate, report)
 }
 
 func inside(root, candidate string) bool {

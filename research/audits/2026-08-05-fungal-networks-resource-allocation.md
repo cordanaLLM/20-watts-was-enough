@@ -947,14 +947,14 @@ geometry must be matched before interpreting $D$ as stored direction.
 | [P-002](../principle-registry.md#p-002--local-autonomy-with-exception-escalation) | tip-local growth and rapid septal closure | locality is established; no demonstrated exception protocol |
 | [P-003](../principle-registry.md#p-003--temporary-trace-before-commitment) | stress priming / residual polarity | valid only when state is reversible and decays; memory substrate unresolved |
 | [P-004](../principle-registry.md#p-004--diversity-selection-and-protection) | nuclear/genotypic diversity | already multilevel selection; protection and conflict costs are mandatory |
-| [P-005](../principle-registry.md#p-005--reinforcement-and-decay-of-topology) | thickening used cords, regression, fusion | strongest fungal instance; Candidate 001 already tests distinctiveness |
+| [P-005](../principle-registry.md#p-005--use-dependent-topology) | thickening used cords, regression, fusion | strongest fungal instance; Candidate 001 already tests distinctiveness |
 | [P-006](../principle-registry.md#p-006--homeostatic-negative-feedback) | sink regulation, resource-dependent response, pore closure/reopening | feedback instance; exact sensors often unresolved |
 | [P-007](../principle-registry.md#p-007--prediction-error-allocation) | exploratory growth toward uncertain resources | no evidence that prediction error, rather than gradients/growth rules, is computed |
 | [P-008](../principle-registry.md#p-008--compartmentalized-interaction) | septa, compatibility gates, organism boundaries | strong boundary example; fusion is conditional, not universal |
 | [P-009](../principle-registry.md#p-009--maintenance-plane) | containment, regrowth, recycling | phases exist, but no separate fungal control plane is established |
-| [P-010](../principle-registry.md#p-010--structural-compilation) | cords encode frequently used paths in material | direct instance; construction and reversibility cost decide value |
+| [P-010](../principle-registry.md#p-010--structural-offloading-and-co-design) | cords encode frequently used paths in material | direct instance; construction and reversibility cost decide value |
 | [P-011](../principle-registry.md#p-011--transient-communication-coalitions) | oscillatory domains | phase domains occur; communication function remains unproved |
-| [P-012](../principle-registry.md#p-012--memory-timescale-matching) | short priming and longer structural persistence | direct instance once carrier and decay are separated |
+| [P-012](../principle-registry.md#p-012--memory-matched-to-information-lifetime) | short priming and longer structural persistence | direct instance once carrier and decay are separated |
 | [P-013](../principle-registry.md#p-013--externalized-shared-state) | persistent cords and modified substrate | environment/structure stores state; not evidence of shared intent |
 
 ### Against Candidates 001 through 020

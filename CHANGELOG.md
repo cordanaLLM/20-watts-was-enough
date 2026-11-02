@@ -257,6 +257,12 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- `validate:docs` now checks the `#fragment` of every local Markdown link
+  against the target's GitHub-style heading slugs and explicit HTML ids, so
+  a renamed heading fails the gate instead of leaving a dead anchor. The
+  check fixed 55 stale links in `research/`: renamed principle headings
+  now point at their current slug, and links to the unanchored `OQ-054` to
+  `OQ-066` list items point at the `Synthesis` section that holds them.
 - PDF renderer base images are fetched in their own bounded phase before
   the image build: 10 minutes per attempt, 3 attempts per image, 30 minutes
   for the phase. A slow first fill after a digest change now fails naming

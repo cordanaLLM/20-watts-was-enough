@@ -319,7 +319,7 @@ violations, messages, latency, memory, human effort, and lifecycle energy
 separately. Retire the residual when conventional online identification plus
 retrieval and explicit protocol state reaches the same frontier; neural
 synchrony cannot override that result ([C-783](claims.md#c-783)). See
-[OQ-056](open-questions.md#oq-056).
+[OQ-056](open-questions.md#synthesis).
 
 ### Opportunity- and history-qualified adaptive-action benchmark
 
@@ -341,7 +341,7 @@ system identification, and stratified evaluation. Retain the fixture only if
 it changes an architecture decision, catches a reproducible opportunity or
 history confound, and improves hidden-plant prediction without materially
 increasing false rejection ([C-841](claims.md#c-841)). See
-[OQ-057](open-questions.md#oq-057).
+[OQ-057](open-questions.md#synthesis).
 
 ### Versioned reconstructive-design benchmark
 
@@ -367,7 +367,7 @@ contextual preference models, content-addressed version control, W3C PROV, and
 ordinary design workflow. Retain the fixture only if it improves held-out
 validity, diversity, recovery, transfer, and lifecycle cost while exposing
 fixation, evaluator disagreement, material-model omissions, and lineage loss
-beyond that stack. See [OQ-058](open-questions.md#oq-058).
+beyond that stack. See [OQ-058](open-questions.md#synthesis).
 
 ### Versioned proof-discovery and verification benchmark
 
@@ -398,7 +398,7 @@ texts, and dependency-closing lemmas before partitioning. Report all candidate,
 search, counterexample, proof, certificate, checker, storage, migration, repair,
 review, human-hour, wall-time, memory, and joule costs. Retire the composition
 when that mature stack reaches the same checked-result and fault-localization
-frontier. See [OQ-059](open-questions.md#oq-059).
+frontier. See [OQ-059](open-questions.md#synthesis).
 
 ### Scale–closure–observation–control evaluation contract
 
@@ -436,7 +436,7 @@ assimilation and observability analysis, constrained sensor placement, robust
 and model-predictive control, rare-event estimation, response-aware metrology,
 and lifecycle accounting. Retire the composition when that stack reaches the
 same quality–risk–latency–resource frontier. See
-[OQ-060](open-questions.md#oq-060).
+[OQ-060](open-questions.md#synthesis).
 
 ### Representative adaptive-performance evaluation contract
 
@@ -471,7 +471,7 @@ robust optimization, state estimation and constrained control, staged
 assurance, distributed control and explicit protocols, causal selection
 analysis, and lifecycle accounting. Retire the composition when that stack
 reaches the same representative transfer, risk, and total-cost frontier. See
-[OQ-061](open-questions.md#oq-061).
+[OQ-061](open-questions.md#synthesis).
 
 ### Operator-qualified optical-inference evaluation contract
 
@@ -514,7 +514,7 @@ compressed-sensing, phase-retrieval, computational-imaging, adaptive-control,
 fusion, calibrated digital/analog hardware, monitoring, and lifecycle-accounting
 stack. Retire the composition when those methods reach the same ambiguity,
 transfer, risk, query-recovery, and total-energy frontier. See
-[OQ-062](open-questions.md#oq-062).
+[OQ-062](open-questions.md#synthesis).
 
 ### Mission-profile-qualified device-reliability evaluation contract
 
@@ -552,7 +552,7 @@ and 018. Its null is the full qualification, yield, physics-of-failure,
 survival, guardband, fault-tolerance, adaptive-margin, thermal, hardware-aware,
 mixed-precision, wear-management, and lifecycle-accounting stack. Retire the
 composition when those methods reach the same accepted-service frontier. See
-[OQ-063](open-questions.md#oq-063).
+[OQ-063](open-questions.md#synthesis).
 
 ### Operator- and action-qualified acoustic-inference evaluation contract
 
@@ -590,7 +590,7 @@ null is the complete calibrated measurement, front-end, localization,
 separation, dereverberation, scene-inference, active-control, spectrum,
 uncertainty, and lifecycle-accounting stack. Retire the composition when that
 stack reaches the same held-out operator/action/outcome/resource frontier. See
-[OQ-064](open-questions.md#oq-064).
+[OQ-064](open-questions.md#synthesis).
 
 ### Boundary-qualified physical-computation evaluation contract
 
@@ -620,7 +620,7 @@ finite-time/error-aware thermodynamics, adiabatic and conventional circuit,
 voltage/precision, memory-hierarchy, workload-metering, PUE, and lifecycle-
 assessment stack. Retire the composition when that stack reaches the same
 accepted quality–error–latency–energy–lifecycle frontier without hidden
-boundary crossings. See [OQ-065](open-questions.md#oq-065).
+boundary crossings. See [OQ-065](open-questions.md#synthesis).
 
 ### Operator-qualified active chemical-sensing evaluation contract
 
@@ -653,7 +653,7 @@ CFD/estimation, reactive-search, particle-filter, infotaxis, POMDP/MPC/VOI,
 safety-control, standards, human-work, consumable, and lifecycle stack. Retire
 the composition when that stack reaches the same literal held-out outcome,
 risk, latency, exposure, and resource frontier. See
-[OQ-066](open-questions.md#oq-066).
+[OQ-066](open-questions.md#synthesis).
 
 ## P-001 — Selective allocation
 
