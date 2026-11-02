@@ -20,8 +20,10 @@ Follow this sequence when preparing any change:
 3. **Select local checks from scope.**
    Map modified files against
    [`.github/ci-impact.json`](../.github/ci-impact.json) to identify owned
-   test suites, changed contracts, and downstream consumers. Union mixed
-   scopes; include affected CLI, integration, fixture, and generator checks.
+   test suites and changed contracts; trace actual consumers through command
+   definitions, imports, callers, shared helpers, CLI adapters, generators and
+   artifact readers; for Go, include reverse dependencies and integration
+   tests; union mixed scopes and include every affected check.
    Unknown ownership, unavailable comparisons, unsafe transitions, shared
    authority, or a consumer set that cannot be established safely require the
    full local `npm run check` gate.
@@ -34,10 +36,13 @@ Follow this sequence when preparing any change:
    For book source byte or membership changes, run `npm run generate:book-pdf`
    and `npm run validate:book-pdf`. If changes are confined to paths listed in
    [`scripts/book-render-free-sources.json`](../scripts/book-render-free-sources.json),
-   run `npm run record:book-provenance` instead of rendering
+   run `npm run record:book-provenance -- --base <revision>` instead of
+   rendering, naming the merge base of the change (the script defaults to
+   `origin/main`)
    ([Decision 0090](../decisions/0090-re-record-book-provenance-for-dependency-records.md)).
    A docs-only change outside that book-source closure may skip regeneration
-   only after proving the book source digest unchanged (Decision 0088).
+   only after proving the book source digest unchanged
+   ([Decision 0088](../decisions/0088-impact-scope-ci-and-local-validation.md)).
 5. **Update changelog and decisions.**
    Add an entry under `Unreleased` in [`CHANGELOG.md`](../CHANGELOG.md) for
    notable changes. Record a new decision under
@@ -80,10 +85,12 @@ For targeted development and incremental verification:
   governs impact-scoped CI and local check selection, permitting reuse of
   validated evidence while leaving full integration gates authoritative.
 - **Automated diff planning:**
-  `go -C tooling run ./cmd/20w ci plan --root ..` compares committed base and
-  head revisions (`--base`, `--head`). It does not see staged, unstaged or
-  untracked files, and its lane selection does not select individual Go
-  packages, so determine pending-change scope by hand.
+  `go -C tooling run ./cmd/20w ci plan --root .. --base <base-sha> --head <head-sha>`
+  compares committed base and head revisions. Both take exact 40-character
+  commits, and without them the planner returns a full plan (reason
+  missing-or-invalid-revision). It does not see staged, unstaged or untracked
+  files, and its lane selection does not select individual Go packages, so
+  determine pending-change scope by hand.
 - **Targeted workstation tests:**
   Execute dedicated scripts such as `npm run test:workstation:core` or
   specific fixture suites (`experiments/workstation/fixture-*/`) during
