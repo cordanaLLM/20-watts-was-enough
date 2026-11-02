@@ -92,6 +92,11 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Root `AGENTS.md` drops below the 12,000-character Windsurf rule-file limit:
+  the working sequence and common commands move to
+  [`docs/agent-working-sequence.md`](docs/agent-working-sequence.md), and the
+  repository map table moves to
+  [`docs/repository-map.md`](docs/repository-map.md).
 - Renovate adopts fleet-own releases immediately with zero minimum release
   age and waits three days for outside updates, superseding the seven-day delay
   ([Decision 0123](decisions/0123-adopt-fleet-own-releases-at-once-and-wait-three-days-for-outside-updates.md)).

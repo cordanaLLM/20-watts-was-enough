@@ -55,6 +55,7 @@ chapters.
 | [Research integrity baseline](../research/research-integrity-baseline.md) | Deduplicated ALLEA, EU, DFG, and institutional rules for conduct, disclosure, stewardship, ethics, correction, and review |
 | [Research-output disclosures](../research/disclosures/README.md) | Contributor roles, support, competing interests, material tools, accountable approval, and verification for tagged snapshots |
 | [Research watch](../research/ingest/README.md) | Fleet-wide literature and release lead tracking |
+| [Engineering relations](../research/engineering-relations.json) | Number-free links from external code to 20w contracts; `NO_RESULT`, never claim evidence |
 | [Open questions](../research/open-questions.md) | Unresolved research and architecture decisions |
 
 ## Mathematics, figures, and experiments
@@ -103,6 +104,12 @@ chapters.
   routes repeated dependencies, CI, releases, generated artifacts, GitHub
   metadata, security drift, and translation freshness through one existing
   authority with bounded checks and repairs.
+- [Interactive reader and portal](../app/AGENTS.md) (`app/`, `github-pages/`)
+  powers the interactive web reader and public Pages portal.
+- [Translations](../translations/README.md) (`translations/`) contains reviewed,
+  source-version-bound derivatives; English Git source remains canonical.
+- [Scripts and validators](../scripts/AGENTS.md) (`scripts/`) contains
+  validation, generation, and publication-boundary tooling.
 - [Roadmap milestones](../.github/milestones.json) and the repository-bound
   [issue assignment map](../.github/issue-milestones.json) are the reconstructible
   Git authority for the live coordination projection; they do not change claim
