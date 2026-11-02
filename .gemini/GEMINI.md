@@ -147,7 +147,7 @@ Applicable skills:
 10. Follow [`LICENSING.md`](../LICENSING.md). Citation != permission to copy;
     `sources/` and third-party material keep own terms.
 11. EU and German law, official adoptions, applicability = normative default.
-    Never infer compliance from standard title or checklist.
+    Do not infer compliance from standard title or checklist.
 12. Use pinned dependencies, full commit SHAs for GitHub Actions. Do not assert
     GitHub setting active without remote verification.
 13. Project prose carries information, no filler. Run `npm run check:prose`
