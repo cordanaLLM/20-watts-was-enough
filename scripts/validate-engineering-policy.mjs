@@ -5247,6 +5247,13 @@ export function validateWorkflowByteBound(relativePath, byteLength) {
   ];
 }
 
+export const releaseStepRunPattern =
+  /^script="\$\(git show "\$\{WORKFLOW_SHA\}:(scripts\/release\/[a-z0-9-]+\.sh)"\)"\nbash -c "\$script"$/u;
+
+export function releaseStepRun(scriptPath) {
+  return `script="$(git show "\${WORKFLOW_SHA}:${scriptPath}")"\nbash -c "$script"`;
+}
+
 export function inlineReleaseScripts(
   workflow,
   root,
@@ -5256,8 +5263,6 @@ export function inlineReleaseScripts(
   const jobs = workflow?.jobs;
   if (!jobs || typeof jobs !== "object") return findings;
 
-  const releaseScriptPattern = /^script="\$\(git show "\$\{WORKFLOW_SHA\}:(scripts\/release\/[a-z0-9-]+\.sh)"\)"\nbash -c "\$script"$/u;
-
   for (const job of Object.values(jobs)) {
     const steps = job?.steps;
     if (!Array.isArray(steps)) continue;
@@ -5266,7 +5271,7 @@ export function inlineReleaseScripts(
       if (!step.run.includes("scripts/release/")) continue;
 
       const trimmed = step.run.trim().replace(/\r\n/gu, "\n");
-      const match = trimmed.match(releaseScriptPattern);
+      const match = trimmed.match(releaseStepRunPattern);
       if (!match) {
         findings.push(
           `${relativePath}: unapproved scripts/release/ execution pattern in step run`,
@@ -5284,26 +5289,37 @@ export function inlineReleaseScripts(
 
       delete step.env.WORKFLOW_SHA;
 
-      const fullPath = path.join(root, scriptPath);
-      let content;
-      try {
-        content = fs.readFileSync(fullPath, "utf8");
-      } catch {
-        findings.push(`${relativePath}: release step script ${scriptPath} is missing`);
-        continue;
-      }
-
-      const newlineIndex = content.indexOf("\n");
-      const firstLine = (newlineIndex === -1 ? content : content.slice(0, newlineIndex)).replace(/\r$/u, "");
-      if (firstLine !== "#!/usr/bin/env bash") {
-        findings.push(`${scriptPath}: release step script must start with #!/usr/bin/env bash`);
-      } else {
-        step.run = newlineIndex === -1 ? "" : content.slice(newlineIndex + 1);
-      }
+      const body = releaseStepScriptBody(root, scriptPath, relativePath, findings);
+      if (body !== null) step.run = body;
     }
   }
 
   return findings;
+}
+
+// Reads one release step script as the step body without its shebang line;
+// returns null after recording a finding when the script is not a regular
+// file or does not start with the bash shebang.
+function releaseStepScriptBody(root, scriptPath, relativePath, findings) {
+  const fullPath = path.join(root, scriptPath);
+  let content = null;
+  try {
+    if (fs.lstatSync(fullPath).isFile()) content = fs.readFileSync(fullPath, "utf8");
+  } catch {
+    content = null;
+  }
+  if (content === null) {
+    findings.push(`${relativePath}: release step script ${scriptPath} is missing or not a regular file`);
+    return null;
+  }
+
+  const newlineIndex = content.indexOf("\n");
+  const firstLine = (newlineIndex === -1 ? content : content.slice(0, newlineIndex)).replace(/\r$/u, "");
+  if (firstLine !== "#!/usr/bin/env bash") {
+    findings.push(`${scriptPath}: release step script must start with #!/usr/bin/env bash`);
+    return null;
+  }
+  return newlineIndex === -1 ? "" : content.slice(newlineIndex + 1);
 }
 
 export function validateWorkflowTree(root, scientificRuntimeLock) {

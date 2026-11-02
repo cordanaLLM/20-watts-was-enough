@@ -92,6 +92,7 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Stale tools/figures/player/ lint and code-shape exceptions dropped following Praetor engine adoption removing the vendored player.
 - release-build workflow step bodies moved into scripts/release/ to stay under 64 KiB; policy validator inlines them and bounds workflow size.
 - Renovate adopts fleet-own releases immediately with zero minimum release
   age and waits three days for outside updates, superseding the seven-day delay

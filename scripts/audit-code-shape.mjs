@@ -29,8 +29,6 @@ export const CODE_SHAPE_POLICY = Object.freeze({
 // day after `expires` an entry no longer covers its group, and an entry that
 // matches no finding fails too, so the list cannot outlive its cause.
 // Decision 0095, point 10.
-const ENGINE_BUNDLE_REASON =
-  "minified interfig bundle that the Praetor engine writes and its audit locks byte for byte";
 const ENGINE_VENDOR_REASON =
   "interfig source that the Praetor engine vendors byte for byte from upstream";
 const ENGINE_RULE_REASON =
@@ -42,8 +40,6 @@ function engineFileException(filePath, rule, reason) {
 }
 
 export const CODE_SHAPE_EXCEPTIONS = Object.freeze([
-  engineFileException("tools/figures/player/player.js", "complexity", ENGINE_BUNDLE_REASON),
-  engineFileException("tools/figures/player/player.js", "max-statements", ENGINE_BUNDLE_REASON),
   engineFileException(
     "tools/figures/third_party/interfig/upstream/src/svg.ts",
     "max-lines-per-function",

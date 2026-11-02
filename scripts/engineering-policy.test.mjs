@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -32,6 +32,8 @@ import {
   formatFindings,
   generatedHookJobSkips,
   inlineReleaseScripts,
+  releaseStepRun,
+  releaseStepRunPattern,
   serialisedPullRequestWorkflowPaths,
   supersededRunCancellationWorkflowPaths,
   supersededRunConcurrencyGroup,
@@ -4342,12 +4344,14 @@ const vendoredSource = "tools/figures/third_party/interfig/upstream/src/svg.ts";
 const plainEntry = (entry, listKey) => ({ ...entry, [listKey]: [...entry[listKey]] });
 
 async function lintRuleIds(today, exceptions = LINT_EXCEPTIONS) {
+  const paths = exceptions.map((entry) => entry.path);
+  if (paths.length === 0) return {};
   const eslint = new ESLint({
     cwd: engineFileRoot,
     overrideConfig: createEslintConfig({ exceptions, today }),
     overrideConfigFile: true,
   });
-  const results = await eslint.lintFiles(LINT_EXCEPTIONS.map((entry) => entry.path));
+  const results = await eslint.lintFiles(paths);
   return Object.fromEntries(results.map((result) => [
     path.relative(engineFileRoot, result.filePath).split(path.sep).join("/"),
     [...new Set(result.messages.map((message) => String(message.ruleId)))].sort(),
@@ -4370,11 +4374,13 @@ function typeCheckCodes(relativePath) {
 test("engine-file exception lists are well formed and fail closed when they are not", () => {
   assert.deepEqual(engineFileExceptionFindings(LINT_EXCEPTIONS, "rules"), []);
   assert.deepEqual(engineFileExceptionFindings(TYPE_CHECK_EXCEPTIONS, "diagnostics"), []);
-  assert.deepEqual(LINT_EXCEPTIONS.map((entry) => [entry.path, entry.expires, entry.rules.length]), [
-    ["tools/figures/player/loader.js", engineFileLastDay, 1],
-    ["tools/figures/player/player.js", engineFileLastDay, 15],
-  ]);
-  const base = plainEntry(LINT_EXCEPTIONS[1], "rules");
+  assert.deepEqual(LINT_EXCEPTIONS.map((entry) => [entry.path, entry.expires, entry.rules.length]), []);
+  const base = {
+    expires: engineFileLastDay,
+    path: "tools/figures/checks.mjs",
+    reason: "engine-file exception sample",
+    rules: ["no-empty", "no-undef"],
+  };
   const label = "engine-file exception 0";
   for (const [name, entries, expected] of [
     ["not a list", { ...base }, ["engine-file exceptions must be an array"]],
@@ -4412,21 +4418,25 @@ test("engine-file exceptions apply through their last day and compare calendar d
   }
   assert.equal(currentCalendarDay(new Date("2027-01-09T23:59:59.999Z")), engineFileLastDay);
   assert.equal(currentCalendarDay(new Date("2027-01-10T00:00:00.000Z")), engineFileNextDay);
-  assert.equal(activeExceptions(LINT_EXCEPTIONS, engineFileLastDay).length, 2);
+  assert.equal(activeExceptions(LINT_EXCEPTIONS, engineFileLastDay).length, 0);
   assert.deepEqual(activeExceptions(LINT_EXCEPTIONS, engineFileNextDay), []);
   assert.deepEqual(lintExceptionOverrides(LINT_EXCEPTIONS, engineFileNextDay), []);
   const overrides = lintExceptionOverrides(LINT_EXCEPTIONS, engineFileLastDay);
-  assert.deepEqual(overrides.map((override) => override.files), LINT_EXCEPTIONS.map((entry) => [entry.path]));
-  assert.deepEqual(overrides.map((override) => Object.keys(override)), Array(2).fill(["files", "rules"]));
-  assert.deepEqual(overrides[0].rules, { "@typescript-eslint/no-unused-expressions": "off" });
-  const mixed = [{ ...plainEntry(LINT_EXCEPTIONS[0], "rules"), expires: "2026-10-10" }, LINT_EXCEPTIONS[1]];
+  assert.deepEqual(overrides.map((override) => override.files), []);
+  assert.deepEqual(overrides.map((override) => Object.keys(override)), []);
+  const sampleEntry = (filePath, expires = engineFileLastDay, rules = ["no-empty"]) =>
+    ({ expires, path: filePath, reason: "reason", rules });
+  const sampleOverrides = lintExceptionOverrides([sampleEntry("tools/figures/checks.mjs")], engineFileLastDay);
+  assert.deepEqual(sampleOverrides.map((override) => override.files), [["tools/figures/checks.mjs"]]);
+  assert.deepEqual(sampleOverrides[0].rules, { "no-empty": "off" });
+  const mixed = [sampleEntry("tools/figures/checks.mjs", "2026-10-10"), sampleEntry("tools/figures/other.mjs")];
   assert.deepEqual(lintExceptionOverrides(mixed, "2026-10-11").map((override) => override.files), [
-    ["tools/figures/player/player.js"],
+    ["tools/figures/other.mjs"],
   ]);
-  assert.equal(createEslintConfig({ today: engineFileLastDay }).length, createEslintConfig({ today: engineFileNextDay }).length + 2);
+  assert.equal(createEslintConfig({ today: engineFileLastDay }).length, createEslintConfig({ today: engineFileNextDay }).length);
 });
 
-test("the lint exceptions hide exactly the rules their two files trip, and nothing after their last day", async () => {
+test("the declared lint exceptions hide exactly the rules their files trip, and nothing after their last day", async () => {
   const declared = Object.fromEntries(LINT_EXCEPTIONS.map((entry) => [entry.path, [...entry.rules]]));
   const clean = Object.fromEntries(LINT_EXCEPTIONS.map((entry) => [entry.path, []]));
   assert.deepEqual(await lintRuleIds(engineFileLastDay), clean);
@@ -4434,28 +4444,27 @@ test("the lint exceptions hide exactly the rules their two files trip, and nothi
   // no entry is unused and none hides a rule it does not name.
   assert.deepEqual(await lintRuleIds(engineFileNextDay), declared);
   assert.deepEqual(await lintRuleIds("2026-10-11", []), declared);
-
-  const narrowed = LINT_EXCEPTIONS.map((entry) => plainEntry(entry, "rules"));
-  narrowed[1].rules = narrowed[1].rules.filter((rule) => rule !== "no-undef");
-  assert.deepEqual(await lintRuleIds("2026-10-11", narrowed), {
-    ...clean,
-    "tools/figures/player/player.js": ["no-undef"],
-  });
 });
 
 test("a lint exception covers its own file and no neighbour", async () => {
+  const sample = {
+    expires: engineFileLastDay,
+    path: "tools/figures/checks.mjs",
+    reason: "sample exception",
+    rules: ["no-empty", "no-useless-escape"],
+  };
   const eslint = new ESLint({
     cwd: engineFileRoot,
-    overrideConfig: createEslintConfig({ today: "2026-10-11" }),
+    overrideConfig: createEslintConfig({ exceptions: [sample], today: "2026-10-11" }),
     overrideConfigFile: true,
   });
   const source = "export const pattern = /a\\-b/;\nif (pattern) {}\n";
   for (const [filePath, expected] of [
-    ["tools/figures/player/player.js", []],
-    ["tools/figures/player/player.test.js", ["no-empty", "no-useless-escape"]],
-    ["tools/figures/player/nested/player.js", ["no-empty", "no-useless-escape"]],
-    ["tools/figures/player.js", ["no-empty", "no-useless-escape"]],
-    ["scripts/player.js", ["no-empty", "no-useless-escape"]],
+    ["tools/figures/checks.mjs", []],
+    ["tools/figures/checks.test.js", ["no-empty", "no-useless-escape"]],
+    ["tools/figures/nested/checks.mjs", ["no-empty", "no-useless-escape"]],
+    ["tools/figures/check.mjs", ["no-empty", "no-useless-escape"]],
+    ["scripts/checks.mjs", ["no-empty", "no-useless-escape"]],
   ]) {
     const [result] = await eslint.lintText(source, { filePath: path.join(engineFileRoot, filePath) });
     assert.deepEqual(result.messages.map((message) => message.ruleId).sort(), expected, filePath);
@@ -4879,6 +4888,52 @@ test("validateWorkflowByteBound enforces praetor 64 KiB verification-input bound
   );
 });
 
+test("releaseStepRun matches releaseStepRunPattern and release-build.yml steps, and rejects symlinks", () => {
+  assert.match(releaseStepRun("scripts/release/x.sh"), releaseStepRunPattern);
+
+  const rawReleaseBuild = parse(readFileSync(new URL("../.github/workflows/release-build.yml", import.meta.url), "utf8"));
+  let checkedStepCount = 0;
+  for (const job of Object.values(rawReleaseBuild.jobs)) {
+    for (const step of job.steps || []) {
+      if (typeof step?.run === "string" && step.run.includes("scripts/release/")) {
+        const trimmed = step.run.trim().replace(/\r\n/gu, "\n");
+        const match = trimmed.match(releaseStepRunPattern);
+        assert.ok(match, "must match releaseStepRunPattern");
+        assert.equal(trimmed, releaseStepRun(match[1]));
+        checkedStepCount++;
+      }
+    }
+  }
+  assert.equal(checkedStepCount, 3);
+
+  const symlinkTempDir = mkdtempSync(path.join(tmpdir(), "release-script-symlink-"));
+  try {
+    mkdirSync(path.join(symlinkTempDir, "scripts", "release"), { recursive: true });
+    const targetScript = path.join(symlinkTempDir, "scripts", "release", "target.sh");
+    writeFileSync(targetScript, "#!/usr/bin/env bash\necho ok\n", "utf8");
+    symlinkSync(targetScript, path.join(symlinkTempDir, "scripts", "release", "symlink.sh"));
+    const symlinkWf = {
+      jobs: {
+        release: {
+          steps: [
+            {
+              env: { WORKFLOW_SHA: "${{ job.workflow_sha }}" },
+              run: releaseStepRun("scripts/release/symlink.sh"),
+            },
+          ],
+        },
+      },
+    };
+    const symlinkFindings = [];
+    inlineReleaseScripts(symlinkWf, symlinkTempDir, ".github/workflows/release-build.yml", symlinkFindings);
+    assert.deepEqual(symlinkFindings, [
+      ".github/workflows/release-build.yml: release step script scripts/release/symlink.sh is missing or not a regular file",
+    ]);
+  } finally {
+    rmSync(symlinkTempDir, { recursive: true, force: true });
+  }
+});
+
 test("inlineReleaseScripts inlines release scripts and validates shebang, env, and script existence", () => {
   const valid = workflow("release-build");
 
@@ -4901,7 +4956,7 @@ test("inlineReleaseScripts inlines release scripts and validates shebang, env, a
         steps: [
           {
             env: { WORKFLOW_SHA: "${{ job.workflow_sha }}" },
-            run: 'script="$(git show "${WORKFLOW_SHA}:scripts/release/nonexistent.sh")"\nbash -c "$script"',
+            run: releaseStepRun("scripts/release/nonexistent.sh"),
           },
         ],
       },
@@ -4910,7 +4965,7 @@ test("inlineReleaseScripts inlines release scripts and validates shebang, env, a
   const missingFindings = [];
   inlineReleaseScripts(missingScriptWf, repoRoot, ".github/workflows/release-build.yml", missingFindings);
   assert.deepEqual(missingFindings, [
-    ".github/workflows/release-build.yml: release step script scripts/release/nonexistent.sh is missing",
+    ".github/workflows/release-build.yml: release step script scripts/release/nonexistent.sh is missing or not a regular file",
   ]);
 
   const tempDir = mkdtempSync(path.join(tmpdir(), "release-script-test-"));

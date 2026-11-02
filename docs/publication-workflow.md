@@ -357,6 +357,13 @@ Consumers use authenticated `gh release download` for draft assets, then
 `gh attestation verify --signer-workflow` naming `release-build.yml` with the
 repository, exact source commit and tag ref.
 
+The publish, preflight and admitted-candidate steps load their bodies from
+`scripts/release/` at the workflow's own commit via `job.workflow_sha`, because
+the job checks out the tag; the next release-candidate tag is the first run to
+exercise that path, so its rc checklist includes confirming those three steps
+ran the scripts from the workflow commit (step log shows git show of the
+`WORKFLOW_SHA` path).
+
 The Go catalogue derives `experiment-release-plan.json` from the checked
 workstation manifests. Policy validation reads the same manifest projection
 and requires its image, platform, Dockerfile and build-context set to match the
