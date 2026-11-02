@@ -152,7 +152,8 @@
       "paths": [
         ".github/AGENTS.md",
         ".github/CODEOWNERS",
-        ".github/workflows/**"
+        ".github/workflows/**",
+        "scripts/release/**"
       ],
       "lanes": [
         "full"

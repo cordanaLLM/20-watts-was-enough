@@ -5238,6 +5238,74 @@ function validateWorkflowPolicy(workflow, relativePath, lock, findings) {
   }
 }
 
+export function validateWorkflowByteBound(relativePath, byteLength) {
+  if (byteLength < 65536) {
+    return [];
+  }
+  return [
+    `${relativePath}: workflow is ${byteLength} bytes; keep every workflow below 65536 bytes (praetor verification-input bound); move pinned run blocks into scripts/release/*.sh`,
+  ];
+}
+
+export function inlineReleaseScripts(
+  workflow,
+  root,
+  relativePath = ".github/workflows/release-build.yml",
+  findings = [],
+) {
+  const jobs = workflow?.jobs;
+  if (!jobs || typeof jobs !== "object") return findings;
+
+  const releaseScriptPattern = /^script="\$\(git show "\$\{WORKFLOW_SHA\}:(scripts\/release\/[a-z0-9-]+\.sh)"\)"\nbash -c "\$script"$/u;
+
+  for (const job of Object.values(jobs)) {
+    const steps = job?.steps;
+    if (!Array.isArray(steps)) continue;
+    for (const step of steps) {
+      if (!step || typeof step.run !== "string") continue;
+      if (!step.run.includes("scripts/release/")) continue;
+
+      const trimmed = step.run.trim().replace(/\r\n/gu, "\n");
+      const match = trimmed.match(releaseScriptPattern);
+      if (!match) {
+        findings.push(
+          `${relativePath}: unapproved scripts/release/ execution pattern in step run`,
+        );
+        continue;
+      }
+
+      const scriptPath = match[1];
+      if (step.env?.WORKFLOW_SHA !== "${{ job.workflow_sha }}") {
+        findings.push(
+          `${relativePath}: release step script ${scriptPath} must set env.WORKFLOW_SHA to \${{ job.workflow_sha }}`,
+        );
+        continue;
+      }
+
+      delete step.env.WORKFLOW_SHA;
+
+      const fullPath = path.join(root, scriptPath);
+      let content;
+      try {
+        content = fs.readFileSync(fullPath, "utf8");
+      } catch {
+        findings.push(`${relativePath}: release step script ${scriptPath} is missing`);
+        continue;
+      }
+
+      const newlineIndex = content.indexOf("\n");
+      const firstLine = (newlineIndex === -1 ? content : content.slice(0, newlineIndex)).replace(/\r$/u, "");
+      if (firstLine !== "#!/usr/bin/env bash") {
+        findings.push(`${scriptPath}: release step script must start with #!/usr/bin/env bash`);
+      } else {
+        step.run = newlineIndex === -1 ? "" : content.slice(newlineIndex + 1);
+      }
+    }
+  }
+
+  return findings;
+}
+
 export function validateWorkflowTree(root, scientificRuntimeLock) {
   const findings = [];
   const directory = path.join(root, ".github", "workflows");
@@ -5254,8 +5322,10 @@ export function validateWorkflowTree(root, scientificRuntimeLock) {
       findings.push(relativePath + ": workflow policy surface must be a regular file");
       continue;
     }
+    findings.push(...validateWorkflowByteBound(relativePath, Buffer.byteLength(readText(root, relativePath))));
     const workflow = parseYaml(root, relativePath, findings);
     if (workflow) {
+      inlineReleaseScripts(workflow, root, relativePath, findings);
       validateWorkflowPolicy(workflow, relativePath, scientificRuntimeLock, findings);
     }
   }

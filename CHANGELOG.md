@@ -92,6 +92,7 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- release-build workflow step bodies moved into scripts/release/ to stay under 64 KiB; policy validator inlines them and bounds workflow size.
 - Renovate adopts fleet-own releases immediately with zero minimum release
   age and waits three days for outside updates, superseding the seven-day delay
   ([Decision 0123](decisions/0123-adopt-fleet-own-releases-at-once-and-wait-three-days-for-outside-updates.md)).

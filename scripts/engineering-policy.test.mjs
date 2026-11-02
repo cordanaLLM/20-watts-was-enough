@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { ESLint } from "eslint";
 import ts from "typescript";
@@ -30,6 +31,7 @@ import {
   engineManagedWorkflowPaths,
   formatFindings,
   generatedHookJobSkips,
+  inlineReleaseScripts,
   serialisedPullRequestWorkflowPaths,
   supersededRunCancellationWorkflowPaths,
   supersededRunConcurrencyGroup,
@@ -82,11 +84,17 @@ import {
   validateImpactAuthorityScriptsObject,
   validateUnpinnedImageSourceLabels,
   validateWorkstationShardScriptsObject,
+  validateWorkflowByteBound,
   validateWorkflowObject,
   validateWorkflowTree,
 } from "./validate-engineering-policy.mjs";
 
-const workflow = (name) => parse(readFileSync(new URL(`../.github/workflows/${name}.yml`, import.meta.url), "utf8"));
+const repoRoot = fileURLToPath(new URL("..", import.meta.url));
+const workflow = (name) => {
+  const parsed = parse(readFileSync(new URL(`../.github/workflows/${name}.yml`, import.meta.url), "utf8"));
+  inlineReleaseScripts(parsed, repoRoot, `.github/workflows/${name}.yml`, []);
+  return parsed;
+};
 
 test("release caller retains only the serialized tag publication boundary", () => {
   const valid = workflow("release");
@@ -4853,4 +4861,124 @@ test("release policy refuses prerelease drift and latest promotion", () => {
     mutate(subject);
     assert.notDeepEqual(validateReleaseWorkflowObject(subject), []);
   }
+});
+
+test("validateWorkflowByteBound enforces praetor 64 KiB verification-input bound", () => {
+  assert.deepEqual(validateWorkflowByteBound(".github/workflows/release-build.yml", 65535), []);
+  assert.deepEqual(
+    validateWorkflowByteBound(".github/workflows/release-build.yml", 65536),
+    [
+      ".github/workflows/release-build.yml: workflow is 65536 bytes; keep every workflow below 65536 bytes (praetor verification-input bound); move pinned run blocks into scripts/release/*.sh",
+    ],
+  );
+  assert.deepEqual(
+    validateWorkflowByteBound(".github/workflows/release-build.yml", 65537),
+    [
+      ".github/workflows/release-build.yml: workflow is 65537 bytes; keep every workflow below 65536 bytes (praetor verification-input bound); move pinned run blocks into scripts/release/*.sh",
+    ],
+  );
+});
+
+test("inlineReleaseScripts inlines release scripts and validates shebang, env, and script existence", () => {
+  const valid = workflow("release-build");
+
+  for (const [stepName, scriptRelativePath] of [
+    ["Preflight the remote release without mutation", "scripts/release/preflight-release.sh"],
+    ["Run the admitted candidates by immutable digest", "scripts/release/run-admitted-candidates.sh"],
+    ["Publish or validate the immutable GitHub release", "scripts/release/publish-release.sh"],
+  ]) {
+    const step = releaseImageStepByName(valid, stepName);
+    const scriptContent = readFileSync(path.join(repoRoot, scriptRelativePath), "utf8");
+    const newlineIndex = scriptContent.indexOf("\n");
+    const expectedRun = scriptContent.slice(newlineIndex + 1);
+    assert.equal(step.run, expectedRun);
+    assert.equal(step.env.WORKFLOW_SHA, undefined);
+  }
+
+  const missingScriptWf = {
+    jobs: {
+      release: {
+        steps: [
+          {
+            env: { WORKFLOW_SHA: "${{ job.workflow_sha }}" },
+            run: 'script="$(git show "${WORKFLOW_SHA}:scripts/release/nonexistent.sh")"\nbash -c "$script"',
+          },
+        ],
+      },
+    },
+  };
+  const missingFindings = [];
+  inlineReleaseScripts(missingScriptWf, repoRoot, ".github/workflows/release-build.yml", missingFindings);
+  assert.deepEqual(missingFindings, [
+    ".github/workflows/release-build.yml: release step script scripts/release/nonexistent.sh is missing",
+  ]);
+
+  const tempDir = mkdtempSync(path.join(tmpdir(), "release-script-test-"));
+  try {
+    mkdirSync(path.join(tempDir, "scripts", "release"), { recursive: true });
+    writeFileSync(
+      path.join(tempDir, "scripts", "release", "no-shebang.sh"),
+      "set -euo pipefail\necho no shebang\n",
+      "utf8",
+    );
+    const noShebangWf = {
+      jobs: {
+        release: {
+          steps: [
+            {
+              env: { WORKFLOW_SHA: "${{ job.workflow_sha }}" },
+              run: 'script="$(git show "${WORKFLOW_SHA}:scripts/release/no-shebang.sh")"\nbash -c "$script"',
+            },
+          ],
+        },
+      },
+    };
+    const noShebangFindings = [];
+    inlineReleaseScripts(noShebangWf, tempDir, ".github/workflows/release-build.yml", noShebangFindings);
+    assert.deepEqual(noShebangFindings, [
+      "scripts/release/no-shebang.sh: release step script must start with #!/usr/bin/env bash",
+    ]);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+
+  for (const invalidEnv of [
+    { WORKFLOW_SHA: "wrong-sha" },
+    { WORKFLOW_SHA: "${{ github.sha }}" },
+    {},
+    undefined,
+  ]) {
+    const wrongEnvWf = {
+      jobs: {
+        release: {
+          steps: [
+            {
+              env: invalidEnv,
+              run: 'script="$(git show "${WORKFLOW_SHA}:scripts/release/preflight-release.sh")"\nbash -c "$script"',
+            },
+          ],
+        },
+      },
+    };
+    const wrongEnvFindings = [];
+    inlineReleaseScripts(wrongEnvWf, repoRoot, ".github/workflows/release-build.yml", wrongEnvFindings);
+    assert.equal(wrongEnvFindings.length, 1);
+    assert.match(wrongEnvFindings[0], /must set env\.WORKFLOW_SHA/);
+  }
+
+  const unapprovedWf = {
+    jobs: {
+      release: {
+        steps: [
+          {
+            run: "bash scripts/release/preflight-release.sh",
+          },
+        ],
+      },
+    },
+  };
+  const unapprovedFindings = [];
+  inlineReleaseScripts(unapprovedWf, repoRoot, ".github/workflows/release-build.yml", unapprovedFindings);
+  assert.equal(unapprovedFindings.length, 1);
+  assert.match(unapprovedFindings[0], /unapproved scripts\/release/);
 });

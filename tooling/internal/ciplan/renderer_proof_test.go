@@ -29,6 +29,9 @@ func TestRendererProofSelectionKeepsTheRenderGate(t *testing.T) {
 		{"selector", []string{"app/globals.css", ".github/ci-impact.json"}, "image-build"},
 		{"release workflow", []string{".github/workflows/release.yml"}, "image-build"},
 		{"release builder", []string{".github/workflows/release-build.yml"}, "image-build"},
+		{"release preflight script", []string{"scripts/release/preflight-release.sh"}, "image-build"},
+		{"release publish script", []string{"scripts/release/publish-release.sh"}, "image-build"},
+		{"release run candidates script", []string{"scripts/release/run-admitted-candidates.sh"}, "image-build"},
 		{"unknown companion", []string{"app/globals.css", "unmapped/new-file"}, "image-build"},
 		{"no renderer", []string{"README.md"}, "none"},
 	} {
