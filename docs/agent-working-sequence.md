@@ -9,30 +9,45 @@ Follow this step-by-step sequence when preparing any change:
 
 1. **Inspect affected authorities.**
    Read the controlling authority file for the files in scope (see
-   [`repository-map.md`](repository-map.md) and [`principles.md`](principles.md)).
-   Before committing, inspect staged, unstaged, and untracked changes with `git status`
-   and `git diff`. Local tests execute the entire working tree, not only the Git index.
+   [`repository-map.md`](repository-map.md) and
+   [`principles.md`](principles.md)).
+   Before committing, inspect staged, unstaged, and untracked changes with `git
+   status`,
+   `git diff --cached` and `git diff`. Local tests execute the entire working
+   tree, not only the Git index.
 2. **Make minimal, focused patches.**
-   Keep changes confined to the smallest coherent chapter, claim, equation, test,
+   Keep changes confined to the smallest coherent chapter, claim, equation,
+   test,
    or decision. Do not rewrite neighbouring material for style alone.
 3. **Select local checks from scope.**
-   Map modified files against [`.github/ci-impact.json`](../.github/ci-impact.json)
-   to identify owned test suites, changed contracts, and downstream consumers. Union
-   mixed scopes; include affected CLI, integration, fixture, and generator checks.
-   When changes touch shared authorities or have unknown blast radius, run the full
+   Map modified files against
+   [`.github/ci-impact.json`](../.github/ci-impact.json)
+   to identify owned test suites, changed contracts, and downstream consumers.
+   Union
+   mixed scopes; include affected CLI, integration, fixture, and generator
+   checks.
+   When changes touch shared authorities or have unknown blast radius, run the
+   full
    local test gate.
 4. **Execute verification checks before push.**
    Run selected test commands locally before committing. Execute `npm run check`
-   for full verification before marking pull requests ready, merging, or releasing.
-   For book source byte or membership changes, run `npm run generate:book-pdf` and
-   `npm run validate:book-pdf`. If changes are strictly confined to paths listed in
+   for full verification before marking pull requests ready, merging, or
+   releasing.
+   For book source byte or membership changes, run `npm run generate:book-pdf`
+   and
+   `npm run validate:book-pdf`. If changes are strictly confined to paths listed
+   in
    [`scripts/book-render-free-sources.json`](../scripts/book-render-free-sources.json),
    run `npm run record:book-provenance` instead of rendering
-   ([Decision 0090](../decisions/0090-re-record-book-provenance-for-dependency-records.md)).
+   ([Decision
+   0090](../decisions/0090-re-record-book-provenance-for-dependency-records.md)).
 5. **Update changelog and decisions.**
-   Add an entry under `Unreleased` in [`CHANGELOG.md`](../CHANGELOG.md) for notable
-   changes. Record a new decision under [`decisions/`](../decisions/README.md) when an
-   authority, architecture, policy, licensing, publication, or release rule changes
+   Add an entry under `Unreleased` in [`CHANGELOG.md`](../CHANGELOG.md) for
+   notable
+   changes. Record a new decision under [`decisions/`](../decisions/README.md)
+   when an
+   authority, architecture, policy, licensing, publication, or release rule
+   changes
    durably.
 6. **Use Conventional Commits.**
    Write commit messages following the Conventional Commits specification. Push
@@ -66,20 +81,24 @@ npm run validate:book-pdf
 For targeted development and incremental verification:
 
 - **Impact scoping:**
-  [Decision 0088](../decisions/0088-impact-scope-ci-and-local-validation.md) governs
+  [Decision 0088](../decisions/0088-impact-scope-ci-and-local-validation.md)
+  governs
   impact-scoped CI and local check selection, permitting reuse of validated
   evidence while leaving full integration gates authoritative.
 - **Automated diff planning:**
-  `go -C tooling run ./cmd/20w ci plan` compares committed base and head
+  `go -C tooling run ./cmd/20w ci plan --root ..` compares committed base and
+  head
   revisions (`-base`, `-head`). It does not see staged, unstaged or untracked
   files, and its lane selection does not select individual Go packages, so
   determine pending-change scope by hand.
 - **Targeted workstation tests:**
   Execute dedicated scripts such as `npm run test:workstation:core` or specific
-  fixture suites (`experiments/workstation/fixture-*/`) during component development.
+  fixture suites (`experiments/workstation/fixture-*/`) during component
+  development.
 - **Go tooling tests:**
   Validate Go packages and tooling CLI commands via `npm run test:go`
   (`go -C tooling test -race ./... && go -C tooling vet ./...`).
 - **Prose audit tripwire:**
-  Verify canonical Markdown prose with `npm run check:prose` (`scripts/audit-prose-style.mjs`)
+  Verify canonical Markdown prose with `npm run check:prose`
+  (`scripts/audit-prose-style.mjs`)
   and Markdown formatting with `node tools/markdownlint/verify.mjs`.

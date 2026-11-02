@@ -104,30 +104,59 @@ make verify-all
 
 # Repository agent contract
 
-Read [`docs/principles.md`](docs/principles.md) before repository edits: project engineering + research contract. Read nearest nested `AGENTS.md` for scoped files.
+Read [`docs/principles.md`](docs/principles.md) before repository edits: project
+engineering + research contract. Read nearest nested `AGENTS.md` for scoped
+files.
 
 Applicable skills:
-- Explanatory prose: [`research-writing`](.agents/skills/research-writing/SKILL.md). Excludes imported sources, verbatim quotations.
-- Public layout, typography, colour, interface hierarchy, brand expression: [`research-design`](.agents/skills/research-design/SKILL.md); plus [`reader-editor`](.agents/skills/reader-editor/SKILL.md) when design problem exposes prose comprehension failure.
-- Continuous book or generated PDF hierarchy, print typography, pagination, navigation, figures, tables, equations, visual QA contract: also [`publication-design`](.agents/skills/publication-design/SKILL.md).
-- Recurring dependency, CI, release, generation, GitHub-metadata, security-drift, translation-freshness automation: [`maintenance-automation`](.agents/skills/maintenance-automation/SKILL.md). Grants no authority to automate scientific judgement, claim promotion, consequential remote state.
+- Explanatory prose:
+  [`research-writing`](.agents/skills/research-writing/SKILL.md). Excludes
+  imported sources, verbatim quotations.
+- Public layout, typography, colour, interface hierarchy, brand expression:
+  [`research-design`](.agents/skills/research-design/SKILL.md); plus
+  [`reader-editor`](.agents/skills/reader-editor/SKILL.md) when design problem
+  exposes prose comprehension failure.
+- Continuous book or generated PDF hierarchy, print typography, pagination,
+  navigation, figures, tables, equations, visual QA contract: also
+  [`publication-design`](.agents/skills/publication-design/SKILL.md).
+- Recurring dependency, CI, release, generation, GitHub-metadata,
+  security-drift, translation-freshness automation:
+  [`maintenance-automation`](.agents/skills/maintenance-automation/SKILL.md).
+  Grants no authority to automate scientific judgement, claim promotion,
+  consequential remote state.
 
 ## Hard rules
 
-1. Git `main` canonical. Do not sync or regenerate concept from chat or parallel document store.
-2. Change smallest coherent chapter, claim, equation, test, diagram, or decision. Preserve unrelated, untracked files.
+1. Git `main` canonical. Do not sync or regenerate concept from chat or parallel
+   document store.
+2. Change smallest coherent chapter, claim, equation, test, diagram, or
+   decision. Preserve unrelated, untracked files.
 3. Keep observation, engineering translation, hypothesis distinct.
-4. Add or update stable `C-` claim before promoting major assertion. Map to existing `P-` bundle before inventing principle.
-5. Primary or authoritative sources support claims; imported conversations, summaries identify leads only.
-6. Never present smoke, readiness, construction, synthetic calibration, or protocol conformance as scientific result.
-7. Define every quantitative boundary, unit, symbol, comparator, hardware context, uncertainty source.
-8. Bound every experiment loop, retry, queue, subprocess, search grid, output, timeout. Record seeds, run identity at claim-eligible boundaries.
-9. Keep generated sources editable, deterministic. Do not edit `dist/`, `dist-github-pages/`, generated reader copies.
-10. Follow [`LICENSING.md`](LICENSING.md). Citation != permission to copy; `sources/` and third-party material keep own terms.
-11. EU and German law, official adoptions, applicability = normative default. Never infer compliance from standard title or checklist.
-12. Use pinned dependencies, full commit SHAs for GitHub Actions. Do not assert GitHub setting active without remote verification.
-13. Project prose carries information, no filler. Run `npm run check:prose` after Markdown edit. Site-code prose = review-gated; tripwire skips JSX/HTML extraction.
-14. Apply [`research/research-integrity-baseline.md`](research/research-integrity-baseline.md) at research boundaries. Disclose contributors, support, competing interests, AI/tools; complete ethics/misuse review before work starts.
+4. Add or update stable `C-` claim before promoting major assertion. Map to
+   existing `P-` bundle before inventing principle.
+5. Primary or authoritative sources support claims; imported conversations,
+   summaries identify leads only.
+6. Never present smoke, readiness, construction, synthetic calibration, or
+   protocol conformance as scientific result.
+7. Define every quantitative boundary, unit, symbol, comparator, hardware
+   context, uncertainty source.
+8. Bound every experiment loop, retry, queue, subprocess, search grid, output,
+   timeout. Record seeds, run identity at claim-eligible boundaries.
+9. Keep generated sources editable, deterministic. Do not edit `dist/`,
+   `dist-github-pages/`, generated reader copies.
+10. Follow [`LICENSING.md`](LICENSING.md). Citation != permission to copy;
+    `sources/` and third-party material keep own terms.
+11. EU and German law, official adoptions, applicability = normative default.
+    Never infer compliance from standard title or checklist.
+12. Use pinned dependencies, full commit SHAs for GitHub Actions. Do not assert
+    GitHub setting active without remote verification.
+13. Project prose carries information, no filler. Run `npm run check:prose`
+    after Markdown edit. Site-code prose = review-gated; tripwire skips JSX/HTML
+    extraction.
+14. Apply
+    [`research/research-integrity-baseline.md`](research/research-integrity-baseline.md)
+    at research boundaries. Disclose contributors, support, competing interests,
+    AI/tools; complete ethics/misuse review before work starts.
 
 ## Repository map
 
@@ -135,12 +164,18 @@ Authority map: [`docs/repository-map.md`](docs/repository-map.md).
 
 ## Working sequence
 
-Working sequence and common commands: [`docs/agent-working-sequence.md`](docs/agent-working-sequence.md).
+Read + follow [`docs/agent-working-sequence.md`](docs/agent-working-sequence.md)
+before changing repository files: working sequence, check selection, book PDF
+render step for book-source changes outside
+`scripts/book-render-free-sources.json`, common commands.
 
 ## File-specific instructions
 
-- [`research/AGENTS.md`](research/AGENTS.md): claims, evidence, audits, principle deduplication, normative material.
-- [`experiments/AGENTS.md`](experiments/AGENTS.md): candidate, fixture contracts.
-- [`experiments/workstation/AGENTS.md`](experiments/workstation/AGENTS.md): executable runs, authority boundaries.
+- [`research/AGENTS.md`](research/AGENTS.md): claims, evidence, audits,
+  principle deduplication, normative material.
+- [`experiments/AGENTS.md`](experiments/AGENTS.md): candidate, fixture
+  contracts.
+- [`experiments/workstation/AGENTS.md`](experiments/workstation/AGENTS.md):
+  executable runs, authority boundaries.
 - [`app/AGENTS.md`](app/AGENTS.md): interactive reader.
 - [`scripts/AGENTS.md`](scripts/AGENTS.md): validators, generators.
