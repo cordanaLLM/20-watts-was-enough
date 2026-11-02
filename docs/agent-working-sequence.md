@@ -21,9 +21,9 @@ Follow this sequence when preparing any change:
    Map modified files against
    [`.github/ci-impact.json`](../.github/ci-impact.json) to identify owned
    test suites and changed contracts; trace actual consumers through command
-   definitions, imports, callers, shared helpers, CLI adapters, generators and
-   artifact readers; for Go, include reverse dependencies and integration
-   tests; union mixed scopes and include every affected check.
+   definitions, imports, callers, fixtures, shared helpers, CLI adapters,
+   generators and artifact readers; for Go, include reverse dependencies and
+   integration tests; union mixed scopes and include every affected check.
    Unknown ownership, unavailable comparisons, unsafe transitions, shared
    authority, or a consumer set that cannot be established safely require the
    full local `npm run check` gate.
