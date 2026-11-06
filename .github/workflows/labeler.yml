@@ -16,7 +16,7 @@ jobs:
   label:
     name: Apply pull-request metadata
     runs-on: ubuntu-26.04
-    timeout-minutes: 10
+    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
     permissions:
       contents: read
       issues: write

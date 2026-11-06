@@ -110,8 +110,8 @@ test("trusted builder rejects imported assets, bypassed signing, and independent
   assert.deepEqual(validateReleaseBuilderWorkflowObject(valid), []);
   for (const mutate of [
     (subject) => { subject.on.push = {}; },
+    (subject) => { subject.jobs.release["timeout-minutes"] = 112; },
     (subject) => { subject.jobs.release["timeout-minutes"] = 114; },
-    (subject) => { subject.jobs.release["timeout-minutes"] = 116; },
     (subject) => { subject.jobs.release.steps.push({ uses: "actions/download-artifact@0123456789012345678901234567890123456789" }); },
     (subject) => { subject.jobs.release.steps.push({ run: "gh run download 123" }); },
     (subject) => { subject.jobs.release.steps.filter((step) => step.uses?.startsWith("actions/checkout@"))[1].with.clean = true; },

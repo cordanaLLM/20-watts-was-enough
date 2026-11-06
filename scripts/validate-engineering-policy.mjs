@@ -1393,7 +1393,7 @@ function pdfReproducibilityCiJobIsExact(job) {
   const receipt = receiptIndex >= 0 ? steps[receiptIndex] : undefined;
   return job?.needs === "impact-plan"
     && job?.if === "needs.impact-plan.outputs.renderer == 'true'"
-    && job?.["timeout-minutes"] === 75
+    && job?.["timeout-minutes"] === 13
     && Object.keys(job?.permissions ?? {}).length === 1
     && job.permissions.contents === "read"
     && continueOnErrorIsDisabled(job)
@@ -1452,7 +1452,7 @@ export function validatePDFRendererReproducibilityWorkflowObject(workflow, relat
       && String(step?.run ?? "").includes("--additional-assets-root build/release-inputs")
     ));
     if (
-      job?.["timeout-minutes"] === 115
+      job?.["timeout-minutes"] === 113
       && continueOnErrorIsDisabled(job)
       && setupIndex >= 0
       && nativeIndex > setupIndex
@@ -1546,7 +1546,7 @@ function impactPlanJobBoundaryIsExact(workflow, plan) {
     privateGoJobHasNoInheritedEnvironment(workflow, plan),
     plan?.name === "CI impact plan",
     plan?.["runs-on"] === "ubuntu-26.04",
-    plan?.["timeout-minutes"] === 10,
+    plan?.["timeout-minutes"] === 5,
     Object.keys(plan?.permissions ?? {}).length === 1,
     plan?.permissions?.contents === "read",
     plan?.if === undefined,
@@ -2025,7 +2025,7 @@ function codeQlJobBoundaryIsExact(job, name, expectedStepCount) {
     && job?.needs === undefined
     && job?.if === undefined
     && job?.["runs-on"] === "ubuntu-26.04"
-    && job?.["timeout-minutes"] === 30
+    && job?.["timeout-minutes"] === 5
     && Object.keys(job?.permissions ?? {}).length === 3
     && propertiesMatch(job?.permissions, {
       contents: "read",
@@ -2352,7 +2352,7 @@ function pullRequestMetadataPermissionsAreExact(workflow, job) {
 function pullRequestMetadataBoundaryIsExact(workflow, job) {
   return (
     job?.["runs-on"] === "ubuntu-26.04"
-    && job?.["timeout-minutes"] === 10
+    && job?.["timeout-minutes"] === 5
     && job?.if === undefined
     && continueOnErrorIsDisabled(job)
     && workflow?.concurrency?.group === "${{ github.workflow }}-${{ github.event.pull_request.number }}"
@@ -4971,7 +4971,7 @@ export function validateReleaseBuilderWorkflowObject(workflow, relativePath = ".
 function releaseBuilderJobIsExact(job) {
   return propertiesMatch(job?.permissions, releasePermissions)
     && Object.keys(job?.permissions ?? {}).length === 4
-    && job?.["timeout-minutes"] === 115
+    && job?.["timeout-minutes"] === 113
     && job?.needs === undefined
     && job?.if === undefined
     && continueOnErrorIsDisabled(job);

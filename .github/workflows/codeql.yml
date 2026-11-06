@@ -20,7 +20,7 @@ jobs:
   analyze:
     name: JavaScript and TypeScript analysis
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
     permissions:
       contents: read
       security-events: write
@@ -43,7 +43,7 @@ jobs:
   analyze-go:
     name: Go analysis
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
     permissions:
       contents: read
       security-events: write
