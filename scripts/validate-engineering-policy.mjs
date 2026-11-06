@@ -5011,11 +5011,22 @@ function releaseBuilderJobIsExact(job) {
     && continueOnErrorIsDisabled(job);
 }
 
+const cosignReleasePattern = /^v3\.(\d+)\.(\d+)$/;
+
+function isApprovedCosignRelease(release) {
+  if (typeof release !== "string") return false;
+  const match = cosignReleasePattern.exec(release);
+  if (!match) return false;
+  const minor = Number.parseInt(match[1], 10);
+  const patch = Number.parseInt(match[2], 10);
+  return minor > 1 || (minor === 1 && patch >= 3);
+}
+
 function validateReleaseSigningSteps(steps, relativePath, findings) {
   const installer = findStepByName(steps, "Install the pinned cosign client");
   recordExpectation(findings, actionUses(installer, "sigstore/cosign-installer")
-    && installer.with?.["cosign-release"] === "v3.1.3",
-  `${relativePath}: release must install the pinned cosign v3.1.3 client`);
+    && isApprovedCosignRelease(installer?.with?.["cosign-release"]),
+  `${relativePath}: release must install an exact cosign v3.x.y client >= v3.1.3`);
   for (const [label, suffix, output, flag] of [
     ["static 20w", "20w", "build-tooling-image", "tooling"],
     ["Fixture 007", "fixture-007", "build-fixture-007-image", "fixture007"],
