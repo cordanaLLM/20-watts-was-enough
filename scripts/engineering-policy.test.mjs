@@ -475,7 +475,7 @@ test("the taxonomy gate rebuilds the taxonomy JSON from its sources in every lan
 
   const ci = workflow("ci");
   assert.deepEqual(validateResearchLanePythonWorkflowObject(ci), []);
-  const laneFinding = "workflow.yml: job lane-research must use locked Python 3.15.0 before the research checks";
+  const laneFinding = "workflow.yml: job lane-research must use locked Python 3.15.2 before the research checks";
   const steps = ci.jobs["lane-research"].steps;
   const setup = steps.findIndex((step) => step.uses?.startsWith("actions/setup-python@"));
   const withoutPython = structuredClone(ci);
@@ -924,9 +924,9 @@ test("workflow validation accepts only the reviewed action digests", () => {
 });
 
 test("scientific workflows must provision the fixture-locked Python and NumPy runtime", () => {
-  const lock = { python_version: "3.15.0", packages: { numpy: "2.5.4" } };
+  const lock = { python_version: "3.15.2", packages: { numpy: "2.5.4" } };
   const validSteps = [
-    { uses: "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97", with: { "python-version": "3.15.0" } },
+    { uses: "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97", with: { "python-version": "3.15.2" } },
     { run: "python -m pip install --disable-pip-version-check --no-deps --require-hashes -r requirements-ci.txt" },
   ];
   assert.deepEqual(validateScientificRuntimeWorkflowObject(
@@ -939,7 +939,7 @@ test("scientific workflows must provision the fixture-locked Python and NumPy ru
     lock,
     "quality",
   ), [
-    "workflow.yml: job quality must use locked Python 3.15.0",
+    "workflow.yml: job quality must use locked Python 3.15.2",
     "workflow.yml: job quality must install hash-locked NumPy 2.5.4 without dependencies",
   ]);
 });
@@ -949,7 +949,7 @@ test("the scientific runtime lock is the exact reviewed CPython and NumPy artifa
     schema: 1,
     artifact: "fixture-019",
     python_implementation: "CPython",
-    python_version: "3.15.0",
+    python_version: "3.15.2",
     packages: { numpy: "2.5.4" },
     package_artifacts: {
       numpy: {
@@ -968,7 +968,7 @@ test("the scientific runtime lock is the exact reviewed CPython and NumPy artifa
   tampered.package_artifacts.numpy.sha256 = "0".repeat(64);
   tampered.unreviewed_package_source = "https://example.invalid";
   assert.deepEqual(validateScientificRuntimeLock(tampered), [
-    "experiments/workstation/fixture-019/python-environment.lock.json: python_version must be \"3.15.0\"",
+    "experiments/workstation/fixture-019/python-environment.lock.json: python_version must be \"3.15.2\"",
     "experiments/workstation/fixture-019/python-environment.lock.json: scientific runtime lock contains an unknown or missing field",
     "experiments/workstation/fixture-019/python-environment.lock.json: packages must contain only NumPy 2.5.4",
     "experiments/workstation/fixture-019/python-environment.lock.json: NumPy 2.5.4 must use the approved CPython 3.15 Linux x86_64 wheel and SHA-256 digest",
@@ -3743,7 +3743,7 @@ test("container policy withholds arm64 and enforces exact-digest runtime identit
     ['if [[ "$tooling_identity" != "$expected_tooling_identity" ]]; then', "if false; then"],
     ['"go_version":"go1.27.3"', '"go_version":"go1.28.0"'],
     ['if [[ "$fixture_007_node" != "v26.13.0" ]]; then', "if false; then"],
-    ['"Python 3.15.0"', '"Python 3.15.1"'],
+    ['"Python 3.15.2"', '"Python 3.15.1"'],
     ['numpy.__version__ == \\"2.5.4\\"', 'numpy.__version__ == \\"2.5.5\\"'],
   ]) {
     assertWorkflowTamper(

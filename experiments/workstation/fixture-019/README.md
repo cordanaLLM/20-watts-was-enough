@@ -30,7 +30,9 @@ assignment exactly.
 A v0.3.0 or later release whose source contains and passes the release workflow
 publishes the scoped Linux `amd64` image at
 `ghcr.io/cordanallm/20-watts-was-enough-fixture-019`. It binds Node.js 26.13.0,
-CPython 3.15.0 and NumPy 2.5.4 for this fixture only. The Go packager gives the
+CPython 3.15.2 and NumPy 2.5.4 for this fixture only at this source revision;
+an earlier release binds the versions in its own
+`python-environment.lock.json`. The Go packager gives the
 build only the declared Fixture 019 files and a checked closure manifest; it
 does not send the repository root as container context. Follow the
 [digest-first container instructions](../README.md#fixture-019-fixed-point-forecast-diagnostic)

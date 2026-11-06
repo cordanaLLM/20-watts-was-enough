@@ -30,7 +30,7 @@ const runtimePolicy = Object.freeze({
   numpyFilename: "numpy-2.5.4-cp315-cp315-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
   numpyVersion: "2.5.4",
   pythonImplementation: "CPython",
-  pythonVersion: "3.15.0",
+  pythonVersion: "3.15.2",
 });
 
 // Workflows read the Node version from this file. runtimePolicy.nodeVersion
