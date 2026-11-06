@@ -147,6 +147,7 @@ async function isExecutionReady(id) {
     return {
       ready: validation.ready,
       readiness: validation.readiness,
+      errors: validation.errors,
       manifest: validation.readiness === "absent"
         ? null
         : toPosix(path.relative(root, manifestPath)),
@@ -181,6 +182,9 @@ for (const absolutePath of artifactPaths) {
   const missingFacets = missingProtocolFacets(body);
   const execution = await isExecutionReady(id);
   const harnessStatus = harnessStatusFrom(body, id, knownArtifactIds);
+  if (execution.readiness === "invalid") {
+    harnessErrors.push(`${relativePath}: workstation manifest is invalid: ${execution.errors.join("; ")}`);
+  }
   if (relativePath.startsWith("experiments/fixtures/")) {
     if (execution.readiness === "absent" && harnessStatus === null) {
       harnessErrors.push(`${relativePath}: no workstation manifest and no "## Harness status" section`);

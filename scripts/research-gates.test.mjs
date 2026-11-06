@@ -255,6 +255,16 @@ test("test coverage check accepts the tree and refuses stale or missing reports"
         () => Buffer.from("null\n"),
         () => assertRefused(run(), /Failed to validate experiments\/workstation\/manifests\/fixture-007\.json/u),
       ));
+    await t.test("a fixture with a malformed workstation manifest is refused", () =>
+      withPlant(
+        root,
+        "experiments/workstation/manifests/fixture-007.json",
+        () => Buffer.from("{\n"),
+        () => assertRefused(
+          run(),
+          /experiments\/fixtures\/007-operator-qualified-optical-inference\.md: workstation manifest is invalid: invalid JSON:/u,
+        ),
+      ));
   });
 });
 
