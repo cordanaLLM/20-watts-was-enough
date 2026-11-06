@@ -183,7 +183,9 @@ for (const absolutePath of artifactPaths) {
   const execution = await isExecutionReady(id);
   const harnessStatus = harnessStatusFrom(body, id, knownArtifactIds);
   if (execution.readiness === "invalid") {
-    harnessErrors.push(`${relativePath}: workstation manifest is invalid: ${execution.errors.join("; ")}`);
+    harnessErrors.push(
+      `${execution.manifest}: workstation manifest is invalid (artifact ${relativePath}): ${execution.errors.join("; ")}`,
+    );
   }
   if (relativePath.startsWith("experiments/fixtures/")) {
     if (execution.readiness === "absent" && harnessStatus === null) {

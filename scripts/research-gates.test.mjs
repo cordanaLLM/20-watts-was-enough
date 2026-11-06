@@ -262,7 +262,7 @@ test("test coverage check accepts the tree and refuses stale or missing reports"
         () => Buffer.from("{\n"),
         () => assertRefused(
           run(),
-          /experiments\/fixtures\/007-operator-qualified-optical-inference\.md: workstation manifest is invalid: invalid JSON:/u,
+          /experiments\/workstation\/manifests\/fixture-007\.json: workstation manifest is invalid/u,
         ),
       ));
   });
