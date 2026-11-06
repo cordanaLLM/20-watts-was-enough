@@ -1,6 +1,6 @@
 FROM node:26.12.0-trixie-slim@sha256:e556a144463cc8dc53afe8de6d2fa0db5c132fd39ffa232c17641bd40df2bf11 AS node-runtime
 
-FROM python:3.15.1-slim-trixie@sha256:533b0b2f9b5d46fd097091cf826f27902f1d6c3bca714b6dc74551356aa97a51
+FROM python:3.15.2-slim-trixie@sha256:e97b88e416c3c01eb427b21fd8cd3ebf006e6ee38afcfcc3cae1c54ee2ab0a75
 
 ARG IMAGE_VERSION=development
 ARG IMAGE_NAME=ghcr.io/cordanallm/20-watts-was-enough-fixture-019
@@ -54,7 +54,7 @@ RUN set -eu; \
     python -m pip uninstall --yes pip; \
     ln --symbolic libatomic.so.1.2.0 /usr/lib/x86_64-linux-gnu/libatomic.so.1; \
     test "$(node --version)" = "v26.12.0"; \
-    test "$(python --version)" = "Python 3.15.0"; \
+    test "$(python --version)" = "Python 3.15.2"; \
     python -c 'import numpy; assert numpy.__version__ == "2.5.4"'; \
     groupadd --gid 1000 experiment; \
     useradd --create-home --uid 1000 --gid experiment --shell /usr/sbin/nologin experiment; \
