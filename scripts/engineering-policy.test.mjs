@@ -117,6 +117,10 @@ test("trusted builder rejects imported assets, bypassed signing, and independent
     (subject) => { releaseImageStepByName(subject, "Sign the freshly built static 20w digest").env.IMAGE_DIGEST = "mutable-tag"; },
     (subject) => { delete releaseImageStepByName(subject, "Sign the freshly built Fixture 007 digest").if; },
     (subject) => { releaseImageStepByName(subject, "Install the pinned cosign client").with["cosign-release"] = "latest"; },
+    (subject) => { releaseImageStepByName(subject, "Install the pinned cosign client").with["cosign-release"] = "v3"; },
+    (subject) => { releaseImageStepByName(subject, "Install the pinned cosign client").with["cosign-release"] = "v3.1"; },
+    (subject) => { releaseImageStepByName(subject, "Install the pinned cosign client").with["cosign-release"] = "v4.0.0"; },
+    (subject) => { releaseImageStepByName(subject, "Install the pinned cosign client").with["cosign-release"] = "v3.1.4-rc.1"; },
     (subject) => { releaseImageStepByName(subject, "Verify the checksum signature and complete asset inventory").run = "true"; },
     (subject) => { releaseImageStepByName(subject, "Verify the checksum signature and complete asset inventory").if = "false"; },
     (subject) => { releaseImageStepByName(subject, "Verify the checksum signature and complete asset inventory")["continue-on-error"] = true; },
@@ -131,6 +135,9 @@ test("trusted builder rejects imported assets, bypassed signing, and independent
     mutate(subject);
     assert.notDeepEqual(validateReleaseBuilderWorkflowObject(subject), []);
   }
+  const clone = structuredClone(valid);
+  releaseImageStepByName(clone, "Install the pinned cosign client").with["cosign-release"] = "v3.9.12";
+  assert.deepEqual(validateReleaseBuilderWorkflowObject(clone), []);
 });
 
 function policyDisclosure(version) {
