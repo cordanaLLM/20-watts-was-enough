@@ -17,7 +17,7 @@ concurrency:
 env:
   # Praetor engine commit the local hooks and `make verify-all` run. Read by
   # .config/lefthook/engine.sh on the workstation; no job in this workflow uses it.
-  PRAETOR_REF: 3af1b0452ea36c45144458b88e599993fb9dcdd9
+  PRAETOR_REF: cd35ff1752f4a0670e9916e4fa6485053ab2200c
 
 jobs:
   impact-plan:
