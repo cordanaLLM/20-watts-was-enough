@@ -349,3 +349,9 @@ any relevant condition fires:
 
 A pass refines the six owner candidates only on the literal outcomes passed.
 It does not create another principle or candidate.
+
+## Harness status
+
+Blocked by: not-built.
+
+The Hidden regime generator section specifies the crossed flow families of the sealed confirmatory generator, which can be built as deterministic simulator code; no generator, runner or tests exist yet.

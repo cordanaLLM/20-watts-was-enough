@@ -196,6 +196,44 @@ test("test coverage check accepts the tree and refuses stale or missing reports"
         () => null,
         () => assertRefused(run(), /Missing generated report: experiments\/test-coverage\.md/u),
       ));
+    const unharnessed = "experiments/fixtures/001-shared-clock-free-coadaptation.md";
+    const replaceStatus = (line) => (bytes) =>
+      Buffer.from(bytes.toString("utf8").replace(/^Blocked by: [^\n]+$/mu, line));
+    await t.test("a fixture without manifest or harness status is refused", () =>
+      withPlant(
+        root,
+        unharnessed,
+        (bytes) => Buffer.from(bytes.toString("utf8").replace(/^## Harness status\n[\s\S]*?(?=^## |(?![\s\S]))/mu, "")),
+        () => assertRefused(run(), /001-shared-clock-free-coadaptation\.md: no workstation manifest and no "## Harness status" section/u),
+      ));
+    await t.test("an unknown harness blocker is refused", () =>
+      withPlant(
+        root,
+        unharnessed,
+        replaceStatus("Blocked by: budget."),
+        () => assertRefused(run(), /harness status unknown blocker "budget"/u),
+      ));
+    await t.test("a dependency blocker without a target is refused", () =>
+      withPlant(
+        root,
+        unharnessed,
+        replaceStatus("Blocked by: dependency."),
+        () => assertRefused(run(), /dependency blocker must name fixture-NNN or candidate-NNN targets/u),
+      ));
+    await t.test("not-built combined with a blocker is refused", () =>
+      withPlant(
+        root,
+        unharnessed,
+        replaceStatus("Blocked by: not-built, data."),
+        () => assertRefused(run(), /not-built cannot be combined with another blocker/u),
+      ));
+    await t.test("a harness status on a fixture with a manifest is refused", () =>
+      withPlant(
+        root,
+        "experiments/fixtures/007-operator-qualified-optical-inference.md",
+        (bytes) => Buffer.concat([bytes, Buffer.from("\n## Harness status\n\nBlocked by: data. Planted.\n")]),
+        () => assertRefused(run(), /007-operator-qualified-optical-inference\.md: has a workstation manifest, so its "## Harness status" section is stale/u),
+      ));
   });
 });
 

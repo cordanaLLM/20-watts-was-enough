@@ -1047,3 +1047,9 @@ joint power decision; simultaneous max-$T$ Pareto recomputation; attack
 reproducibility; and fail-closed meter handling. It must remain `smoke-ready`
 until sealed confirmation, valid calibrated-energy provenance, and
 second-machine replication exist.
+
+## Harness status
+
+Blocked by: not-built.
+
+The Deterministic generator and event schema section fixes the PCG64-DXSM generator, its state and its serialisation, so a smoke harness can be built from the contract as written; no generator, runner or tests exist yet.

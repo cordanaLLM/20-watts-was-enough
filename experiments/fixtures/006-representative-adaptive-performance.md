@@ -399,3 +399,9 @@ benchmark when any relevant condition fires:
 
 A pass refines only the owner candidates on the literal tracks passed. It does
 not create another principle or candidate.
+
+## Harness status
+
+Blocked by: not-built.
+
+The Sealed scenario generator section specifies the task, model and simulator families, which can be built as deterministic workstation code; no generator, runner or tests exist yet. Confirmatory runs also need two sites or simulator lineages and two hardware classes.
