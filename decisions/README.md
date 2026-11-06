@@ -105,7 +105,7 @@ than silently changing its outcome.
 | [0098](0098-move-the-renderer-lock-to-buildx-0-37-2.md) | Move the renderer lock to Buildx 0.37.2 | accepted |
 | [0099](0099-scan-the-history-for-secrets-with-a-proven-gitleaks.md) | Scan the history for secrets with a proven gitleaks | accepted |
 | [0100](0100-lift-the-urllib3-cutoff-in-the-clrs-generator.md) | Lift the urllib3 cutoff in the CLRS generator | accepted |
-| [0101](0101-build-releases-in-a-reusable-workflow.md) | Build releases in a reusable workflow | accepted |
+| [0101](0101-build-releases-in-a-reusable-workflow.md) | Build releases in a reusable workflow | partly superseded by [0125](0125-bound-ci-jobs-by-measured-time.md) |
 | [0102](0102-accept-release-candidate-tags.md) | Accept release-candidate tags | accepted |
 | [0103](0103-run-the-go-tests-on-windows-and-macos-runners.md) | Run the Go tests on Windows and macOS runners | accepted |
 | [0104](0104-own-clrs-container-execution-in-go.md) | Own CLRS container execution in Go | accepted |
@@ -129,3 +129,4 @@ than silently changing its outcome.
 | [0122](0122-run-pull-request-metadata-and-title-checks-on-pull-request.md) | Run pull-request metadata and title checks on `pull_request` | accepted |
 | [0123](0123-adopt-fleet-own-releases-at-once-and-wait-three-days-for-outside-updates.md) | Adopt fleet-own releases at once and wait three days for outside updates | accepted |
 | [0124](0124-state-why-a-fixture-has-no-harness.md) | State why a fixture has no harness | accepted |
+| [0125](0125-bound-ci-jobs-by-measured-time.md) | Bound CI jobs by measured time | accepted |
