@@ -102,9 +102,11 @@ the exact diff; this file records why the project changed.
   5-minute floor and bound the trusted release builder job to 113 minutes
   instead of 225
   ([Decision 0125](decisions/0125-bound-ci-jobs-by-measured-time.md));
-  the engine-rendered `praetor-api.yml` workflow is excepted until 2026-11-16
-  and the semgrep exception in `.standards.yaml` gains an explicit category A
-  field.
+  the engine-rendered `praetor-api.yml` workflow is excepted until 2026-11-16,
+  the unmeasured recovery job `restore-verified-site` keeps 10 minutes, the
+  engine-rendered `praetor-docs.yml` job keeps 10 minutes instead of its
+  computed 5 because the engine sizes its lint budget against it, and the
+  semgrep exception in `.standards.yaml` gains an explicit category A field.
 - Every fixture without a workstation harness now ends with a
   `## Harness status` section naming what a harness still lacks
   (`hardware`, `data`, `dependency` or `not-built`) and why, and the test
