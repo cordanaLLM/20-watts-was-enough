@@ -393,3 +393,9 @@ relevant rule fires:
 A pass lets the seven owner candidates cite one shared benchmark result. It
 does not create another principle or candidate, and each candidate still needs
 its own non-mathematical acceptance tests.
+
+## Harness status
+
+Blocked by: not-built.
+
+The Hidden task families section specifies development, public validation and sealed confirmatory generators, which can be built as deterministic workstation code; no generator, runner or tests exist yet.

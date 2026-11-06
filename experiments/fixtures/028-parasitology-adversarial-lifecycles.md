@@ -366,3 +366,9 @@ A later implementation must add, without weakening this prose contract:
 7. a calibrated workstation-energy method if and only if an energy comparison is later attempted.
 
 None of those artifacts exists at this specification checkpoint.
+
+## Harness status
+
+Blocked by: not-built.
+
+All tracks use artificial generators with public-development, sealed-confirmation and hostile-transfer partitions, so a harness can be built on the workstation as specified; no generator, runner or tests exist yet.

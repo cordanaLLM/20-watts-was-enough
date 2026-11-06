@@ -331,3 +331,9 @@ when any relevant condition fires:
 
 A pass refines only the owner candidates on the literal tracks passed. It does
 not create another principle or candidate.
+
+## Harness status
+
+Blocked by: not-built.
+
+The Sealed scene and operator generator section specifies the source and scene families, which a deterministic renderer can produce for a smoke harness; no generator, runner or tests exist yet. Confirmatory runs also need physical sites and calibrated acoustic front ends.

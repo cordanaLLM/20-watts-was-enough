@@ -757,3 +757,9 @@ commit-before-reveal, interrupted-run retention, and metric recomputation. It
 remains `smoke-ready` until those tests pass and remains `development-only`
 until sealed generators, power justification, a calibrated external meter, and
 an independently rerunnable package exist.
+
+## Harness status
+
+Blocked by: not-built.
+
+The Frozen event packet and information boundary section specifies the simulator's arm-independent, append-only event packet, from which a smoke harness can be built; no generator, runner or tests exist yet.
