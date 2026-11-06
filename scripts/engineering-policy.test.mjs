@@ -603,6 +603,40 @@ test("workflow validation rejects mutable actions and unbounded jobs", () => {
   assert.match(findings[1], /full commit SHA/u);
 });
 
+test("workflow validation bounds deploy-pages jobs above the action timeout", () => {
+  const deployFindings = (timeoutMinutes, withInput) => validateWorkflowObject({
+    permissions: { contents: "read" },
+    concurrency: { group: "test", "cancel-in-progress": false },
+    jobs: {
+      deploy: {
+        "runs-on": "ubuntu-26.04",
+        "timeout-minutes": timeoutMinutes,
+        steps: [{
+          uses: "actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
+          ...(withInput === undefined ? {} : { with: withInput }),
+        }],
+      },
+    },
+  }).filter((finding) => /deploy-pages/u.test(finding));
+
+  // Positive: 11 minutes covers the default 10-minute action timeout plus 1.
+  assert.deepEqual(deployFindings(11), []);
+
+  // Negative: 5 minutes sits below the default action timeout.
+  const negative = deployFindings(5);
+  assert.equal(negative.length, 1);
+  assert.match(negative[0], /job deploy timeout-minutes must exceed the deploy-pages timeout input/u);
+
+  // Boundary: exactly the action timeout leaves no 1-minute margin; a shorter
+  // timeout input with a matching job bound passes.
+  assert.equal(deployFindings(10).length, 1);
+  assert.deepEqual(deployFindings(5, { timeout: "240000" }), []);
+  assert.equal(deployFindings(5, { timeout: "240001" }).length, 1);
+
+  // Negative: a non-numeric timeout input fails closed.
+  assert.equal(deployFindings(60, { timeout: "ten minutes" }).length, 1);
+});
+
 test("workflow validation rejects ambient writes, unbounded concurrency, and credential persistence", () => {
   const findings = validateWorkflowObject({
     permissions: { contents: "write" },

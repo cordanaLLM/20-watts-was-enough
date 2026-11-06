@@ -315,6 +315,17 @@ function validateWorkflowJob(job, jobName, relativePath) {
     ) {
       findings.push(`${relativePath}: job ${jobName} step ${stepIndex} must set checkout persist-credentials to false`);
     }
+    // A job that runs actions/deploy-pages must outlive the action's own
+    // timeout input (default 600000 ms) by at least 1 minute (Decision 0126).
+    // A smaller job bound lets the runner kill the job while the action still
+    // waits on the Pages queue, which cancels a deployment the action would
+    // still finish. A non-numeric input fails closed.
+    if (typeof step?.uses === "string" && step.uses.startsWith("actions/deploy-pages@")) {
+      const actionMs = Number(step.with?.timeout ?? 600000);
+      if (!Number.isFinite(actionMs) || !(job["timeout-minutes"] * 60000 >= actionMs + 60000)) {
+        findings.push(`${relativePath}: job ${jobName} timeout-minutes must exceed the deploy-pages timeout input by at least 1 minute`);
+      }
+    }
   }
   return findings;
 }
@@ -1017,7 +1028,7 @@ function pagesRestoreJobBoundaryIsExact(job) {
     && job?.if === pagesRestoreCondition
     && job?.environment?.name === "github-pages"
     && job?.["runs-on"] === "ubuntu-26.04"
-    && job?.["timeout-minutes"] === 10
+    && job?.["timeout-minutes"] === 11
     && continueOnErrorIsDisabled(job)
     && Object.keys(permissions).length === 3
     && permissions.actions === "read"
