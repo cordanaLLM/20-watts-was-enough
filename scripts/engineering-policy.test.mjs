@@ -633,8 +633,19 @@ test("workflow validation bounds deploy-pages jobs above the action timeout", ()
   assert.deepEqual(deployFindings(5, { timeout: "240000" }), []);
   assert.equal(deployFindings(5, { timeout: "240001" }).length, 1);
 
-  // Negative: a non-numeric timeout input fails closed.
-  assert.equal(deployFindings(60, { timeout: "ten minutes" }).length, 1);
+  // Negative: inputs the action silently replaces with its 600000 ms default
+  // are refused as malformed, whatever the job bound.
+  for (const timeout of ["ten minutes", "", " ", "0", "-1", "1.5", "0600000"]) {
+    const malformed = deployFindings(60, { timeout });
+    assert.equal(malformed.length, 1, `timeout input ${JSON.stringify(timeout)}`);
+    assert.match(malformed[0], /deploy-pages timeout input must be a positive integer/u);
+  }
+
+  // Boundary: the action caps its wait at 600000 ms, so a larger input still
+  // needs only 11 minutes, and a numeric input in YAML number form passes.
+  assert.deepEqual(deployFindings(11, { timeout: "900000" }), []);
+  assert.equal(deployFindings(10, { timeout: "900000" }).length, 1);
+  assert.deepEqual(deployFindings(5, { timeout: 240000 }), []);
 });
 
 test("workflow validation rejects ambient writes, unbounded concurrency, and credential persistence", () => {

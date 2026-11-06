@@ -58,4 +58,8 @@ Decision 0125, stated here as the order's exception clause requires.
 - A deployment the Pages queue delays past the action timeout is still
   cancelled, now by the action itself, and the run fails; nothing reruns it
   automatically.
-- The check also fails a non-numeric `timeout` input rather than skipping it.
+- The check reads the `timeout` input through an allow-list: only a positive
+  decimal integer of milliseconds passes. The pinned action replaces an empty,
+  zero, negative or non-numeric input with its 600000 ms default and caps any
+  larger value at 600000 ms (`src/internal/deployment.js`, `MAX_TIMEOUT`), so
+  the check refuses the first group as malformed and applies the same cap.

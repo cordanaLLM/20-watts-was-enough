@@ -298,6 +298,47 @@ function collectUses(value, location = "root", output = []) {
   throw new Error(`collectUses exceeded scalar upper bound of ${maximumWorkflowNodes} nodes`);
 }
 
+// The pinned actions/deploy-pages caps its deployment wait at 600000 ms and
+// falls back to that value for an empty, zero, negative or non-numeric input
+// (src/internal/deployment.js, MAX_TIMEOUT).
+const deployPagesMaximumTimeoutMs = 600000;
+
+/**
+ * Checks that a job running actions/deploy-pages outlives the action's own
+ * deployment wait by at least 1 minute (Decision 0126). A smaller job bound
+ * lets the runner kill the job while the action still waits on the Pages
+ * queue, which cancels a deployment the action would still finish. The
+ * timeout input is read through an allow-list: only a positive decimal
+ * integer is accepted, and the effective wait is capped as the action caps it.
+ *
+ * @param {object} job Workflow job mapping.
+ * @param {string} jobName Job key in the workflow.
+ * @param {string} relativePath Workflow path used in findings.
+ * @param {object} step The deploy-pages step.
+ * @returns {string[]} Findings; empty when the bound holds.
+ */
+function validateDeployPagesTimeout(job, jobName, relativePath, step) {
+  const input = step.with?.timeout;
+  if (input !== undefined && !/^[1-9][0-9]*$/u.test(String(input))) {
+    return [`${relativePath}: job ${jobName} deploy-pages timeout input must be a positive integer of milliseconds`];
+  }
+  const actionMs = Math.min(input === undefined ? deployPagesMaximumTimeoutMs : Number(input), deployPagesMaximumTimeoutMs);
+  if (!(job["timeout-minutes"] * 60000 >= actionMs + 60000)) {
+    return [`${relativePath}: job ${jobName} timeout-minutes must exceed the deploy-pages timeout input by at least 1 minute`];
+  }
+  return [];
+}
+
+/**
+ * Validates the bounds every workflow job shares: a mapping shape, a
+ * positive timeout-minutes, checkout without persisted credentials, and a
+ * deploy-pages job bound above the action's deployment wait.
+ *
+ * @param {object} job Workflow job mapping.
+ * @param {string} jobName Job key in the workflow.
+ * @param {string} relativePath Workflow path used in findings.
+ * @returns {string[]} Findings; empty when the job passes.
+ */
 function validateWorkflowJob(job, jobName, relativePath) {
   const findings = [];
   if (!job || typeof job !== "object" || Array.isArray(job)) {
@@ -315,16 +356,8 @@ function validateWorkflowJob(job, jobName, relativePath) {
     ) {
       findings.push(`${relativePath}: job ${jobName} step ${stepIndex} must set checkout persist-credentials to false`);
     }
-    // A job that runs actions/deploy-pages must outlive the action's own
-    // timeout input (default 600000 ms) by at least 1 minute (Decision 0126).
-    // A smaller job bound lets the runner kill the job while the action still
-    // waits on the Pages queue, which cancels a deployment the action would
-    // still finish. A non-numeric input fails closed.
     if (typeof step?.uses === "string" && step.uses.startsWith("actions/deploy-pages@")) {
-      const actionMs = Number(step.with?.timeout ?? 600000);
-      if (!Number.isFinite(actionMs) || !(job["timeout-minutes"] * 60000 >= actionMs + 60000)) {
-        findings.push(`${relativePath}: job ${jobName} timeout-minutes must exceed the deploy-pages timeout input by at least 1 minute`);
-      }
+      findings.push(...validateDeployPagesTimeout(job, jobName, relativePath, step));
     }
   }
   return findings;
@@ -1018,6 +1051,14 @@ export function validatePagesPublicTransportWorkflowObject(
 
 const pagesRestoreCondition = "${{ always() && needs.deploy.result == 'success' && needs.verify-public-transport.result == 'failure' }}";
 
+/**
+ * Pins the Pages restore job: it runs only after a successful deployment
+ * failed public verification, keeps the 11-minute deploy-pages bound of
+ * Decision 0126, and carries exactly the permissions a redeploy needs.
+ *
+ * @param {object} job The restore-verified-site job mapping.
+ * @returns {boolean} True when every pinned field matches.
+ */
 function pagesRestoreJobBoundaryIsExact(job) {
   const permissions = job?.permissions ?? {};
   return (
