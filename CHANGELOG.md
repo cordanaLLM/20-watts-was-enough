@@ -7,6 +7,12 @@ the exact diff; this file records why the project changed.
 
 ### Security
 
+- Move the pinned Node.js runtime from 26.12.0 to 26.13.0 across policies,
+  workflows, fixture Dockerfiles, and manifests. CI container smoke Trivy
+  scan reported CVE-2026-109518 (HIGH, fixed in 3.0.4) in `apt` 3.0.3 in
+  `20w-fixture-007` (`node:26.12.0-trixie-slim`); the pinned
+  `node:26.13.0-trixie-slim` digest ships `apt` 3.0.4. The PDF renderer lock
+  keeps its own Node 26.12.0 bookworm image.
 - Update three transitive npm packages inside their parents' ranges:
   DOMPurify 3.4.17 under Mermaid (GHSA-cg2g-xh64-v4q7, GHSA-mrv2-3pqr-j5jr,
   GHSA-c6gr-qvv4-5v3f), Zod 4.6.7 under eslint-plugin-react-hooks
