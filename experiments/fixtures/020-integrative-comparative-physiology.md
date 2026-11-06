@@ -2407,3 +2407,8 @@ record is created by this integration. Future implementation must preserve the
 frozen IDs and version any scientific change rather than silently editing the
 contract.
 
+## Harness status
+
+Blocked by: not-built.
+
+The Common CPU-only falsification contract section fixes a deterministic JavaScript runtime, the PCG64-DXSM generator and binary64 reference arithmetic, so a harness can be built on the workstation as specified; no generator, runner or tests exist yet.

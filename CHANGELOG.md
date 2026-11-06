@@ -105,6 +105,12 @@ the exact diff; this file records why the project changed.
   the engine-rendered `praetor-api.yml` workflow is excepted until 2026-11-16
   and the semgrep exception in `.standards.yaml` gains an explicit category A
   field.
+- Every fixture without a workstation harness now ends with a
+  `## Harness status` section naming what a harness still lacks
+  (`hardware`, `data`, `dependency` or `not-built`) and why, and the test
+  coverage check refuses a fixture with neither. Of the 19 such fixtures,
+  13 are `not-built`, five need apparatus and one a frozen corpus
+  ([Decision 0124](decisions/0124-state-why-a-fixture-has-no-harness.md)).
 - Renovate adopts fleet-own releases immediately with zero minimum release
   age and waits three days for outside updates, superseding the seven-day delay
   ([Decision 0123](decisions/0123-adopt-fleet-own-releases-at-once-and-wait-three-days-for-outside-updates.md)).

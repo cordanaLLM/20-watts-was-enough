@@ -2466,3 +2466,9 @@ adaptive substeps, finite action sets, scalar-loss formulas, terminal scores,
 ordinary/event counterfactuals, and service/resource gates. A concise runner is
 acceptable only if these contracts remain machine-verifiable; a different DGP
 or looser boundary is a new fixture version, not an implementation detail.
+
+## Harness status
+
+Blocked by: not-built.
+
+The Canonical common ENV-v2 contract section fixes a deterministic JavaScript runtime, the PCG64-DXSM generator and binary64 reference solvers, so a harness can be built on the workstation as specified; no generator, runner or tests exist yet.

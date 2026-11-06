@@ -18,7 +18,13 @@ the [F-026 trajectory-symmetry smoke harness](../workstation/fixture-026/README.
 the [F-027 connection-back-action smoke harness](../workstation/fixture-027/README.md),
 and the [F-029 recruited-maintenance plus phase-qualified preservation/release smoke suite](../workstation/fixture-029/README.md).
 Execution readiness is tracked separately from the completeness of each full
-fixture contract.
+fixture contract. Every other fixture ends with a `## Harness status` section
+whose first line, `Blocked by: <blocker>[, <blocker>].`, names what a harness
+still lacks: `hardware`, `data`, `dependency (fixture-NNN)`, or `not-built`
+when the contract already specifies a workstation generator and nobody has
+written the harness. `npm run check:test-coverage` refuses a fixture that has
+neither a manifest nor that section, and lists the result in the Harness
+column of the [coverage report](../test-coverage.md).
 
 | ID | Fixture | Candidate owners |
 | --- | --- | --- |

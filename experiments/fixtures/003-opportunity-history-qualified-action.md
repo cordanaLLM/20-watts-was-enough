@@ -237,3 +237,9 @@ any relevant condition holds:
 
 A pass refines the owning candidates. It does not create Candidate 021 or a
 species-derived architecture label.
+
+## Harness status
+
+Blocked by: not-built.
+
+The Scenario generator section freezes factorial scenario families with leakage-audited training and test relations, which a deterministic workstation generator can produce; no generator, runner or tests exist yet. Confirmatory runs also need the hardware classes the contract names.

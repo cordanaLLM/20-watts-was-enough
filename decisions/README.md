@@ -128,4 +128,5 @@ than silently changing its outcome.
 | [0121](0121-replace-react-with-sveltekit-via-sveltesentio.md) | Replace the React reader with prerendered SvelteKit through sveltesentio | accepted |
 | [0122](0122-run-pull-request-metadata-and-title-checks-on-pull-request.md) | Run pull-request metadata and title checks on `pull_request` | accepted |
 | [0123](0123-adopt-fleet-own-releases-at-once-and-wait-three-days-for-outside-updates.md) | Adopt fleet-own releases at once and wait three days for outside updates | accepted |
+| [0124](0124-state-why-a-fixture-has-no-harness.md) | State why a fixture has no harness | accepted |
 | [0125](0125-bound-ci-jobs-by-measured-time.md) | Bound CI jobs by measured time | accepted |
