@@ -16,8 +16,10 @@ These instructions extend root [`AGENTS.md`](../AGENTS.md).
 - Keep analysis laws and multiple-comparison corrections executable and frozen
   before confirmation data are opened.
 - Fixture without workstation manifest ends with `## Harness status`:
-  `Blocked by: hardware|data|dependency (fixture-NNN)|not-built.` plus
-  reason grounded in contract text. Remove section when harness lands
+  `Blocked by: <blocker>[, <blocker>].` with blockers hardware, data,
+  dependency (fixture-NNN or candidate-NNN, comma-separated targets),
+  not-built (alone), plus reason grounded in contract text. Remove
+  section when harness lands
   ([Decision 0124](../decisions/0124-state-why-a-fixture-has-no-harness.md)).
 - Update generated coverage and readiness surfaces after changing a
   protocol or status.

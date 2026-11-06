@@ -234,6 +234,27 @@ test("test coverage check accepts the tree and refuses stale or missing reports"
         (bytes) => Buffer.concat([bytes, Buffer.from("\n## Harness status\n\nBlocked by: data. Planted.\n")]),
         () => assertRefused(run(), /007-operator-qualified-optical-inference\.md: has a workstation manifest, so its "## Harness status" section is stale/u),
       ));
+    await t.test("a dependency on a nonexistent fixture is refused", () =>
+      withPlant(
+        root,
+        unharnessed,
+        replaceStatus("Blocked by: dependency (fixture-999)."),
+        () => assertRefused(run(), /dependency target "fixture-999" names no existing fixture or candidate/u),
+      ));
+    await t.test("a dependency on the fixture itself is refused", () =>
+      withPlant(
+        root,
+        unharnessed,
+        replaceStatus("Blocked by: dependency (fixture-001)."),
+        () => assertRefused(run(), /dependency target "fixture-001" names the fixture itself/u),
+      ));
+    await t.test("a manifest whose content is null fails audit validation", () =>
+      withPlant(
+        root,
+        "experiments/workstation/manifests/fixture-007.json",
+        () => Buffer.from("null\n"),
+        () => assertRefused(run(), /Failed to validate experiments\/workstation\/manifests\/fixture-007\.json/u),
+      ));
   });
 });
 

@@ -78,7 +78,7 @@ const dependencyTarget = /^(?:fixture|candidate)-\d{3}$/;
 // A fixture without a workstation manifest states why under "## Harness status".
 // Its first line is "Blocked by: <blocker>[, <blocker>]." where a dependency
 // names its target, for example "dependency (fixture-007)".
-function harnessStatusFrom(body) {
+function harnessStatusFrom(body, currentId = null, knownArtifactIds = null) {
   const lines = body.split("\n");
   const start = lines.findIndex((line) => /^## Harness status\s*$/.test(line));
   if (start === -1) return null;
@@ -100,6 +100,14 @@ function harnessStatusFrom(body) {
       const targets = (parsed[2] ?? "").split(/,\s*/).filter(Boolean);
       if (!targets.length || !targets.every((target) => dependencyTarget.test(target))) {
         errors.push("dependency blocker must name fixture-NNN or candidate-NNN targets");
+      }
+      for (const target of targets) {
+        if (!dependencyTarget.test(target)) continue;
+        if (target === currentId) {
+          errors.push(`dependency target "${target}" names the fixture itself`);
+        } else if (knownArtifactIds && !knownArtifactIds.has(target)) {
+          errors.push(`dependency target "${target}" names no existing fixture or candidate`);
+        }
       }
       dependencies.push(...targets);
     } else if (parsed[2] !== undefined) {
@@ -150,15 +158,8 @@ async function isExecutionReady(id) {
       promotionChecks: validation.promotionChecks ?? [],
       executionClaims: validation.executionClaims ?? [],
     };
-  } catch {
-    return {
-      ready: false,
-      readiness: "absent",
-      manifest: null,
-      missing: ["manifest"],
-      promotionChecks: [],
-      executionClaims: [],
-    };
+  } catch (error) {
+    throw new Error(`Failed to validate ${toPosix(path.relative(root, manifestPath))}: ${error.message}`, { cause: error });
   }
 }
 
@@ -167,14 +168,19 @@ const artifactPaths = [
   ...(await markdownFiles(path.join(root, "experiments", "fixtures"))),
 ];
 
+const knownArtifactIds = new Set(
+  artifactPaths.map((absolutePath) => artifactId(toPosix(path.relative(root, absolutePath)))),
+);
+
 const artifacts = [];
 const harnessErrors = [];
 for (const absolutePath of artifactPaths) {
   const relativePath = toPosix(path.relative(root, absolutePath));
+  const id = artifactId(relativePath);
   const body = await readFile(absolutePath, "utf8");
   const missingFacets = missingProtocolFacets(body);
-  const execution = await isExecutionReady(artifactId(relativePath));
-  const harnessStatus = harnessStatusFrom(body);
+  const execution = await isExecutionReady(id);
+  const harnessStatus = harnessStatusFrom(body, id, knownArtifactIds);
   if (relativePath.startsWith("experiments/fixtures/")) {
     if (execution.readiness === "absent" && harnessStatus === null) {
       harnessErrors.push(`${relativePath}: no workstation manifest and no "## Harness status" section`);
@@ -184,7 +190,7 @@ for (const absolutePath of artifactPaths) {
     for (const error of harnessStatus?.errors ?? []) harnessErrors.push(`${relativePath}: harness status ${error}`);
   }
   artifacts.push({
-    id: artifactId(relativePath),
+    id,
     path: relativePath,
     title: body.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? path.basename(relativePath),
     protocolComplete: missingFacets.length === 0,

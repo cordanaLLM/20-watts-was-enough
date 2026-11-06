@@ -27,7 +27,7 @@ drawn from a closed set:
 
 - `hardware`: the rules need physical apparatus the repository does not have;
 - `data`: the rules need a corpus, seed pack or records not in the repository;
-- `dependency (fixture-NNN)`: another fixture or candidate harness comes first;
+- `dependency (fixture-NNN or candidate-NNN)`: another fixture or candidate harness comes first;
 - `not-built`: the contract already specifies a workstation generator, and the
   harness has not been written. It cannot be combined with another blocker.
 
