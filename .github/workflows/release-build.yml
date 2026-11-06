@@ -13,7 +13,7 @@ jobs:
   release:
     name: Verify, build, attest and publish the tagged release
     runs-on: ubuntu-26.04
-    timeout-minutes: 225
+    timeout-minutes: 115
     permissions:
       contents: write
       id-token: write

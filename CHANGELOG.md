@@ -98,6 +98,11 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Bound the trusted release builder job to 115 minutes instead of 225 based on
+  measured successful release runs
+  ([Decision 0125](decisions/0125-bound-the-release-builder-job-by-measured-time.md));
+  the semgrep exception in `.standards.yaml` gains an explicit category A
+  field.
 - Renovate adopts fleet-own releases immediately with zero minimum release
   age and waits three days for outside updates, superseding the seven-day delay
   ([Decision 0123](decisions/0123-adopt-fleet-own-releases-at-once-and-wait-three-days-for-outside-updates.md)).

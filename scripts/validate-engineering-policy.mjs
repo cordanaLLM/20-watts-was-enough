@@ -1452,7 +1452,7 @@ export function validatePDFRendererReproducibilityWorkflowObject(workflow, relat
       && String(step?.run ?? "").includes("--additional-assets-root build/release-inputs")
     ));
     if (
-      job?.["timeout-minutes"] === 225
+      job?.["timeout-minutes"] === 115
       && continueOnErrorIsDisabled(job)
       && setupIndex >= 0
       && nativeIndex > setupIndex
@@ -4971,7 +4971,7 @@ export function validateReleaseBuilderWorkflowObject(workflow, relativePath = ".
 function releaseBuilderJobIsExact(job) {
   return propertiesMatch(job?.permissions, releasePermissions)
     && Object.keys(job?.permissions ?? {}).length === 4
-    && job?.["timeout-minutes"] === 225
+    && job?.["timeout-minutes"] === 115
     && job?.needs === undefined
     && job?.if === undefined
     && continueOnErrorIsDisabled(job);
