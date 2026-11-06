@@ -37,7 +37,7 @@ const (
 	goNoticesName   = "20w-third-party-notices.txt"
 	toolingModule   = "github.com/cordanaLLM/20-watts-was-enough/tooling"
 	goldmarkModule  = "github.com/yuin/goldmark/v2"
-	goldmarkVersion = "v2.1.6"
+	goldmarkVersion = "v2.1.15"
 )
 
 var (
