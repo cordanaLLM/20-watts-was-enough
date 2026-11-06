@@ -5037,3 +5037,29 @@ test("inlineReleaseScripts inlines release scripts and validates shebang, env, a
   assert.equal(unapprovedFindings.length, 1);
   assert.match(unapprovedFindings[0], /unapproved scripts\/release/);
 });
+
+test("inlineReleaseScripts reports a directory in place of a release script", () => {
+  const dirTempDir = mkdtempSync(path.join(tmpdir(), "release-script-dir-"));
+  try {
+    mkdirSync(path.join(dirTempDir, "scripts", "release", "dir.sh"), { recursive: true });
+    const dirScriptWf = {
+      jobs: {
+        release: {
+          steps: [
+            {
+              env: { WORKFLOW_SHA: "${{ job.workflow_sha }}" },
+              run: releaseStepRun("scripts/release/dir.sh"),
+            },
+          ],
+        },
+      },
+    };
+    const dirFindings = [];
+    inlineReleaseScripts(dirScriptWf, dirTempDir, ".github/workflows/release-build.yml", dirFindings);
+    assert.deepEqual(dirFindings, [
+      ".github/workflows/release-build.yml: release step script scripts/release/dir.sh is missing or not a regular file",
+    ]);
+  } finally {
+    rmSync(dirTempDir, { recursive: true, force: true });
+  }
+});

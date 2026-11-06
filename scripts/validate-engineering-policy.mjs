@@ -5302,11 +5302,19 @@ export function inlineReleaseScripts(
 // file or does not start with the bash shebang.
 function releaseStepScriptBody(root, scriptPath, relativePath, findings) {
   const fullPath = path.join(root, scriptPath);
-  let content = null;
+  let fd = null;
   try {
-    if (fs.lstatSync(fullPath).isFile()) content = fs.readFileSync(fullPath, "utf8");
-  } catch {
-    content = null;
+    fd = fs.openSync(fullPath, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0));
+  } catch (error) {
+    if (!["ENOENT", "ELOOP", "ENOTDIR", "EISDIR"].includes(error?.code)) throw error;
+  }
+  let content = null;
+  if (fd !== null) {
+    try {
+      if (fs.fstatSync(fd).isFile()) content = fs.readFileSync(fd, "utf8");
+    } finally {
+      fs.closeSync(fd);
+    }
   }
   if (content === null) {
     findings.push(`${relativePath}: release step script ${scriptPath} is missing or not a regular file`);
