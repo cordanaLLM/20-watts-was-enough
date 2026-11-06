@@ -1,10 +1,25 @@
 {
   "version": 1,
-  "generated_at": "2026-10-21T22:29:42Z",
+  "generated_at": "2026-11-02T05:47:46Z",
   "repository": "cordanaLLM/20-watts-was-enough",
   "commit_sha": "b649b90ff127dddd142c7ff5f30f9d715fc9ba36",
-  "total_infractions": 493,
+  "total_infractions": 495,
+  "increase_rationale": "adoption baseline",
   "infractions": [
+    {
+      "rule_id": "HISS-11",
+      "file_path": "tooling/internal/pdfrender/dockerfile.go",
+      "line_number": 11,
+      "message": "%s",
+      "fingerprint": "tooling/internal/pdfrender/dockerfile.go:HISS-11:image:%s"
+    },
+    {
+      "rule_id": "HISS-11",
+      "file_path": "tooling/internal/pdftools/image_archive.go",
+      "line_number": 244,
+      "message": "index.docker.io/library/pdf-tools:26.08.0-r0-amd64",
+      "fingerprint": "tooling/internal/pdftools/image_archive.go:HISS-11:image:index.docker.io/library/pdf-tools:26.08.0-r0-amd64"
+    },
     {
       "rule_id": "HISS-04",
       "file_path": "app/components/book-edition.tsx",
