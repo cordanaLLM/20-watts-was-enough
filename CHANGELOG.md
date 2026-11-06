@@ -98,6 +98,12 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Bound the GitHub Pages `deploy` and `restore-verified-site` jobs at 11
+  minutes, one minute above the 10-minute `actions/deploy-pages` timeout input,
+  after the 5-minute `deploy` bound ended main run 42237691867 while the action
+  still waited on the Pages queue, and fail the engineering-policy validator
+  when a `deploy-pages` job lacks that margin
+  ([Decision 0126](decisions/0126-bound-pages-deploy-jobs-by-the-action-timeout.md)).
 - Bound every CI job by twice its measured 95th-percentile runtime with a
   5-minute floor and bound the trusted release builder job to 113 minutes
   instead of 225

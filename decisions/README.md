@@ -130,3 +130,4 @@ than silently changing its outcome.
 | [0123](0123-adopt-fleet-own-releases-at-once-and-wait-three-days-for-outside-updates.md) | Adopt fleet-own releases at once and wait three days for outside updates | accepted |
 | [0124](0124-state-why-a-fixture-has-no-harness.md) | State why a fixture has no harness | accepted |
 | [0125](0125-bound-ci-jobs-by-measured-time.md) | Bound CI jobs by measured time | accepted |
+| [0126](0126-bound-pages-deploy-jobs-by-the-action-timeout.md) | Bound Pages deploy jobs by the action timeout | accepted |

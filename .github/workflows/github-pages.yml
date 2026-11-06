@@ -61,7 +61,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
+    timeout-minutes: 11 # deploy-pages timeout input 10 min + 1 min setup (Decision 0126)
     needs: build
     steps:
       - name: Configure GitHub Pages
@@ -113,7 +113,7 @@ jobs:
       name: github-pages
       url: ${{ steps.restore.outputs.page_url }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 10 # unmeasured: no successful run yet; re-measure after the first
+    timeout-minutes: 11 # deploy-pages timeout input 10 min + 1 min setup (Decision 0126)
     steps:
       - name: Find the last verified run
         id: verified
