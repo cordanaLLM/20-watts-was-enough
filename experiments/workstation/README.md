@@ -84,7 +84,9 @@ go -C tooling run ./cmd/20w experiment validate --root ..
 Containers are the public execution default. Release automation now admits one
 image per released experiment instead of one image containing unrelated
 harnesses. Releases from v0.3.0 whose source contains and passes the release
-workflow publish the two Linux `amd64` images below:
+workflow publish the two Linux `amd64` images below. The runtime column names
+the runtime of this source revision; an earlier release binds the runtime in
+its own `python-environment.lock.json` and `oci-images.json`:
 
 | Artifact | Image | Runtime boundary |
 | --- | --- | --- |
