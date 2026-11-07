@@ -39,9 +39,9 @@ pull request for this version.
    computed with the package's own subset encoding from the new lock.
 3. The four workflow steps name `v0.38.2`, and `npm run validate:policy`
    accepts that value only.
-4. The book manifest and semantic baseline are not updated in this pull
-   request; they move when the next pull request that touches book
-   sources renders and records provenance.
+4. The book manifest and semantic baseline are rendered and recorded in
+   this pull request because the lock SHA-256 is part of the manifest
+   contract and provenance must stay consistent with the checked-in lock.
 
 ## Consequences
 
