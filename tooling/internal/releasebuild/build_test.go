@@ -352,3 +352,33 @@ func TestRemoveFailedStagingRootPreservesBuildErrorAfterRemoval(t *testing.T) {
 		t.Fatalf("staging root remains: %v", err)
 	}
 }
+
+func TestGoldmarkVersionMatchesGoMod(t *testing.T) {
+	t.Parallel()
+	modBytes, err := os.ReadFile("../../go.mod")
+	if err != nil {
+		t.Fatalf("read go.mod: %v", err)
+	}
+	var foundVersion string
+	for _, line := range strings.Split(string(modBytes), "\n") {
+		if commentIdx := strings.Index(line, "//"); commentIdx >= 0 {
+			line = line[:commentIdx]
+		}
+		fields := strings.Fields(line)
+		for i, field := range fields {
+			if field == goldmarkModule && i+1 < len(fields) {
+				foundVersion = fields[i+1]
+				break
+			}
+		}
+		if foundVersion != "" {
+			break
+		}
+	}
+	if foundVersion == "" {
+		t.Fatalf("module %s not found in go.mod", goldmarkModule)
+	}
+	if foundVersion != goldmarkVersion {
+		t.Fatalf("goldmarkVersion mismatch: go.mod requires %s %s, but build.go defines %s", goldmarkModule, foundVersion, goldmarkVersion)
+	}
+}
