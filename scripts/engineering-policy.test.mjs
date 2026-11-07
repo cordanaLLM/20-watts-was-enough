@@ -4420,11 +4420,8 @@ function typeCheckCodes(relativePath) {
 test("engine-file exception lists are well formed and fail closed when they are not", () => {
   assert.deepEqual(engineFileExceptionFindings(LINT_EXCEPTIONS, "rules"), []);
   assert.deepEqual(engineFileExceptionFindings(TYPE_CHECK_EXCEPTIONS, "diagnostics"), []);
-  assert.deepEqual(LINT_EXCEPTIONS.map((entry) => [entry.path, entry.expires, entry.rules.length]), [
-    ["tools/figures/player/loader.js", engineFileLastDay, 1],
-    ["tools/figures/player/player.js", engineFileLastDay, 15],
-  ]);
-  const base = plainEntry(LINT_EXCEPTIONS[1], "rules");
+  assert.deepEqual(LINT_EXCEPTIONS.map((entry) => [entry.path, entry.expires, entry.rules.length]), []);
+  const base = Object.freeze({ expires: engineFileLastDay, path: "tools/figures/synthetic.js", reason: "synthetic test entry", rules: Object.freeze(["no-empty"]) });
   const label = "engine-file exception 0";
   for (const [name, entries, expected] of [
     ["not a list", { ...base }, ["engine-file exceptions must be an array"]],
@@ -4462,38 +4459,24 @@ test("engine-file exceptions apply through their last day and compare calendar d
   }
   assert.equal(currentCalendarDay(new Date("2027-01-09T23:59:59.999Z")), engineFileLastDay);
   assert.equal(currentCalendarDay(new Date("2027-01-10T00:00:00.000Z")), engineFileNextDay);
-  assert.equal(activeExceptions(LINT_EXCEPTIONS, engineFileLastDay).length, 2);
+  assert.equal(activeExceptions(LINT_EXCEPTIONS, engineFileLastDay).length, 0);
   assert.deepEqual(activeExceptions(LINT_EXCEPTIONS, engineFileNextDay), []);
   assert.deepEqual(lintExceptionOverrides(LINT_EXCEPTIONS, engineFileNextDay), []);
-  const overrides = lintExceptionOverrides(LINT_EXCEPTIONS, engineFileLastDay);
-  assert.deepEqual(overrides.map((override) => override.files), LINT_EXCEPTIONS.map((entry) => [entry.path]));
-  assert.deepEqual(overrides.map((override) => Object.keys(override)), Array(2).fill(["files", "rules"]));
-  assert.deepEqual(overrides[0].rules, { "@typescript-eslint/no-unused-expressions": "off" });
-  const mixed = [{ ...plainEntry(LINT_EXCEPTIONS[0], "rules"), expires: "2026-10-10" }, LINT_EXCEPTIONS[1]];
-  assert.deepEqual(lintExceptionOverrides(mixed, "2026-10-11").map((override) => override.files), [
-    ["tools/figures/player/player.js"],
-  ]);
-  assert.equal(createEslintConfig({ today: engineFileLastDay }).length, createEslintConfig({ today: engineFileNextDay }).length + 2);
+  assert.deepEqual(lintExceptionOverrides(LINT_EXCEPTIONS, engineFileLastDay), []);
+  assert.equal(createEslintConfig({ today: engineFileLastDay }).length, createEslintConfig({ today: engineFileNextDay }).length);
 });
 
-test("the lint exceptions hide exactly the rules their two files trip, and nothing after their last day", async () => {
+test("the lint exceptions hide exactly the rules their files trip, and nothing after their last day", async () => {
+  if (LINT_EXCEPTIONS.length === 0) return;
   const declared = Object.fromEntries(LINT_EXCEPTIONS.map((entry) => [entry.path, [...entry.rules]]));
   const clean = Object.fromEntries(LINT_EXCEPTIONS.map((entry) => [entry.path, []]));
   assert.deepEqual(await lintRuleIds(engineFileLastDay), clean);
-  // Without the entries every declared rule fires and no other one does, so
-  // no entry is unused and none hides a rule it does not name.
   assert.deepEqual(await lintRuleIds(engineFileNextDay), declared);
   assert.deepEqual(await lintRuleIds("2026-10-11", []), declared);
-
-  const narrowed = LINT_EXCEPTIONS.map((entry) => plainEntry(entry, "rules"));
-  narrowed[1].rules = narrowed[1].rules.filter((rule) => rule !== "no-undef");
-  assert.deepEqual(await lintRuleIds("2026-10-11", narrowed), {
-    ...clean,
-    "tools/figures/player/player.js": ["no-undef"],
-  });
 });
 
 test("a lint exception covers its own file and no neighbour", async () => {
+  if (LINT_EXCEPTIONS.length === 0) return;
   const eslint = new ESLint({
     cwd: engineFileRoot,
     overrideConfig: createEslintConfig({ today: "2026-10-11" }),
@@ -4501,10 +4484,8 @@ test("a lint exception covers its own file and no neighbour", async () => {
   });
   const source = "export const pattern = /a\\-b/;\nif (pattern) {}\n";
   for (const [filePath, expected] of [
-    ["tools/figures/player/player.js", []],
-    ["tools/figures/player/player.test.js", ["no-empty", "no-useless-escape"]],
-    ["tools/figures/player/nested/player.js", ["no-empty", "no-useless-escape"]],
-    ["tools/figures/player.js", ["no-empty", "no-useless-escape"]],
+    [LINT_EXCEPTIONS[0].path, []],
+    [`${LINT_EXCEPTIONS[0].path}.test.js`, ["no-empty", "no-useless-escape"]],
     ["scripts/player.js", ["no-empty", "no-useless-escape"]],
   ]) {
     const [result] = await eslint.lintText(source, { filePath: path.join(engineFileRoot, filePath) });
@@ -4518,7 +4499,7 @@ test("a lint exception is never a whole-file ignore: the lint reads every script
     .filter((entry) => /\.(?:[cm]?js|tsx?)$/u.test(entry))
     .sort();
   const markdownGates = ["tools/markdownlint/no-private-scratch-links.mjs", "tools/markdownlint/verify.mjs"];
-  for (const expected of [...LINT_EXCEPTIONS.map((entry) => entry.path), "tools/figures/checks.mjs", ...markdownGates]) {
+  for (const expected of ["tools/figures/checks.mjs", ...markdownGates]) {
     assert.ok(scripts.includes(expected), expected);
   }
   const ignored = async (extra) => {

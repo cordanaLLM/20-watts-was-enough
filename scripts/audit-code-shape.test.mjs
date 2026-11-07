@@ -221,13 +221,11 @@ test("the comparison day is the UTC calendar day", () => {
   assert.equal(currentCalendarDate(new Date("2027-01-10T00:00:00Z")), "2027-01-10");
 });
 
-test("the declared exceptions are five engine-file groups with one last day", () => {
+test("the declared exceptions are three engine-file groups with one last day", () => {
   validateExceptions(CODE_SHAPE_EXCEPTIONS);
   assert.deepEqual(
     CODE_SHAPE_EXCEPTIONS.map((entry) => `${entry.path} · ${entry.rule} · ${entry.expires}`),
     [
-      "tools/figures/player/player.js · complexity · 2027-01-09",
-      "tools/figures/player/player.js · max-statements · 2027-01-09",
       "tools/figures/third_party/interfig/upstream/src/svg.ts · max-lines-per-function · 2027-01-09",
       "tools/figures/third_party/interfig/upstream/src/svg.ts · max-statements · 2027-01-09",
       "tools/markdownlint/no-private-scratch-links.mjs · complexity · 2027-01-09",
@@ -238,7 +236,7 @@ test("the declared exceptions are five engine-file groups with one last day", ()
 test("the live audit fails once the declared exceptions have ended", async () => {
   await assert.rejects(
     () => runCodeShapeAudit({ today: "2027-01-10" }),
-    /player\.js · complexity: new group with 27 finding\(s\), worst 181; its exception expired on 2027-01-09/,
+    /svg\.ts · max-lines-per-function: new group with 1 finding\(s\), worst 270; its exception expired on 2027-01-09/,
   );
 });
 
