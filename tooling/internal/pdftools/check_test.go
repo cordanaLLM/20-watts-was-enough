@@ -351,8 +351,8 @@ func changeRendererBuildxRevision(t *testing.T, path string) {
 	}
 	body = []byte(strings.Replace(
 		string(body),
-		`"buildx_revision": "0dbe87f36ed472fe36b6796c3f70b4210a731fc5"`,
-		`"buildx_revision": "1dbe87f36ed472fe36b6796c3f70b4210a731fc5"`,
+		`"buildx_revision": "3c4cbd35852fc1a476923627a780a7836c28b654"`,
+		`"buildx_revision": "1c4cbd35852fc1a476923627a780a7836c28b654"`,
 		1,
 	))
 	if err := os.WriteFile(path, body, 0o644); err != nil {
