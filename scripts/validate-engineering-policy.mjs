@@ -41,7 +41,7 @@ const sbomGenerator = "generator=docker.io/docker/buildkit-syft-scanner@sha256:a
 
 const buildxPolicy = Object.freeze({
   buildkit: "image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8",
-  version: "v0.38.1",
+  version: "v0.38.2",
 });
 
 const releaseMutationGuard = "steps.release-preflight.outputs.release_state != 'published'";
@@ -4665,7 +4665,7 @@ function validateGoModule(root, findings) {
     "",
     `go ${runtimePolicy.goVersion}`,
     "",
-    "require github.com/yuin/goldmark/v2 v2.1.6",
+    "require github.com/yuin/goldmark/v2 v2.1.15",
     "",
   ].join("\n");
   if (readText(root, relativePath).replaceAll("\r\n", "\n") !== expected) {
@@ -4674,8 +4674,8 @@ function validateGoModule(root, findings) {
     );
   }
   const expectedSums = [
-    "github.com/yuin/goldmark/v2 v2.1.6 h1:igy0q9JcqovoFXFx/XjtU8sHVhcUHavPj2sA3EoKJUE=",
-    "github.com/yuin/goldmark/v2 v2.1.6/go.mod h1:G6M4/qOFtfn01/o14BU1UR2Lo5N3S9Qo7xCuz/sHjGQ=",
+    "github.com/yuin/goldmark/v2 v2.1.15 h1:pbpN8gBduyEjATzLcsZ5pEssSKRiWf//H2MtVl3sd2I=",
+    "github.com/yuin/goldmark/v2 v2.1.15/go.mod h1:G6M4/qOFtfn01/o14BU1UR2Lo5N3S9Qo7xCuz/sHjGQ=",
     "",
   ].join("\n");
   if (readText(root, "tooling/go.sum").replaceAll("\r\n", "\n") !== expectedSums) {

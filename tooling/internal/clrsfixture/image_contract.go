@@ -107,9 +107,9 @@ func (contract GeneratorImageContract) validateHeader(
 func validateGeneratorBuilder(builder GeneratorBuilder) error {
 	want := GeneratorBuilder{
 		AuthorityPath:         "tooling/pdf-renderer/lock.json",
-		AuthoritySubsetSHA256: "6aa28166ec01c5f7bc805175adf52e8e0d5185b932a3cc0fe2cca33e89b98c12",
-		BuildxVersion:         "0.38.1",
-		BuildxRevision:        "0dbe87f36ed472fe36b6796c3f70b4210a731fc5",
+		AuthoritySubsetSHA256: "edf60a8e3b592e3dca4d1cbeb0bc3c22166efe1ed9cf34a88cd9356b196dd11d",
+		BuildxVersion:         "0.38.2",
+		BuildxRevision:        "3c4cbd35852fc1a476923627a780a7836c28b654",
 		BuildKitVersion:       "0.32.2",
 		BuildKitImage:         "moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8",
 		RewriteTimestamp:      true,
