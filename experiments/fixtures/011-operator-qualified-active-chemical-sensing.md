@@ -517,3 +517,9 @@ evaluation fixture when any relevant condition fires:
 A pass refines only the audit-supported owner candidates on the literal tracks
 passed. It does not create another principle, candidate, biological claim,
 general intelligence claim, or safety claim.
+
+## Harness status
+
+Blocked by: hardware.
+
+The arms run on matched physical chemical sensor arrays with sampling, flow and chamber hardware. The repository has no such apparatus.

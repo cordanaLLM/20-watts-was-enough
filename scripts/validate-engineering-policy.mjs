@@ -30,7 +30,7 @@ const runtimePolicy = Object.freeze({
   numpyFilename: "numpy-2.5.4-cp315-cp315-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
   numpyVersion: "2.5.4",
   pythonImplementation: "CPython",
-  pythonVersion: "3.15.0",
+  pythonVersion: "3.15.2",
 });
 
 // Workflows read the Node version from this file. runtimePolicy.nodeVersion
@@ -298,6 +298,47 @@ function collectUses(value, location = "root", output = []) {
   throw new Error(`collectUses exceeded scalar upper bound of ${maximumWorkflowNodes} nodes`);
 }
 
+// The pinned actions/deploy-pages caps its deployment wait at 600000 ms and
+// falls back to that value for an empty, zero, negative or non-numeric input
+// (src/internal/deployment.js, MAX_TIMEOUT).
+const deployPagesMaximumTimeoutMs = 600000;
+
+/**
+ * Checks that a job running actions/deploy-pages outlives the action's own
+ * deployment wait by at least 1 minute (Decision 0126). A smaller job bound
+ * lets the runner kill the job while the action still waits on the Pages
+ * queue, which cancels a deployment the action would still finish. The
+ * timeout input is read through an allow-list: only a positive decimal
+ * integer is accepted, and the effective wait is capped as the action caps it.
+ *
+ * @param {object} job Workflow job mapping.
+ * @param {string} jobName Job key in the workflow.
+ * @param {string} relativePath Workflow path used in findings.
+ * @param {object} step The deploy-pages step.
+ * @returns {string[]} Findings; empty when the bound holds.
+ */
+function validateDeployPagesTimeout(job, jobName, relativePath, step) {
+  const input = step.with?.timeout;
+  if (input !== undefined && !/^[1-9][0-9]*$/u.test(String(input))) {
+    return [`${relativePath}: job ${jobName} deploy-pages timeout input must be a positive integer of milliseconds`];
+  }
+  const actionMs = Math.min(input === undefined ? deployPagesMaximumTimeoutMs : Number(input), deployPagesMaximumTimeoutMs);
+  if (!(job["timeout-minutes"] * 60000 >= actionMs + 60000)) {
+    return [`${relativePath}: job ${jobName} timeout-minutes must exceed the deploy-pages timeout input by at least 1 minute`];
+  }
+  return [];
+}
+
+/**
+ * Validates the bounds every workflow job shares: a mapping shape, a
+ * positive timeout-minutes, checkout without persisted credentials, and a
+ * deploy-pages job bound above the action's deployment wait.
+ *
+ * @param {object} job Workflow job mapping.
+ * @param {string} jobName Job key in the workflow.
+ * @param {string} relativePath Workflow path used in findings.
+ * @returns {string[]} Findings; empty when the job passes.
+ */
 function validateWorkflowJob(job, jobName, relativePath) {
   const findings = [];
   if (!job || typeof job !== "object" || Array.isArray(job)) {
@@ -314,6 +355,9 @@ function validateWorkflowJob(job, jobName, relativePath) {
       && step.with?.["persist-credentials"] !== false
     ) {
       findings.push(`${relativePath}: job ${jobName} step ${stepIndex} must set checkout persist-credentials to false`);
+    }
+    if (typeof step?.uses === "string" && step.uses.startsWith("actions/deploy-pages@")) {
+      findings.push(...validateDeployPagesTimeout(job, jobName, relativePath, step));
     }
   }
   return findings;
@@ -1007,6 +1051,14 @@ export function validatePagesPublicTransportWorkflowObject(
 
 const pagesRestoreCondition = "${{ always() && needs.deploy.result == 'success' && needs.verify-public-transport.result == 'failure' }}";
 
+/**
+ * Pins the Pages restore job: it runs only after a successful deployment
+ * failed public verification, keeps the 11-minute deploy-pages bound of
+ * Decision 0126, and carries exactly the permissions a redeploy needs.
+ *
+ * @param {object} job The restore-verified-site job mapping.
+ * @returns {boolean} True when every pinned field matches.
+ */
 function pagesRestoreJobBoundaryIsExact(job) {
   const permissions = job?.permissions ?? {};
   return (
@@ -1017,7 +1069,7 @@ function pagesRestoreJobBoundaryIsExact(job) {
     && job?.if === pagesRestoreCondition
     && job?.environment?.name === "github-pages"
     && job?.["runs-on"] === "ubuntu-26.04"
-    && job?.["timeout-minutes"] === 10
+    && job?.["timeout-minutes"] === 11
     && continueOnErrorIsDisabled(job)
     && Object.keys(permissions).length === 3
     && permissions.actions === "read"
@@ -1374,6 +1426,11 @@ function pdfRendererSurroundingStepsAreExact(steps, setupIndex, verifyIndex, rec
     && publishedBookRenderStepIsExact(steps, receiptIndex);
 }
 
+/**
+ * Accepts a CI job object requiring impact-plan dependency, renderer gate condition, 13-minute timeout, read-only contents permission, disabled continue-on-error, and exact ordered proof verification and artifact retention steps.
+ * @param {object} job - CI job object to validate.
+ * @returns {boolean} True if the job satisfies the exact PDF reproducibility CI boundary.
+ */
 function pdfReproducibilityCiJobIsExact(job) {
   const steps = job?.steps ?? [];
   const setupIndex = steps.findIndex(pdfReproducibilitySetupIsExact);
@@ -1393,7 +1450,7 @@ function pdfReproducibilityCiJobIsExact(job) {
   const receipt = receiptIndex >= 0 ? steps[receiptIndex] : undefined;
   return job?.needs === "impact-plan"
     && job?.if === "needs.impact-plan.outputs.renderer == 'true'"
-    && job?.["timeout-minutes"] === 75
+    && job?.["timeout-minutes"] === 13
     && Object.keys(job?.permissions ?? {}).length === 1
     && job.permissions.contents === "read"
     && continueOnErrorIsDisabled(job)
@@ -1411,8 +1468,13 @@ function pdfReproducibilityCiJobIsExact(job) {
     && receipt.with["retention-days"] === 30;
 }
 
-// validatePDFRendererReproducibilityWorkflowObject protects the real-Docker
-// regression boundary without placing it in common or fast unit-test lanes.
+/**
+ * Validates that a workflow object enforces the exact PDF reproducibility boundary for CI or release-build workflows, pinning a 113-minute timeout and ordered setup, verification, and asset preparation in release mode.
+ * Protects the real-Docker regression boundary without placing it in common or fast unit-test lanes.
+ * @param {object} workflow - Workflow object to validate.
+ * @param {string} relativePath - Relative path of the workflow file being validated.
+ * @returns {string[]} Validation failure findings, empty if the workflow satisfies policy.
+ */
 export function validatePDFRendererReproducibilityWorkflowObject(workflow, relativePath) {
   if (relativePath === ".github/workflows/ci.yml") {
     const jobs = workflow?.jobs ?? {};
@@ -1452,7 +1514,7 @@ export function validatePDFRendererReproducibilityWorkflowObject(workflow, relat
       && String(step?.run ?? "").includes("--additional-assets-root build/release-inputs")
     ));
     if (
-      job?.["timeout-minutes"] === 225
+      job?.["timeout-minutes"] === 113
       && continueOnErrorIsDisabled(job)
       && setupIndex >= 0
       && nativeIndex > setupIndex
@@ -1540,13 +1602,19 @@ const ciCommitMessageSource = [
   "fi",
 ].join("\n");
 
+/**
+ * Accepts a workflow and job object pinning the CI impact plan to ubuntu-26.04, a 5-minute timeout, read-only contents permission, disabled continue-on-error, and exact allowed job keys without defaults, container, or services.
+ * @param {object} workflow - Workflow object containing the job.
+ * @param {object} plan - CI impact plan job object to validate.
+ * @returns {boolean} True if the impact plan job boundary matches policy exactly.
+ */
 function impactPlanJobBoundaryIsExact(workflow, plan) {
   return [
     workflow?.defaults === undefined,
     privateGoJobHasNoInheritedEnvironment(workflow, plan),
     plan?.name === "CI impact plan",
     plan?.["runs-on"] === "ubuntu-26.04",
-    plan?.["timeout-minutes"] === 10,
+    plan?.["timeout-minutes"] === 5,
     Object.keys(plan?.permissions ?? {}).length === 1,
     plan?.permissions?.contents === "read",
     plan?.if === undefined,
@@ -2019,13 +2087,20 @@ function codeQlStepIsExact(step, name, action, expectedWith) {
   );
 }
 
+/**
+ * Accepts a CodeQL job object pinning ubuntu-26.04, a 5-minute timeout, exact step count, permissions for contents:read, security-events:write, and actions:read, and no external needs, defaults, or container.
+ * @param {object} job - CodeQL job object to validate.
+ * @param {string} name - Expected display name of the job.
+ * @param {number} expectedStepCount - Expected number of steps in the job.
+ * @returns {boolean} True if the CodeQL job boundary matches policy exactly.
+ */
 function codeQlJobBoundaryIsExact(job, name, expectedStepCount) {
   return (
     job?.name === name
     && job?.needs === undefined
     && job?.if === undefined
     && job?.["runs-on"] === "ubuntu-26.04"
-    && job?.["timeout-minutes"] === 30
+    && job?.["timeout-minutes"] === 5
     && Object.keys(job?.permissions ?? {}).length === 3
     && propertiesMatch(job?.permissions, {
       contents: "read",
@@ -2349,10 +2424,16 @@ function pullRequestMetadataPermissionsAreExact(workflow, job) {
   );
 }
 
+/**
+ * Accepts a workflow and job object pinning pull-request metadata to ubuntu-26.04, a 5-minute timeout, disabled continue-on-error, and serialized per-PR concurrency with cancel-in-progress false and queue max.
+ * @param {object} workflow - Workflow object defining concurrency controls.
+ * @param {object} job - Pull request metadata job object to validate.
+ * @returns {boolean} True if the metadata job boundary matches policy exactly.
+ */
 function pullRequestMetadataBoundaryIsExact(workflow, job) {
   return (
     job?.["runs-on"] === "ubuntu-26.04"
-    && job?.["timeout-minutes"] === 10
+    && job?.["timeout-minutes"] === 5
     && job?.if === undefined
     && continueOnErrorIsDisabled(job)
     && workflow?.concurrency?.group === "${{ github.workflow }}-${{ github.event.pull_request.number }}"
@@ -4968,20 +5049,36 @@ export function validateReleaseBuilderWorkflowObject(workflow, relativePath = ".
   return findings;
 }
 
+/**
+ * Accepts a release builder job object pinning a 113-minute timeout, exact write permissions for contents, id-token, attestations, and packages, disabled continue-on-error, and no job dependencies or conditions.
+ * @param {object} job - Release builder job object to validate.
+ * @returns {boolean} True if the release builder job boundary matches policy exactly.
+ */
 function releaseBuilderJobIsExact(job) {
   return propertiesMatch(job?.permissions, releasePermissions)
     && Object.keys(job?.permissions ?? {}).length === 4
-    && job?.["timeout-minutes"] === 225
+    && job?.["timeout-minutes"] === 113
     && job?.needs === undefined
     && job?.if === undefined
     && continueOnErrorIsDisabled(job);
 }
 
+const cosignReleasePattern = /^v3\.(\d+)\.(\d+)$/;
+
+function isApprovedCosignRelease(release) {
+  if (typeof release !== "string") return false;
+  const match = cosignReleasePattern.exec(release);
+  if (!match) return false;
+  const minor = Number.parseInt(match[1], 10);
+  const patch = Number.parseInt(match[2], 10);
+  return minor > 1 || (minor === 1 && patch >= 3);
+}
+
 function validateReleaseSigningSteps(steps, relativePath, findings) {
   const installer = findStepByName(steps, "Install the pinned cosign client");
   recordExpectation(findings, actionUses(installer, "sigstore/cosign-installer")
-    && installer.with?.["cosign-release"] === "v3.1.3",
-  `${relativePath}: release must install the pinned cosign v3.1.3 client`);
+    && isApprovedCosignRelease(installer?.with?.["cosign-release"]),
+  `${relativePath}: release must install an exact cosign v3.x.y client >= v3.1.3`);
   for (const [label, suffix, output, flag] of [
     ["static 20w", "20w", "build-tooling-image", "tooling"],
     ["Fixture 007", "fixture-007", "build-fixture-007-image", "fixture007"],

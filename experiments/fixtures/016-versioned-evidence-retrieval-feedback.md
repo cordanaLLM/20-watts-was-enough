@@ -788,3 +788,9 @@ recomputation. Smoke data, modeled energy, public development seeds, or a
 single machine run cannot satisfy either confirmatory claim. Until the frozen
 corpora, code, calibrated meter path, sealed bundles, and independent rerun
 exist, F-016 remains a protocol-complete pre-implementation contract.
+
+## Harness status
+
+Blocked by: data.
+
+The contract records that no workstation adapter or frozen corpus release exists. Its retrieval rules cannot be exercised before a frozen, versioned corpus is released.

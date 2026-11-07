@@ -280,3 +280,9 @@ of the following applies:
 A pass allows the four owning candidates to cite one shared benchmark result.
 It does not create a new principle, candidate, or general claim about
 creativity.
+
+## Harness status
+
+Blocked by: hardware, data.
+
+The tasks score each artifact against hidden constraints in simulation and selected physical tests, and the evaluator keeps a full source, material and derivation trace. The repository holds neither a physical test rig nor the source corpora and material records that trace needs.
