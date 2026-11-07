@@ -26,15 +26,13 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
 COPY --from=node-runtime /usr/lib/x86_64-linux-gnu/libatomic.so.1.2.0 /usr/lib/x86_64-linux-gnu/libatomic.so.1.2.0
 
-RUN set -eu; \
-    apt-get update -qq; \
-    apt-get install -y --no-install-recommends zlib1g; \
-    rm -rf /var/lib/apt/lists/*
-
 WORKDIR /workspace
 COPY . /workspace/
 
 RUN set -eu; \
+    apt-get update -qq; \
+    apt-get install -y --no-install-recommends zlib1g; \
+    rm -rf /var/lib/apt/lists/*; \
     test "$(cat .experiment-artifact)" = "fixture-019"; \
     test "$(cat .experiment-runner)" = "experiments/workstation/fixture-019/runner.mjs"; \
     printf '%s\n' "${IMAGE_NAME}" > /tmp/image-name; \
@@ -57,7 +55,7 @@ RUN set -eu; \
     cmp /tmp/expected-directories /tmp/actual-directories; \
     python -m pip install --no-deps --require-hashes -r requirements-ci.txt; \
     python -m pip uninstall --yes pip; \
-    ln --symbolic libatomic.so.1.2.0 /usr/lib/x86_64-linux-gnu/libatomic.so.1; \
+    ln -sf libatomic.so.1.2.0 /usr/lib/x86_64-linux-gnu/libatomic.so.1; \
     test "$(node --version)" = "v26.13.0"; \
     test "$(python --version)" = "Python 3.15.2"; \
     python -c 'import numpy; assert numpy.__version__ == "2.5.4"'; \
