@@ -23,7 +23,7 @@ jobs:
   impact-plan:
     name: CI impact plan
     runs-on: ubuntu-26.04
-    timeout-minutes: 10
+    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
     permissions:
       contents: read
     outputs:
@@ -141,7 +141,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full'
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
     permissions:
       contents: read
     steps:
@@ -179,7 +179,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full' || needs.impact-plan.outputs.mode == 'impact'
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    timeout-minutes: 6
     permissions:
       contents: read
     steps:
@@ -206,7 +206,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.go == 'true')
     runs-on: ubuntu-26.04
-    timeout-minutes: 20
+    timeout-minutes: 13
     permissions:
       contents: read
     steps:
@@ -259,7 +259,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.go == 'true')
     runs-on: windows-2025
-    timeout-minutes: 20
+    timeout-minutes: 10
     permissions:
       contents: read
     defaults:
@@ -283,7 +283,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.go == 'true')
     runs-on: macos-26
-    timeout-minutes: 20
+    timeout-minutes: 7
     permissions:
       contents: read
     steps:
@@ -304,7 +304,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.release == 'true')
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
     permissions:
       contents: read
     steps:
@@ -337,7 +337,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.renderer == 'true'
     runs-on: ubuntu-26.04
-    timeout-minutes: 75
+    timeout-minutes: 13
     permissions:
       contents: read
     steps:
@@ -431,7 +431,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.research == 'true')
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    timeout-minutes: 14
     permissions:
       contents: read
     steps:
@@ -467,7 +467,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.site == 'true')
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    timeout-minutes: 12
     permissions:
       contents: read
     steps:
@@ -495,7 +495,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.site == 'true')
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    timeout-minutes: 9
     permissions:
       contents: read
     steps:
@@ -523,7 +523,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.workstation_any == 'true'
     runs-on: ubuntu-26.04
-    timeout-minutes: 20
+    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
     permissions:
       contents: read
     steps:
@@ -550,7 +550,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.workstation_any == 'true'
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    timeout-minutes: 10
     permissions:
       contents: read
     strategy:
@@ -593,7 +593,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full' || needs.impact-plan.outputs.container == 'true'
     runs-on: ubuntu-26.04
-    timeout-minutes: 35
+    timeout-minutes: 8
     permissions:
       contents: read
     steps:
@@ -818,7 +818,7 @@ jobs:
     needs: impact-plan
     if: github.event_name == 'pull_request' && (needs.impact-plan.outputs.mode == 'full' || needs.impact-plan.outputs.dependency == 'true')
     runs-on: ubuntu-26.04
-    timeout-minutes: 10
+    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
     permissions:
       contents: read
     steps:
@@ -830,7 +830,7 @@ jobs:
   secret-scan:
     name: Secret scan
     runs-on: ubuntu-26.04
-    timeout-minutes: 15
+    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
     permissions:
       contents: read
     steps:
@@ -871,7 +871,7 @@ jobs:
       - dependency-review
       - secret-scan
     runs-on: ubuntu-26.04
-    timeout-minutes: 5
+    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
     steps:
       - name: Require every expected gate state
         env:

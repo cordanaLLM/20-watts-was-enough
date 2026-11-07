@@ -18,7 +18,7 @@ jobs:
   analysis:
     name: OpenSSF Scorecard analysis
     runs-on: ubuntu-26.04
-    timeout-minutes: 20
+    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
     permissions:
       contents: read
       security-events: write

@@ -72,6 +72,54 @@ function missingProtocolFacets(body) {
     .map(({ id }) => id);
 }
 
+const harnessBlockers = new Set(["hardware", "data", "dependency", "not-built"]);
+const dependencyTarget = /^(?:fixture|candidate)-\d{3}$/;
+
+// A fixture without a workstation manifest states why under "## Harness status".
+// Its first line is "Blocked by: <blocker>[, <blocker>]." where a dependency
+// names its target, for example "dependency (fixture-007)".
+function harnessStatusFrom(body, currentId = null, knownArtifactIds = null) {
+  const lines = body.split("\n");
+  const start = lines.findIndex((line) => /^## Harness status\s*$/.test(line));
+  if (start === -1) return null;
+  const end = lines.findIndex((line, index) => index > start && /^## /.test(line));
+  const section = lines.slice(start + 1, end === -1 ? lines.length : end).join("\n").trim();
+  const match = section.match(/^Blocked by: ([^\n]+?)\.(?:\s|$)/);
+  if (!match) return { blockers: [], dependencies: [], reason: "", errors: ["first line is not \"Blocked by: <blocker>[, <blocker>].\""] };
+  const errors = [];
+  const blockers = [];
+  const dependencies = [];
+  for (const entry of match[1].split(/,\s*(?![^()]*\))/)) {
+    const parsed = entry.trim().match(/^([a-z-]+)(?: \(([^)]+)\))?$/);
+    if (!parsed || !harnessBlockers.has(parsed[1])) {
+      errors.push(`unknown blocker "${entry.trim()}"`);
+      continue;
+    }
+    blockers.push(parsed[1]);
+    if (parsed[1] === "dependency") {
+      const targets = (parsed[2] ?? "").split(/,\s*/).filter(Boolean);
+      if (!targets.length || !targets.every((target) => dependencyTarget.test(target))) {
+        errors.push("dependency blocker must name fixture-NNN or candidate-NNN targets");
+      }
+      for (const target of targets) {
+        if (!dependencyTarget.test(target)) continue;
+        if (target === currentId) {
+          errors.push(`dependency target "${target}" names the fixture itself`);
+        } else if (knownArtifactIds && !knownArtifactIds.has(target)) {
+          errors.push(`dependency target "${target}" names no existing fixture or candidate`);
+        }
+      }
+      dependencies.push(...targets);
+    } else if (parsed[2] !== undefined) {
+      errors.push(`blocker "${parsed[1]}" takes no target`);
+    }
+  }
+  if (blockers.includes("not-built") && blockers.length > 1) errors.push("not-built cannot be combined with another blocker");
+  const reason = section.slice(match[0].length).trim();
+  if (!reason) errors.push("no reason follows the blocker line");
+  return { blockers, dependencies, reason, errors };
+}
+
 function toPosix(value) {
   return value.replaceAll("\\", "/");
 }
@@ -99,6 +147,7 @@ async function isExecutionReady(id) {
     return {
       ready: validation.ready,
       readiness: validation.readiness,
+      errors: validation.errors,
       manifest: validation.readiness === "absent"
         ? null
         : toPosix(path.relative(root, manifestPath)),
@@ -110,15 +159,8 @@ async function isExecutionReady(id) {
       promotionChecks: validation.promotionChecks ?? [],
       executionClaims: validation.executionClaims ?? [],
     };
-  } catch {
-    return {
-      ready: false,
-      readiness: "absent",
-      manifest: null,
-      missing: ["manifest"],
-      promotionChecks: [],
-      executionClaims: [],
-    };
+  } catch (error) {
+    throw new Error(`Failed to validate ${toPosix(path.relative(root, manifestPath))}: ${error.message}`, { cause: error });
   }
 }
 
@@ -127,14 +169,34 @@ const artifactPaths = [
   ...(await markdownFiles(path.join(root, "experiments", "fixtures"))),
 ];
 
+const knownArtifactIds = new Set(
+  artifactPaths.map((absolutePath) => artifactId(toPosix(path.relative(root, absolutePath)))),
+);
+
 const artifacts = [];
+const harnessErrors = [];
 for (const absolutePath of artifactPaths) {
   const relativePath = toPosix(path.relative(root, absolutePath));
+  const id = artifactId(relativePath);
   const body = await readFile(absolutePath, "utf8");
   const missingFacets = missingProtocolFacets(body);
-  const execution = await isExecutionReady(artifactId(relativePath));
+  const execution = await isExecutionReady(id);
+  const harnessStatus = harnessStatusFrom(body, id, knownArtifactIds);
+  if (execution.readiness === "invalid") {
+    harnessErrors.push(
+      `${execution.manifest}: workstation manifest is invalid (artifact ${relativePath}): ${execution.errors.join("; ")}`,
+    );
+  }
+  if (relativePath.startsWith("experiments/fixtures/")) {
+    if (execution.readiness === "absent" && harnessStatus === null) {
+      harnessErrors.push(`${relativePath}: no workstation manifest and no "## Harness status" section`);
+    } else if (execution.readiness !== "absent" && harnessStatus !== null) {
+      harnessErrors.push(`${relativePath}: has a workstation manifest, so its "## Harness status" section is stale`);
+    }
+    for (const error of harnessStatus?.errors ?? []) harnessErrors.push(`${relativePath}: harness status ${error}`);
+  }
   artifacts.push({
-    id: artifactId(relativePath),
+    id,
     path: relativePath,
     title: body.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? path.basename(relativePath),
     protocolComplete: missingFacets.length === 0,
@@ -145,6 +207,8 @@ for (const absolutePath of artifactPaths) {
     executionMissing: execution.missing,
     executionPromotionChecks: execution.promotionChecks,
     executionClaims: execution.executionClaims,
+    harnessBlockers: harnessStatus?.blockers ?? [],
+    harnessDependencies: harnessStatus?.dependencies ?? [],
     claimSideClaims: new Set(),
     documentSideClaims: new Set(),
   });
@@ -452,6 +516,8 @@ const jsonReport = {
     executionMissing: artifact.executionMissing,
     executionPromotionChecks: artifact.executionPromotionChecks,
     executionClaims: artifact.executionClaims,
+    harnessBlockers: artifact.harnessBlockers,
+    harnessDependencies: artifact.harnessDependencies,
     claimSideClaims: [...artifact.claimSideClaims].sort(),
     documentSideClaims: [...artifact.documentSideClaims].sort(),
     linkedClaims: [...new Set([...artifact.claimSideClaims, ...artifact.documentSideClaims])].sort(),
@@ -533,7 +599,14 @@ const artifactRows = artifacts
       : artifact.executionReadiness === "smoke-ready"
         ? "smoke-ready; not executable"
         : "not executable";
-    return `| ${artifactLink(artifact)} | ${linkedClaims} | ${status} | ${executionStatus} |`;
+    const harness = artifact.executionReadiness !== "absent"
+      ? "workstation harness"
+      : artifact.harnessBlockers.includes("not-built")
+        ? "none; not yet built"
+      : artifact.harnessBlockers.length
+        ? `none; blocked by ${artifact.harnessBlockers.map((blocker) => blocker === "dependency" ? `dependency (${artifact.harnessDependencies.join(", ")})` : blocker).join(", ")}`
+        : "none";
+    return `| ${artifactLink(artifact)} | ${linkedClaims} | ${status} | ${executionStatus} | ${harness} |`;
   })
   .join("\n");
 
@@ -547,7 +620,7 @@ const dispositionRows = Object.entries(dispositionMeanings)
   .map(([disposition, meaning]) => `| ${disposition} | ${dispositionCounts[disposition]} | ${meaning} |`)
   .join("\n");
 
-const markdownReport = `# Test coverage\n\nThis report is generated from the central claim ledger, experiment documents,\nand reviewed ledger-only dispositions. It distinguishes a written protocol from\nrunnable software. Re-run \`npm run audit:tests\` after changing claim links,\nexperiment contracts, or disposition fragments.\n\n## Current answer\n\nThe four rows below are mutually exclusive highest-reached tiers.\n\n| Highest coverage tier | Claims | Share of ${counts.claims} | Meaning |\n| --- | ---: | ---: | --- |\n| ledger-only | ${tierCounts["ledger-only"]} | ${percent(tierCounts["ledger-only"], counts.claims)} | no exact direct relation to a numbered experiment artifact |\n| linked test description | ${tierCounts["linked-description"]} | ${percent(tierCounts["linked-description"], counts.claims)} | related experiment prose exists, but at least one required protocol facet is absent |\n| protocol-complete test contract | ${tierCounts["protocol-complete"]} | ${percent(tierCounts["protocol-complete"], counts.claims)} | at least one linked artifact contains all eight required facets |\n| workstation-executable | ${tierCounts["workstation-executable"]} | ${percent(tierCounts["workstation-executable"], counts.claims)} | checked execution manifest and runnable scientific harness exist |\n\nThe short answer is therefore **${counts.protocolCovered} claims have a complete\ntest description, but ${counts.executionReady} are executable on the workstation**.\nAcross both description tiers, ${counts.testRouted} claims have an exact direct\nrelation to at least one experiment artifact. These are aggregate candidate\ntests: they evaluate engineering translations supported by several claims; they\ndo not independently reproduce every source paper.\n\n## Coverage by evidence status\n\n| Highest tier | Established | Plausible | Speculative | Disputed | Unknown |\n| --- | ---: | ---: | ---: | ---: | ---: |\n${tierStatusRows}\n\n## Why ledger-only claims remain unlinked\n\nA reviewed disposition explains every ledger-only claim without counting the\nclassification itself as a test.\n\n| Disposition | Claims | Meaning |\n| --- | ---: | --- |\n${dispositionRows}\n\nThe ${dispositionCounts["new-artifact-needed"]} unresolved engineering claims\ncollapse into ${proposedArtifactFamilies.length} proposed experiment families.\nTheir minimum promotion contracts are kept in the\n[proposed-artifact backlog](proposed/README.md). The source fragments and schema\nare in [claim dispositions](claim-dispositions/README.md).\n\n## What “complete test description” means\n\nA protocol passes only when the document contains all of the following:\n\n${facetRules.map(({ label }) => `- ${label};`).join("\n")}\n\nThe gate scans explicit H2/H3 sections. Cost reporting alone does not satisfy\nresource parity, and a statistical null is not a confirmatory analysis plan.\nThis is a structural completeness gate, not proof that the design is correct.\nA workstation-ready test additionally needs a machine-readable manifest naming\nthe command, environment, hardware assumptions, seeds, data, and outputs.\n\n## Traceability method\n\nA relation exists when either side states it exactly:\n\n1. a claim block links a numbered candidate or fixture; or\n2. an artifact links an exact claim label to the matching claim anchor.\n\nInclusive ranges are expanded only when both endpoints have exact matching\nlinks. Prose numbers and indirect adoption-matrix associations do not count.\nThe union yields ${counts.testRouted} linked claims: ${counts.claimSideLinked}\nappear on the claim side, ${counts.documentSideLinked} on the document side, and\n${counts.reciprocalClaims} have at least one reciprocal same-artifact relation.\n\n## Artifact coverage\n\nThere are ${counts.artifacts} experiment artifacts: ${counts.protocolCompleteArtifacts}\npass the written-protocol gate, and ${counts.executionReadyArtifacts} pass the\nexecution gate.\n\n| Artifact | Directly related claims | Protocol status | Execution status |\n| --- | ---: | --- | --- |\n${artifactRows}\n\n## Immediate gaps\n\n- ${unrouted.length} claims remain ledger-only: ${dispositionCounts["evidence-input"]}\n  evidence inputs, ${dispositionCounts["source-reproduction"]} source-domain\n  reproductions, and ${dispositionCounts["new-artifact-needed"]} claims needing\n  a new project experiment artifact.\n- ${dispositionCounts["existing-artifact-gap"]} ledger-only claims still belong\n  in an existing artifact but lack an exact traceability or test track.\n- ${tierCounts["linked-description"]} claims reach only a partial description.\n  The missing facets are concentrated in ${artifacts.filter((artifact) => !artifact.protocolComplete).map((artifact) => `\`${artifact.id}\` (${artifact.missingFacets.join(", ")})`).join(", ") || "no artifact"}.\n- No execution manifests, runners, frozen environments, seed packs, or raw-output\n  schemas exist yet. The [workstation contract](workstation/README.md) defines\n  the next layer without pretending that prose is runnable.\n\n## Machine-readable report\n\n[\`test-coverage.json\`](test-coverage.json) contains every claim-to-artifact\nmapping, reviewed ledger-only disposition, per-artifact facet result, and\nexecution readiness.\n`;
+const markdownReport = `# Test coverage\n\nThis report is generated from the central claim ledger, experiment documents,\nand reviewed ledger-only dispositions. It distinguishes a written protocol from\nrunnable software. Re-run \`npm run audit:tests\` after changing claim links,\nexperiment contracts, or disposition fragments.\n\n## Current answer\n\nThe four rows below are mutually exclusive highest-reached tiers.\n\n| Highest coverage tier | Claims | Share of ${counts.claims} | Meaning |\n| --- | ---: | ---: | --- |\n| ledger-only | ${tierCounts["ledger-only"]} | ${percent(tierCounts["ledger-only"], counts.claims)} | no exact direct relation to a numbered experiment artifact |\n| linked test description | ${tierCounts["linked-description"]} | ${percent(tierCounts["linked-description"], counts.claims)} | related experiment prose exists, but at least one required protocol facet is absent |\n| protocol-complete test contract | ${tierCounts["protocol-complete"]} | ${percent(tierCounts["protocol-complete"], counts.claims)} | at least one linked artifact contains all eight required facets |\n| workstation-executable | ${tierCounts["workstation-executable"]} | ${percent(tierCounts["workstation-executable"], counts.claims)} | checked execution manifest and runnable scientific harness exist |\n\nThe short answer is therefore **${counts.protocolCovered} claims have a complete\ntest description, but ${counts.executionReady} are executable on the workstation**.\nAcross both description tiers, ${counts.testRouted} claims have an exact direct\nrelation to at least one experiment artifact. These are aggregate candidate\ntests: they evaluate engineering translations supported by several claims; they\ndo not independently reproduce every source paper.\n\n## Coverage by evidence status\n\n| Highest tier | Established | Plausible | Speculative | Disputed | Unknown |\n| --- | ---: | ---: | ---: | ---: | ---: |\n${tierStatusRows}\n\n## Why ledger-only claims remain unlinked\n\nA reviewed disposition explains every ledger-only claim without counting the\nclassification itself as a test.\n\n| Disposition | Claims | Meaning |\n| --- | ---: | --- |\n${dispositionRows}\n\nThe ${dispositionCounts["new-artifact-needed"]} unresolved engineering claims\ncollapse into ${proposedArtifactFamilies.length} proposed experiment families.\nTheir minimum promotion contracts are kept in the\n[proposed-artifact backlog](proposed/README.md). The source fragments and schema\nare in [claim dispositions](claim-dispositions/README.md).\n\n## What “complete test description” means\n\nA protocol passes only when the document contains all of the following:\n\n${facetRules.map(({ label }) => `- ${label};`).join("\n")}\n\nThe gate scans explicit H2/H3 sections. Cost reporting alone does not satisfy\nresource parity, and a statistical null is not a confirmatory analysis plan.\nThis is a structural completeness gate, not proof that the design is correct.\nA workstation-ready test additionally needs a machine-readable manifest naming\nthe command, environment, hardware assumptions, seeds, data, and outputs.\n\n## Traceability method\n\nA relation exists when either side states it exactly:\n\n1. a claim block links a numbered candidate or fixture; or\n2. an artifact links an exact claim label to the matching claim anchor.\n\nInclusive ranges are expanded only when both endpoints have exact matching\nlinks. Prose numbers and indirect adoption-matrix associations do not count.\nThe union yields ${counts.testRouted} linked claims: ${counts.claimSideLinked}\nappear on the claim side, ${counts.documentSideLinked} on the document side, and\n${counts.reciprocalClaims} have at least one reciprocal same-artifact relation.\n\n## Artifact coverage\n\nThere are ${counts.artifacts} experiment artifacts: ${counts.protocolCompleteArtifacts}\npass the written-protocol gate, and ${counts.executionReadyArtifacts} pass the\nexecution gate.\n\n| Artifact | Directly related claims | Protocol status | Execution status | Harness |\n| --- | ---: | --- | --- | --- |\n${artifactRows}\n\n## Immediate gaps\n\n- ${unrouted.length} claims remain ledger-only: ${dispositionCounts["evidence-input"]}\n  evidence inputs, ${dispositionCounts["source-reproduction"]} source-domain\n  reproductions, and ${dispositionCounts["new-artifact-needed"]} claims needing\n  a new project experiment artifact.\n- ${dispositionCounts["existing-artifact-gap"]} ledger-only claims still belong\n  in an existing artifact but lack an exact traceability or test track.\n- ${tierCounts["linked-description"]} claims reach only a partial description.\n  The missing facets are concentrated in ${artifacts.filter((artifact) => !artifact.protocolComplete).map((artifact) => `\`${artifact.id}\` (${artifact.missingFacets.join(", ")})`).join(", ") || "no artifact"}.\n- No execution manifests, runners, frozen environments, seed packs, or raw-output\n  schemas exist yet. The [workstation contract](workstation/README.md) defines\n  the next layer without pretending that prose is runnable.\n\n## Machine-readable report\n\n[\`test-coverage.json\`](test-coverage.json) contains every claim-to-artifact\nmapping, reviewed ledger-only disposition, per-artifact facet result, and\nexecution readiness.\n`;
 
 const renderedMarkdownReport = markdownReport
   .replace(
@@ -591,5 +664,6 @@ for (const [outputPath, expected] of outputs) {
   }
 }
 
-if (stale) process.exitCode = 1;
+for (const error of harnessErrors) console.error(`Harness status: ${error}`);
+if (stale || harnessErrors.length) process.exitCode = 1;
 else console.log(`${counts.protocolCovered}/${counts.claims} claims are protocol-covered; ${counts.executionReady} are workstation-executable.`);
