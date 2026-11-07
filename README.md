@@ -1,33 +1,5 @@
 # 20 Watts Was Enough
 
-<!-- praetor:readme-governance:start -->
-[![HISS Adopted][praetor-hiss-badge]][praetor-hiss-agents]
-[![Documentation Governance][praetor-docs-badge]][praetor-docs-runs]
-
-Praetor manages this repository's declared governance policy. This managed
-block records adoption state; it is not a verification certificate.
-
-**Verification**: `make verify-all` runs the repository's configured
-verification cascade.
-
-**HISS Audit**: `praetorctl audit` enforces policy, generated-surface
-integrity, and the debt ratchet.
-
-**Context Sync**: `praetorctl compile-context --verify` verifies every
-generated agent context against `AGENTS.md`.
-
-**Documentation**: `make docs-lint` enforces locked Markdown style and the
-private scratch-link policy.
-
-**Debt Baseline**: `.standards-baseline.json` anchors the debt ratchet at
-493 recorded infractions; audit forbids growth.
-
-[praetor-hiss-badge]: https://img.shields.io/badge/Standards-HISS%20Adopted%20(493%20baselined)-yellow
-[praetor-hiss-agents]: https://github.com/cordanaLLM/20-watts-was-enough/blob/HEAD/AGENTS.md
-[praetor-docs-badge]: https://github.com/cordanaLLM/20-watts-was-enough/actions/workflows/praetor-docs.yml/badge.svg
-[praetor-docs-runs]: https://github.com/cordanaLLM/20-watts-was-enough/actions/workflows/praetor-docs.yml
-<!-- praetor:readme-governance:end -->
-
 [![CI](https://github.com/cordanaLLM/20-watts-was-enough/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/cordanaLLM/20-watts-was-enough/actions/workflows/ci.yml)
 [![GitHub Pages](https://github.com/cordanaLLM/20-watts-was-enough/actions/workflows/github-pages.yml/badge.svg?branch=main)](https://github.com/cordanaLLM/20-watts-was-enough/actions/workflows/github-pages.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/cordanaLLM/20-watts-was-enough/badge)](https://scorecard.dev/viewer/?uri=github.com/cordanaLLM/20-watts-was-enough)
@@ -253,3 +225,31 @@ and modernized NASA JPL Power-of-10 rules.
 | **Verification** | `make verify-all` | Runs full audit, test suite, and context integrity check |
 | **HISS Audit** | `praetorctl audit` | Enforces zero technical debt regression against baseline |
 | **Context Sync** | `praetorctl compile-context` | Transpiles canonical `AGENTS.md` to all AI targets |
+
+<!-- praetor:readme-governance:start -->
+[![HISS Adopted][praetor-hiss-badge]][praetor-hiss-agents]
+[![Documentation Governance][praetor-docs-badge]][praetor-docs-runs]
+
+Praetor manages this repository's declared governance policy. This managed
+block records adoption state; it is not a verification certificate.
+
+**Verification**: `make verify-all` runs the repository's configured
+verification cascade.
+
+**HISS Audit**: `praetorctl audit` enforces policy, generated-surface
+integrity, and the debt ratchet.
+
+**Context Sync**: `praetorctl compile-context --verify` verifies every
+generated agent context against `AGENTS.md`.
+
+**Documentation**: `make docs-lint` enforces locked Markdown style and the
+private scratch-link policy.
+
+**Debt Baseline**: `.standards-baseline.json` anchors the debt ratchet at
+495 recorded infractions; audit forbids growth.
+
+[praetor-hiss-badge]: https://img.shields.io/badge/Standards-HISS%20Adopted%20(495%20baselined)-yellow
+[praetor-hiss-agents]: https://github.com/cordanaLLM/20-watts-was-enough/blob/HEAD/AGENTS.md
+[praetor-docs-badge]: https://github.com/cordanaLLM/20-watts-was-enough/actions/workflows/praetor-docs.yml/badge.svg
+[praetor-docs-runs]: https://github.com/cordanaLLM/20-watts-was-enough/actions/workflows/praetor-docs.yml
+<!-- praetor:readme-governance:end -->
