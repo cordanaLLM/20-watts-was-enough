@@ -650,3 +650,9 @@ new principle. Failure localizes the invalid transfer:
 The fixture creates no central `C-` claim. Evidence remains attached to its
 track, versions, physical identities, held-out regimes, and uncertainty until a
 separate project-wide promotion decision is made.
+
+## Harness status
+
+Blocked by: hardware.
+
+The tracks require the same physical memory and state-preparation apparatus for all arms and a fabricated or laid-out adiabatic circuit against a conventional CMOS null. The repository has neither.

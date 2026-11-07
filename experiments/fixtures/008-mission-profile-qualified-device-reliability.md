@@ -708,3 +708,9 @@ single existing candidate or conventional component explains the effect, or if
 the gain depends on leakage, weak nulls, pooled averages, hidden exclusions, or
 unmetered lifecycle resources, retire the composition. The result remains a
 fixture and does not allocate a new principle or candidate.
+
+## Harness status
+
+Blocked by: hardware.
+
+Every track samples physical semiconductor populations by lot, wafer, die and block, with tester and stress-chamber lineage. No synthetic stand-in exercises these rules without such devices.

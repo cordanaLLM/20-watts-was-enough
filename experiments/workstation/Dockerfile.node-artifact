@@ -20,6 +20,11 @@ ENV EXPERIMENT_ARTIFACT="${EXPERIMENT_ARTIFACT}" \
     EXPERIMENT_SOURCE_REVISION="${SOURCE_REVISION}" \
     EXPERIMENT_RESULT_AUTHORITY="NO_RESULT"
 
+RUN set -eu; \
+    apt-get update -qq; \
+    apt-get install -y --no-install-recommends zlib1g; \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /workspace
 
 COPY . /workspace/

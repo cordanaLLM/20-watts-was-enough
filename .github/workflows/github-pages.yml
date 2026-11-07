@@ -18,7 +18,7 @@ jobs:
     env:
       PAGES_BASE_PATH: /
     runs-on: ubuntu-26.04
-    timeout-minutes: 45
+    timeout-minutes: 7
     steps:
       - name: Check out canonical source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -61,7 +61,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 10
+    timeout-minutes: 11 # deploy-pages timeout input 10 min + 1 min setup (Decision 0126)
     needs: build
     steps:
       - name: Configure GitHub Pages
@@ -76,7 +76,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-26.04
-    timeout-minutes: 5
+    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
     steps:
       - name: Check out canonical source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -113,7 +113,7 @@ jobs:
       name: github-pages
       url: ${{ steps.restore.outputs.page_url }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 10
+    timeout-minutes: 11 # deploy-pages timeout input 10 min + 1 min setup (Decision 0126)
     steps:
       - name: Find the last verified run
         id: verified

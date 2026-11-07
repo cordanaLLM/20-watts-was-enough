@@ -120,6 +120,8 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1008",
         "C-1009",
@@ -296,6 +298,8 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-046",
         "C-047",
@@ -511,6 +515,8 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-058",
         "C-059",
@@ -645,6 +651,8 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1204",
         "C-1205",
@@ -928,6 +936,8 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1011",
         "C-1014",
@@ -1184,6 +1194,8 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1001",
         "C-1002",
@@ -1529,6 +1541,8 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1000",
         "C-1064",
@@ -1873,6 +1887,8 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1261",
         "C-1270",
@@ -1943,6 +1959,8 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1002",
         "C-1003",
@@ -2653,6 +2671,8 @@
       "executionClaims": [
         "C-170"
       ],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1008",
         "C-1026",
@@ -2847,6 +2867,8 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1241",
         "C-1242",
@@ -3170,6 +3192,8 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1002",
         "C-1003",
@@ -3687,6 +3711,8 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1142",
         "C-1143",
@@ -3930,6 +3956,8 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1000",
         "C-1001",
@@ -5285,6 +5313,8 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1224",
         "C-1226",
@@ -5482,6 +5512,8 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-171",
         "C-282",
@@ -5569,6 +5601,8 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1001",
         "C-1013",
@@ -5793,6 +5827,8 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1001",
         "C-1008",
@@ -6039,6 +6075,8 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1224",
         "C-1230",
@@ -6373,6 +6411,8 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1223",
         "C-1224",
@@ -6681,6 +6721,10 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [
+        "not-built"
+      ],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-761"
       ],
@@ -6775,6 +6819,11 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [
+        "hardware",
+        "data"
+      ],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-842",
         "C-843",
@@ -6853,6 +6902,10 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [
+        "not-built"
+      ],
+      "harnessDependencies": [],
       "claimSideClaims": [],
       "documentSideClaims": [
         "C-804",
@@ -6949,6 +7002,10 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [
+        "not-built"
+      ],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1207",
         "C-1211",
@@ -7034,6 +7091,10 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [
+        "not-built"
+      ],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1204",
         "C-1208",
@@ -7206,6 +7267,10 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [
+        "not-built"
+      ],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-926",
         "C-927",
@@ -7417,6 +7482,8 @@
         "C-970",
         "C-972"
       ],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1000",
         "C-1001",
@@ -7536,6 +7603,10 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [
+        "hardware"
+      ],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1002",
         "C-1003",
@@ -7713,6 +7784,10 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [
+        "not-built"
+      ],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1054",
         "C-1055",
@@ -7872,6 +7947,10 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [
+        "hardware"
+      ],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1100",
         "C-1101",
@@ -8058,6 +8137,10 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [
+        "hardware"
+      ],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1152",
         "C-1153",
@@ -8298,6 +8381,8 @@
       "executionClaims": [
         "C-1407"
       ],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1407",
         "C-1443",
@@ -8326,6 +8411,11 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [
+        "hardware",
+        "data"
+      ],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-727",
         "C-729",
@@ -8392,6 +8482,10 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [
+        "not-built"
+      ],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-008",
         "C-010"
@@ -8419,6 +8513,10 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [
+        "not-built"
+      ],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-007"
       ],
@@ -8443,6 +8541,10 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [
+        "data"
+      ],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-797",
         "C-798"
@@ -8470,6 +8572,10 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [
+        "not-built"
+      ],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-013"
       ],
@@ -8494,6 +8600,10 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [
+        "not-built"
+      ],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1285",
         "C-1288",
@@ -8610,6 +8720,8 @@
       "executionClaims": [
         "C-1481"
       ],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-139",
         "C-1433",
@@ -8673,6 +8785,10 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [
+        "not-built"
+      ],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1488",
         "C-1489",
@@ -8721,6 +8837,10 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [
+        "not-built"
+      ],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1497",
         "C-1498",
@@ -8826,6 +8946,8 @@
       "executionClaims": [
         "C-1506"
       ],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1506",
         "C-1507",
@@ -8935,6 +9057,8 @@
         "C-1516",
         "C-1517"
       ],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1516",
         "C-1517",
@@ -9043,6 +9167,8 @@
       "executionClaims": [
         "C-1526"
       ],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1526",
         "C-1527",
@@ -9133,6 +9259,8 @@
       "executionClaims": [
         "C-1532"
       ],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1530",
         "C-1531",
@@ -9241,6 +9369,8 @@
       "executionClaims": [
         "C-1540"
       ],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1540",
         "C-1541",
@@ -9376,6 +9506,8 @@
       "executionClaims": [
         "C-1550"
       ],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1550",
         "C-1551",
@@ -9416,6 +9548,10 @@
       ],
       "executionPromotionChecks": [],
       "executionClaims": [],
+      "harnessBlockers": [
+        "not-built"
+      ],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1569",
         "C-1570",
@@ -9507,6 +9643,8 @@
         "C-1574",
         "C-1580"
       ],
+      "harnessBlockers": [],
+      "harnessDependencies": [],
       "claimSideClaims": [
         "C-1574",
         "C-1576",

@@ -110,13 +110,21 @@ test("trusted builder rejects imported assets, bypassed signing, and independent
   assert.deepEqual(validateReleaseBuilderWorkflowObject(valid), []);
   for (const mutate of [
     (subject) => { subject.on.push = {}; },
-    (subject) => { subject.jobs.release["timeout-minutes"] = 224; },
+    (subject) => { subject.jobs.release["timeout-minutes"] = 112; },
+    (subject) => { subject.jobs.release["timeout-minutes"] = 114; },
     (subject) => { subject.jobs.release.steps.push({ uses: "actions/download-artifact@0123456789012345678901234567890123456789" }); },
     (subject) => { subject.jobs.release.steps.push({ run: "gh run download 123" }); },
     (subject) => { subject.jobs.release.steps.filter((step) => step.uses?.startsWith("actions/checkout@"))[1].with.clean = true; },
     (subject) => { releaseImageStepByName(subject, "Sign the freshly built static 20w digest").env.IMAGE_DIGEST = "mutable-tag"; },
     (subject) => { delete releaseImageStepByName(subject, "Sign the freshly built Fixture 007 digest").if; },
     (subject) => { releaseImageStepByName(subject, "Install the pinned cosign client").with["cosign-release"] = "latest"; },
+    (subject) => { releaseImageStepByName(subject, "Install the pinned cosign client").with["cosign-release"] = "v3"; },
+    (subject) => { releaseImageStepByName(subject, "Install the pinned cosign client").with["cosign-release"] = "v3.1"; },
+    (subject) => { releaseImageStepByName(subject, "Install the pinned cosign client").with["cosign-release"] = "v3.1.2"; },
+    (subject) => { releaseImageStepByName(subject, "Install the pinned cosign client").with["cosign-release"] = "v3.0.6"; },
+    (subject) => { releaseImageStepByName(subject, "Install the pinned cosign client").with["cosign-release"] = ["v3.1.4"]; },
+    (subject) => { releaseImageStepByName(subject, "Install the pinned cosign client").with["cosign-release"] = "v4.0.0"; },
+    (subject) => { releaseImageStepByName(subject, "Install the pinned cosign client").with["cosign-release"] = "v3.1.4-rc.1"; },
     (subject) => { releaseImageStepByName(subject, "Verify the checksum signature and complete asset inventory").run = "true"; },
     (subject) => { releaseImageStepByName(subject, "Verify the checksum signature and complete asset inventory").if = "false"; },
     (subject) => { releaseImageStepByName(subject, "Verify the checksum signature and complete asset inventory")["continue-on-error"] = true; },
@@ -130,6 +138,11 @@ test("trusted builder rejects imported assets, bypassed signing, and independent
     const subject = structuredClone(valid);
     mutate(subject);
     assert.notDeepEqual(validateReleaseBuilderWorkflowObject(subject), []);
+  }
+  for (const accepted of ["v3.1.3", "v3.1.10", "v3.9.12"]) {
+    const clone = structuredClone(valid);
+    releaseImageStepByName(clone, "Install the pinned cosign client").with["cosign-release"] = accepted;
+    assert.deepEqual(validateReleaseBuilderWorkflowObject(clone), []);
   }
 });
 
@@ -588,6 +601,51 @@ test("workflow validation rejects mutable actions and unbounded jobs", () => {
   assert.equal(findings.length, 2);
   assert.match(findings[0], /timeout-minutes/u);
   assert.match(findings[1], /full commit SHA/u);
+});
+
+test("workflow validation bounds deploy-pages jobs above the action timeout", () => {
+  const deployFindings = (timeoutMinutes, withInput) => validateWorkflowObject({
+    permissions: { contents: "read" },
+    concurrency: { group: "test", "cancel-in-progress": false },
+    jobs: {
+      deploy: {
+        "runs-on": "ubuntu-26.04",
+        "timeout-minutes": timeoutMinutes,
+        steps: [{
+          uses: "actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
+          ...(withInput === undefined ? {} : { with: withInput }),
+        }],
+      },
+    },
+  }).filter((finding) => /deploy-pages/u.test(finding));
+
+  // Positive: 11 minutes covers the default 10-minute action timeout plus 1.
+  assert.deepEqual(deployFindings(11), []);
+
+  // Negative: 5 minutes sits below the default action timeout.
+  const negative = deployFindings(5);
+  assert.equal(negative.length, 1);
+  assert.match(negative[0], /job deploy timeout-minutes must exceed the deploy-pages timeout input/u);
+
+  // Boundary: exactly the action timeout leaves no 1-minute margin; a shorter
+  // timeout input with a matching job bound passes.
+  assert.equal(deployFindings(10).length, 1);
+  assert.deepEqual(deployFindings(5, { timeout: "240000" }), []);
+  assert.equal(deployFindings(5, { timeout: "240001" }).length, 1);
+
+  // Negative: inputs the action silently replaces with its 600000 ms default
+  // are refused as malformed, whatever the job bound.
+  for (const timeout of ["ten minutes", "", " ", "0", "-1", "1.5", "0600000"]) {
+    const malformed = deployFindings(60, { timeout });
+    assert.equal(malformed.length, 1, `timeout input ${JSON.stringify(timeout)}`);
+    assert.match(malformed[0], /deploy-pages timeout input must be a positive integer/u);
+  }
+
+  // Boundary: the action caps its wait at 600000 ms, so a larger input still
+  // needs only 11 minutes, and a numeric input in YAML number form passes.
+  assert.deepEqual(deployFindings(11, { timeout: "900000" }), []);
+  assert.equal(deployFindings(10, { timeout: "900000" }).length, 1);
+  assert.deepEqual(deployFindings(5, { timeout: 240000 }), []);
 });
 
 test("workflow validation rejects ambient writes, unbounded concurrency, and credential persistence", () => {

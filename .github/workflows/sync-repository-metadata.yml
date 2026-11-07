@@ -35,7 +35,7 @@ jobs:
   sync:
     name: Apply canonical labels, milestones, and issue assignments
     runs-on: ubuntu-26.04
-    timeout-minutes: 5
+    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
     permissions:
       contents: read
       issues: write

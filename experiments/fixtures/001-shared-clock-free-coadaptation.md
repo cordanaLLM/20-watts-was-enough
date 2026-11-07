@@ -180,3 +180,9 @@ Retire the residual and keep the fixture as a negative result if any applies:
 
 A pass allows the owning candidates to cite one shared benchmark result. It
 does not create Candidate 021 or a music-specific principle.
+
+## Harness status
+
+Blocked by: not-built.
+
+The Scenario generator section specifies duet and quartet tasks with event-level acoustic or symbolic interfaces, which a deterministic workstation generator can produce; no generator, runner or tests exist yet.
