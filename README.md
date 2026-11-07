@@ -31,6 +31,7 @@ private scratch-link policy.
 [![CI](https://github.com/cordanaLLM/20-watts-was-enough/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/cordanaLLM/20-watts-was-enough/actions/workflows/ci.yml)
 [![GitHub Pages](https://github.com/cordanaLLM/20-watts-was-enough/actions/workflows/github-pages.yml/badge.svg?branch=main)](https://github.com/cordanaLLM/20-watts-was-enough/actions/workflows/github-pages.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/cordanaLLM/20-watts-was-enough/badge)](https://scorecard.dev/viewer/?uri=github.com/cordanaLLM/20-watts-was-enough)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15946/badge)](https://www.bestpractices.dev/projects/15946)
 [![Latest release](https://img.shields.io/github/v/release/cordanaLLM/20-watts-was-enough?sort=semver)](https://github.com/cordanaLLM/20-watts-was-enough/releases/latest)
 [![Code: EUPL 1.2](https://img.shields.io/badge/code-EUPL--1.2-315c9b.svg)](LICENSING.md)
 [![Original content: CC BY-SA 4.0](https://img.shields.io/badge/original%20content-CC%20BY--SA%204.0-b85c00.svg)](LICENSING.md)

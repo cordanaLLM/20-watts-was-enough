@@ -43,7 +43,7 @@ func checkGeneratorFixtureRun(ctx context.Context, options GeneratorFixtureRunOp
 	if ctx == nil {
 		return report, errors.New("generation bundle check requires a context")
 	}
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, generationCheckTimeout)
 	defer cancel()
 	inputs, err := loadGenerationRunInputs(ctx, options)
 	if err != nil {

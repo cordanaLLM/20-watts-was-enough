@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 
+import { exactKeys } from "../lib/exact-keys.mjs";
 import {
   CMB_X01_ARMS,
   CMB_X01_COUNTERFACTUAL_DRAW_DOMAIN,
@@ -134,11 +135,6 @@ export function sha256CmbX01(value) {
 
 function hashObject(value) {
   return sha256CmbX01(canonicalCmbX01(value));
-}
-
-function exactKeys(value, keys) {
-  return value && typeof value === "object" && !Array.isArray(value)
-    && canonicalCmbX01(Object.keys(value).sort()) === canonicalCmbX01([...keys].sort());
 }
 
 function count(value) {

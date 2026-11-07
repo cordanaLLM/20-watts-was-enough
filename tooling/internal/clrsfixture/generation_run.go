@@ -128,6 +128,16 @@ func finalizeGenerationRun(ctx context.Context, bundle *os.Root, runner *generat
 	return res, errors.Join(err, receiptErr)
 }
 
+const (
+	generationRunTimeout   = 300 * time.Second
+	generationCheckTimeout = 30 * time.Second
+)
+
+// GenerationDeadline bounds one generation run or bundle check: the run does
+// all of its work under generationRunTimeout and cleans up on a detached
+// context, and the check's own bound is shorter.
+const GenerationDeadline = generationRunTimeout
+
 func runGeneratorFixtures(ctx context.Context, options GeneratorFixtureRunOptions, execute generationExecutor) (report GeneratorFixtureRun, err error) {
 	report = newGenerationRunReport()
 	defer func() {
@@ -138,7 +148,7 @@ func runGeneratorFixtures(ctx context.Context, options GeneratorFixtureRunOption
 	if ctx == nil || execute == nil {
 		return report, errors.New("CLRS generation requires a context and executor")
 	}
-	ctx, cancel := context.WithTimeout(ctx, 300*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, generationRunTimeout)
 	defer cancel()
 	inputs, err := loadGenerationRunInputs(ctx, options)
 	if err != nil {

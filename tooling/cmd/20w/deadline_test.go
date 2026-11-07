@@ -22,8 +22,10 @@ func TestPublicationRenderEnforcesDeadline(t *testing.T) {
 			t.Fatal("expected publication render context to carry a deadline")
 		}
 		remaining := time.Until(deadline)
-		// The deadline must leave the lock's build and render ceilings intact.
-		floor := time.Duration(pdfrenderlock.MaximumBuildSeconds+pdfrenderlock.MaximumRenderSeconds) * time.Second
+		// The deadline must leave the lock's build and render ceilings intact,
+		// with prepare and build each getting the build limit and base fetch its own phase.
+		floor := time.Duration(2*pdfrenderlock.MaximumBuildSeconds+pdfrenderlock.MaximumRenderSeconds)*time.Second +
+			pdfrender.MaximumBaseFetchDuration
 		if remaining <= floor || remaining > publicationRenderDeadline {
 			t.Fatalf("unexpected deadline remaining duration: %v", remaining)
 		}

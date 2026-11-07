@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
 import {
-  mkdir,
-  mkdtemp,
   readFile,
-  rm,
   writeFile,
 } from "node:fs/promises";
 import path from "node:path";
@@ -16,23 +13,13 @@ import {
   prepareFixture024,
   validateFixture024Output,
 } from "./runner.mjs";
-import { assertDeterministicSmokeExecution } from "../lib/runner-test-helpers.mjs";
-
-const root = process.cwd();
-const temporaryRoot = path.join(root, "tmp");
-
-async function temporaryOutput(prefix) {
-  await mkdir(temporaryRoot, { recursive: true });
-  const parent = await mkdtemp(path.join(temporaryRoot, prefix));
-  return { parent, output: path.join(parent, "run") };
-}
-
-async function cleanup(...fixtures) {
-  for (const fixture of fixtures) {
-    assert.ok(fixture.parent.startsWith(temporaryRoot));
-    await rm(fixture.parent, { recursive: true, force: true });
-  }
-}
+import {
+  assertCliExecutionRejections,
+  assertDeterministicSmokeExecution,
+  assertResumeMatchesUninterruptedExecution,
+  cleanup,
+  temporaryOutput,
+} from "../lib/runner-test-helpers.mjs";
 
 test("smoke preparation exposes only bounded public-development work", async () => {
   assert.deepEqual(await prepareFixture024("smoke"), {
@@ -97,27 +84,12 @@ test("checkpoint resume reproduces uninterrupted output exactly", async () => {
   const resumed = await temporaryOutput("fixture-024-resume-");
   const complete = await temporaryOutput("fixture-024-complete-");
   try {
-    const partial = await executeFixture024({
-      profile: "smoke",
-      output: resumed.output,
+    await assertResumeMatchesUninterruptedExecution({
+      execute: executeFixture024,
+      resumed,
+      complete,
       maxWorkUnits: 5,
     });
-    assert.equal(partial.complete, false);
-    const finished = await executeFixture024({
-      profile: "smoke",
-      output: resumed.output,
-      resume: true,
-    });
-    assert.equal(finished.complete, true);
-    await executeFixture024({ profile: "smoke", output: complete.output });
-    assert.equal(
-      await readFile(path.join(resumed.output, "raw-events.jsonl"), "utf8"),
-      await readFile(path.join(complete.output, "raw-events.jsonl"), "utf8"),
-    );
-    assert.equal(
-      await readFile(path.join(resumed.output, "checkpoint.json"), "utf8"),
-      await readFile(path.join(complete.output, "checkpoint.json"), "utf8"),
-    );
   } finally {
     await cleanup(resumed, complete);
   }
@@ -140,16 +112,5 @@ test("analysis rejects an altered chained record", async () => {
 });
 
 test("CLI has no confirmation or transfer action and requires explicit outputs", async () => {
-  await assert.rejects(
-    () => main(["node", "runner.mjs", "confirmation", "--profile", "development"]),
-    /private partitions are not executable/,
-  );
-  await assert.rejects(
-    () => main(["node", "runner.mjs", "smoke", "--profile", "smoke"]),
-    /requires --output/,
-  );
-  await assert.rejects(
-    () => main(["node", "runner.mjs", "prepare", "--profile", "smoke", "--seeds", "private.json"]),
-    /Unknown or duplicate/,
-  );
+  await assertCliExecutionRejections({ main, confirmationPattern: /private partitions are not executable/ });
 });

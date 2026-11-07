@@ -1,14 +1,19 @@
 import assert from "node:assert/strict";
 import {
-  mkdir,
-  mkdtemp,
   readFile,
   rm,
 } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
-import { corruptRawEventsFirstRow } from "../lib/runner-test-helpers.mjs";
+import {
+  assertCliExecutionRejections,
+  assertDeterministicSmokeExecution,
+  assertResumeMatchesUninterruptedExecution,
+  cleanup,
+  corruptRawEventsFirstRow,
+  temporaryOutput,
+} from "../lib/runner-test-helpers.mjs";
 
 import {
   analyzeFixture027,
@@ -17,23 +22,6 @@ import {
   prepareFixture027,
   validateFixture027Output,
 } from "./runner.mjs";
-import { assertDeterministicSmokeExecution } from "../lib/runner-test-helpers.mjs";
-
-const root = process.cwd();
-const temporaryRoot = path.join(root, "tmp");
-
-async function temporaryOutput(prefix) {
-  await mkdir(temporaryRoot, { recursive: true });
-  const parent = await mkdtemp(path.join(temporaryRoot, prefix));
-  return { parent, output: path.join(parent, "run") };
-}
-
-async function cleanup(...fixtures) {
-  for (const fixture of fixtures) {
-    assert.ok(fixture.parent.startsWith(temporaryRoot));
-    await rm(fixture.parent, { recursive: true, force: true });
-  }
-}
 
 function assertNoResult(value) {
   assert.equal(value.result_label, "NO_RESULT");
@@ -112,21 +100,13 @@ test("checkpoint resume reproduces uninterrupted output exactly", async () => {
   const resumed = await temporaryOutput("fixture-027-resume-");
   const complete = await temporaryOutput("fixture-027-complete-");
   try {
-    const partial = await executeFixture027({ profile: "smoke", output: resumed.output, maxWorkUnits: 7 });
-    assert.equal(partial.complete, false);
-    assertNoResult(partial);
-    const finished = await executeFixture027({ profile: "smoke", output: resumed.output, resume: true });
-    assert.equal(finished.complete, true);
-    assertNoResult(finished);
-    await executeFixture027({ profile: "smoke", output: complete.output });
-    assert.equal(
-      await readFile(path.join(resumed.output, "raw-events.jsonl"), "utf8"),
-      await readFile(path.join(complete.output, "raw-events.jsonl"), "utf8"),
-    );
-    assert.equal(
-      await readFile(path.join(resumed.output, "checkpoint.json"), "utf8"),
-      await readFile(path.join(complete.output, "checkpoint.json"), "utf8"),
-    );
+    await assertResumeMatchesUninterruptedExecution({
+      execute: executeFixture027,
+      resumed,
+      complete,
+      maxWorkUnits: 7,
+      extraChecks: assertNoResult,
+    });
   } finally {
     await cleanup(resumed, complete);
   }
@@ -181,16 +161,9 @@ test("analysis rejects an altered chained diagnostic value", async () => {
 });
 
 test("CLI exposes no private partition, apparatus, meter, or implicit output", async () => {
-  await assert.rejects(
-    () => main(["node", "runner.mjs", "confirmation", "--profile", "development"]),
-    /private partitions are not executable/,
-  );
-  await assert.rejects(
-    () => main(["node", "runner.mjs", "smoke", "--profile", "smoke"]),
-    /requires --output/,
-  );
-  await assert.rejects(
-    () => main(["node", "runner.mjs", "prepare", "--profile", "smoke", "--meter", "device.json"]),
-    /Unknown or duplicate/,
-  );
+  await assertCliExecutionRejections({
+    main,
+    confirmationPattern: /private partitions are not executable/,
+    rejectedOptions: [["--meter", "device.json"]],
+  });
 });

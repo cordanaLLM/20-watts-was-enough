@@ -9,6 +9,7 @@ import {
   remainingWorkUnits,
   sha256Hex,
 } from "../lib/checkpoint-ledger.mjs";
+import { assertCheckpointSchemaRejections } from "../lib/runner-test-helpers.mjs";
 
 const root = process.cwd();
 
@@ -85,19 +86,10 @@ test("checkpoint documents reject unknown fields and type drift after digest rec
     await ledger.append({ id: "a", value: 1 });
     await ledger.saveCheckpoint();
     const checkpointPath = path.join(temporary, "checkpoint.json");
-    const original = JSON.parse(await readFile(checkpointPath, "utf8"));
-    for (const mutate of [
-      (checkpoint) => { checkpoint.claim_eligible = true; },
-      (checkpoint) => { checkpoint.records = String(checkpoint.records); },
-    ]) {
-      const checkpoint = structuredClone(original);
-      mutate(checkpoint);
-      const body = { ...checkpoint };
-      delete body.checkpoint_sha256;
-      checkpoint.checkpoint_sha256 = sha256Hex(canonicalize(body));
-      await writeFile(checkpointPath, `${JSON.stringify(checkpoint, null, 2)}\n`);
-      await assert.rejects(() => openLedger(temporary), /missing or unknown fields|identity mismatch/);
-    }
+    await assertCheckpointSchemaRejections({
+      checkpointPath,
+      assertRejection: () => assert.rejects(() => openLedger(temporary), /missing or unknown fields|identity mismatch/),
+    });
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }

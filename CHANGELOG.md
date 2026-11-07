@@ -7,6 +7,12 @@ the exact diff; this file records why the project changed.
 
 ### Security
 
+- Move the pinned Node.js runtime from 26.12.0 to 26.13.0 across policies,
+  workflows, fixture Dockerfiles, and manifests. CI container smoke Trivy
+  scan reported CVE-2026-109518 (HIGH, fixed in 3.0.4) in `apt` 3.0.3 in
+  `20w-fixture-007` (`node:26.12.0-trixie-slim`); the pinned
+  `node:26.13.0-trixie-slim` digest ships `apt` 3.0.4. The PDF renderer lock
+  keeps its own Node 26.12.0 bookworm image.
 - Update three transitive npm packages inside their parents' ranges:
   DOMPurify 3.4.17 under Mermaid (GHSA-cg2g-xh64-v4q7, GHSA-mrv2-3pqr-j5jr,
   GHSA-c6gr-qvv4-5v3f), Zod 4.6.7 under eslint-plugin-react-hooks
@@ -70,6 +76,17 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- Render each canonical Markdown document to static HTML on the server
+  with the reader's unified pipeline, the first code step of Decision 0121.
+  `scripts/render-markdown-parity.test.mjs` requires byte-equal output
+  with the React reader for every portal and book document; the server
+  output omits the `node="[object Object]"` attribute the React link
+  component leaks.
+- `.bestpractices.json` records the OpenSSF Best Practices passing-level
+  answers from measured repository facts, so the badge form can be filled
+  from one reviewed file. Each Met or N/A answer points at the file, line
+  or setting that supports it. The README shows the resulting badge for
+  project 15946, which bestpractices.dev rates passing.
 - `run-clrs-shakedown-container` runs and checks the frozen development tree
   through two bounded local containers selected by exact loaded image ID.
   Go owns pre-start configuration checks, host-written failure evidence and
@@ -81,6 +98,66 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Bound the GitHub Pages `deploy` and `restore-verified-site` jobs at 11
+  minutes, one minute above the 10-minute `actions/deploy-pages` timeout input,
+  after the 5-minute `deploy` bound ended main run 42237691867 while the action
+  still waited on the Pages queue, and fail the engineering-policy validator
+  when a `deploy-pages` job lacks that margin
+  ([Decision 0126](decisions/0126-bound-pages-deploy-jobs-by-the-action-timeout.md)).
+- Bound every CI job by twice its measured 95th-percentile runtime with a
+  5-minute floor and bound the trusted release builder job to 113 minutes
+  instead of 225
+  ([Decision 0125](decisions/0125-bound-ci-jobs-by-measured-time.md));
+  the engine-rendered `praetor-api.yml` workflow is excepted until 2026-11-16,
+  the unmeasured recovery job `restore-verified-site` keeps 10 minutes, the
+  engine-rendered `praetor-docs.yml` job keeps 10 minutes instead of its
+  computed 5 because the engine sizes its lint budget against it, and the
+  semgrep exception in `.standards.yaml` gains an explicit category A field.
+- Every fixture without a workstation harness now ends with a
+  `## Harness status` section naming what a harness still lacks
+  (`hardware`, `data`, `dependency` or `not-built`) and why, and the test
+  coverage check refuses a fixture with neither. Of the 19 such fixtures,
+  13 are `not-built`, five need apparatus and one a frozen corpus
+  ([Decision 0124](decisions/0124-state-why-a-fixture-has-no-harness.md)).
+- Renovate adopts fleet-own releases immediately with zero minimum release
+  age and waits three days for outside updates, superseding the seven-day delay
+  ([Decision 0123](decisions/0123-adopt-fleet-own-releases-at-once-and-wait-three-days-for-outside-updates.md)).
+  `renovate.json` drops top-level `minimumReleaseAge` to inherit three days from
+  `plurano/horistes`, with nine outside forks excluded by pattern.
+- Record the move of the public reader from React and Vite to prerendered
+  SvelteKit through sveltesentio (Decision 0121). Markdown stays the only
+  source, and the build keeps every route, heading anchor, the language
+  control and the PDF entry. The record names the build-time math, Mermaid and
+  static-preset gaps filed with sveltesentio, and orders the pull requests so
+  React leaves last.
+- The labeler and pull-request title workflows run on `pull_request`
+  instead of `pull_request_target`. Fork pull requests skip the label and
+  milestone writes and get a notice naming what to set by hand. The
+  `main` ruleset file requires `Apply pull-request metadata` as well
+  ([Decision 0122](decisions/0122-run-pull-request-metadata-and-title-checks-on-pull-request.md)).
+- The Node.js runtime moves from 26.11.1 to 26.12.0, the newest release past
+  the seven-day update delay. The version file, `engines`, the lock, the
+  workstation runtime policy, both container base images and the PDF
+  renderer's Node.js image (index digests read from Docker Hub on
+  2026-10-25), the workflow container checks, the experiment manifests,
+  Renovate's `constraints.node` in `renovate.json` and the policy tests move
+  together. The Fixture 026 RSD-T02 runner release binds the runtime policy
+  file by exact bytes, so its closure entry, the release digests, and the
+  null-maturation design that names them are re-bound; the release stays
+  `NO_RESULT` development infrastructure. No seed, configuration, protocol or
+  result authority changes.
+- npm moves from 12.2.0 to 12.2.1. The locked archive in
+  `scripts/npm-runtime-lock.json` and `scripts/install-locked-npm.mjs` names
+  the new registry tarball by size (3062824 bytes) and SHA-256
+  (`228bd64aaef2`). The `packageManager` field, the install and verify steps in
+  the CI, Pages and release workflows, Renovate's `constraints.npm`, the
+  engineering policy and its test, and the contributor guide move with it.
+- Local `20w publication render-pdf --ref main` runs reuse one cached
+  BuildKit builder bound to the locked BuildKit image and build without
+  `--pull`, so digest-pinned base images download once instead of on every
+  run; tag renders keep a fresh builder with `--pull`, and the run report
+  names the builder path that ran
+  ([Decision 0119](decisions/0119-reuse-one-cached-builder-for-local-book-renders.md)).
 - Do not verify `cordana.dev` for the GitHub organisation or enforce Pages
   HTTPS, because TLS terminates at Cloudflare; the takeover risk this leaves
   is recorded, and the open maintainer action from Decision 0085 is closed
@@ -207,6 +284,18 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- PDF renderer base images are fetched in their own bounded phase before
+  the image build: 10 minutes per attempt, 3 attempts per image, 30 minutes
+  for the phase. A slow first fill after a digest change now fails naming
+  the image instead of exhausting the image build's `build_seconds` window,
+  which the build keeps in full
+  ([Decision 0120](decisions/0120-fetch-renderer-base-images-in-a-bounded-phase.md)).
+- PDF renderer builders no longer outlive a failed or cancelled run.
+  Removing outdated cached builders stops when the run is cancelled or its
+  build deadline expires, tolerates a parallel render that removed the same
+  builder first, and a per-run builder whose creation fails is removed
+  instead of left behind; a newly created cached builder is inspected
+  against the BuildKit lock before use.
 - A `20w` command that rejects its arguments now says why on standard error. Twenty of 29 commands exited with code 2 and printed nothing for a stray positional argument or a missing required flag. `ci plan`, `ci messages` and `publication verify-pdf-reproducibility`, together with the `ci-plan` and `pdf-proof` binaries that share their parsers, now print a one-line diagnosis; every other such command prints `invalid arguments` and its line from the `20w` usage text. Exit codes are unchanged.
 - The CLRS shakedown no longer fails a case whose journal write takes longer than 100 ms. The decision, invocation, verification and terminal events were recorded under a fixed 100 ms deadline separate from the case deadline, so a slow file sync on Windows reported an event that was already on disk as a deadline failure. Each record deadline now follows the case deadline; the three journal events keep 100 ms as the floor so that a case that overran still records its event (#322).
 - The installed-dependency drift test for PDF reproducibility no longer fails intermittently. The two proof builds run concurrently, so the test's edit to `package.json` could land while the other build's preflight read the file. The test wrote with a truncating write, which let that preflight see an empty file and report a size error instead of drift. The test helper now replaces the file through a renamed temporary file, retrying the rename a bounded number of times on Windows, and the test accepts each of the three drift refusals the timing can produce (#319).

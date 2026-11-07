@@ -16,6 +16,10 @@ const (
 	maximumInvocationSourceBytes  = 64 << 10
 )
 
+// InvocationDeadline bounds one PrepareGeneratorInvocation call, which runs all
+// of its work under invocationTimeout.
+const InvocationDeadline = invocationTimeout
+
 // GeneratorInvocation is prepared code, not an execution receipt. Its caller
 // still owns the image identity, environment, isolation, deadline, and outputs.
 type GeneratorInvocation struct {

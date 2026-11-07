@@ -56,6 +56,9 @@ type Configuration struct {
 	LockSHA256                  string
 	Lock                        Lock
 	installedDependenciesSHA256 string
+	// cachedBuilder selects the persistent local builder (Decision 0119).
+	// Render sets it for `main`; the zero value keeps a fresh owned builder.
+	cachedBuilder bool
 }
 
 // Check validates the local renderer authority without invoking Docker or the network.

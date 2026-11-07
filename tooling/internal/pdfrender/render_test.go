@@ -106,8 +106,24 @@ func TestRenderPlanUsesTheExactImageAndHardenedContainer(t *testing.T) {
 	if result.ImageID != testImageID || result.LockSHA256 != configuration.LockSHA256 {
 		t.Fatalf("renderWithDependencies() result = %+v", result)
 	}
-	if len(executor.requests) != 6 {
-		t.Fatalf("renderer executed %d commands, want version, create, build, two runs, and cleanup", len(executor.requests))
+	if len(executor.requests) != 8 {
+		t.Fatalf("renderer executed %d commands, want version, create, two base fetches, build, two runs, and cleanup", len(executor.requests))
+	}
+	createIndex := slices.IndexFunc(executor.requests, func(r commandRequest) bool {
+		return len(r.arguments) > 1 && r.arguments[0] == "buildx" && r.arguments[1] == "create"
+	})
+	buildIndex := slices.IndexFunc(executor.requests, func(r commandRequest) bool {
+		return r.operation == "build pinned PDF renderer image"
+	})
+	var fetchIndices []int
+	for index, request := range executor.requests {
+		if request.operation == "fetch PDF renderer base image" {
+			fetchIndices = append(fetchIndices, index)
+		}
+	}
+	if len(fetchIndices) != 2 || fetchIndices[0] <= createIndex || fetchIndices[1] <= fetchIndices[0] || fetchIndices[1] >= buildIndex {
+		t.Fatalf("expected two base fetches between builder preparation (%d) and image build (%d): %v",
+			createIndex, buildIndex, fetchIndices)
 	}
 	build := requestWithPrefix(t, executor.requests, "buildx", "build").arguments
 	for _, expected := range []string{
@@ -182,8 +198,8 @@ func TestRenderRejectsTimestampRewriteWarnings(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), "did not apply") {
 				t.Fatalf("renderWithDependencies() error = %v", err)
 			}
-			if len(executor.requests) != 4 {
-				t.Fatalf("rewrite warning executed %d commands, want version, create, build, cleanup", len(executor.requests))
+			if len(executor.requests) != 6 {
+				t.Fatalf("rewrite warning executed %d commands, want version, create, two base fetches, build, cleanup", len(executor.requests))
 			}
 		})
 	}
@@ -199,8 +215,8 @@ func TestRenderRejectsMalformedImageIDBeforeStartingAContainer(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "trailing") {
 		t.Fatalf("renderWithDependencies() error = %v", err)
 	}
-	if len(executor.requests) != 4 {
-		t.Fatalf("malformed IID executed %d commands, want version, create, build, cleanup", len(executor.requests))
+	if len(executor.requests) != 6 {
+		t.Fatalf("malformed IID executed %d commands, want version, create, two base fetches, build, cleanup", len(executor.requests))
 	}
 }
 
@@ -246,8 +262,8 @@ func TestRenderRejectsAuthorityDriftDuringTheImageBuild(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "changed during") {
 		t.Fatalf("renderWithDependencies() error = %v", err)
 	}
-	if len(executor.requests) != 4 {
-		t.Fatalf("authority drift executed %d commands, want version, create, build, cleanup", len(executor.requests))
+	if len(executor.requests) != 6 {
+		t.Fatalf("authority drift executed %d commands, want version, create, two base fetches, build, cleanup", len(executor.requests))
 	}
 }
 
@@ -262,8 +278,8 @@ func TestRenderFailureForcesCleanupOfTheNamedContainer(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "injected run failure") {
 		t.Fatalf("renderWithDependencies() error = %v", err)
 	}
-	if len(executor.requests) != 6 {
-		t.Fatalf("failed render executed %d commands, want version, create, build, run, container and builder cleanup", len(executor.requests))
+	if len(executor.requests) != 8 {
+		t.Fatalf("failed render executed %d commands, want version, create, two base fetches, build, run, container and builder cleanup", len(executor.requests))
 	}
 	runRequest := requestWithPrefix(t, executor.requests, "run")
 	runName := argumentAfter(t, runRequest.arguments, "--name")
@@ -376,15 +392,18 @@ func (executor *recordingExecutor) run(_ context.Context, request commandRequest
 	}
 	if len(request.arguments) > 1 && request.arguments[0] == "buildx" && request.arguments[1] == "build" {
 		iidPath := argumentAfterValue(request.arguments, "--iidfile")
-		if err := os.WriteFile(iidPath, []byte(executor.imageID+"\n"), 0o600); err != nil {
-			return nil, err
-		}
-		if executor.afterBuild != nil {
-			if err := executor.afterBuild(); err != nil {
+		if iidPath != "" {
+			if err := os.WriteFile(iidPath, []byte(executor.imageID+"\n"), 0o600); err != nil {
 				return nil, err
 			}
+			if executor.afterBuild != nil {
+				if err := executor.afterBuild(); err != nil {
+					return nil, err
+				}
+			}
+			return []byte(executor.buildOutput), nil
 		}
-		return []byte(executor.buildOutput), nil
+		return nil, nil
 	}
 	if len(request.arguments) > 0 && request.arguments[0] == "run" {
 		if executor.failRun {
@@ -479,6 +498,9 @@ func argumentAfterValue(arguments []string, flag string) string {
 func requestsWithPrefix(requests []commandRequest, prefix ...string) []commandRequest {
 	var matches []commandRequest
 	for _, request := range requests {
+		if slices.Equal(prefix, []string{"buildx", "build"}) && request.operation == "fetch PDF renderer base image" {
+			continue
+		}
 		if len(request.arguments) >= len(prefix) && slices.Equal(request.arguments[:len(prefix)], prefix) {
 			matches = append(matches, request)
 		}

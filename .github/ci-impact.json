@@ -495,6 +495,7 @@
         "scripts/prepare-reader-artifacts.mjs",
         "scripts/prepare-reader-artifacts.test.mjs",
         "scripts/publication-unification.test.mjs",
+        "scripts/render-markdown-parity.test.mjs",
         "scripts/research-object-header-browser.test.mjs",
         "scripts/research-object-header.test.mjs",
         "scripts/translation-manifest.test.mjs",
@@ -515,6 +516,7 @@
         "app/**",
         "github-pages/**",
         "postcss.config.mjs",
+        "src/**",
         "translations/**",
         "tsconfig.json",
         "vite.pages.config.ts"

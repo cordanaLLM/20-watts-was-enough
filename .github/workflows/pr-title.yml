@@ -1,21 +1,21 @@
 name: PR title
 
 on:
-  pull_request_target:
+  pull_request:
     branches: [main]
     types: [opened, edited, synchronize, reopened]
 
 permissions: {}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
   cancel-in-progress: true
 
 jobs:
   pr-title:
     name: PR title
     runs-on: ubuntu-26.04
-    timeout-minutes: 5
+    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
     steps:
       - name: Require a Conventional Commit title
         env:

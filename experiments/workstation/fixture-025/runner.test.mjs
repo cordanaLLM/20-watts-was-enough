@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
-import {
-  mkdir,
-  mkdtemp,
-  readFile,
-  rm,
-} from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
-import { corruptRawEventsFirstRow } from "../lib/runner-test-helpers.mjs";
+import {
+  cleanup,
+  corruptRawEventsFirstRow,
+  temporaryOutput,
+} from "../lib/runner-test-helpers.mjs";
 
 import {
   analyzeFixture025,
@@ -17,22 +16,6 @@ import {
   prepareFixture025,
   validateFixture025Output,
 } from "./runner.mjs";
-
-const root = process.cwd();
-const temporaryRoot = path.join(root, "tmp");
-
-async function temporaryOutput(prefix) {
-  await mkdir(temporaryRoot, { recursive: true });
-  const parent = await mkdtemp(path.join(temporaryRoot, prefix));
-  return { parent, output: path.join(parent, "run") };
-}
-
-async function cleanup(...fixtures) {
-  for (const fixture of fixtures) {
-    assert.ok(fixture.parent.startsWith(temporaryRoot));
-    await rm(fixture.parent, { recursive: true, force: true });
-  }
-}
 
 test("smoke preparation exposes one of ten tracks and bounded public work", async () => {
   assert.deepEqual(await prepareFixture025("smoke"), {

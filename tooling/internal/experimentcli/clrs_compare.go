@@ -12,7 +12,13 @@ import (
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsfixture"
 )
 
+type clrsFixtureComparisonAction func(context.Context, clrsfixture.FixtureComparisonOptions) (clrsfixture.FixtureComparison, error)
+
 func runExperimentCompareCLRSFixtures(arguments []string, stdout, stderr io.Writer) int {
+	return runExperimentCompareCLRSFixturesWith(arguments, stdout, stderr, clrsfixture.CompareFixtures)
+}
+
+func runExperimentCompareCLRSFixturesWith(arguments []string, stdout, stderr io.Writer, compare clrsFixtureComparisonAction) int {
 	flags := flag.NewFlagSet("experiment compare-clrs-fixtures", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	var options clrsfixture.FixtureComparisonOptions
@@ -29,7 +35,9 @@ func runExperimentCompareCLRSFixtures(arguments []string, stdout, stderr io.Writ
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	report, comparisonErr := clrsfixture.CompareFixtures(ctx, options)
+	ctx, deadlineCancel := context.WithTimeout(ctx, clrsfixture.CompareDeadline)
+	defer deadlineCancel()
+	report, comparisonErr := compare(ctx, options)
 	if *machine {
 		body, err := clrsfixture.MarshalFixtureComparison(report)
 		if err == nil {

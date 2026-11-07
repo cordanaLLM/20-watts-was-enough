@@ -21,6 +21,10 @@ const (
 	sbomCheckTimeout        = 30 * time.Second
 )
 
+// SBOMCheckDeadline bounds one CheckGeneratorSBOMBundle call, which runs all of
+// its work under sbomCheckTimeout.
+const SBOMCheckDeadline = sbomCheckTimeout
+
 // GeneratorSBOMOptions requires image identities supplied independently of the
 // bundle. The checker does not discover, load, execute, or authenticate images.
 type GeneratorSBOMOptions struct {

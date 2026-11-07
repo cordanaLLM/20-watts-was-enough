@@ -23,7 +23,7 @@ jobs:
   impact-plan:
     name: CI impact plan
     runs-on: ubuntu-26.04
-    timeout-minutes: 10
+    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
     permissions:
       contents: read
     outputs:
@@ -141,7 +141,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full'
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
     permissions:
       contents: read
     steps:
@@ -155,10 +155,10 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - name: Install locked npm 12.2.0
+      - name: Install locked npm 12.2.1
         run: node scripts/install-locked-npm.mjs
-      - name: Verify locked npm 12.2.0
-        run: test "$(npm --version)" = "12.2.0"
+      - name: Verify locked npm 12.2.1
+        run: test "$(npm --version)" = "12.2.1"
       - name: Install locked dependencies
         run: npm ci --no-audit
       - name: Reject high-severity dependency advisories
@@ -179,7 +179,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full' || needs.impact-plan.outputs.mode == 'impact'
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    timeout-minutes: 6
     permissions:
       contents: read
     steps:
@@ -192,10 +192,10 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - name: Install locked npm 12.2.0
+      - name: Install locked npm 12.2.1
         run: node scripts/install-locked-npm.mjs
-      - name: Verify locked npm 12.2.0
-        run: test "$(npm --version)" = "12.2.0"
+      - name: Verify locked npm 12.2.1
+        run: test "$(npm --version)" = "12.2.1"
       - name: Install locked dependencies
         run: npm ci --no-audit
       - name: Run common impact checks
@@ -206,7 +206,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.go == 'true')
     runs-on: ubuntu-26.04
-    timeout-minutes: 20
+    timeout-minutes: 13
     permissions:
       contents: read
     steps:
@@ -259,7 +259,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.go == 'true')
     runs-on: windows-2025
-    timeout-minutes: 20
+    timeout-minutes: 10
     permissions:
       contents: read
     defaults:
@@ -283,7 +283,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.go == 'true')
     runs-on: macos-26
-    timeout-minutes: 20
+    timeout-minutes: 7
     permissions:
       contents: read
     steps:
@@ -304,7 +304,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.release == 'true')
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
     permissions:
       contents: read
     steps:
@@ -323,10 +323,10 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - name: Install locked npm 12.2.0
+      - name: Install locked npm 12.2.1
         run: node scripts/install-locked-npm.mjs
-      - name: Verify locked npm 12.2.0
-        run: test "$(npm --version)" = "12.2.0"
+      - name: Verify locked npm 12.2.1
+        run: test "$(npm --version)" = "12.2.1"
       - name: Install locked dependencies
         run: npm ci --no-audit
       - name: Run release checks
@@ -337,7 +337,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.renderer == 'true'
     runs-on: ubuntu-26.04
-    timeout-minutes: 75
+    timeout-minutes: 13
     permissions:
       contents: read
     steps:
@@ -355,10 +355,10 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - name: Install locked npm 12.2.0
+      - name: Install locked npm 12.2.1
         run: node scripts/install-locked-npm.mjs
-      - name: Verify locked npm 12.2.0
-        run: test "$(npm --version)" = "12.2.0"
+      - name: Verify locked npm 12.2.1
+        run: test "$(npm --version)" = "12.2.1"
       - name: Install locked dependencies
         run: npm ci --no-audit
       - name: Set up the locked PDF Docker Buildx client
@@ -431,7 +431,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.research == 'true')
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    timeout-minutes: 14
     permissions:
       contents: read
     steps:
@@ -449,16 +449,16 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - name: Install locked npm 12.2.0
+      - name: Install locked npm 12.2.1
         run: node scripts/install-locked-npm.mjs
-      - name: Verify locked npm 12.2.0
-        run: test "$(npm --version)" = "12.2.0"
+      - name: Verify locked npm 12.2.1
+        run: test "$(npm --version)" = "12.2.1"
       - name: Install locked dependencies
         run: npm ci --no-audit
       - name: Use the locked Python runtime
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.15.0'
+          python-version: '3.15.2'
       - name: Run research checks
         run: npm run check:lane-research
 
@@ -467,7 +467,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.site == 'true')
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    timeout-minutes: 12
     permissions:
       contents: read
     steps:
@@ -481,10 +481,10 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - name: Install locked npm 12.2.0
+      - name: Install locked npm 12.2.1
         run: node scripts/install-locked-npm.mjs
-      - name: Verify locked npm 12.2.0
-        run: test "$(npm --version)" = "12.2.0"
+      - name: Verify locked npm 12.2.1
+        run: test "$(npm --version)" = "12.2.1"
       - name: Install locked dependencies
         run: npm ci --no-audit
       - name: Run site checks
@@ -495,7 +495,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.site == 'true')
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    timeout-minutes: 9
     permissions:
       contents: read
     steps:
@@ -509,10 +509,10 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - name: Install locked npm 12.2.0
+      - name: Install locked npm 12.2.1
         run: node scripts/install-locked-npm.mjs
-      - name: Verify locked npm 12.2.0
-        run: test "$(npm --version)" = "12.2.0"
+      - name: Verify locked npm 12.2.1
+        run: test "$(npm --version)" = "12.2.1"
       - name: Install locked dependencies
         run: npm ci --no-audit
       - name: Run site browser checks
@@ -523,7 +523,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.workstation_any == 'true'
     runs-on: ubuntu-26.04
-    timeout-minutes: 20
+    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
     permissions:
       contents: read
     steps:
@@ -536,10 +536,10 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - name: Install locked npm 12.2.0
+      - name: Install locked npm 12.2.1
         run: node scripts/install-locked-npm.mjs
-      - name: Verify locked npm 12.2.0
-        run: test "$(npm --version)" = "12.2.0"
+      - name: Verify locked npm 12.2.1
+        run: test "$(npm --version)" = "12.2.1"
       - name: Install locked dependencies
         run: npm ci --no-audit
       - name: Validate the workstation inventory and core
@@ -550,7 +550,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.workstation_any == 'true'
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    timeout-minutes: 10
     permissions:
       contents: read
     strategy:
@@ -568,7 +568,7 @@ jobs:
         if: contains(format(' {0} ', matrix.scripts), ' test:workstation:fixture-019 ')
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.15.0'
+          python-version: '3.15.2'
       - name: Install the locked scientific runtime for Fixture 019
         if: contains(format(' {0} ', matrix.scripts), ' test:workstation:fixture-019 ')
         run: python -m pip install --disable-pip-version-check --no-deps --require-hashes -r requirements-ci.txt
@@ -577,10 +577,10 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - name: Install locked npm 12.2.0
+      - name: Install locked npm 12.2.1
         run: node scripts/install-locked-npm.mjs
-      - name: Verify locked npm 12.2.0
-        run: test "$(npm --version)" = "12.2.0"
+      - name: Verify locked npm 12.2.1
+        run: test "$(npm --version)" = "12.2.1"
       - name: Install locked dependencies
         run: npm ci --no-audit
       - name: Run the allowlisted artifact test script
@@ -593,7 +593,7 @@ jobs:
     needs: impact-plan
     if: needs.impact-plan.outputs.mode == 'full' || needs.impact-plan.outputs.container == 'true'
     runs-on: ubuntu-26.04
-    timeout-minutes: 35
+    timeout-minutes: 8
     permissions:
       contents: read
     steps:
@@ -713,8 +713,8 @@ jobs:
           node_version="$(docker run --rm --pull never --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             --entrypoint node 20w-fixture-007:test --version)"
-          if [[ "$node_version" != "v26.11.1" ]]; then
-            echo "::error::Fixture 007 Node.js runtime is $node_version, want v26.11.1"
+          if [[ "$node_version" != "v26.13.0" ]]; then
+            echo "::error::Fixture 007 Node.js runtime is $node_version, want v26.13.0"
             exit 1
           fi
           volume="20w-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-fixture-007"
@@ -754,7 +754,7 @@ jobs:
           docker run --rm --pull never --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             --entrypoint sh 20w-fixture-019:test -c \
-            'test "$(node --version)" = "v26.11.1" && test "$(python --version)" = "Python 3.15.0" && python -c "import numpy; assert numpy.__version__ == \"2.5.4\""'
+            'test "$(node --version)" = "v26.13.0" && test "$(python --version)" = "Python 3.15.2" && python -c "import numpy; assert numpy.__version__ == \"2.5.4\""'
           docker run --rm --pull never --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             20w-fixture-019:test prepare --profile smoke
@@ -818,7 +818,7 @@ jobs:
     needs: impact-plan
     if: github.event_name == 'pull_request' && (needs.impact-plan.outputs.mode == 'full' || needs.impact-plan.outputs.dependency == 'true')
     runs-on: ubuntu-26.04
-    timeout-minutes: 10
+    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
     permissions:
       contents: read
     steps:
@@ -830,7 +830,7 @@ jobs:
   secret-scan:
     name: Secret scan
     runs-on: ubuntu-26.04
-    timeout-minutes: 15
+    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
     permissions:
       contents: read
     steps:
@@ -871,7 +871,7 @@ jobs:
       - dependency-review
       - secret-scan
     runs-on: ubuntu-26.04
-    timeout-minutes: 5
+    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
     steps:
       - name: Require every expected gate state
         env:

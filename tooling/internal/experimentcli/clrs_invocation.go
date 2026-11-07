@@ -27,7 +27,13 @@ type clrsInvocationReport struct {
 	ExpectedExamples int      `json:"expected_examples"`
 }
 
+type clrsInvocationAction func(context.Context, string) (clrsfixture.GeneratorInvocation, error)
+
 func runExperimentRenderCLRSInvocation(arguments []string, stdout, stderr io.Writer) int {
+	return runExperimentRenderCLRSInvocationWith(arguments, stdout, stderr, clrsfixture.PrepareGeneratorInvocation)
+}
+
+func runExperimentRenderCLRSInvocationWith(arguments []string, stdout, stderr io.Writer, prepare clrsInvocationAction) int {
 	flags := flag.NewFlagSet("experiment render-clrs-generation-program", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	root := flags.String("root", ".", "repository containing the frozen generator authorities")
@@ -37,7 +43,9 @@ func runExperimentRenderCLRSInvocation(arguments []string, stdout, stderr io.Wri
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	invocation, err := clrsfixture.PrepareGeneratorInvocation(ctx, *root)
+	ctx, deadlineCancel := context.WithTimeout(ctx, clrsfixture.InvocationDeadline)
+	defer deadlineCancel()
+	invocation, err := prepare(ctx, *root)
 	if err != nil {
 		fmt.Fprintf(stderr, "CLRS generation program: %v\n", err)
 		return 1

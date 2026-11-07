@@ -12,6 +12,7 @@ import {
   executeFixture029Suite,
 } from "./suite-runner.mjs";
 import { createFixture029SuiteTestSupport } from "./suite-runner.test-support.mjs";
+import { swapJsonlRows } from "../lib/runner-test-helpers.mjs";
 
 const support = createFixture029SuiteTestSupport();
 let base;
@@ -66,10 +67,7 @@ test("suite receipt ledger rejects tamper and reordering", async () => {
     /closed runtime contract|hash-chain/iu,
   );
 
-  const reorderPath = path.join(reordered.output, "suite-receipts.jsonl");
-  const reorderRows = (await readFile(reorderPath, "utf8")).trimEnd().split("\n");
-  [reorderRows[0], reorderRows[1]] = [reorderRows[1], reorderRows[0]];
-  await writeFile(reorderPath, `${reorderRows.join("\n")}\n`);
+  await swapJsonlRows(path.join(reordered.output, "suite-receipts.jsonl"));
   await assert.rejects(
     () => computeFixture029SuiteAnalysis(reordered.output),
     /closed runtime contract|hash-chain/iu,

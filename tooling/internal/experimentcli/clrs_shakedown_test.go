@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsshakedown"
 )
@@ -185,6 +186,34 @@ func TestShakedownCLIDispatchRejectsMissingSource(t *testing.T) {
 		var report clrsshakedown.Report
 		if json.Unmarshal(out.Bytes(), &report) != nil || report.Error == "" || report.Authority != "NO_RESULT" || report.State != "incomplete" {
 			t.Fatalf("missing source report: %q", out.String())
+		}
+	}
+}
+
+func TestShakedownCLIEnforcesDeadline(t *testing.T) {
+	for _, mode := range []string{"--execute", "--check"} {
+		called := false
+		action := func(ctx context.Context, options clrsshakedown.Options) (clrsshakedown.Report, error) {
+			called = true
+			deadline, ok := ctx.Deadline()
+			if !ok {
+				t.Fatal("expected shakedown context to carry a deadline")
+			}
+			remaining := time.Until(deadline)
+			if remaining <= clrsshakedown.ShakedownDeadline-5*time.Second || remaining > clrsshakedown.ShakedownDeadline {
+				t.Fatalf("unexpected deadline remaining duration: %v", remaining)
+			}
+			state := "completed-unadmitted"
+			if mode == "--check" {
+				state = "bundle-consistent-unadmitted"
+			}
+			return clrsshakedown.Report{SchemaVersion: 1, State: state, Authority: "NO_RESULT", RunID: options.RunID}, nil
+		}
+		args := shakedownCLIArguments(mode)
+		var out, diagnostic bytes.Buffer
+		code := runShakedownWithActions(args, &out, &diagnostic, action, action)
+		if code != 0 || !called {
+			t.Fatalf("mode=%s code=%d called=%v stderr=%s", mode, code, called, diagnostic.String())
 		}
 	}
 }

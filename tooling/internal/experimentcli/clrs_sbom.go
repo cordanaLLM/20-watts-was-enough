@@ -14,7 +14,13 @@ import (
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsfixture"
 )
 
+type clrsSBOMAction func(context.Context, clrsfixture.GeneratorSBOMOptions) (clrsfixture.GeneratorSBOMReport, error)
+
 func runExperimentCheckCLRSSBOM(arguments []string, stdout, stderr io.Writer) int {
+	return runExperimentCheckCLRSSBOMWith(arguments, stdout, stderr, clrsfixture.CheckGeneratorSBOMBundle)
+}
+
+func runExperimentCheckCLRSSBOMWith(arguments []string, stdout, stderr io.Writer, check clrsSBOMAction) int {
 	flags := flag.NewFlagSet("experiment check-clrs-sbom-bundle", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	var options clrsfixture.GeneratorSBOMOptions
@@ -35,7 +41,9 @@ func runExperimentCheckCLRSSBOM(arguments []string, stdout, stderr io.Writer) in
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	report, err := clrsfixture.CheckGeneratorSBOMBundle(ctx, options)
+	ctx, deadlineCancel := context.WithTimeout(ctx, clrsfixture.SBOMCheckDeadline)
+	defer deadlineCancel()
+	report, err := check(ctx, options)
 	return writeCLRSSBOMReport(report, err, *machine, stdout, stderr)
 }
 

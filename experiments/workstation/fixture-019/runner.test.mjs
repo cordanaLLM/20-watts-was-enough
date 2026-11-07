@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, symlink, unlink, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -13,6 +13,7 @@ import {
 } from "./runner.mjs";
 import {
   assertReleaseExecutionRequiresDigest,
+  cleanupSymlinkFixture,
   releaseEnvironment,
   releaseIdentityMismatches,
 } from "../lib/runner-test-helpers.mjs";
@@ -155,11 +156,7 @@ test("output creation refuses a repository junction redirected outside the repos
       /symbolic-link|reparse-point|outside the repository/,
     );
   } finally {
-    await unlink(junction).catch((error) => {
-      if (error?.code !== "ENOENT") throw error;
-    });
-    await rm(parent, { recursive: true, force: true });
-    await rm(outside, { recursive: true, force: true });
+    await cleanupSymlinkFixture({ junction, parent, outside });
   }
 });
 
@@ -178,11 +175,7 @@ test("analysis refuses a redirected analysis descendant before writing resamples
     );
     assert.deepEqual(await import("node:fs/promises").then(({ readdir }) => readdir(outside)), []);
   } finally {
-    await unlink(junction).catch((error) => {
-      if (error?.code !== "ENOENT") throw error;
-    });
-    await rm(parent, { recursive: true, force: true });
-    await rm(outside, { recursive: true, force: true });
+    await cleanupSymlinkFixture({ junction, parent, outside });
   }
 });
 

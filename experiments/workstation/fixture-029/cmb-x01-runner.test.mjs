@@ -1,16 +1,17 @@
 import assert from "node:assert/strict";
 import {
-  cp,
-  mkdir,
-  mkdtemp,
   readFile,
-  rm,
   writeFile,
 } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
 import { createAjv } from "../lib/ajv.mjs";
+import {
+  duplicateJsonlRow,
+  swapJsonlRows,
+  tearJsonlFile,
+} from "../lib/runner-test-helpers.mjs";
 
 import {
   canonicalCmbX01,
@@ -27,26 +28,15 @@ import {
   prepareCmbX01,
   validateCmbX01Output,
 } from "./cmb-x01-runner.mjs";
+import { createFixture029SuiteTestSupport } from "./suite-runner.test-support.mjs";
 
-const temporaryRoot = path.join(process.cwd(), "tmp");
-const fixtures = [];
+const support = createFixture029SuiteTestSupport({ defaultSubdir: "run" });
 let base;
 let config;
 let records;
 
-async function temporaryOutput(prefix) {
-  await mkdir(temporaryRoot, { recursive: true });
-  const parent = await mkdtemp(path.join(temporaryRoot, prefix));
-  const fixture = { parent, output: path.join(parent, "run") };
-  fixtures.push(fixture);
-  return fixture;
-}
-
-async function clonedBase(prefix) {
-  const fixture = await temporaryOutput(prefix);
-  await cp(base.output, fixture.output, { recursive: true, errorOnExist: true });
-  return fixture;
-}
+const temporaryOutput = (prefix) => support.temporaryOutput(prefix);
+const clonedBase = (prefix) => support.clonedBase(base, prefix);
 
 async function readRecords(output = base.output) {
   const raw = await readFile(path.join(output, "raw-events.jsonl"), "utf8");
@@ -71,10 +61,7 @@ test.before(async () => {
 });
 
 test.after(async () => {
-  for (const fixture of [...fixtures].reverse()) {
-    assert.ok(fixture.parent.startsWith(temporaryRoot));
-    await rm(fixture.parent, { recursive: true, force: true });
-  }
+  await support.cleanup();
 });
 
 test("prepare fixes seven arms over all eight CMB-X01 families per public seed", async () => {
@@ -231,26 +218,19 @@ test("ledger rejects reordered, duplicated, and torn raw records", async () => {
   const duplicated = await clonedBase("fixture-029-cmb-x01-duplicated-");
   const torn = await clonedBase("fixture-029-cmb-x01-torn-");
 
-  const reorderPath = path.join(reordered.output, "raw-events.jsonl");
-  const reorderRows = (await readFile(reorderPath, "utf8")).trimEnd().split("\n");
-  [reorderRows[0], reorderRows[1]] = [reorderRows[1], reorderRows[0]];
-  await writeFile(reorderPath, `${reorderRows.join("\n")}\n`);
+  await swapJsonlRows(path.join(reordered.output, "raw-events.jsonl"));
   await assert.rejects(
     () => computeCmbX01Analysis(reordered.output),
     /outer contract|hash-chain/i,
   );
 
-  const duplicatePath = path.join(duplicated.output, "raw-events.jsonl");
-  const duplicateRaw = await readFile(duplicatePath, "utf8");
-  await writeFile(duplicatePath, `${duplicateRaw}${duplicateRaw.split("\n")[0]}\n`);
+  await duplicateJsonlRow(path.join(duplicated.output, "raw-events.jsonl"));
   await assert.rejects(
     () => computeCmbX01Analysis(duplicated.output),
     /duplicate|outer contract|hash-chain/i,
   );
 
-  const tornPath = path.join(torn.output, "raw-events.jsonl");
-  const tornRaw = await readFile(tornPath, "utf8");
-  await writeFile(tornPath, tornRaw.slice(0, -1));
+  await tearJsonlFile(path.join(torn.output, "raw-events.jsonl"));
   await assert.rejects(
     () => computeCmbX01Analysis(torn.output),
     /torn trailing record|canonical LF/i,

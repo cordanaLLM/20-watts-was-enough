@@ -59,6 +59,12 @@
             "context": "Go analysis"
           },
           {
+            "context": "Apply pull-request metadata"
+          },
+          {
+            "context": "PR title"
+          },
+          {
             "context": "Go API Compatibility"
           },
           {

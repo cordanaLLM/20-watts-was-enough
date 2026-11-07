@@ -749,3 +749,9 @@ The fixture is complete as a falsification contract but has no empirical
 verdict. Promotion requires separately reviewed source-domain execution for
 Track A and a frozen, tested workstation or cluster implementation with
 externally measured energy for Track B.
+
+## Harness status
+
+Blocked by: hardware, data.
+
+The contract records that neither track is workstation-executable. Track A needs animal models and primary tissue assays, and new animal or human work may start only once the applicable German and EU authority, ethics, welfare, biosafety and data-protection gates are satisfied.

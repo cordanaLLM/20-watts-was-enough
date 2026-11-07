@@ -105,7 +105,7 @@ than silently changing its outcome.
 | [0098](0098-move-the-renderer-lock-to-buildx-0-37-2.md) | Move the renderer lock to Buildx 0.37.2 | accepted |
 | [0099](0099-scan-the-history-for-secrets-with-a-proven-gitleaks.md) | Scan the history for secrets with a proven gitleaks | accepted |
 | [0100](0100-lift-the-urllib3-cutoff-in-the-clrs-generator.md) | Lift the urllib3 cutoff in the CLRS generator | accepted |
-| [0101](0101-build-releases-in-a-reusable-workflow.md) | Build releases in a reusable workflow | accepted |
+| [0101](0101-build-releases-in-a-reusable-workflow.md) | Build releases in a reusable workflow | partly superseded by [0125](0125-bound-ci-jobs-by-measured-time.md) |
 | [0102](0102-accept-release-candidate-tags.md) | Accept release-candidate tags | accepted |
 | [0103](0103-run-the-go-tests-on-windows-and-macos-runners.md) | Run the Go tests on Windows and macOS runners | accepted |
 | [0104](0104-own-clrs-container-execution-in-go.md) | Own CLRS container execution in Go | accepted |
@@ -123,3 +123,11 @@ than silently changing its outcome.
 | [0116](0116-cancel-superseded-branch-runs-and-let-main-runs-finish.md) | Cancel superseded branch runs and let main runs finish | accepted |
 | [0117](0117-skip-pages-domain-verification-behind-cloudflare.md) | Skip Pages domain verification behind Cloudflare | accepted |
 | [0118](0118-lock-setuptools-84-1-0-in-the-clrs-generator.md) | Lock setuptools 84.1.0 in the CLRS generator | accepted |
+| [0119](0119-reuse-one-cached-builder-for-local-book-renders.md) | Reuse one cached builder for local book renders | accepted |
+| [0120](0120-fetch-renderer-base-images-in-a-bounded-phase.md) | Fetch renderer base images in a bounded phase | accepted |
+| [0121](0121-replace-react-with-sveltekit-via-sveltesentio.md) | Replace the React reader with prerendered SvelteKit through sveltesentio | accepted |
+| [0122](0122-run-pull-request-metadata-and-title-checks-on-pull-request.md) | Run pull-request metadata and title checks on `pull_request` | accepted |
+| [0123](0123-adopt-fleet-own-releases-at-once-and-wait-three-days-for-outside-updates.md) | Adopt fleet-own releases at once and wait three days for outside updates | accepted |
+| [0124](0124-state-why-a-fixture-has-no-harness.md) | State why a fixture has no harness | accepted |
+| [0125](0125-bound-ci-jobs-by-measured-time.md) | Bound CI jobs by measured time | accepted |
+| [0126](0126-bound-pages-deploy-jobs-by-the-action-timeout.md) | Bound Pages deploy jobs by the action timeout | accepted |

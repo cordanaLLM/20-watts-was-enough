@@ -160,6 +160,10 @@ every open pull request. They were added later on 2026-10-11, and the
 read-back showed seven contexts. `Secret scan` followed after
 [Decision 0099](../decisions/0099-scan-the-history-for-secrets-with-a-proven-gitleaks.md)
 put the job on `main`; the read-back on 2026-10-13 showed the eight above.
+[Decision 0122](../decisions/0122-run-pull-request-metadata-and-title-checks-on-pull-request.md)
+moves the labeler to `pull_request`, so the rendered file also requires
+`Apply pull-request metadata`; the live ruleset gains it after that change
+lands.
 
 ## Staged controls and exit conditions
 

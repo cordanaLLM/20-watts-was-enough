@@ -8,9 +8,9 @@
     "url": "git+https://github.com/cordanaLLM/20-watts-was-enough.git"
   },
   "engines": {
-    "node": "26.11.1"
+    "node": "26.13.0"
   },
-  "packageManager": "npm@12.2.0",
+  "packageManager": "npm@12.2.1",
   "scripts": {
     "dev": "npm run dev:github-pages",
     "dev:github-pages": "npm run prepare:reader-artifacts && vite --config vite.pages.config.ts",
@@ -57,7 +57,7 @@
     "test:research-gates": "node --test --experimental-test-isolation=none scripts/research-gates.test.mjs",
     "test:site": "npm run test:site-unit && npm run test:site-browser",
     "test:site-browser": "node scripts/run-in-loopback-netns.mjs node --test --experimental-test-isolation=process --test-concurrency=2 scripts/book-fragment-browser.test.mjs scripts/book-print-tail-browser.test.mjs scripts/mermaid-browser.test.mjs scripts/research-object-header-browser.test.mjs",
-    "test:site-unit": "npm run validate:css-authority && node scripts/run-in-loopback-netns.mjs node --test --experimental-test-isolation=none scripts/lib/browser-wait.test.mjs scripts/lib/host-test-deadline.test.mjs scripts/lib/pages-dev-server.test.mjs scripts/book-route.test.mjs scripts/book-edition-surface.test.mjs scripts/css-authority.test.mjs scripts/github-pages.test.mjs scripts/language-access.test.mjs scripts/pages-base.test.mjs scripts/pages-seo.test.mjs scripts/prepare-reader-artifacts.test.mjs scripts/publication-unification.test.mjs scripts/research-object-header.test.mjs",
+    "test:site-unit": "npm run validate:css-authority && node scripts/run-in-loopback-netns.mjs node --test --experimental-test-isolation=none scripts/lib/browser-wait.test.mjs scripts/lib/host-test-deadline.test.mjs scripts/lib/pages-dev-server.test.mjs scripts/book-route.test.mjs scripts/book-edition-surface.test.mjs scripts/css-authority.test.mjs scripts/github-pages.test.mjs scripts/language-access.test.mjs scripts/pages-base.test.mjs scripts/pages-seo.test.mjs scripts/prepare-reader-artifacts.test.mjs scripts/publication-unification.test.mjs scripts/render-markdown-parity.test.mjs scripts/research-object-header.test.mjs",
     "validate:css-authority": "node scripts/validate-css-authority.mjs",
     "validate:translations": "node scripts/validate-translations.mjs",
     "test:translations": "node --test --experimental-test-isolation=none scripts/translation-manifest.test.mjs scripts/translation-pages.test.mjs scripts/translation-vite-build.test.mjs",
@@ -97,7 +97,7 @@
     "test:workstation:fixture-026:execution-v52": "node --test --experimental-test-isolation=none --test-concurrency=1 experiments/workstation/fixture-026/rsd-t02-run-lock.test.mjs experiments/workstation/fixture-026/rsd-t02-fixed-instance-durable-store.test.mjs experiments/workstation/fixture-026/rsd-t02-fixed-instance-isolated-durable-runner.test.mjs experiments/workstation/fixture-026/rsd-t02-public-development-population-runner.test.mjs experiments/workstation/fixture-026/rsd-t02-public-development-isolated-durable-population-runner.test.mjs experiments/workstation/fixture-026/rsd-t02-pilot-transcript-calibration.test.mjs",
     "test:workstation:fixture-027": "node --test --experimental-test-isolation=none experiments/workstation/fixture-027/*.test.mjs",
     "test:workstation:fixture-029": "node --test --experimental-test-isolation=none experiments/workstation/fixture-029/*.test.mjs",
-    "test:workstation:fixture-029:shard-1": "node --test --experimental-test-isolation=none --test-concurrency=1 experiments/workstation/fixture-029/suite-runner.test.mjs experiments/workstation/fixture-029/contract.test.mjs",
+    "test:workstation:fixture-029:shard-1": "node --test --experimental-test-isolation=none --test-concurrency=1 experiments/workstation/fixture-029/suite-runner.test.mjs experiments/workstation/fixture-029/contract.test.mjs experiments/workstation/fixture-029/runner-io.test.mjs",
     "test:workstation:fixture-029:shard-2": "node --test --experimental-test-isolation=none --test-concurrency=1 experiments/workstation/fixture-029/suite-runner-integrity.test.mjs experiments/workstation/fixture-029/cmb-x01-runner.test.mjs experiments/workstation/fixture-029/cmb-x01-contract.test.mjs experiments/workstation/fixture-029/runner.test.mjs",
     "generate:plots": "node scripts/generate-plots.mjs && node scripts/generate-field-coverage.mjs",
     "prepare:reader-artifacts": "node scripts/prepare-reader-artifacts.mjs",
@@ -121,13 +121,15 @@
     "github-slugger": "2.0.0",
     "katex": "0.19.0",
     "mermaid": "12.2.0",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "react-markdown": "10.1.0",
     "rehype-katex": "7.0.1",
     "rehype-slug": "6.0.0",
+    "rehype-stringify": "10.0.1",
     "remark-gfm": "4.0.1",
-    "remark-math": "6.0.0"
+    "remark-math": "6.0.0",
+    "remark-rehype": "11.1.2"
   },
   "overrides": {
     "mermaid@12.2.0": {
@@ -155,11 +157,11 @@
     "eslint-plugin-react": "7.37.5",
     "eslint-plugin-react-hooks": "7.1.1",
     "globals": "17.13.0",
-    "postcss": "8.5.30",
+    "postcss": "8.5.31",
     "remark-parse": "11.0.0",
     "tailwindcss": "4.3.3",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.71.1",
+    "typescript-eslint": "8.71.2",
     "unified": "11.0.5",
     "vite": "8.3.4",
     "yaml": "2.9.1"

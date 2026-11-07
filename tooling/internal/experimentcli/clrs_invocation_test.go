@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/clrsfixture"
 )
@@ -78,3 +79,24 @@ func (clrsInvocationErrorWriter) Write([]byte) (int, error) { return 0, io.ErrCl
 type clrsInvocationShortWriter struct{}
 
 func (clrsInvocationShortWriter) Write(body []byte) (int, error) { return len(body) - 1, nil }
+
+func TestRenderCLRSInvocationEnforcesDeadline(t *testing.T) {
+	called := false
+	prepare := func(ctx context.Context, _ string) (clrsfixture.GeneratorInvocation, error) {
+		called = true
+		deadline, ok := ctx.Deadline()
+		if !ok {
+			t.Fatal("expected invocation context to carry a deadline")
+		}
+		remaining := time.Until(deadline)
+		if remaining <= clrsfixture.InvocationDeadline-5*time.Second || remaining > clrsfixture.InvocationDeadline {
+			t.Fatalf("unexpected deadline remaining duration: %v", remaining)
+		}
+		return clrsfixture.GeneratorInvocation{Authority: "NO_RESULT", Program: "print(1)\n"}, nil
+	}
+	var stdout, stderr bytes.Buffer
+	code := runExperimentRenderCLRSInvocationWith([]string{"--root", "."}, &stdout, &stderr, prepare)
+	if code != 0 || !called {
+		t.Fatalf("exit code = %d, called = %v, stderr = %s", code, called, stderr.String())
+	}
+}

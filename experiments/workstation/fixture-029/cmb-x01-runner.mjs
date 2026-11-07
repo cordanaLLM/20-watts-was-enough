@@ -1,5 +1,4 @@
-import { createHash } from "node:crypto";
-import { access, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -22,6 +21,15 @@ import {
   generateCmbX01Worlds,
   validateCmbX01Config,
 } from "./cmb-x01-generator.mjs";
+import {
+  exists,
+  fileSha256,
+  loadJson,
+  parseRunnerOptions,
+  resolveOutput as resolveRunnerOutput,
+  validateSeedDocument as validateSeedDoc,
+  writeJsonStable,
+} from "./runner-io.mjs";
 import {
   CMB_X01_LEDGER_CONTRACT_VERSION,
   CMB_X01_LEDGER_FORMAT,
@@ -54,66 +62,12 @@ const auditDocument = path.join(
 );
 const seedDocumentPath = path.join(fixtureRoot, "seeds", "development.reveal.json");
 
-async function exists(file) {
-  try {
-    await access(file);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function loadJson(file) {
-  return JSON.parse(await readFile(file, "utf8"));
-}
-
-async function fileSha256(file) {
-  return createHash("sha256").update(await readFile(file)).digest("hex");
-}
-
-function isInside(root, target) {
-  const relative = path.relative(root, target);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
-}
-
-function resolveOutput(value) {
-  const resolved = path.resolve(repositoryRoot, value);
-  if (!isInside(repositoryRoot, resolved) || resolved === repositoryRoot) {
-    throw new Error("CMB-X01 output must stay inside the repository.");
-  }
-  return resolved;
-}
-
-async function writeJsonStable(file, value) {
-  const body = `${JSON.stringify(value, null, 2)}\n`;
-  try {
-    await writeFile(file, body, { flag: "wx" });
-  } catch (error) {
-    if (error.code !== "EEXIST") throw error;
-    const prior = JSON.parse(await readFile(file, "utf8"));
-    if (canonicalize(prior) !== canonicalize(value)) {
-      throw new Error(`Refusing to replace non-identical ${path.basename(file)}.`, { cause: error });
-    }
-  }
-}
-
-function validateSeedDocument(document) {
-  if (
-    document?.schema !== 1
-    || document.artifact !== "fixture-029"
-    || document.partition !== "development"
-    || document.state !== "public-development"
-    || document.algorithm !== "literal-public-seed-list-v1"
-    || document.encoding !== "unsigned-little-endian-uint32"
-    || !Array.isArray(document.seeds)
-    || document.seeds.length < 2
-    || document.seeds.some((seed) => (
-      !Number.isSafeInteger(seed) || seed < 0 || seed > 0xffff_ffff
-    ))
-    || new Set(document.seeds).size !== document.seeds.length
-  ) throw new Error("CMB-X01 public development seed document is invalid.");
-  return document;
-}
+const resolveOutput = (value) => resolveRunnerOutput(repositoryRoot, value, "CMB-X01");
+const validateSeedDocument = (document) => validateSeedDoc(
+  document,
+  "CMB-X01 public development seed document is invalid.",
+);
+const parseOptions = (argv) => parseRunnerOptions(argv, { label: "CMB-X01" });
 
 async function loadInputs(profile) {
   if (!new Set(["smoke", "development"]).has(profile)) {
@@ -134,6 +88,9 @@ async function loadInputs(profile) {
     fixture: fixtureDocument,
     audit: auditDocument,
     checkpoint_ledger: path.join(fixtureRoot, "../lib/checkpoint-ledger.mjs"),
+    exact_keys: path.join(fixtureRoot, "../lib/exact-keys.mjs"),
+    percentile: path.join(fixtureRoot, "../lib/percentile.mjs"),
+    runner_io: path.join(fixtureRoot, "runner-io.mjs"),
     core_generator: path.join(fixtureRoot, "cmb-x01-generator.mjs"),
     core_contract: path.join(fixtureRoot, "cmb-x01-contract.mjs"),
     ledger_contract: path.join(fixtureRoot, "cmb-x01-ledger-contract.mjs"),
@@ -598,48 +555,6 @@ export async function validateCmbX01Output(output) {
     decision: analysis.decision,
     no_result: true,
   });
-}
-
-function parseOptions(argv) {
-  const action = argv[2];
-  if (!new Set(["prepare", "smoke", "run", "analyze", "validate"]).has(action)) {
-    throw new Error("CMB-X01 action must be prepare, smoke, run, analyze, or validate.");
-  }
-  if ((argv.length - 3) % 2 !== 0) throw new Error("Options require explicit --name value pairs.");
-  const options = {};
-  for (let index = 3; index < argv.length; index += 2) {
-    const token = argv[index];
-    const value = argv[index + 1];
-    if (!/^--[a-z][a-z-]*$/u.test(token ?? "") || !value || value.startsWith("--")) {
-      throw new Error("Invalid CMB-X01 option pair.");
-    }
-    const key = token.slice(2);
-    if (!new Set(["profile", "output", "resume"]).has(key) || Object.hasOwn(options, key)) {
-      throw new Error(`Unknown or duplicate CMB-X01 option --${key}.`);
-    }
-    options[key] = value;
-  }
-  if (new Set(["prepare", "smoke", "run"]).has(action)) {
-    if (!new Set(["smoke", "development"]).has(options.profile)) {
-      throw new Error(`${action} requires --profile.`);
-    }
-  } else if (options.profile !== undefined || options.resume !== undefined) {
-    throw new Error(`${action} does not accept profile or resume.`);
-  }
-  if (action === "smoke" && options.profile !== "smoke") {
-    throw new Error("smoke requires --profile smoke.");
-  }
-  if (action === "run" && options.profile !== "development") {
-    throw new Error("run requires --profile development.");
-  }
-  if (action === "prepare" && (options.output !== undefined || options.resume !== undefined)) {
-    throw new Error("prepare does not accept output or resume.");
-  }
-  if (action !== "prepare" && !options.output) throw new Error(`${action} requires --output.`);
-  if (options.resume !== undefined && !new Set(["true", "false"]).has(options.resume)) {
-    throw new Error("--resume must be true or false.");
-  }
-  return { action, options };
 }
 
 export async function main(argv = process.argv) {
