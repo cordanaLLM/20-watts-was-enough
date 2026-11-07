@@ -3,19 +3,24 @@ package workstationrunner
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/boundedexec"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/ciplan"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/fileidentity"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/strictjson"
 )
 
 const (
@@ -42,11 +47,12 @@ const MaximumSuiteDuration = ((maximumSuiteJobs + defaultConcurrency - 1) / defa
 	(maximumJobDuration + maximumCommandWaitDelay)
 
 var allowedEnvironmentNames = map[string]struct{}{
-	"APPDATA": {}, "CI": {}, "COMSPEC": {}, "FORCE_COLOR": {}, "HOME": {},
-	"LANG": {}, "LC_ALL": {}, "LC_CTYPE": {}, "LOCALAPPDATA": {},
-	"NO_COLOR": {}, "PATH": {}, "PATHEXT": {}, "SYSTEMROOT": {}, "TEMP": {},
-	"TMP": {}, "TMPDIR": {}, "TZ": {}, "HOMEDRIVE": {}, "HOMEPATH": {},
-	"SYSTEMDRIVE": {}, "USERPROFILE": {}, "WINDIR": {}, "XDG_CACHE_HOME": {},
+	"APPDATA": {}, "CI": {}, "COMSPEC": {}, "DBUS_SESSION_BUS_ADDRESS": {},
+	"FORCE_COLOR": {}, "HOME": {}, "LANG": {}, "LC_ALL": {}, "LC_CTYPE": {},
+	"LOCALAPPDATA": {}, "NO_COLOR": {}, "PATH": {}, "PATHEXT": {},
+	"SYSTEMROOT": {}, "TEMP": {}, "TMP": {}, "TMPDIR": {}, "TZ": {},
+	"HOMEDRIVE": {}, "HOMEPATH": {}, "SYSTEMDRIVE": {}, "USERPROFILE": {},
+	"WINDIR": {}, "XDG_CACHE_HOME": {}, "XDG_RUNTIME_DIR": {},
 }
 
 type job struct {
@@ -62,6 +68,9 @@ type runOptions struct {
 	waitDelay   time.Duration
 	executable  string
 	environment []string
+	profile     string
+	systemdRun  string
+	cgroupRoot  string
 }
 
 type resultStatus string
@@ -73,11 +82,12 @@ const (
 )
 
 type jobResult struct {
-	job      job
-	status   resultStatus
-	detail   string
-	output   []byte
-	exceeded bool
+	job       job
+	status    resultStatus
+	detail    string
+	output    []byte
+	exceeded  bool
+	scopeUnit string
 }
 
 // Run executes core and every closed artifact script, then writes one ordered
@@ -109,6 +119,7 @@ func Run(ctx context.Context, repositoryRoot string, summary io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("resolve Node executable: %w", err)
 	}
+	systemdRun, _ := exec.LookPath("systemd-run")
 	return runSuite(ctx, root, jobs, runOptions{
 		concurrency: defaultConcurrency,
 		jobDuration: maximumJobDuration,
@@ -116,6 +127,8 @@ func Run(ctx context.Context, repositoryRoot string, summary io.Writer) error {
 		waitDelay:   maximumCommandWaitDelay,
 		executable:  nodeExecutable,
 		environment: os.Environ(),
+		systemdRun:  systemdRun,
+		cgroupRoot:  "/sys/fs/cgroup",
 	}, summary)
 }
 
@@ -198,9 +211,16 @@ func validateRunOptions(jobs []job, options runOptions) error {
 	if options.waitDelay <= 0 || options.waitDelay > maximumCommandWaitDelay {
 		return fmt.Errorf("workstation wait delay %s is outside (0,%s]", options.waitDelay, maximumCommandWaitDelay)
 	}
+	if options.profile != "" && options.profile != "smoke" && options.profile != "workstation" {
+		return fmt.Errorf("workstation profile %q is not smoke or workstation", options.profile)
+	}
 	if options.executable == "" {
 		return errors.New("workstation runner requires an executable")
 	}
+	return validateJobCatalogue(jobs)
+}
+
+func validateJobCatalogue(jobs []job) error {
 	seenArtifacts := make(map[string]struct{}, len(jobs))
 	seenScripts := make(map[string]struct{}, len(jobs))
 	for _, current := range jobs {
@@ -277,43 +297,318 @@ dispatch:
 	return results
 }
 
-func executeJob(ctx context.Context, root string, current job, options runOptions) jobResult {
-	if err := ctx.Err(); err != nil {
-		return cancelledResult(current, err)
-	}
-	jobContext, cancel := context.WithTimeout(ctx, options.jobDuration)
-	defer cancel()
-	output := boundedexec.NewCancellingOutput(options.outputBytes, cancel)
-	command := exec.CommandContext(jobContext, options.executable, current.arguments...) //#nosec G204 -- executable and argument slice from validated workstation inventory job
-	command.Dir = root
-	command.Env = options.environment
-	command.Stdout = output
-	command.Stderr = output
-	command.WaitDelay = options.waitDelay
-	tree, err := configureProcessTree(command)
+type manifestHardwareProfile struct {
+	CPU         string `json:"cpu,omitempty"`
+	MemoryBytes *int64 `json:"memory_bytes,omitempty"`
+	DiskBytes   *int64 `json:"disk_bytes,omitempty"`
+	Energy      string `json:"energy,omitempty"`
+}
+
+type manifestOutputs struct {
+	Directory string `json:"directory,omitempty"`
+}
+
+type manifestResourceDocument struct {
+	Artifact string                             `json:"artifact"`
+	Hardware map[string]manifestHardwareProfile `json:"hardware"`
+	Outputs  *manifestOutputs                   `json:"outputs,omitempty"`
+}
+
+func loadManifestResourceDocument(manifestPath string) (*manifestResourceDocument, error) {
+	body, err := readStableBoundedFile(manifestPath, maximumWorkstationManifestBytes)
 	if err != nil {
-		return jobResult{
-			job: current, status: statusFailed,
-			detail: fmt.Sprintf("configure bounded process tree: %v", err),
+		return nil, err
+	}
+	if err := strictjson.Validate(body, 64); err != nil {
+		return nil, err
+	}
+	var doc manifestResourceDocument
+	if err := json.Unmarshal(body, &doc); err != nil {
+		return nil, err
+	}
+	return &doc, nil
+}
+
+func resolveActiveProfile(job job, options runOptions) string {
+	for i := 0; i < len(job.arguments)-1; i++ {
+		if job.arguments[i] == "--profile" {
+			p := job.arguments[i+1]
+			if p == "smoke" || p == "workstation" {
+				return p
+			}
 		}
 	}
+	if options.profile == "smoke" || options.profile == "workstation" {
+		return options.profile
+	}
+	if env := os.Getenv("WORKSTATION_PROFILE"); env == "smoke" || env == "workstation" {
+		return env
+	}
+	return "workstation"
+}
+
+func sanitizeUnitName(name string) string {
+	var builder strings.Builder
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '_':
+			builder.WriteRune(r)
+		default:
+			builder.WriteByte('-')
+		}
+	}
+	res := builder.String()
+	if res == "" {
+		return "job"
+	}
+	return res
+}
+
+func buildJobCommand(
+	ctx context.Context,
+	current job,
+	options runOptions,
+	declaredMemoryBytes *int64,
+	manifestArtifact string,
+) (*exec.Cmd, string) {
+	if declaredMemoryBytes != nil {
+		scopeUnit := fmt.Sprintf("workstation-%s-%d.scope", sanitizeUnitName(manifestArtifact), time.Now().UnixNano())
+		systemdRun := options.systemdRun
+		if systemdRun == "" {
+			if lookedUp, err := exec.LookPath("systemd-run"); err == nil {
+				systemdRun = lookedUp
+			} else {
+				systemdRun = "systemd-run"
+			}
+		}
+		cmdArgs := []string{
+			"--user",
+			"--scope",
+			"-p", fmt.Sprintf("MemoryHigh=%d", *declaredMemoryBytes),
+			"--unit=" + scopeUnit,
+			options.executable,
+		}
+		cmdArgs = append(cmdArgs, current.arguments...)
+		return exec.CommandContext(ctx, systemdRun, cmdArgs...), scopeUnit //#nosec G204 -- bounded workstation execution with optional systemd resource containment
+	}
+	return exec.CommandContext(ctx, options.executable, current.arguments...), "" //#nosec G204 -- executable and argument slice from validated workstation inventory job
+}
+
+func findScopeCgroup(cgroupRoot, unitName string) (string, error) {
+	if cgroupRoot == "" {
+		cgroupRoot = "/sys/fs/cgroup"
+	}
+	direct := filepath.Join(cgroupRoot, unitName)
+	if info, err := os.Stat(direct); err == nil && info.IsDir() {
+		return direct, nil
+	}
+	uid := os.Getuid()
+	userSlicePath := filepath.Join(
+		cgroupRoot,
+		"user.slice",
+		fmt.Sprintf("user-%d.slice", uid),
+		fmt.Sprintf("user@%d.service", uid),
+		"app.slice",
+		unitName,
+	)
+	if info, err := os.Stat(userSlicePath); err == nil && info.IsDir() {
+		return userSlicePath, nil
+	}
+	var found string
+	walkErr := filepath.WalkDir(cgroupRoot, func(current string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if entry.IsDir() && entry.Name() == unitName {
+			found = current
+			return fs.SkipDir
+		}
+		rel, relErr := filepath.Rel(cgroupRoot, current)
+		if relErr == nil && len(strings.Split(filepath.ToSlash(rel), "/")) > 5 {
+			return fs.SkipDir
+		}
+		return nil
+	})
+	if walkErr != nil && !errors.Is(walkErr, fs.SkipDir) {
+		return "", fmt.Errorf("walk cgroup %s: %w", cgroupRoot, walkErr)
+	}
+	if found != "" {
+		return found, nil
+	}
+	return "", fmt.Errorf("cgroup for scope %s not found under %s", unitName, cgroupRoot)
+}
+
+func readCgroupMemoryPeak(scopeDir string) (int64, error) {
+	peakPath := filepath.Join(scopeDir, "memory.peak")
+	body, err := os.ReadFile(peakPath)
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", peakPath, err)
+	}
+	peakStr := strings.TrimSpace(string(body))
+	peak, err := strconv.ParseInt(peakStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("parse %s: %w", peakPath, err)
+	}
+	return peak, nil
+}
+
+func measureDirectorySize(path string) (int64, error) {
+	var totalBytes int64
+	err := filepath.WalkDir(path, func(_ string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		info, infoErr := entry.Info()
+		if infoErr != nil {
+			return infoErr
+		}
+		totalBytes += info.Size()
+		return nil
+	})
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	return totalBytes, nil
+}
+
+func measureOutputDirectorySize(root string, current job, doc *manifestResourceDocument) (int64, error) {
+	for i := 0; i < len(current.arguments)-1; i++ {
+		if current.arguments[i] == "--output" {
+			outputDir := current.arguments[i+1]
+			if !filepath.IsAbs(outputDir) {
+				outputDir = filepath.Join(root, outputDir)
+			}
+			return measureDirectorySize(outputDir)
+		}
+	}
+	if doc != nil && doc.Outputs != nil && doc.Outputs.Directory != "" {
+		pattern := doc.Outputs.Directory
+		if !filepath.IsAbs(pattern) {
+			pattern = filepath.Join(root, pattern)
+		}
+		if strings.Contains(pattern, "*") {
+			matches, err := filepath.Glob(pattern)
+			if err != nil {
+				return 0, err
+			}
+			var total int64
+			for _, match := range matches {
+				size, err := measureDirectorySize(match)
+				if err != nil {
+					return 0, err
+				}
+				total += size
+			}
+			return total, nil
+		}
+		return measureDirectorySize(pattern)
+	}
+	return 0, nil
+}
+
+func loadJobHardware(
+	root string,
+	current job,
+	options runOptions,
+) (*manifestResourceDocument, string, *int64, *int64, error) {
+	manifestArtifact := workstationManifestArtifact(current.artifact)
+	if manifestArtifact == "core" {
+		return nil, "", nil, nil, nil
+	}
+	manifestRelPath := filepath.Join("experiments", "workstation", "manifests", manifestArtifact+".json")
+	manifestPath := filepath.Join(root, manifestRelPath)
+	if info, statErr := fileidentity.Lstat(manifestPath); statErr == nil && info.Mode().IsRegular() {
+		doc, loadErr := loadManifestResourceDocument(manifestPath)
+		if loadErr != nil {
+			return nil, "", nil, nil, fmt.Errorf("load manifest %s: %w", manifestRelPath, loadErr)
+		}
+		profile := resolveActiveProfile(current, options)
+		var memoryBytes *int64
+		var diskBytes *int64
+		if doc.Hardware != nil {
+			if hw, ok := doc.Hardware[profile]; ok {
+				memoryBytes = hw.MemoryBytes
+				diskBytes = hw.DiskBytes
+			}
+		}
+		return doc, manifestRelPath, memoryBytes, diskBytes, nil
+	}
+	return nil, "", nil, nil, nil
+}
+
+func enforceResourceLimits(
+	options runOptions,
+	manifestRelPath string,
+	scopeUnit string,
+	declaredMemoryBytes *int64,
+	declaredDiskBytes *int64,
+	root string,
+	current job,
+	doc *manifestResourceDocument,
+) []string {
+	var violations []string
+	if declaredMemoryBytes != nil && scopeUnit != "" {
+		scopeDir, err := findScopeCgroup(options.cgroupRoot, scopeUnit)
+		if err != nil {
+			violations = append(violations, fmt.Sprintf("inspect scope %s cgroup: %v", scopeUnit, err))
+		} else {
+			peak, err := readCgroupMemoryPeak(scopeDir)
+			if err != nil {
+				violations = append(violations, fmt.Sprintf("read scope %s memory.peak: %v", scopeUnit, err))
+			} else if peak > *declaredMemoryBytes {
+				violations = append(violations, fmt.Sprintf(
+					"manifest %s memory limit exceeded: declared %d bytes, observed peak %d bytes",
+					filepath.ToSlash(manifestRelPath), *declaredMemoryBytes, peak,
+				))
+			}
+		}
+	}
+	if declaredDiskBytes != nil {
+		observedDisk, err := measureOutputDirectorySize(root, current, doc)
+		if err != nil {
+			violations = append(violations, fmt.Sprintf("measure output directory: %v", err))
+		} else if observedDisk > *declaredDiskBytes {
+			violations = append(violations, fmt.Sprintf(
+				"manifest %s disk limit exceeded: declared %d bytes, observed %d bytes",
+				filepath.ToSlash(manifestRelPath), *declaredDiskBytes, observedDisk,
+			))
+		}
+	}
+	return violations
+}
+
+func runProcessTree(command *exec.Cmd, tree processTree) (error, error) {
 	if err := command.Start(); err != nil {
-		return failedJobResult(current, errors.Join(err, tree.cleanup()))
+		return err, tree.cleanup()
 	}
 	if err := tree.attach(); err != nil {
 		killErr := command.Process.Kill()
 		waitErr := command.Wait()
-		return failedJobResult(current, errors.Join(
-			fmt.Errorf("attach bounded process tree: %w", err),
-			killErr,
-			waitErr,
-			tree.cleanup(),
-		))
+		return errors.Join(fmt.Errorf("attach bounded process tree: %w", err), killErr, waitErr), tree.cleanup()
 	}
 	runErr := command.Wait()
 	cleanupErr := tree.cleanup()
-	captured, exceeded := output.Result()
-	result := jobResult{job: current, output: captured, exceeded: exceeded}
+	return runErr, cleanupErr
+}
+
+func evaluateJobExit(
+	current job,
+	runErr error,
+	cleanupErr error,
+	captured []byte,
+	exceeded bool,
+	ctx context.Context,
+	jobContext context.Context,
+	options runOptions,
+	scopeUnit string,
+) jobResult {
+	result := jobResult{job: current, output: captured, exceeded: exceeded, scopeUnit: scopeUnit}
 	switch {
 	case cleanupErr != nil:
 		result.status = statusFailed
@@ -331,6 +626,51 @@ func executeJob(ctx context.Context, root string, current job, options runOption
 	default:
 		result.status = statusFailed
 		result.detail = runErr.Error()
+	}
+	return result
+}
+
+func executeJob(ctx context.Context, root string, current job, options runOptions) jobResult {
+	if err := ctx.Err(); err != nil {
+		return cancelledResult(current, err)
+	}
+	manifestDoc, manifestRelPath, declaredMemory, declaredDisk, err := loadJobHardware(root, current, options)
+	if err != nil {
+		return failedJobResult(current, err)
+	}
+	manifestArtifact := workstationManifestArtifact(current.artifact)
+	jobContext, cancel := context.WithTimeout(ctx, options.jobDuration)
+	defer cancel()
+	output := boundedexec.NewCancellingOutput(options.outputBytes, cancel)
+	command, scopeUnit := buildJobCommand(jobContext, current, options, declaredMemory, manifestArtifact)
+	command.Dir = root
+	command.Env = options.environment
+	command.Stdout = output
+	command.Stderr = output
+	command.WaitDelay = options.waitDelay
+	tree, err := configureProcessTree(command)
+	if err != nil {
+		return jobResult{
+			job: current, status: statusFailed,
+			detail:    fmt.Sprintf("configure bounded process tree: %v", err),
+			scopeUnit: scopeUnit,
+		}
+	}
+	runErr, cleanupErr := runProcessTree(command, tree)
+	captured, exceeded := output.Result()
+	result := evaluateJobExit(current, runErr, cleanupErr, captured, exceeded, ctx, jobContext, options, scopeUnit)
+	if result.status == statusCancelled {
+		return result
+	}
+	violations := enforceResourceLimits(options, manifestRelPath, scopeUnit, declaredMemory, declaredDisk, root, current, manifestDoc)
+	if len(violations) > 0 {
+		result.status = statusFailed
+		violationText := strings.Join(violations, "; ")
+		if result.detail == "" {
+			result.detail = violationText
+		} else {
+			result.detail = result.detail + "; " + violationText
+		}
 	}
 	return result
 }
