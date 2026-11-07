@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -701,6 +702,9 @@ func writeTestManifest(t *testing.T, root, artifact, body string) {
 }
 
 func TestManifestMemoryLimitEnforcement(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("systemd-run scopes are Linux-only")
+	}
 	t.Parallel()
 	root := repositoryFixture(t)
 	writeTestManifest(t, root, "fixture-007", `{
@@ -741,6 +745,9 @@ func TestManifestMemoryLimitEnforcement(t *testing.T) {
 }
 
 func TestManifestDiskLimitEnforcement(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("systemd-run scopes are Linux-only")
+	}
 	t.Parallel()
 	root := repositoryFixture(t)
 	writeTestManifest(t, root, "fixture-012", `{
@@ -821,6 +828,9 @@ func TestLoadJobHardwareRejectsNonRegularFile(t *testing.T) {
 }
 
 func TestFindScopeCgroupSurfacesWalkError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod 0o000 does not deny listing on Windows")
+	}
 	t.Parallel()
 	root := t.TempDir()
 	cgroupRoot := filepath.Join(root, "cgroup")
