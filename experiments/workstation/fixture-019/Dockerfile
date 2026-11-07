@@ -26,6 +26,11 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
 COPY --from=node-runtime /usr/lib/x86_64-linux-gnu/libatomic.so.1.2.0 /usr/lib/x86_64-linux-gnu/libatomic.so.1.2.0
 
+RUN set -eu; \
+    apt-get update -qq; \
+    apt-get install -y --no-install-recommends zlib1g; \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /workspace
 COPY . /workspace/
 
