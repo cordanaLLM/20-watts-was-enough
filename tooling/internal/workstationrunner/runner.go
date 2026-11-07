@@ -394,17 +394,27 @@ func buildJobCommand(
 	return exec.CommandContext(ctx, options.executable, current.arguments...), "" //#nosec G204 -- executable and argument slice from validated workstation inventory job
 }
 
+func checkScopeCgroupPath(cleanRoot, candidate string) (string, error) {
+	cleanCandidate := filepath.Clean(candidate)
+	rel, err := filepath.Rel(cleanRoot, cleanCandidate)
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("cgroup path %s escapes root %s", cleanCandidate, cleanRoot)
+	}
+	return cleanCandidate, nil
+}
+
 func findScopeCgroup(cgroupRoot, unitName string) (string, error) {
 	if cgroupRoot == "" {
 		cgroupRoot = "/sys/fs/cgroup"
 	}
-	direct := filepath.Join(cgroupRoot, unitName)
+	cleanRoot := filepath.Clean(cgroupRoot)
+	direct := filepath.Join(cleanRoot, unitName)
 	if info, err := os.Stat(direct); err == nil && info.IsDir() {
-		return direct, nil
+		return checkScopeCgroupPath(cleanRoot, direct)
 	}
 	uid := os.Getuid()
 	userSlicePath := filepath.Join(
-		cgroupRoot,
+		cleanRoot,
 		"user.slice",
 		fmt.Sprintf("user-%d.slice", uid),
 		fmt.Sprintf("user@%d.service", uid),
@@ -412,30 +422,30 @@ func findScopeCgroup(cgroupRoot, unitName string) (string, error) {
 		unitName,
 	)
 	if info, err := os.Stat(userSlicePath); err == nil && info.IsDir() {
-		return userSlicePath, nil
+		return checkScopeCgroupPath(cleanRoot, userSlicePath)
 	}
 	var found string
-	walkErr := filepath.WalkDir(cgroupRoot, func(current string, entry fs.DirEntry, err error) error {
+	walkErr := filepath.WalkDir(cleanRoot, func(current string, entry fs.DirEntry, err error) error {
 		if err != nil {
-			return nil
+			return err
 		}
 		if entry.IsDir() && entry.Name() == unitName {
 			found = current
 			return fs.SkipDir
 		}
-		rel, relErr := filepath.Rel(cgroupRoot, current)
+		rel, relErr := filepath.Rel(cleanRoot, current)
 		if relErr == nil && len(strings.Split(filepath.ToSlash(rel), "/")) > 5 {
 			return fs.SkipDir
 		}
 		return nil
 	})
 	if walkErr != nil && !errors.Is(walkErr, fs.SkipDir) {
-		return "", fmt.Errorf("walk cgroup %s: %w", cgroupRoot, walkErr)
+		return "", fmt.Errorf("walk cgroup %s: %w", cleanRoot, walkErr)
 	}
 	if found != "" {
-		return found, nil
+		return checkScopeCgroupPath(cleanRoot, found)
 	}
-	return "", fmt.Errorf("cgroup for scope %s not found under %s", unitName, cgroupRoot)
+	return "", fmt.Errorf("cgroup for scope %s not found under %s", unitName, cleanRoot)
 }
 
 func readCgroupMemoryPeak(scopeDir string) (int64, error) {
@@ -523,60 +533,69 @@ func loadJobHardware(
 	}
 	manifestRelPath := filepath.Join("experiments", "workstation", "manifests", manifestArtifact+".json")
 	manifestPath := filepath.Join(root, manifestRelPath)
-	if info, statErr := fileidentity.Lstat(manifestPath); statErr == nil && info.Mode().IsRegular() {
-		doc, loadErr := loadManifestResourceDocument(manifestPath)
-		if loadErr != nil {
-			return nil, "", nil, nil, fmt.Errorf("load manifest %s: %w", manifestRelPath, loadErr)
+	info, statErr := fileidentity.Lstat(manifestPath)
+	if statErr != nil {
+		if os.IsNotExist(statErr) {
+			return nil, "", nil, nil, nil
 		}
-		profile := resolveActiveProfile(current, options)
-		var memoryBytes *int64
-		var diskBytes *int64
-		if doc.Hardware != nil {
-			if hw, ok := doc.Hardware[profile]; ok {
-				memoryBytes = hw.MemoryBytes
-				diskBytes = hw.DiskBytes
-			}
-		}
-		return doc, manifestRelPath, memoryBytes, diskBytes, nil
+		return nil, "", nil, nil, fmt.Errorf("inspect manifest %s: %w", manifestRelPath, statErr)
 	}
-	return nil, "", nil, nil, nil
+	if !info.Mode().IsRegular() {
+		return nil, "", nil, nil, fmt.Errorf("manifest %s is not a regular file", manifestRelPath)
+	}
+	doc, loadErr := loadManifestResourceDocument(manifestPath)
+	if loadErr != nil {
+		return nil, "", nil, nil, fmt.Errorf("load manifest %s: %w", manifestRelPath, loadErr)
+	}
+	profile := resolveActiveProfile(current, options)
+	var memoryBytes *int64
+	var diskBytes *int64
+	if doc.Hardware != nil {
+		if hw, ok := doc.Hardware[profile]; ok {
+			memoryBytes = hw.MemoryBytes
+			diskBytes = hw.DiskBytes
+		}
+	}
+	return doc, manifestRelPath, memoryBytes, diskBytes, nil
 }
 
-func enforceResourceLimits(
-	options runOptions,
-	manifestRelPath string,
-	scopeUnit string,
-	declaredMemoryBytes *int64,
-	declaredDiskBytes *int64,
-	root string,
-	current job,
-	doc *manifestResourceDocument,
-) []string {
+type resourceEnforcement struct {
+	options             runOptions
+	manifestRelPath     string
+	scopeUnit           string
+	declaredMemoryBytes *int64
+	declaredDiskBytes   *int64
+	root                string
+	job                 job
+	doc                 *manifestResourceDocument
+}
+
+func enforceResourceLimits(enf resourceEnforcement) []string {
 	var violations []string
-	if declaredMemoryBytes != nil && scopeUnit != "" {
-		scopeDir, err := findScopeCgroup(options.cgroupRoot, scopeUnit)
+	if enf.declaredMemoryBytes != nil && enf.scopeUnit != "" {
+		scopeDir, err := findScopeCgroup(enf.options.cgroupRoot, enf.scopeUnit)
 		if err != nil {
-			violations = append(violations, fmt.Sprintf("inspect scope %s cgroup: %v", scopeUnit, err))
+			violations = append(violations, fmt.Sprintf("inspect scope %s cgroup: %v", enf.scopeUnit, err))
 		} else {
 			peak, err := readCgroupMemoryPeak(scopeDir)
 			if err != nil {
-				violations = append(violations, fmt.Sprintf("read scope %s memory.peak: %v", scopeUnit, err))
-			} else if peak > *declaredMemoryBytes {
+				violations = append(violations, fmt.Sprintf("read scope %s memory.peak: %v", enf.scopeUnit, err))
+			} else if peak > *enf.declaredMemoryBytes {
 				violations = append(violations, fmt.Sprintf(
 					"manifest %s memory limit exceeded: declared %d bytes, observed peak %d bytes",
-					filepath.ToSlash(manifestRelPath), *declaredMemoryBytes, peak,
+					filepath.ToSlash(enf.manifestRelPath), *enf.declaredMemoryBytes, peak,
 				))
 			}
 		}
 	}
-	if declaredDiskBytes != nil {
-		observedDisk, err := measureOutputDirectorySize(root, current, doc)
+	if enf.declaredDiskBytes != nil {
+		observedDisk, err := measureOutputDirectorySize(enf.root, enf.job, enf.doc)
 		if err != nil {
 			violations = append(violations, fmt.Sprintf("measure output directory: %v", err))
-		} else if observedDisk > *declaredDiskBytes {
+		} else if observedDisk > *enf.declaredDiskBytes {
 			violations = append(violations, fmt.Sprintf(
 				"manifest %s disk limit exceeded: declared %d bytes, observed %d bytes",
-				filepath.ToSlash(manifestRelPath), *declaredDiskBytes, observedDisk,
+				filepath.ToSlash(enf.manifestRelPath), *enf.declaredDiskBytes, observedDisk,
 			))
 		}
 	}
@@ -597,37 +616,57 @@ func runProcessTree(command *exec.Cmd, tree processTree) (error, error) {
 	return runErr, cleanupErr
 }
 
-func evaluateJobExit(
-	current job,
-	runErr error,
-	cleanupErr error,
-	captured []byte,
-	exceeded bool,
-	ctx context.Context,
-	jobContext context.Context,
-	options runOptions,
-	scopeUnit string,
-) jobResult {
-	result := jobResult{job: current, output: captured, exceeded: exceeded, scopeUnit: scopeUnit}
+type jobExecution struct {
+	job        job
+	runErr     error
+	cleanupErr error
+	captured   []byte
+	exceeded   bool
+	ctx        context.Context
+	jobCtx     context.Context
+	options    runOptions
+	scopeUnit  string
+}
+
+func evaluateJobExit(exec jobExecution) jobResult {
+	result := jobResult{
+		job:       exec.job,
+		output:    exec.captured,
+		exceeded:  exec.exceeded,
+		scopeUnit: exec.scopeUnit,
+	}
 	switch {
-	case cleanupErr != nil:
+	case exec.cleanupErr != nil:
 		result.status = statusFailed
-		result.detail = errors.Join(runErr, fmt.Errorf("clean bounded process tree: %w", cleanupErr)).Error()
-	case exceeded:
+		result.detail = errors.Join(exec.runErr, fmt.Errorf("clean bounded process tree: %w", exec.cleanupErr)).Error()
+	case exec.exceeded:
 		result.status = statusFailed
-		result.detail = fmt.Sprintf("combined output exceeded %d bytes", options.outputBytes)
-	case runErr == nil:
+		result.detail = fmt.Sprintf("combined output exceeded %d bytes", exec.options.outputBytes)
+	case exec.runErr == nil:
 		result.status = statusPassed
-	case ctx.Err() != nil:
-		return cancelledResultWithOutput(current, ctx.Err(), captured)
-	case errors.Is(jobContext.Err(), context.DeadlineExceeded):
+	case exec.ctx.Err() != nil:
+		return cancelledResultWithOutput(exec.job, exec.ctx.Err(), exec.captured)
+	case errors.Is(exec.jobCtx.Err(), context.DeadlineExceeded):
 		result.status = statusFailed
-		result.detail = fmt.Sprintf("exceeded %s timeout", options.jobDuration)
+		result.detail = fmt.Sprintf("exceeded %s timeout", exec.options.jobDuration)
 	default:
 		result.status = statusFailed
-		result.detail = runErr.Error()
+		result.detail = exec.runErr.Error()
 	}
 	return result
+}
+
+func applyResourceViolations(result *jobResult, violations []string) {
+	if len(violations) == 0 {
+		return
+	}
+	result.status = statusFailed
+	violationText := strings.Join(violations, "; ")
+	if result.detail == "" {
+		result.detail = violationText
+	} else {
+		result.detail = result.detail + "; " + violationText
+	}
 }
 
 func executeJob(ctx context.Context, root string, current job, options runOptions) jobResult {
@@ -658,20 +697,31 @@ func executeJob(ctx context.Context, root string, current job, options runOption
 	}
 	runErr, cleanupErr := runProcessTree(command, tree)
 	captured, exceeded := output.Result()
-	result := evaluateJobExit(current, runErr, cleanupErr, captured, exceeded, ctx, jobContext, options, scopeUnit)
+	result := evaluateJobExit(jobExecution{
+		job:        current,
+		runErr:     runErr,
+		cleanupErr: cleanupErr,
+		captured:   captured,
+		exceeded:   exceeded,
+		ctx:        ctx,
+		jobCtx:     jobContext,
+		options:    options,
+		scopeUnit:  scopeUnit,
+	})
 	if result.status == statusCancelled {
 		return result
 	}
-	violations := enforceResourceLimits(options, manifestRelPath, scopeUnit, declaredMemory, declaredDisk, root, current, manifestDoc)
-	if len(violations) > 0 {
-		result.status = statusFailed
-		violationText := strings.Join(violations, "; ")
-		if result.detail == "" {
-			result.detail = violationText
-		} else {
-			result.detail = result.detail + "; " + violationText
-		}
-	}
+	violations := enforceResourceLimits(resourceEnforcement{
+		options:             options,
+		manifestRelPath:     manifestRelPath,
+		scopeUnit:           scopeUnit,
+		declaredMemoryBytes: declaredMemory,
+		declaredDiskBytes:   declaredDisk,
+		root:                root,
+		job:                 current,
+		doc:                 manifestDoc,
+	})
+	applyResourceViolations(&result, violations)
 	return result
 }
 

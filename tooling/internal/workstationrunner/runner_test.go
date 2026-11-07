@@ -689,14 +689,21 @@ func markerCount(t *testing.T, root string) int {
 	return len(matches)
 }
 
-func TestManifestMemoryLimitEnforcement(t *testing.T) {
-	t.Parallel()
-	root := repositoryFixture(t)
+func writeTestManifest(t *testing.T, root, artifact, body string) {
+	t.Helper()
 	manifestDir := filepath.Join(root, "experiments", "workstation", "manifests")
 	if err := os.MkdirAll(manifestDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	manifestBody := `{
+	if err := os.WriteFile(filepath.Join(manifestDir, artifact+".json"), []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestManifestMemoryLimitEnforcement(t *testing.T) {
+	t.Parallel()
+	root := repositoryFixture(t)
+	writeTestManifest(t, root, "fixture-007", `{
   "artifact": "fixture-007",
   "hardware": {
     "workstation": {
@@ -706,10 +713,7 @@ func TestManifestMemoryLimitEnforcement(t *testing.T) {
       "memory_bytes": 67108864
     }
   }
-}`
-	if err := os.WriteFile(filepath.Join(manifestDir, "fixture-007.json"), []byte(manifestBody), 0o600); err != nil {
-		t.Fatal(err)
-	}
+}`)
 	options := helperOptions(t, 1)
 	options.systemdRun = options.executable
 	options.cgroupRoot = filepath.Join(root, "cgroup")
@@ -739,11 +743,7 @@ func TestManifestMemoryLimitEnforcement(t *testing.T) {
 func TestManifestDiskLimitEnforcement(t *testing.T) {
 	t.Parallel()
 	root := repositoryFixture(t)
-	manifestDir := filepath.Join(root, "experiments", "workstation", "manifests")
-	if err := os.MkdirAll(manifestDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	manifestBody := `{
+	writeTestManifest(t, root, "fixture-012", `{
   "artifact": "fixture-012",
   "hardware": {
     "workstation": {
@@ -756,10 +756,7 @@ func TestManifestDiskLimitEnforcement(t *testing.T) {
   "outputs": {
     "directory": "output"
   }
-}`
-	if err := os.WriteFile(filepath.Join(manifestDir, "fixture-012.json"), []byte(manifestBody), 0o600); err != nil {
-		t.Fatal(err)
-	}
+}`)
 
 	options := helperOptions(t, 1)
 
@@ -782,5 +779,63 @@ func TestManifestDiskLimitEnforcement(t *testing.T) {
 	resultsPass := executeJobs(context.Background(), root, []job{jobPass}, options)
 	if len(resultsPass) != 1 || resultsPass[0].status != statusPassed {
 		t.Fatalf("expected pass, got %#v", resultsPass)
+	}
+}
+
+func TestFindScopeCgroupRejectsTraversalUnitName(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	cgroupRoot := filepath.Join(root, "cgroup")
+	if err := os.MkdirAll(cgroupRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	outsideDir := filepath.Join(root, "outside")
+	if err := os.MkdirAll(outsideDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_, err := findScopeCgroup(cgroupRoot, "../outside")
+	if err == nil {
+		t.Fatal("findScopeCgroup accepted traversal unit name escaping cgroupRoot")
+	}
+	if !strings.Contains(err.Error(), "escapes root") {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
+func TestLoadJobHardwareRejectsNonRegularFile(t *testing.T) {
+	t.Parallel()
+	root := repositoryFixture(t)
+	manifestPath := filepath.Join(root, "experiments", "workstation", "manifests", "fixture-007.json")
+	if err := os.MkdirAll(manifestPath, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	options := helperOptions(t, 1)
+	current := helperJob("fixture-007", "test:workstation:fixture-007")
+	_, _, _, _, err := loadJobHardware(root, current, options)
+	if err == nil {
+		t.Fatal("loadJobHardware silently ignored non-regular manifest directory")
+	}
+	if !strings.Contains(err.Error(), "not a regular file") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestFindScopeCgroupSurfacesWalkError(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	cgroupRoot := filepath.Join(root, "cgroup")
+	unreadable := filepath.Join(cgroupRoot, "unreadable")
+	if err := os.MkdirAll(unreadable, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(unreadable, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(unreadable, 0o755)
+	})
+	_, err := findScopeCgroup(cgroupRoot, "target.scope")
+	if err == nil || !strings.Contains(err.Error(), "walk cgroup") {
+		t.Fatalf("findScopeCgroup error = %v, want walk cgroup error", err)
 	}
 }
