@@ -4397,7 +4397,7 @@ async function lintRuleIds(today, exceptions = LINT_EXCEPTIONS) {
     overrideConfig: createEslintConfig({ exceptions, today }),
     overrideConfigFile: true,
   });
-  const results = await eslint.lintFiles(LINT_EXCEPTIONS.map((entry) => entry.path));
+  const results = await eslint.lintFiles(exceptions.map((entry) => entry.path));
   return Object.fromEntries(results.map((result) => [
     path.relative(engineFileRoot, result.filePath).split(path.sep).join("/"),
     [...new Set(result.messages.map((message) => String(message.ruleId)))].sort(),
@@ -4464,29 +4464,56 @@ test("engine-file exceptions apply through their last day and compare calendar d
   assert.deepEqual(lintExceptionOverrides(LINT_EXCEPTIONS, engineFileNextDay), []);
   assert.deepEqual(lintExceptionOverrides(LINT_EXCEPTIONS, engineFileLastDay), []);
   assert.equal(createEslintConfig({ today: engineFileLastDay }).length, createEslintConfig({ today: engineFileNextDay }).length);
+  const synthetic = [Object.freeze({ expires: engineFileLastDay, path: "tools/figures/synthetic.js", reason: "synthetic test entry", rules: Object.freeze(["no-empty"]) })];
+  assert.equal(activeExceptions(synthetic, engineFileLastDay).length, 1);
+  assert.equal(activeExceptions(synthetic, engineFileNextDay).length, 0);
+  const activeOverrides = lintExceptionOverrides(synthetic, engineFileLastDay);
+  assert.equal(activeOverrides.length, 1);
+  assert.deepEqual(activeOverrides[0].rules, { "no-empty": "off" });
+  assert.deepEqual(lintExceptionOverrides(synthetic, engineFileNextDay), []);
+  const configWithOverride = createEslintConfig({ exceptions: synthetic, today: engineFileLastDay });
+  const configWithoutOverride = createEslintConfig({ exceptions: synthetic, today: engineFileNextDay });
+  assert.equal(configWithOverride.length, configWithoutOverride.length + 1);
 });
 
 test("the lint exceptions hide exactly the rules their files trip, and nothing after their last day", async () => {
-  if (LINT_EXCEPTIONS.length === 0) return;
-  const declared = Object.fromEntries(LINT_EXCEPTIONS.map((entry) => [entry.path, [...entry.rules]]));
-  const clean = Object.fromEntries(LINT_EXCEPTIONS.map((entry) => [entry.path, []]));
-  assert.deepEqual(await lintRuleIds(engineFileLastDay), clean);
-  assert.deepEqual(await lintRuleIds(engineFileNextDay), declared);
-  assert.deepEqual(await lintRuleIds("2026-10-11", []), declared);
+  for (const entry of LINT_EXCEPTIONS) {
+    const declared = Object.fromEntries([[entry.path, [...entry.rules]]]);
+    const clean = Object.fromEntries([[entry.path, []]]);
+    assert.deepEqual(await lintRuleIds(engineFileLastDay, LINT_EXCEPTIONS), clean);
+    assert.deepEqual(await lintRuleIds(engineFileNextDay, LINT_EXCEPTIONS), declared);
+    assert.deepEqual(await lintRuleIds("2026-10-11", []), declared);
+  }
+  const synthetic = [Object.freeze({ expires: engineFileLastDay, path: "tools/figures/checks.mjs", reason: "synthetic override test", rules: Object.freeze(["no-empty"]) })];
+  const eslint = new ESLint({
+    cwd: engineFileRoot,
+    overrideConfig: createEslintConfig({ exceptions: synthetic, today: engineFileLastDay }),
+    overrideConfigFile: true,
+  });
+  const source = "if (true) {}\n";
+  const [suppressed] = await eslint.lintText(source, { filePath: path.join(engineFileRoot, synthetic[0].path) });
+  assert.deepEqual(suppressed.messages.filter((m) => m.ruleId === "no-empty"), []);
+  const eslintExpired = new ESLint({
+    cwd: engineFileRoot,
+    overrideConfig: createEslintConfig({ exceptions: synthetic, today: engineFileNextDay }),
+    overrideConfigFile: true,
+  });
+  const [unsuppressed] = await eslintExpired.lintText(source, { filePath: path.join(engineFileRoot, synthetic[0].path) });
+  assert.ok(unsuppressed.messages.some((m) => m.ruleId === "no-empty"));
 });
 
 test("a lint exception covers its own file and no neighbour", async () => {
-  if (LINT_EXCEPTIONS.length === 0) return;
+  const synthetic = [Object.freeze({ expires: engineFileLastDay, path: "tools/figures/checks.mjs", reason: "synthetic scoping test", rules: Object.freeze(["no-empty", "no-useless-escape"]) })];
   const eslint = new ESLint({
     cwd: engineFileRoot,
-    overrideConfig: createEslintConfig({ today: "2026-10-11" }),
+    overrideConfig: createEslintConfig({ exceptions: synthetic, today: "2026-10-11" }),
     overrideConfigFile: true,
   });
   const source = "export const pattern = /a\\-b/;\nif (pattern) {}\n";
   for (const [filePath, expected] of [
-    [LINT_EXCEPTIONS[0].path, []],
-    [`${LINT_EXCEPTIONS[0].path}.test.js`, ["no-empty", "no-useless-escape"]],
-    ["scripts/player.js", ["no-empty", "no-useless-escape"]],
+    [synthetic[0].path, []],
+    [`${synthetic[0].path}.test.js`, ["no-empty", "no-useless-escape"]],
+    ["scripts/unrelated.js", ["no-empty", "no-useless-escape"]],
   ]) {
     const [result] = await eslint.lintText(source, { filePath: path.join(engineFileRoot, filePath) });
     assert.deepEqual(result.messages.map((message) => message.ruleId).sort(), expected, filePath);
