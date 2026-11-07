@@ -63,7 +63,7 @@
     {
       "role": "parameterized-runner-release-closure",
       "path": "configs/rsd-t02-parameterized-runner-release.json",
-      "sha256_exact_bytes": "379b5d67b2833b023df24860238ce2163055a549b681e769aef4fd2782a6aef2"
+      "sha256_exact_bytes": "4b89b2cb793825b8be6c9881f52205aababd09a108afea13d4c8b438c80d4099"
     }
   ],
   "maturity_ladder": [

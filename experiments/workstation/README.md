@@ -90,8 +90,8 @@ its own `python-environment.lock.json` and `oci-images.json`:
 
 | Artifact | Image | Runtime boundary |
 | --- | --- | --- |
-| Fixture 007 | `ghcr.io/cordanallm/20-watts-was-enough-fixture-007` | Node.js 26.12.0 and the closed Fixture 007 runtime files |
-| Fixture 019 | `ghcr.io/cordanallm/20-watts-was-enough-fixture-019` | Node.js 26.12.0, CPython 3.15.2, NumPy 2.5.4 and the closed Fixture 019 runtime files |
+| Fixture 007 | `ghcr.io/cordanallm/20-watts-was-enough-fixture-007` | Node.js 26.13.0 and the closed Fixture 007 runtime files |
+| Fixture 019 | `ghcr.io/cordanallm/20-watts-was-enough-fixture-019` | Node.js 26.13.0, CPython 3.15.2, NumPy 2.5.4 and the closed Fixture 019 runtime files |
 
 For an admitted release, download its checksum-bound and attested
 `oci-images.json` asset and copy the complete `image@sha256:...` identity from

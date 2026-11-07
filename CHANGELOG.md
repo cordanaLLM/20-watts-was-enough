@@ -7,6 +7,12 @@ the exact diff; this file records why the project changed.
 
 ### Security
 
+- Move the pinned Node.js runtime from 26.12.0 to 26.13.0 across policies,
+  workflows, fixture Dockerfiles, and manifests. CI container smoke Trivy
+  scan reported CVE-2026-109518 (HIGH, fixed in 3.0.4) in `apt` 3.0.3 in
+  `20w-fixture-007` (`node:26.12.0-trixie-slim`); the pinned
+  `node:26.13.0-trixie-slim` digest ships `apt` 3.0.4. The PDF renderer lock
+  keeps its own Node 26.12.0 bookworm image.
 - Update three transitive npm packages inside their parents' ranges:
   DOMPurify 3.4.17 under Mermaid (GHSA-cg2g-xh64-v4q7, GHSA-mrv2-3pqr-j5jr,
   GHSA-c6gr-qvv4-5v3f), Zod 4.6.7 under eslint-plugin-react-hooks
@@ -92,6 +98,27 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Bound the GitHub Pages `deploy` and `restore-verified-site` jobs at 11
+  minutes, one minute above the 10-minute `actions/deploy-pages` timeout input,
+  after the 5-minute `deploy` bound ended main run 42237691867 while the action
+  still waited on the Pages queue, and fail the engineering-policy validator
+  when a `deploy-pages` job lacks that margin
+  ([Decision 0126](decisions/0126-bound-pages-deploy-jobs-by-the-action-timeout.md)).
+- Bound every CI job by twice its measured 95th-percentile runtime with a
+  5-minute floor and bound the trusted release builder job to 113 minutes
+  instead of 225
+  ([Decision 0125](decisions/0125-bound-ci-jobs-by-measured-time.md));
+  the engine-rendered `praetor-api.yml` workflow is excepted until 2026-11-16,
+  the unmeasured recovery job `restore-verified-site` keeps 10 minutes, the
+  engine-rendered `praetor-docs.yml` job keeps 10 minutes instead of its
+  computed 5 because the engine sizes its lint budget against it, and the
+  semgrep exception in `.standards.yaml` gains an explicit category A field.
+- Every fixture without a workstation harness now ends with a
+  `## Harness status` section naming what a harness still lacks
+  (`hardware`, `data`, `dependency` or `not-built`) and why, and the test
+  coverage check refuses a fixture with neither. Of the 19 such fixtures,
+  13 are `not-built`, five need apparatus and one a frozen corpus
+  ([Decision 0124](decisions/0124-state-why-a-fixture-has-no-harness.md)).
 - Renovate adopts fleet-own releases immediately with zero minimum release
   age and waits three days for outside updates, superseding the seven-day delay
   ([Decision 0123](decisions/0123-adopt-fleet-own-releases-at-once-and-wait-three-days-for-outside-updates.md)).

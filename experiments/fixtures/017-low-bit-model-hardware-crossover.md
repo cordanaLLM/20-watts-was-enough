@@ -590,3 +590,9 @@ packing, reference-operator parity, workload lineage, counterbalanced timing,
 meter refusal, and analysis recomputation. It remains smoke-only. It cannot
 promote C-013 until the full native two-hardware, two-scale, sealed-confirmation
 contract is executed and independently reproduced.
+
+## Harness status
+
+Blocked by: not-built.
+
+The Required artifacts and execution boundary section defines a smoke-only first slice that trains tiny deterministic models and checks packing, operator parity, timing and analysis recomputation; no generator, runner or tests exist yet. Claim-eligible runs need the frozen Ryzen 9 7950X and RTX 4090 reference pair.

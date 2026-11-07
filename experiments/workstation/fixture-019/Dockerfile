@@ -1,4 +1,4 @@
-FROM node:26.12.0-trixie-slim@sha256:e556a144463cc8dc53afe8de6d2fa0db5c132fd39ffa232c17641bd40df2bf11 AS node-runtime
+FROM node:26.13.0-trixie-slim@sha256:5adad64f9a1fca2d51972caa65983634c8a774eb300d72b20f7f2a0f60368072 AS node-runtime
 
 FROM python:3.15.2-slim-trixie@sha256:e97b88e416c3c01eb427b21fd8cd3ebf006e6ee38afcfcc3cae1c54ee2ab0a75
 
@@ -30,6 +30,9 @@ WORKDIR /workspace
 COPY . /workspace/
 
 RUN set -eu; \
+    apt-get update -qq; \
+    apt-get install -y --no-install-recommends zlib1g; \
+    rm -rf /var/lib/apt/lists/*; \
     test "$(cat .experiment-artifact)" = "fixture-019"; \
     test "$(cat .experiment-runner)" = "experiments/workstation/fixture-019/runner.mjs"; \
     printf '%s\n' "${IMAGE_NAME}" > /tmp/image-name; \
@@ -52,8 +55,8 @@ RUN set -eu; \
     cmp /tmp/expected-directories /tmp/actual-directories; \
     python -m pip install --no-deps --require-hashes -r requirements-ci.txt; \
     python -m pip uninstall --yes pip; \
-    ln --symbolic libatomic.so.1.2.0 /usr/lib/x86_64-linux-gnu/libatomic.so.1; \
-    test "$(node --version)" = "v26.12.0"; \
+    ln -sf libatomic.so.1.2.0 /usr/lib/x86_64-linux-gnu/libatomic.so.1; \
+    test "$(node --version)" = "v26.13.0"; \
     test "$(python --version)" = "Python 3.15.2"; \
     python -c 'import numpy; assert numpy.__version__ == "2.5.4"'; \
     groupadd --gid 1000 experiment; \
