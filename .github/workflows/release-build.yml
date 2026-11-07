@@ -13,7 +13,7 @@ jobs:
   release:
     name: Verify, build, attest and publish the tagged release
     runs-on: ubuntu-26.04
-    timeout-minutes: 225
+    timeout-minutes: 113
     permissions:
       contents: write
       id-token: write
@@ -90,7 +90,7 @@ jobs:
       - name: Use the locked Python runtime
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.15.0'
+          python-version: '3.15.2'
       - name: Install the locked scientific runtime
         run: python -m pip install --disable-pip-version-check --no-deps --require-hashes -r requirements-ci.txt
       - name: Use Node.js 26
@@ -189,7 +189,7 @@ jobs:
       - name: Install the pinned cosign client
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
         with:
-          cosign-release: v3.1.3
+          cosign-release: v3.1.4
       - name: Preflight the remote release without mutation
         id: release-preflight
         env:
@@ -650,14 +650,14 @@ jobs:
           fixture_007_node="$(docker run --rm --pull never --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             --entrypoint node "$fixture_007" --version)"
-          if [[ "$fixture_007_node" != "v26.12.0" ]]; then
-            echo "::error::admitted Fixture 007 Node.js runtime is $fixture_007_node, want v26.12.0"
+          if [[ "$fixture_007_node" != "v26.13.0" ]]; then
+            echo "::error::admitted Fixture 007 Node.js runtime is $fixture_007_node, want v26.13.0"
             exit 1
           fi
           docker run --rm --pull never --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             --entrypoint sh "$fixture_019" -c \
-            'test "$(node --version)" = "v26.12.0" && test "$(python --version)" = "Python 3.15.0" && python -c "import numpy; assert numpy.__version__ == \"2.5.4\""'
+            'test "$(node --version)" = "v26.13.0" && test "$(python --version)" = "Python 3.15.2" && python -c "import numpy; assert numpy.__version__ == \"2.5.4\""'
           volume_007="20w-release-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-007"
           volume_019="20w-release-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-019"
           docker volume create "$volume_007"

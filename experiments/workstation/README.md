@@ -84,12 +84,14 @@ go -C tooling run ./cmd/20w experiment validate --root ..
 Containers are the public execution default. Release automation now admits one
 image per released experiment instead of one image containing unrelated
 harnesses. Releases from v0.3.0 whose source contains and passes the release
-workflow publish the two Linux `amd64` images below:
+workflow publish the two Linux `amd64` images below. The runtime column names
+the runtime of this source revision; an earlier release binds the runtime in
+its own `python-environment.lock.json` and `oci-images.json`:
 
 | Artifact | Image | Runtime boundary |
 | --- | --- | --- |
-| Fixture 007 | `ghcr.io/cordanallm/20-watts-was-enough-fixture-007` | Node.js 26.12.0 and the closed Fixture 007 runtime files |
-| Fixture 019 | `ghcr.io/cordanallm/20-watts-was-enough-fixture-019` | Node.js 26.12.0, CPython 3.15.0, NumPy 2.5.4 and the closed Fixture 019 runtime files |
+| Fixture 007 | `ghcr.io/cordanallm/20-watts-was-enough-fixture-007` | Node.js 26.13.0 and the closed Fixture 007 runtime files |
+| Fixture 019 | `ghcr.io/cordanallm/20-watts-was-enough-fixture-019` | Node.js 26.13.0, CPython 3.15.2, NumPy 2.5.4 and the closed Fixture 019 runtime files |
 
 For an admitted release, download its checksum-bound and attested
 `oci-images.json` asset and copy the complete `image@sha256:...` identity from

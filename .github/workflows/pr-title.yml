@@ -15,7 +15,7 @@ jobs:
   pr-title:
     name: PR title
     runs-on: ubuntu-26.04
-    timeout-minutes: 5
+    timeout-minutes: 5 # floor 5: hosted runner setup and checkout jitter
     steps:
       - name: Require a Conventional Commit title
         env:
