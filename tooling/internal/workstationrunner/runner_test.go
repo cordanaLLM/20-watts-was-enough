@@ -831,6 +831,9 @@ func TestFindScopeCgroupSurfacesWalkError(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("chmod 0o000 does not deny listing on Windows")
 	}
+	if os.Getuid() == 0 {
+		t.Skip("chmod 0o000 does not deny listing to root")
+	}
 	t.Parallel()
 	root := t.TempDir()
 	cgroupRoot := filepath.Join(root, "cgroup")
