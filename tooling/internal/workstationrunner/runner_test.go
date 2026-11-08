@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -41,6 +42,10 @@ func TestMain(testingMain *testing.M) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(25)
 		}
+		os.Exit(0)
+	}
+	if len(os.Args) >= 2 && os.Args[1] == "--user" {
+		runMockSystemdRun(os.Args[1:])
 		os.Exit(0)
 	}
 	if len(os.Args) == 3 && os.Args[1] == "run" && strings.HasPrefix(os.Args[2], "test:workstation:") {
@@ -119,10 +124,79 @@ func runHelper(script string) {
 			fmt.Fprintln(os.Stderr, "gate was not released within 30 s")
 			os.Exit(26)
 		}
+	case strings.Contains(script, "write-disk"):
+		if err := os.MkdirAll("output", 0o755); err != nil {
+			fmt.Fprintf(os.Stderr, "mkdir output: %v\n", err)
+			os.Exit(1)
+		}
+		if err := os.WriteFile(filepath.Join("output", "data.bin"), []byte("0123456789"), 0o600); err != nil {
+			fmt.Fprintf(os.Stderr, "write data.bin: %v\n", err)
+			os.Exit(1)
+		}
 	case strings.Contains(script, "slow"):
 		time.Sleep(40 * time.Millisecond)
 	}
 	fmt.Printf("completed %s\n", script)
+}
+
+func runMockSystemdRun(args []string) {
+	var unit string
+	var cmdIdx int
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if strings.HasPrefix(arg, "--unit=") {
+			unit = strings.TrimPrefix(arg, "--unit=")
+			continue
+		}
+		if arg == "-u" || arg == "--unit" {
+			if i+1 < len(args) {
+				unit = args[i+1]
+				i++
+			}
+			continue
+		}
+		if arg == "-p" || arg == "--property" {
+			if i+1 < len(args) {
+				i++
+			}
+			continue
+		}
+		if strings.HasPrefix(arg, "-") {
+			continue
+		}
+		cmdIdx = i
+		break
+	}
+	if unit != "" {
+		scopeDir := filepath.Join("cgroup", unit)
+		if err := os.MkdirAll(scopeDir, 0o755); err != nil {
+			fmt.Fprintf(os.Stderr, "mkdir mock cgroup: %v\n", err)
+			os.Exit(1)
+		}
+		peak := "1048576"
+		for _, arg := range args {
+			if strings.Contains(arg, "oom") {
+				peak = "73400320"
+			}
+		}
+		if err := os.WriteFile(filepath.Join(scopeDir, "memory.peak"), []byte(peak+"\n"), 0o600); err != nil {
+			fmt.Fprintf(os.Stderr, "write mock memory.peak: %v\n", err)
+			os.Exit(1)
+		}
+	}
+	if cmdIdx == 0 || cmdIdx >= len(args) {
+		os.Exit(1)
+	}
+	cmd := exec.Command(args[cmdIdx], args[cmdIdx+1:]...) //#nosec G204
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			os.Exit(exitErr.ExitCode())
+		}
+		os.Exit(1)
+	}
+	os.Exit(0)
 }
 
 func TestProductionJobsUseTheCompleteClosedCatalogue(t *testing.T) {
@@ -614,4 +688,164 @@ func markerCount(t *testing.T, root string) int {
 		t.Fatal(err)
 	}
 	return len(matches)
+}
+
+func writeTestManifest(t *testing.T, root, artifact, body string) {
+	t.Helper()
+	manifestDir := filepath.Join(root, "experiments", "workstation", "manifests")
+	if err := os.MkdirAll(manifestDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(manifestDir, artifact+".json"), []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestManifestMemoryLimitEnforcement(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("systemd-run scopes are Linux-only")
+	}
+	t.Parallel()
+	root := repositoryFixture(t)
+	writeTestManifest(t, root, "fixture-007", `{
+  "artifact": "fixture-007",
+  "hardware": {
+    "workstation": {
+      "memory_bytes": 67108864
+    },
+    "smoke": {
+      "memory_bytes": 67108864
+    }
+  }
+}`)
+	options := helperOptions(t, 1)
+	options.systemdRun = options.executable
+	options.cgroupRoot = filepath.Join(root, "cgroup")
+
+	// Positive test: fixture sub-process stays under 64 MiB limit -> passes
+	jobPass := helperJob("fixture-007", "test:workstation:fixture-007")
+	results := executeJobs(context.Background(), root, []job{jobPass}, options)
+	if len(results) != 1 || results[0].status != statusPassed {
+		t.Fatalf("expected pass, got %#v", results)
+	}
+	if results[0].scopeUnit == "" {
+		t.Fatal("expected recorded scope unit name, got empty")
+	}
+
+	// Negative test: observed peak exceeds 64 MiB limit -> fails with diagnostic
+	jobFail := helperJob("fixture-007", "test:workstation:fixture-007-oom")
+	resultsFail := executeJobs(context.Background(), root, []job{jobFail}, options)
+	if len(resultsFail) != 1 || resultsFail[0].status != statusFailed {
+		t.Fatalf("expected fail, got %#v", resultsFail)
+	}
+	wantDiag := "manifest experiments/workstation/manifests/fixture-007.json memory limit exceeded: declared 67108864 bytes, observed peak 73400320 bytes"
+	if !strings.Contains(resultsFail[0].detail, wantDiag) {
+		t.Fatalf("detail = %q, want %q", resultsFail[0].detail, wantDiag)
+	}
+}
+
+func TestManifestDiskLimitEnforcement(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("systemd-run scopes are Linux-only")
+	}
+	t.Parallel()
+	root := repositoryFixture(t)
+	writeTestManifest(t, root, "fixture-012", `{
+  "artifact": "fixture-012",
+  "hardware": {
+    "workstation": {
+      "disk_bytes": 1
+    },
+    "smoke": {
+      "disk_bytes": 1
+    }
+  },
+  "outputs": {
+    "directory": "output"
+  }
+}`)
+
+	options := helperOptions(t, 1)
+
+	// Negative test: 1 byte declared, sub-process creates 10 bytes in output dir -> fails with diagnostic
+	jobFail := helperJob("fixture-012", "test:workstation:fixture-012-write-disk")
+	resultsFail := executeJobs(context.Background(), root, []job{jobFail}, options)
+	if len(resultsFail) != 1 || resultsFail[0].status != statusFailed {
+		t.Fatalf("expected fail due to disk limit, got %#v", resultsFail)
+	}
+	wantDiag := "manifest experiments/workstation/manifests/fixture-012.json disk limit exceeded: declared 1 bytes, observed 10 bytes"
+	if !strings.Contains(resultsFail[0].detail, wantDiag) {
+		t.Fatalf("detail = %q, want %q", resultsFail[0].detail, wantDiag)
+	}
+
+	// Positive test: output directory stays within limit -> passes
+	if err := os.RemoveAll(filepath.Join(root, "output")); err != nil {
+		t.Fatal(err)
+	}
+	jobPass := helperJob("fixture-012", "test:workstation:fixture-012")
+	resultsPass := executeJobs(context.Background(), root, []job{jobPass}, options)
+	if len(resultsPass) != 1 || resultsPass[0].status != statusPassed {
+		t.Fatalf("expected pass, got %#v", resultsPass)
+	}
+}
+
+func TestFindScopeCgroupRejectsTraversalUnitName(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	cgroupRoot := filepath.Join(root, "cgroup")
+	if err := os.MkdirAll(cgroupRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	outsideDir := filepath.Join(root, "outside")
+	if err := os.MkdirAll(outsideDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_, err := findScopeCgroup(cgroupRoot, "../outside")
+	if err == nil {
+		t.Fatal("findScopeCgroup accepted traversal unit name escaping cgroupRoot")
+	}
+	if !strings.Contains(err.Error(), "escapes root") {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
+func TestLoadJobHardwareRejectsNonRegularFile(t *testing.T) {
+	t.Parallel()
+	root := repositoryFixture(t)
+	manifestPath := filepath.Join(root, "experiments", "workstation", "manifests", "fixture-007.json")
+	if err := os.MkdirAll(manifestPath, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	options := helperOptions(t, 1)
+	current := helperJob("fixture-007", "test:workstation:fixture-007")
+	_, _, _, _, err := loadJobHardware(root, current, options)
+	if err == nil {
+		t.Fatal("loadJobHardware silently ignored non-regular manifest directory")
+	}
+	if !strings.Contains(err.Error(), "not a regular file") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestFindScopeCgroupSurfacesWalkError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod 0o000 does not deny listing on Windows")
+	}
+	t.Parallel()
+	root := t.TempDir()
+	cgroupRoot := filepath.Join(root, "cgroup")
+	unreadable := filepath.Join(cgroupRoot, "unreadable")
+	if err := os.MkdirAll(unreadable, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(unreadable, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(unreadable, 0o755)
+	})
+	_, err := findScopeCgroup(cgroupRoot, "target.scope")
+	if err == nil || !strings.Contains(err.Error(), "walk cgroup") {
+		t.Fatalf("findScopeCgroup error = %v, want walk cgroup error", err)
+	}
 }
