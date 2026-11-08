@@ -43,4 +43,7 @@ experiments/workstation/fixture-012/configs/*.local.json
 /.standards/cache/
 /.claude/settings.local.json
 /.standards-receipt.json
+/.codacy/
+.github/instructions/codacy.instructions.md
+.cursor/rules/codacy.mdc
 # END praetor private artifacts

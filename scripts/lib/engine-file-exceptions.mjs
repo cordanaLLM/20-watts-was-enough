@@ -4,37 +4,11 @@
 // after `expires` it covers nothing, so the gate fails as if the entry were
 // absent. Decision 0095, point 10.
 
-const BUNDLE_REASON = "minified interfig bundle that the Praetor engine writes and its audit locks byte for byte";
 const VENDOR_REASON = "interfig source that the Praetor engine vendors byte for byte from upstream";
 
 export const ENGINE_FILE_LAST_DAY = "2027-01-09";
 
-function lintException(filePath, reason, rules) {
-  return Object.freeze({ expires: ENGINE_FILE_LAST_DAY, path: filePath, reason, rules: Object.freeze(rules) });
-}
-
-export const LINT_EXCEPTIONS = Object.freeze([
-  lintException("tools/figures/player/loader.js", BUNDLE_REASON, [
-    "@typescript-eslint/no-unused-expressions",
-  ]),
-  lintException("tools/figures/player/player.js", BUNDLE_REASON, [
-    "@typescript-eslint/no-this-alias",
-    "@typescript-eslint/no-unused-expressions",
-    "getter-return",
-    "no-cond-assign",
-    "no-constant-condition",
-    "no-control-regex",
-    "no-empty",
-    "no-fallthrough",
-    "no-misleading-character-class",
-    "no-prototype-builtins",
-    "no-undef",
-    "no-unreachable",
-    "no-useless-assignment",
-    "no-useless-escape",
-    "valid-typeof",
-  ]),
-]);
+export const LINT_EXCEPTIONS = Object.freeze([]);
 
 // svg.ts imports its siblings with a `.ts` suffix, which this repository's
 // compiler options refuse (TS5097). No checked file imports it.
