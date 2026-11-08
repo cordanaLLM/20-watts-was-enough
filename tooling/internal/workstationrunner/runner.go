@@ -131,7 +131,10 @@ func Run(ctx context.Context, repositoryRoot string, summary io.Writer) error {
 	if err != nil {
 		return err
 	}
-	systemdRun, _ := exec.LookPath("systemd-run")
+	systemdRun, err := optionalExecutable("systemd-run")
+	if err != nil {
+		return err
+	}
 	return runSuite(ctx, root, jobs, runOptions{
 		concurrency: defaultConcurrency,
 		jobDuration: maximumJobDuration,
@@ -147,10 +150,15 @@ func Run(ctx context.Context, repositoryRoot string, summary io.Writer) error {
 
 // optionalExecutable resolves name on PATH to an absolute path. An absent
 // executable yields "": only jobs that need it fail, with their own named error.
+// Any other lookup error, such as a match through a relative PATH entry
+// (exec.ErrDot), is returned.
 func optionalExecutable(name string) (string, error) {
 	lookedUp, err := exec.LookPath(name)
-	if err != nil {
+	if errors.Is(err, exec.ErrNotFound) {
 		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("locate %s executable: %w", name, err)
 	}
 	resolved, err := filepath.Abs(lookedUp)
 	if err != nil {
@@ -405,17 +413,18 @@ cat -- "$root${membership#0::}/memory.peak" >&3
 exit "$status"
 `
 
+// buildJobCommand returns the job's command and, for a job that declares
+// memory_bytes, the scope unit name. Such a job runs under systemd-run in a
+// transient scope with MemoryHigh set, wrapped by scopeWrapperScript; any
+// other job runs the executable directly.
 func buildJobCommand(
 	ctx context.Context,
 	current job,
 	options runOptions,
 	declaredMemoryBytes *int64,
 	manifestArtifact string,
-) (*exec.Cmd, string, error) {
+) (*exec.Cmd, string) {
 	if declaredMemoryBytes != nil {
-		if options.shell == "" {
-			return nil, "", errMissingShell
-		}
 		scopeUnit := fmt.Sprintf("workstation-%s-%d.scope", sanitizeUnitName(manifestArtifact), time.Now().UnixNano())
 		systemdRun := options.systemdRun
 		if systemdRun == "" {
@@ -443,16 +452,19 @@ func buildJobCommand(
 			options.executable,
 		}
 		cmdArgs = append(cmdArgs, current.arguments...)
-		return exec.CommandContext(ctx, systemdRun, cmdArgs...), scopeUnit, nil //#nosec G204 -- bounded workstation execution with optional systemd resource containment
+		return exec.CommandContext(ctx, systemdRun, cmdArgs...), scopeUnit //#nosec G204 -- bounded workstation execution with optional systemd resource containment
 	}
-	return exec.CommandContext(ctx, options.executable, current.arguments...), "", nil //#nosec G204 -- executable and argument slice from validated workstation inventory job
+	return exec.CommandContext(ctx, options.executable, current.arguments...), "" //#nosec G204 -- executable and argument slice from validated workstation inventory job
 }
 
+// scopeMemoryPipe carries the wrapper's memory.peak report. The child gets
+// writeEnd as fd 3; the runner reads readEnd after the job exits.
 type scopeMemoryPipe struct {
 	readEnd  *os.File
 	writeEnd *os.File
 }
 
+// openScopeMemoryPipe creates the report pipe for one scoped job.
 func openScopeMemoryPipe() (*scopeMemoryPipe, error) {
 	r, w, err := os.Pipe()
 	if err != nil {
@@ -535,6 +547,9 @@ func (p *scopeMemoryPipe) readPeak(waitDelay time.Duration, source string) (peak
 	return parseReportedMemoryPeak(p.readEnd, source)
 }
 
+// prepareJobCommand builds the job command and, for a job that declares
+// memory_bytes, passes it the write end of a new report pipe as fd 3. Such a
+// job fails with errMissingShell when no shell was resolved.
 func prepareJobCommand(
 	ctx context.Context,
 	current job,
@@ -542,10 +557,10 @@ func prepareJobCommand(
 	declaredMemoryBytes *int64,
 	manifestArtifact string,
 ) (*exec.Cmd, string, *scopeMemoryPipe, error) {
-	command, scopeUnit, err := buildJobCommand(ctx, current, options, declaredMemoryBytes, manifestArtifact)
-	if err != nil {
-		return nil, "", nil, err
+	if declaredMemoryBytes != nil && options.shell == "" {
+		return nil, "", nil, errMissingShell
 	}
+	command, scopeUnit := buildJobCommand(ctx, current, options, declaredMemoryBytes, manifestArtifact)
 	if declaredMemoryBytes == nil {
 		return command, "", nil, nil
 	}
@@ -557,6 +572,9 @@ func prepareJobCommand(
 	return command, scopeUnit, pipe, nil
 }
 
+// parseReportedMemoryPeak reads at most maximumMemoryPeakBytes from r and
+// parses them as a decimal byte count. Longer, empty or non-numeric content
+// is an error; empty content wraps errEmptyMemoryReport.
 func parseReportedMemoryPeak(r io.Reader, source string) (int64, error) {
 	body, err := io.ReadAll(io.LimitReader(r, maximumMemoryPeakBytes+1))
 	if err != nil {
@@ -685,6 +703,9 @@ type resourceEnforcement struct {
 	doc                 *manifestResourceDocument
 }
 
+// enforceResourceLimits compares the job's reported memory peak and measured
+// output size with the manifest's declared limits. It returns one violation
+// per exceeded limit, missing report or failed measurement.
 func enforceResourceLimits(enf resourceEnforcement) []string {
 	var violations []string
 	if enf.declaredMemoryBytes != nil && enf.scopeUnit != "" {
@@ -782,6 +803,8 @@ func applyResourceViolations(result *jobResult, violations []string) {
 	}
 }
 
+// executeJob runs one job under its timeout and output bound, then applies
+// the manifest's memory and disk limits to a job that was not cancelled.
 func executeJob(ctx context.Context, root string, current job, options runOptions) (result jobResult) {
 	if err := ctx.Err(); err != nil {
 		return cancelledResult(current, err)

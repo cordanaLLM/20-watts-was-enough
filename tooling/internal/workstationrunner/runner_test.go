@@ -133,12 +133,27 @@ func runHelper(script string) {
 			fmt.Fprintf(os.Stderr, "write data.bin: %v\n", err)
 			os.Exit(1)
 		}
+	case strings.Contains(script, "self-kill"):
+		self, err := os.FindProcess(os.Getpid())
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(27)
+		}
+		if err := self.Kill(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(28)
+		}
+		time.Sleep(time.Minute)
 	case strings.Contains(script, "slow"):
 		time.Sleep(40 * time.Millisecond)
 	}
 	fmt.Printf("completed %s\n", script)
 }
 
+// runMockSystemdRun stands in for systemd-run --scope: it writes a fake
+// memory.peak for the scope wrapper, runs the wrapper with fd 3 passed on,
+// removes the fake scope directory once the wrapper exits, as systemd does,
+// and exits with the wrapper's status.
 func runMockSystemdRun(args []string) {
 	var cgroupRoot string
 	for i := 0; i < len(args)-3; i++ {
@@ -657,6 +672,8 @@ func withOutputBytes(options runOptions, outputBytes int) runOptions {
 	return options
 }
 
+// helperOptions runs jobs through this test binary in helper mode, with sh
+// resolved as in Run.
 func helperOptions(t *testing.T, concurrency int) runOptions {
 	t.Helper()
 	executable, err := os.Executable()
@@ -733,14 +750,28 @@ func writeTestManifest(t *testing.T, root, artifact, body string) {
 	}
 }
 
-func TestManifestMemoryLimitEnforcement(t *testing.T) {
+// skipWithoutUnifiedCgroup skips scoped-job tests where the scope wrapper
+// cannot report: it reads only the first /proc/self/cgroup line and needs a
+// cgroup v2 entry there.
+func skipWithoutUnifiedCgroup(t *testing.T) {
+	t.Helper()
 	if runtime.GOOS != "linux" {
 		t.Skip("systemd-run scopes are Linux-only")
 	}
-	if _, err := os.Stat("/proc/self/cgroup"); err != nil {
+	membership, err := os.ReadFile("/proc/self/cgroup")
+	if err != nil {
 		t.Skip("skipping on systems without /proc/self/cgroup")
 	}
-	t.Parallel()
+	if !strings.HasPrefix(string(membership), "0::/") {
+		t.Skip("skipping without a unified cgroup v2 first membership line")
+	}
+}
+
+// scopedHelperFixture returns a repository fixture whose fixture-007
+// manifest declares 64 MiB, and helper options that route scoped jobs
+// through runMockSystemdRun.
+func scopedHelperFixture(t *testing.T) (string, runOptions) {
+	t.Helper()
 	root := repositoryFixture(t)
 	writeTestManifest(t, root, "fixture-007", `{
   "artifact": "fixture-007",
@@ -756,6 +787,16 @@ func TestManifestMemoryLimitEnforcement(t *testing.T) {
 	options := helperOptions(t, 1)
 	options.systemdRun = options.executable
 	options.cgroupRoot = filepath.Join(root, "cgroup")
+	return root, options
+}
+
+// TestManifestMemoryLimitEnforcement checks the reported peak against the
+// declared limit: under it passes, over it, a missing report and a missing
+// shell each fail with a named diagnostic.
+func TestManifestMemoryLimitEnforcement(t *testing.T) {
+	skipWithoutUnifiedCgroup(t)
+	t.Parallel()
+	root, options := scopedHelperFixture(t)
 
 	// Positive test: fixture sub-process stays under 64 MiB limit -> passes
 	jobPass := helperJob("fixture-007", "test:workstation:fixture-007")
@@ -798,6 +839,22 @@ func TestManifestMemoryLimitEnforcement(t *testing.T) {
 	}
 	if !strings.Contains(resultsNoShell[0].detail, "shell") {
 		t.Fatalf("detail = %q, want error mentioning shell", resultsNoShell[0].detail)
+	}
+}
+
+// TestScopedJobSignalExitStatus checks that the scope wrapper passes on a
+// payload's signal death as exit status 128+N and still reports its peak.
+func TestScopedJobSignalExitStatus(t *testing.T) {
+	skipWithoutUnifiedCgroup(t)
+	t.Parallel()
+	root, options := scopedHelperFixture(t)
+	killed := helperJob("fixture-007", "test:workstation:fixture-007-self-kill")
+	results := executeJobs(context.Background(), root, []job{killed}, options)
+	if len(results) != 1 || results[0].status != statusFailed {
+		t.Fatalf("expected fail for a killed payload, got %#v", results)
+	}
+	if want := "exit status 137"; results[0].detail != want {
+		t.Fatalf("detail = %q, want %q (128 + SIGKILL, no memory violation)", results[0].detail, want)
 	}
 }
 
@@ -864,6 +921,8 @@ func TestLoadJobHardwareRejectsNonRegularFile(t *testing.T) {
 	}
 }
 
+// TestParseReportedMemoryPeak covers a valid report, non-numeric and empty
+// content, and content exactly at and one byte over maximumMemoryPeakBytes.
 func TestParseReportedMemoryPeak(t *testing.T) {
 	t.Parallel()
 
@@ -919,6 +978,9 @@ func TestParseReportedMemoryPeak(t *testing.T) {
 	})
 }
 
+// TestOptionalExecutable checks that an absent tool yields "" without error,
+// a tool on PATH resolves to its absolute path, and a match through a
+// relative PATH entry is an error rather than an absent tool.
 func TestOptionalExecutable(t *testing.T) {
 	t.Run("negative_absent", func(t *testing.T) {
 		t.Setenv("PATH", t.TempDir())
@@ -946,8 +1008,75 @@ func TestOptionalExecutable(t *testing.T) {
 			t.Fatalf("optionalExecutable = %q, want absolute %q", got, tool)
 		}
 	})
+
+	t.Run("boundary_relative_path_entry", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("PATH lookup needs a PATHEXT extension on Windows")
+		}
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "workstation-probe-tool"), []byte("#!/bin/sh\n"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		t.Chdir(dir)
+		t.Setenv("PATH", ".")
+		got, err := optionalExecutable("workstation-probe-tool")
+		if !errors.Is(err, exec.ErrDot) || got != "" {
+			t.Fatalf("optionalExecutable via relative PATH = %q, %v; want \"\", exec.ErrDot", got, err)
+		}
+	})
 }
 
+// TestScopeMemoryPipeReadPeak checks that readPeak returns a written report
+// and that a writer which stays open without reporting cannot stall the
+// runner past the read deadline. Both cases leave the read end closed.
+func TestScopeMemoryPipeReadPeak(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("scoped jobs and their report pipe run only on Linux")
+	}
+	t.Run("positive_report", func(t *testing.T) {
+		pipe, err := openScopeMemoryPipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pipe.writeEnd.WriteString("4096\n"); err != nil {
+			t.Fatal(err)
+		}
+		peak, err := pipe.readPeak(time.Second, "memory.peak")
+		if err != nil || peak != 4096 {
+			t.Fatalf("readPeak = %d, %v; want 4096, nil", peak, err)
+		}
+		if pipe.readEnd != nil || pipe.writeEnd != nil {
+			t.Fatal("readPeak left an end set")
+		}
+	})
+
+	t.Run("negative_silent_writer_hits_deadline", func(t *testing.T) {
+		r, w, err := os.Pipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if err := w.Close(); err != nil {
+				t.Error(err)
+			}
+		})
+		pipe := &scopeMemoryPipe{readEnd: r}
+		start := time.Now()
+		peak, err := pipe.readPeak(20*time.Millisecond, "memory.peak")
+		if !errors.Is(err, os.ErrDeadlineExceeded) || peak != 0 {
+			t.Fatalf("readPeak with a silent open writer = %d, %v; want 0, os.ErrDeadlineExceeded", peak, err)
+		}
+		if elapsed := time.Since(start); elapsed > 5*time.Second {
+			t.Fatalf("readPeak returned after %s, want the 20ms deadline to end it", elapsed)
+		}
+		if pipe.readEnd != nil {
+			t.Fatal("readPeak left the read end open")
+		}
+	})
+}
+
+// TestScopeMemoryPipeCloseAll checks that closeAll accepts a nil pipe, closes
+// each end once, and reports a close error.
 func TestScopeMemoryPipeCloseAll(t *testing.T) {
 	t.Run("boundary_nil_pipe", func(t *testing.T) {
 		var pipe *scopeMemoryPipe
@@ -986,6 +1115,8 @@ func TestScopeMemoryPipeCloseAll(t *testing.T) {
 	})
 }
 
+// TestWithPipeCloseError checks that a close error is appended to the job
+// detail while the status stays as set.
 func TestWithPipeCloseError(t *testing.T) {
 	cancelled := jobResult{status: statusCancelled, detail: "context canceled"}
 	t.Run("positive_nil_error_keeps_result", func(t *testing.T) {
