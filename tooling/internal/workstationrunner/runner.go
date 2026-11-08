@@ -38,6 +38,7 @@ const (
 	maximumEnvironmentBytes      = 64 << 10
 	maximumEnvironmentValueBytes = 8 << 10
 	maximumPackageManifestBytes  = 1 << 20
+	maximumMemoryPeakBytes       = 32
 )
 
 // MaximumSuiteDuration bounds one Run: the largest catalogue runs in waves of
@@ -448,18 +449,31 @@ func findScopeCgroup(cgroupRoot, unitName string) (string, error) {
 	return "", fmt.Errorf("cgroup for scope %s not found under %s", unitName, cleanRoot)
 }
 
-func readCgroupMemoryPeak(scopeDir string) (int64, error) {
+func readCgroupMemoryPeak(scopeDir string) (peak int64, returnErr error) {
 	peakPath := filepath.Join(scopeDir, "memory.peak")
-	body, err := os.ReadFile(peakPath)
+	file, err := os.Open(peakPath) //#nosec G304 -- scopeDir validated by checkScopeCgroupPath with fixed name memory.peak
 	if err != nil {
 		return 0, fmt.Errorf("read %s: %w", peakPath, err)
 	}
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			peak = 0
+			returnErr = errors.Join(returnErr, closeErr)
+		}
+	}()
+	body, err := io.ReadAll(io.LimitReader(file, maximumMemoryPeakBytes+1))
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", peakPath, err)
+	}
+	if len(body) > maximumMemoryPeakBytes {
+		return 0, fmt.Errorf("read %s: content exceeds %d bytes", peakPath, maximumMemoryPeakBytes)
+	}
 	peakStr := strings.TrimSpace(string(body))
-	peak, err := strconv.ParseInt(peakStr, 10, 64)
+	parsed, err := strconv.ParseInt(peakStr, 10, 64)
 	if err != nil {
 		return 0, fmt.Errorf("parse %s: %w", peakPath, err)
 	}
-	return peak, nil
+	return parsed, nil
 }
 
 func measureDirectorySize(path string) (int64, error) {

@@ -852,3 +852,75 @@ func TestFindScopeCgroupSurfacesWalkError(t *testing.T) {
 		t.Fatalf("findScopeCgroup error = %v, want walk cgroup error", err)
 	}
 }
+
+func TestReadCgroupMemoryPeak(t *testing.T) {
+	t.Parallel()
+
+	t.Run("positive", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "memory.peak"), []byte("12345\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		got, err := readCgroupMemoryPeak(dir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != 12345 {
+			t.Fatalf("got %d, want 12345", got)
+		}
+	})
+
+	t.Run("negative_non_numeric", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "memory.peak"), []byte("not-a-number\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := readCgroupMemoryPeak(dir); err == nil {
+			t.Fatal("expected error for non-numeric content, got nil")
+		}
+	})
+
+	t.Run("negative_missing_file", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		if _, err := readCgroupMemoryPeak(dir); err == nil {
+			t.Fatal("expected error for missing memory.peak file, got nil")
+		}
+	})
+
+	t.Run("boundary_exact", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		body := []byte(strings.Repeat("0", maximumMemoryPeakBytes-2) + "7\n")
+		if len(body) != maximumMemoryPeakBytes {
+			t.Fatalf("test setup error: body length is %d, want %d", len(body), maximumMemoryPeakBytes)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "memory.peak"), body, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		got, err := readCgroupMemoryPeak(dir)
+		if err != nil {
+			t.Fatalf("unexpected error for exact bound: %v", err)
+		}
+		if got != 7 {
+			t.Fatalf("got %d, want 7", got)
+		}
+	})
+
+	t.Run("boundary_exceeded", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		body := []byte(strings.Repeat("0", maximumMemoryPeakBytes-1) + "7\n")
+		if len(body) != maximumMemoryPeakBytes+1 {
+			t.Fatalf("test setup error: body length is %d, want %d", len(body), maximumMemoryPeakBytes+1)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "memory.peak"), body, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := readCgroupMemoryPeak(dir); err == nil {
+			t.Fatal("expected error for bound+1 bytes, got nil")
+		}
+	})
+}
