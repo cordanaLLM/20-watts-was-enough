@@ -98,6 +98,11 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Root `AGENTS.md` drops below the 12,000-character Windsurf rule-file limit:
+  the working sequence and common commands move to
+  [`docs/agent-working-sequence.md`](docs/agent-working-sequence.md), and the
+  repository map table moves to
+  [`docs/repository-map.md`](docs/repository-map.md).
 - Bound the GitHub Pages `deploy` and `restore-verified-site` jobs at 11
   minutes, one minute above the 10-minute `actions/deploy-pages` timeout input,
   after the 5-minute `deploy` bound ended main run 42237691867 while the action
