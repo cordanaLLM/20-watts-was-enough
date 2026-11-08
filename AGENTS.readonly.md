@@ -97,141 +97,78 @@ praetorctl audit
 
 # Repository agent contract
 
-Read [`docs/principles.md`](docs/principles.md) before changing this repository.
-It is project-wide engineering and research contract. Then read nearest
-nested `AGENTS.md` for files in scope.
+Read [`docs/principles.md`](docs/principles.md) before repository edits: project
+engineering + research contract. Read nearest nested `AGENTS.md` for scoped
+files.
 
-Before drafting or revising project-authored explanatory prose, read and apply
-project-local [`research-writing` skill](.agents/skills/research-writing/SKILL.md).
-It does not apply to imported sources or verbatim quotations.
-
-Before changing public layout, typography, colour, interface hierarchy, or
-brand expression, read and apply project-local
-[`research-design` skill](.agents/skills/research-design/SKILL.md). Use the
-[`reader-editor` skill](.agents/skills/reader-editor/SKILL.md) as well when the
-design problem exposes comprehension failure in project prose.
-
-Before changing continuous book or generated PDF hierarchy, print
-typography, pagination, navigation, figures, tables, equations, or visual QA
-contract, also read and apply project-local
-[`publication-design` skill](.agents/skills/publication-design/SKILL.md).
-
-Before adding or changing recurring dependency, CI, release, generation,
-GitHub-metadata, security-drift, or translation-freshness automation, read and
-apply project-local
-[`maintenance-automation` skill](.agents/skills/maintenance-automation/SKILL.md).
-It does not grant authority to automate scientific judgement, claim promotion,
-or consequential remote state.
+Applicable skills:
+- Explanatory prose:
+  [`research-writing`](.agents/skills/research-writing/SKILL.md). Excludes
+  imported sources, verbatim quotations.
+- Public layout, typography, colour, interface hierarchy, brand expression:
+  [`research-design`](.agents/skills/research-design/SKILL.md); plus
+  [`reader-editor`](.agents/skills/reader-editor/SKILL.md) when design problem
+  exposes prose comprehension failure.
+- Continuous book or generated PDF hierarchy, print typography, pagination,
+  navigation, figures, tables, equations, visual QA contract: also
+  [`publication-design`](.agents/skills/publication-design/SKILL.md).
+- Recurring dependency, CI, release, generation, GitHub-metadata,
+  security-drift, translation-freshness automation:
+  [`maintenance-automation`](.agents/skills/maintenance-automation/SKILL.md).
+  Grants no authority to automate scientific judgement, claim promotion,
+  consequential remote state.
 
 ## Hard rules
 
-1. Git `main` is canonical. Do not synchronize or regenerate concept from a
-   chat or parallel document store.
+1. Git `main` canonical. Do not sync or regenerate concept from chat or parallel
+   document store.
 2. Change smallest coherent chapter, claim, equation, test, diagram, or
-   decision. Preserve unrelated and untracked files.
-3. Keep observation, engineering translation, and hypothesis distinct.
-4. Add or update stable `C-` claim before promoting major assertion. Map it
-   to existing `P-` bundle before inventing new principle.
-5. Primary or authoritative sources may support claims; imported conversations
-   and summaries may only identify leads.
+   decision. Preserve unrelated, untracked files.
+3. Keep observation, engineering translation, hypothesis distinct.
+4. Add or update stable `C-` claim before promoting major assertion. Map to
+   existing `P-` bundle before inventing principle.
+5. Primary or authoritative sources support claims; imported conversations,
+   summaries identify leads only.
 6. Never present smoke, readiness, construction, synthetic calibration, or
    protocol conformance as scientific result.
 7. Define every quantitative boundary, unit, symbol, comparator, hardware
-   context, and uncertainty source.
+   context, uncertainty source.
 8. Bound every experiment loop, retry, queue, subprocess, search grid, output,
-   and timeout. Record seeds and run identity at claim-eligible boundaries.
-9. Keep generated sources editable and deterministic. Do not edit `dist/`,
-   `dist-github-pages/`, or generated reader copies.
-10. Follow [`LICENSING.md`](LICENSING.md). Citation is not permission to copy;
-    `sources/` and all third-party material keep their own terms.
-11. EU and German law, official adoptions, and applicability are normative
-    default. Do not infer compliance from standard title or checklist.
-12. Use pinned dependencies and full commit SHAs for GitHub Actions. Do not
-    claim GitHub setting is active without verifying it remotely.
-13. Project-authored prose must carry information rather than generated-sounding
-    filler. Run `npm run check:prose` after changing canonical Markdown. Prose
-    embedded in site code remains review-gated; automated tripwire does not
-    attempt brittle JSX or HTML extraction.
-14. Apply [`research/research-integrity-baseline.md`](research/research-integrity-baseline.md)
-    at every triggered research boundary. Disclose contributors, support,
-    competing interests, and material AI or external-tool use; complete any
-    required ethics or misuse review before affected work begins.
+   timeout. Record seeds, run identity at claim-eligible boundaries.
+9. Keep generated sources editable, deterministic. Do not edit `dist/`,
+   `dist-github-pages/`, generated reader copies.
+10. Follow [`LICENSING.md`](LICENSING.md). Citation != permission to copy;
+    `sources/` and third-party material keep own terms.
+11. EU and German law, official adoptions, applicability = normative default.
+    Do not infer compliance from standard title or checklist.
+12. Use pinned dependencies, full commit SHAs for GitHub Actions. Do not assert
+    GitHub setting active without remote verification.
+13. Project prose carries information, no filler. Run `npm run check:prose`
+    after Markdown edit. Site-code prose = review-gated; tripwire skips JSX/HTML
+    extraction.
+14. Apply
+    [`research/research-integrity-baseline.md`](research/research-integrity-baseline.md)
+    at research boundaries. Disclose contributors, support, competing interests,
+    AI/tools; complete ethics/misuse review before work starts.
 
 ## Repository map
 
-| Path | Authority |
-| --- | --- |
-| `concept/` | Maintained synthesis and architecture chapters |
-| `research/claims.md` | Stable evidence ledger and claim status |
-| `research/principle-registry.md` | Deduplicated cross-domain causal invariants |
-| `research/references.bib` | Bibliographic identities and primary-source locators |
-| `research/audits/` | Field- and mechanism-level evidence audits |
-| `research/research-integrity-baseline.md` | Deduplicated European research-conduct, disclosure, ethics, correction, and review rules |
-| `research/disclosures/` | Per-output contributors, support, competing interests, material tools, approval, and verification records |
-| `research/engineering-relations.json` | Number-free links from external code to 20w contracts; `NO_RESULT`, never claim evidence |
-| `math/` | Notation, derivations, units, and testable models |
-| `experiments/candidates/` | Architecture-candidate comparison contracts |
-| `experiments/fixtures/` | Candidate-independent stress and falsification fixtures |
-| `experiments/workstation/` | Executable development and claim-eligible run machinery |
-| `assets/` | Editable diagrams, plotting data, and rendered figures |
-| `decisions/` | Append-only durable decisions; supersede rather than rewrite |
-| `sources/` | Provenance records and explicitly licensed imports, not evidence by default |
-| `app/`, `github-pages/` | Interactive reader and public Pages portal |
-| `.agents/skills/publication-design/` | Continuous-book and PDF review contract |
-| `translations/` | Reviewed, source-version-bound derivatives; English Git source remains canonical |
-| `scripts/` | Validation, generation, and publication-boundary tooling |
+Authority map: [`docs/repository-map.md`](docs/repository-map.md).
 
 ## Working sequence
 
-1. Inspect affected authority file and its reciprocal links. Before commit,
-   inspect staged, unstaged and relevant untracked changes; tests execute the
-   working tree, not only index.
-2. Make smallest patch; do not rewrite nearby material for style alone.
-3. Select local checks from current `.github/ci-impact.json` ownership,
-   changed contracts and downstream consumers. Union mixed scopes; include
-   affected CLI, integration, fixture and generator checks, not only leaf tests.
-   Unknown, unsafe or shared-authority changes require full local gate.
-4. Run selected checks before commit. Run `npm run check` for full
-   fallback and before marking pull request ready, integrating into `main`,
-   merging or releasing. Changes to book source bytes or membership also
-   require `npm run generate:book-pdf` and `npm run validate:book-pdf`.
-   Changes confined to `scripts/book-render-free-sources.json` paths take
-   `npm run record:book-provenance` instead of render
-   ([Decision 0090](decisions/0090-re-record-book-provenance-for-dependency-records.md)).
-   [Decision 0088](decisions/0088-impact-scope-ci-and-local-validation.md) defines
-   scope selection and evidence reuse; complete integration and release gates
-   remain unchanged.
-5. Update `CHANGELOG.md` for notable change. Add decision record when an
-   authority, architecture, policy, licensing, publication, or release rule
-   changes durably.
-6. Use Conventional Commit message and push only clean, validated tree.
-7. Keep auxiliary Git worktrees in dedicated worktree folder outside
-   checkout, never as repository siblings. Private state and evidence go
-   under ignored `.workingdir/` only.
-
-## Common commands
-
-```bash
-npm ci
-npm run check
-npm run test:github-pages
-npm run generate:book-pdf
-npm run validate:book-pdf
-```
-
-Use targeted `test:workstation:*` scripts and affected Go package/consumer tests
-during development. Determine pending-change scope manually: `20w ci plan`
-compares committed base/head revisions, not staged, unstaged or untracked files.
-Its lane selection does not select individual Go packages. Aggregate gate
-remains authoritative at integration and release boundaries above.
+Read + follow [`docs/agent-working-sequence.md`](docs/agent-working-sequence.md)
+before changing repository files: working sequence, check selection, book PDF
+render step for book-source changes outside
+`scripts/book-render-free-sources.json`, common commands.
 
 ## File-specific instructions
 
-- [`research/AGENTS.md`](research/AGENTS.md) governs claims, evidence, source
-  audits, principle deduplication, and normative material.
-- [`experiments/AGENTS.md`](experiments/AGENTS.md) governs candidate and fixture
+- [`research/AGENTS.md`](research/AGENTS.md): claims, evidence, audits,
+  principle deduplication, normative material.
+- [`experiments/AGENTS.md`](experiments/AGENTS.md): candidate, fixture
   contracts.
-- [`experiments/workstation/AGENTS.md`](experiments/workstation/AGENTS.md)
-  governs executable runs and authority boundaries.
-- [`app/AGENTS.md`](app/AGENTS.md) governs interactive reader.
-- [`scripts/AGENTS.md`](scripts/AGENTS.md) governs validators and generators.
+- [`experiments/workstation/AGENTS.md`](experiments/workstation/AGENTS.md):
+  executable runs, authority boundaries.
+- [`app/AGENTS.md`](app/AGENTS.md): interactive reader.
+- [`scripts/AGENTS.md`](scripts/AGENTS.md): validators, generators.
