@@ -39,6 +39,12 @@ const (
 	maximumEnvironmentValueBytes = 8 << 10
 	maximumPackageManifestBytes  = 1 << 20
 	maximumMemoryPeakBytes       = 32
+	defaultScopePipeReadTimeout  = 2 * time.Second
+)
+
+var (
+	errMissingShell      = errors.New("workstation runner requires a shell executable for scoped jobs")
+	errEmptyMemoryReport = errors.New("did not report memory.peak")
 )
 
 // MaximumSuiteDuration bounds one Run: the largest catalogue runs in waves of
@@ -68,6 +74,7 @@ type runOptions struct {
 	outputBytes int
 	waitDelay   time.Duration
 	executable  string
+	shell       string
 	environment []string
 	profile     string
 	systemdRun  string
@@ -120,6 +127,10 @@ func Run(ctx context.Context, repositoryRoot string, summary io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("resolve Node executable: %w", err)
 	}
+	shellExecutable, err := optionalExecutable("sh")
+	if err != nil {
+		return err
+	}
 	systemdRun, _ := exec.LookPath("systemd-run")
 	return runSuite(ctx, root, jobs, runOptions{
 		concurrency: defaultConcurrency,
@@ -127,10 +138,25 @@ func Run(ctx context.Context, repositoryRoot string, summary io.Writer) error {
 		outputBytes: maximumJobOutputBytes,
 		waitDelay:   maximumCommandWaitDelay,
 		executable:  nodeExecutable,
+		shell:       shellExecutable,
 		environment: os.Environ(),
 		systemdRun:  systemdRun,
 		cgroupRoot:  "/sys/fs/cgroup",
 	}, summary)
+}
+
+// optionalExecutable resolves name on PATH to an absolute path. An absent
+// executable yields "": only jobs that need it fail, with their own named error.
+func optionalExecutable(name string) (string, error) {
+	lookedUp, err := exec.LookPath(name)
+	if err != nil {
+		return "", nil
+	}
+	resolved, err := filepath.Abs(lookedUp)
+	if err != nil {
+		return "", fmt.Errorf("resolve %s executable: %w", name, err)
+	}
+	return resolved, nil
 }
 
 func productionJobs() ([]job, error) {
@@ -365,14 +391,31 @@ func sanitizeUnitName(name string) string {
 	return res
 }
 
+// scopeWrapperScript executes the job payload inside the systemd scope, closes
+// file descriptor 3 for the payload, preserves the payload exit status (signal
+// death produces 128+N under POSIX shells), and reports the scope's memory.peak
+// to fd 3 while the scope cgroup is still alive before exiting.
+const scopeWrapperScript = `root=$1
+shift
+"$@" 3>&-
+status=$?
+IFS= read -r membership </proc/self/cgroup || exit "$status"
+case $membership in 0::/*) ;; *) exit "$status" ;; esac
+cat -- "$root${membership#0::}/memory.peak" >&3
+exit "$status"
+`
+
 func buildJobCommand(
 	ctx context.Context,
 	current job,
 	options runOptions,
 	declaredMemoryBytes *int64,
 	manifestArtifact string,
-) (*exec.Cmd, string) {
+) (*exec.Cmd, string, error) {
 	if declaredMemoryBytes != nil {
+		if options.shell == "" {
+			return nil, "", errMissingShell
+		}
 		scopeUnit := fmt.Sprintf("workstation-%s-%d.scope", sanitizeUnitName(manifestArtifact), time.Now().UnixNano())
 		systemdRun := options.systemdRun
 		if systemdRun == "" {
@@ -382,96 +425,153 @@ func buildJobCommand(
 				systemdRun = "systemd-run"
 			}
 		}
+		cgroupRoot := options.cgroupRoot
+		if cgroupRoot == "" {
+			cgroupRoot = "/sys/fs/cgroup"
+		}
 		cmdArgs := []string{
 			"--user",
 			"--scope",
 			"-p", fmt.Sprintf("MemoryHigh=%d", *declaredMemoryBytes),
 			"--unit=" + scopeUnit,
+			"--",
+			options.shell,
+			"-c",
+			scopeWrapperScript,
+			"workstation-scope",
+			cgroupRoot,
 			options.executable,
 		}
 		cmdArgs = append(cmdArgs, current.arguments...)
-		return exec.CommandContext(ctx, systemdRun, cmdArgs...), scopeUnit //#nosec G204 -- bounded workstation execution with optional systemd resource containment
+		return exec.CommandContext(ctx, systemdRun, cmdArgs...), scopeUnit, nil //#nosec G204 -- bounded workstation execution with optional systemd resource containment
 	}
-	return exec.CommandContext(ctx, options.executable, current.arguments...), "" //#nosec G204 -- executable and argument slice from validated workstation inventory job
+	return exec.CommandContext(ctx, options.executable, current.arguments...), "", nil //#nosec G204 -- executable and argument slice from validated workstation inventory job
 }
 
-func checkScopeCgroupPath(cleanRoot, candidate string) (string, error) {
-	cleanCandidate := filepath.Clean(candidate)
-	rel, err := filepath.Rel(cleanRoot, cleanCandidate)
-	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("cgroup path %s escapes root %s", cleanCandidate, cleanRoot)
-	}
-	return cleanCandidate, nil
+type scopeMemoryPipe struct {
+	readEnd  *os.File
+	writeEnd *os.File
 }
 
-func findScopeCgroup(cgroupRoot, unitName string) (string, error) {
-	if cgroupRoot == "" {
-		cgroupRoot = "/sys/fs/cgroup"
-	}
-	cleanRoot := filepath.Clean(cgroupRoot)
-	direct := filepath.Join(cleanRoot, unitName)
-	if info, err := os.Stat(direct); err == nil && info.IsDir() {
-		return checkScopeCgroupPath(cleanRoot, direct)
-	}
-	uid := os.Getuid()
-	userSlicePath := filepath.Join(
-		cleanRoot,
-		"user.slice",
-		fmt.Sprintf("user-%d.slice", uid),
-		fmt.Sprintf("user@%d.service", uid),
-		"app.slice",
-		unitName,
-	)
-	if info, err := os.Stat(userSlicePath); err == nil && info.IsDir() {
-		return checkScopeCgroupPath(cleanRoot, userSlicePath)
-	}
-	var found string
-	walkErr := filepath.WalkDir(cleanRoot, func(current string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() && entry.Name() == unitName {
-			found = current
-			return fs.SkipDir
-		}
-		rel, relErr := filepath.Rel(cleanRoot, current)
-		if relErr == nil && len(strings.Split(filepath.ToSlash(rel), "/")) > 5 {
-			return fs.SkipDir
-		}
-		return nil
-	})
-	if walkErr != nil && !errors.Is(walkErr, fs.SkipDir) {
-		return "", fmt.Errorf("walk cgroup %s: %w", cleanRoot, walkErr)
-	}
-	if found != "" {
-		return checkScopeCgroupPath(cleanRoot, found)
-	}
-	return "", fmt.Errorf("cgroup for scope %s not found under %s", unitName, cleanRoot)
-}
-
-func readCgroupMemoryPeak(scopeDir string) (peak int64, returnErr error) {
-	peakPath := filepath.Join(scopeDir, "memory.peak")
-	file, err := os.Open(peakPath) //#nosec G304 -- scopeDir validated by checkScopeCgroupPath with fixed name memory.peak
+func openScopeMemoryPipe() (*scopeMemoryPipe, error) {
+	r, w, err := os.Pipe()
 	if err != nil {
-		return 0, fmt.Errorf("read %s: %w", peakPath, err)
+		return nil, fmt.Errorf("create memory report pipe: %w", err)
+	}
+	return &scopeMemoryPipe{readEnd: r, writeEnd: w}, nil
+}
+
+// closeAll releases the ends still open on early returns, where the job
+// verdict is already set; readPeak closes both ends on the normal path.
+func (p *scopeMemoryPipe) closeAll() error {
+	if p == nil {
+		return nil
+	}
+	var closeErrs []error
+	for _, end := range []**os.File{&p.writeEnd, &p.readEnd} {
+		if *end != nil {
+			closeErrs = append(closeErrs, (*end).Close())
+			*end = nil
+		}
+	}
+	return errors.Join(closeErrs...)
+}
+
+// withPipeCloseError records a failed pipe release in the job detail. The
+// verdict stays as set: only early returns, already failed or cancelled,
+// leave ends open for closeAll.
+func withPipeCloseError(result jobResult, closeErr error) jobResult {
+	if closeErr == nil {
+		return result
+	}
+	text := fmt.Sprintf("close memory report pipe: %v", closeErr)
+	if result.detail == "" {
+		result.detail = text
+	} else {
+		result.detail += "; " + text
+	}
+	return result
+}
+
+// attachJobIO binds the job's working directory, environment, output sink
+// and wait delay to command.
+func attachJobIO(command *exec.Cmd, root string, options runOptions, output io.Writer) {
+	command.Dir = root
+	command.Env = options.environment
+	command.Stdout = output
+	command.Stderr = output
+	command.WaitDelay = options.waitDelay
+}
+
+// readPeak closes the parent's write end, so the read ends once the wrapper
+// has exited, then reads the wrapper's report under a deadline.
+func (p *scopeMemoryPipe) readPeak(waitDelay time.Duration, source string) (peak int64, returnErr error) {
+	if p == nil || p.readEnd == nil {
+		return 0, nil
 	}
 	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			peak = 0
-			returnErr = errors.Join(returnErr, closeErr)
+		if p.readEnd != nil {
+			if closeErr := p.readEnd.Close(); closeErr != nil {
+				peak = 0
+				returnErr = errors.Join(returnErr, closeErr)
+			}
+			p.readEnd = nil
 		}
 	}()
-	body, err := io.ReadAll(io.LimitReader(file, maximumMemoryPeakBytes+1))
+	if p.writeEnd != nil {
+		writeCloseErr := p.writeEnd.Close()
+		p.writeEnd = nil
+		if writeCloseErr != nil {
+			return 0, fmt.Errorf("close memory report writer: %w", writeCloseErr)
+		}
+	}
+	timeout := waitDelay
+	if timeout <= 0 {
+		timeout = defaultScopePipeReadTimeout
+	}
+	if err := p.readEnd.SetReadDeadline(time.Now().Add(timeout)); err != nil {
+		return 0, fmt.Errorf("set memory report deadline: %w", err)
+	}
+	return parseReportedMemoryPeak(p.readEnd, source)
+}
+
+func prepareJobCommand(
+	ctx context.Context,
+	current job,
+	options runOptions,
+	declaredMemoryBytes *int64,
+	manifestArtifact string,
+) (*exec.Cmd, string, *scopeMemoryPipe, error) {
+	command, scopeUnit, err := buildJobCommand(ctx, current, options, declaredMemoryBytes, manifestArtifact)
 	if err != nil {
-		return 0, fmt.Errorf("read %s: %w", peakPath, err)
+		return nil, "", nil, err
+	}
+	if declaredMemoryBytes == nil {
+		return command, "", nil, nil
+	}
+	pipe, err := openScopeMemoryPipe()
+	if err != nil {
+		return nil, "", nil, err
+	}
+	command.ExtraFiles = []*os.File{pipe.writeEnd}
+	return command, scopeUnit, pipe, nil
+}
+
+func parseReportedMemoryPeak(r io.Reader, source string) (int64, error) {
+	body, err := io.ReadAll(io.LimitReader(r, maximumMemoryPeakBytes+1))
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", source, err)
 	}
 	if len(body) > maximumMemoryPeakBytes {
-		return 0, fmt.Errorf("read %s: content exceeds %d bytes", peakPath, maximumMemoryPeakBytes)
+		return 0, fmt.Errorf("read %s: content exceeds %d bytes", source, maximumMemoryPeakBytes)
 	}
 	peakStr := strings.TrimSpace(string(body))
+	if len(peakStr) == 0 {
+		return 0, fmt.Errorf("read %s: %w", source, errEmptyMemoryReport)
+	}
 	parsed, err := strconv.ParseInt(peakStr, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("parse %s: %w", peakPath, err)
+		return 0, fmt.Errorf("parse %s: %w", source, err)
 	}
 	return parsed, nil
 }
@@ -574,11 +674,12 @@ func loadJobHardware(
 }
 
 type resourceEnforcement struct {
-	options             runOptions
 	manifestRelPath     string
 	scopeUnit           string
 	declaredMemoryBytes *int64
 	declaredDiskBytes   *int64
+	observedMemoryPeak  int64
+	memoryReportErr     error
 	root                string
 	job                 job
 	doc                 *manifestResourceDocument
@@ -587,19 +688,17 @@ type resourceEnforcement struct {
 func enforceResourceLimits(enf resourceEnforcement) []string {
 	var violations []string
 	if enf.declaredMemoryBytes != nil && enf.scopeUnit != "" {
-		scopeDir, err := findScopeCgroup(enf.options.cgroupRoot, enf.scopeUnit)
-		if err != nil {
-			violations = append(violations, fmt.Sprintf("inspect scope %s cgroup: %v", enf.scopeUnit, err))
-		} else {
-			peak, err := readCgroupMemoryPeak(scopeDir)
-			if err != nil {
-				violations = append(violations, fmt.Sprintf("read scope %s memory.peak: %v", enf.scopeUnit, err))
-			} else if peak > *enf.declaredMemoryBytes {
-				violations = append(violations, fmt.Sprintf(
-					"manifest %s memory limit exceeded: declared %d bytes, observed peak %d bytes",
-					filepath.ToSlash(enf.manifestRelPath), *enf.declaredMemoryBytes, peak,
-				))
+		if enf.memoryReportErr != nil {
+			if errors.Is(enf.memoryReportErr, errEmptyMemoryReport) {
+				violations = append(violations, fmt.Sprintf("scope %s did not report memory.peak", enf.scopeUnit))
+			} else {
+				violations = append(violations, fmt.Sprintf("read scope %s memory.peak: %v", enf.scopeUnit, enf.memoryReportErr))
 			}
+		} else if enf.observedMemoryPeak > *enf.declaredMemoryBytes {
+			violations = append(violations, fmt.Sprintf(
+				"manifest %s memory limit exceeded: declared %d bytes, observed peak %d bytes",
+				filepath.ToSlash(enf.manifestRelPath), *enf.declaredMemoryBytes, enf.observedMemoryPeak,
+			))
 		}
 	}
 	if enf.declaredDiskBytes != nil {
@@ -683,7 +782,7 @@ func applyResourceViolations(result *jobResult, violations []string) {
 	}
 }
 
-func executeJob(ctx context.Context, root string, current job, options runOptions) jobResult {
+func executeJob(ctx context.Context, root string, current job, options runOptions) (result jobResult) {
 	if err := ctx.Err(); err != nil {
 		return cancelledResult(current, err)
 	}
@@ -695,12 +794,12 @@ func executeJob(ctx context.Context, root string, current job, options runOption
 	jobContext, cancel := context.WithTimeout(ctx, options.jobDuration)
 	defer cancel()
 	output := boundedexec.NewCancellingOutput(options.outputBytes, cancel)
-	command, scopeUnit := buildJobCommand(jobContext, current, options, declaredMemory, manifestArtifact)
-	command.Dir = root
-	command.Env = options.environment
-	command.Stdout = output
-	command.Stderr = output
-	command.WaitDelay = options.waitDelay
+	command, scopeUnit, pipe, err := prepareJobCommand(jobContext, current, options, declaredMemory, manifestArtifact)
+	if err != nil {
+		return failedJobResult(current, err)
+	}
+	defer func() { result = withPipeCloseError(result, pipe.closeAll()) }()
+	attachJobIO(command, root, options, output)
 	tree, err := configureProcessTree(command)
 	if err != nil {
 		return jobResult{
@@ -711,7 +810,7 @@ func executeJob(ctx context.Context, root string, current job, options runOption
 	}
 	runErr, cleanupErr := runProcessTree(command, tree)
 	captured, exceeded := output.Result()
-	result := evaluateJobExit(jobExecution{
+	result = evaluateJobExit(jobExecution{
 		job:        current,
 		runErr:     runErr,
 		cleanupErr: cleanupErr,
@@ -725,12 +824,14 @@ func executeJob(ctx context.Context, root string, current job, options runOption
 	if result.status == statusCancelled {
 		return result
 	}
+	observedPeak, peakErr := pipe.readPeak(options.waitDelay, "memory.peak")
 	violations := enforceResourceLimits(resourceEnforcement{
-		options:             options,
 		manifestRelPath:     manifestRelPath,
 		scopeUnit:           scopeUnit,
 		declaredMemoryBytes: declaredMemory,
 		declaredDiskBytes:   declaredDisk,
+		observedMemoryPeak:  observedPeak,
+		memoryReportErr:     peakErr,
 		root:                root,
 		job:                 current,
 		doc:                 manifestDoc,
