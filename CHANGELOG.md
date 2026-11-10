@@ -291,7 +291,8 @@ the exact diff; this file records why the project changed.
 
 - Research-watch link extraction stops at Markdown delimiters (code spans and
   emphasis), keeps GitHub's autolink rules for non-ASCII paths, IPv6 hosts and
-  trailing punctuation, and drops URLs ending in an encoded backtick (`%60`).
+  trailing punctuation, drops URLs ending in an encoded backtick (`%60`), and
+  skips release tags decoding to a backtick.
   A malformed URL is dropped, and a release URL with a malformed escape yields
   no release tag, instead of aborting the run. The ingester refuses to
   republish a retained lead whose stored links break these rules and prints up

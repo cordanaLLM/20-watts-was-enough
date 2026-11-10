@@ -90,10 +90,15 @@ unchanged. Before failing, the ingester prints up to 20 refused links to
 stderr. A refused URL line starts with the stable key (`owner/repo#number`) of
 the issue that holds it; that issue's last update bounds `--watermark`. A
 refused canonical-key line names the key, whose entry in `leads.json` lists its
-origins. A URL ending in an encoded backtick (`%60`) is dropped during
-extraction, so re-fetching the issue never re-creates that refused value. The
-publisher stops at the same check, so the daily run keeps failing until the
-committed catalog is repaired.
+origins. The extractor never produces a value the check refuses, and a seeded
+fuzz test checks this, so a refusal names a value already in the committed
+`leads.json`. A refused value that is not there came from a newly fetched issue:
+that is an extractor defect to fix in `scripts/research-watch-ingest.mjs` with a
+test, because re-fetching the unchanged issue fails the same way. URLs ending in
+an encoded backtick (`%60`) and release tags that decode to a backtick or to a
+value ending in `%60` are skipped during extraction, so re-fetching never
+re-creates those refused values. The publisher stops at the same check, so the
+daily run keeps failing until the committed catalog is repaired.
 
 To repair it, run the ingester in a checkout of `main` with `GH_TOKEN` set and
 a `--watermark` earlier than the affected issue's last update. The issue is
@@ -102,6 +107,16 @@ fetched again and the fresh record replaces the retained one:
 ```bash
 node scripts/research-watch-ingest.mjs --watermark 2026-01-01T00:00:00Z
 ```
+
+The re-fetch finds only issues that still carry `research-watch`, because both
+the search and repository listing filter on it, while retained records are kept
+whatever their labels. If the affected issue lost the label, add it back before
+the re-fetch; it may be removed again once the regenerated catalog has landed.
+
+If the issue was deleted or the label cannot be restored, delete the entry that
+holds the refused value from `research/ingest/leads.json` in the same checkout,
+then run the re-fetch. The ingester rebuilds the catalog from the remaining
+records and every still-labelled issue.
 
 Land the regenerated `research/ingest/leads.json` through a pull request; the
 next scheduled run starts from it.

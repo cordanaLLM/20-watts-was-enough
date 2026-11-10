@@ -17,6 +17,43 @@ const watermark = "2026-10-14T00:00:00Z";
 const ownersText = JSON.stringify({ schema_version: "1.0.0", owners: [{ kind: "org", login: "cordanaLLM" }] });
 const emptyLinks = { urls: [], dois: [], arxiv_ids: [], release_tags: [] };
 
+function mulberry32(seed) {
+  let a = seed;
+  return () => {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function seededFuzzBodies() {
+  const random = mulberry32(0x20261110);
+  const prefixes = ["", "see ", "`", "**", "(", "_"];
+  const starts = [
+    "https://example.org/", "http://x.test/", "https://github.com/a/r/releases/tag/", "https://[2001:db8::1]/",
+    "https://doi.org/", "https://arxiv.org/abs/2501.01234", "",
+  ];
+  const pieces = [
+    "a", "v1", "Z", "0", "/", ".", ",", ";", ":", "!", "?", "*", "_", "~", "'", "\"", "`", "(", ")", "[", "]", "{", "}", "|", "<", ">", "#", "&", "=", "+", "$", "@", "-", " ", "\n", "%", "%60", "%2560", "%25", "%5B", "%5D", "%7C", "%22", "%27", "%28", "%29", "%2F", "%zz", "%ff", "%E2%80%8B", "​", "é", "路", "€", "→", "”", "“", "」", "。", "–", "\\", "^", "10.1234/x", "utm_source=a", "ref=b",
+  ];
+  const choose = (values) => values[Math.floor(random() * values.length)];
+  const bodies = [];
+  for (let iteration = 0; iteration < 3000; iteration += 1) {
+    const start = choose(starts);
+    let body = `${choose(prefixes)}${start}`;
+    const count = 1 + Math.floor(random() * 8);
+    for (let index = 0; index < count; index += 1) {
+      const piece = choose(pieces);
+      body += piece;
+      if (random() < 0.3) body += ` ${choose(starts)}${choose(pieces)}`;
+    }
+    bodies.push(body);
+  }
+  return bodies;
+}
+
 function issue(overrides = {}) {
   return {
     number: 1, node_id: "I_PUBLIC_FIRST", title: "Paper lead", body: "https://arxiv.org/abs/2501.01234v2",
@@ -173,6 +210,13 @@ test("link extraction drops malformed candidates instead of aborting", () => {
     "https://github.com/a/b/releases/tag/%zz",
     "https://github.com/a/b/releases/tag/v1.0",
   ]);
+  const encodedBacktickTags = extractLinks("https://github.com/a/r/releases/tag/v1%60x https://github.com/a/r/releases/tag/%2560 https://github.com/a/r/releases/tag/v2");
+  assert.deepEqual(encodedBacktickTags.release_tags, ["a/r@v2"]);
+  assert.deepEqual(encodedBacktickTags.urls, [
+    "https://github.com/a/r/releases/tag/%2560",
+    "https://github.com/a/r/releases/tag/v1%60x",
+    "https://github.com/a/r/releases/tag/v2",
+  ]);
 });
 
 test("every URL the extractor keeps passes the catalog check", () => {
@@ -204,11 +248,27 @@ test("every URL the extractor keeps passes the catalog check", () => {
     "https://example.org/a%60.",
     "https://example.org/b?q=%60",
     "https://example.org/a%60b",
+    "https://github.com/a/r/releases/tag/v1%60x",
+    "https://github.com/a/r/releases/tag/%2560",
   ];
   for (const body of bodies) {
     const { publicCatalog } = buildLeads([record({ body })]);
     assert.deepEqual(catalogLinkFindings(publicCatalog), [], body);
   }
+});
+
+test("extractor output always passes the catalog check (seeded fuzz)", () => {
+  const failures = [];
+  for (const body of seededFuzzBodies()) {
+    let findings;
+    try {
+      findings = catalogLinkFindings(buildLeads([record({ body })]).publicCatalog);
+    } catch (error) {
+      findings = String(error);
+    }
+    if (findings.length > 0) failures.push({ body, findings });
+  }
+  assert.deepEqual(failures.slice(0, 3), []);
 });
 
 test("link extraction is a fixed point", () => {

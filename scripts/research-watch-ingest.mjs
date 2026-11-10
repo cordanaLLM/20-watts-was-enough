@@ -81,6 +81,17 @@ function normalizedUrl(raw) {
 }
 
 /**
+ * True when a value holds a backtick or ends in its encoded form `%60`, the shape of the 2026-11-10 delimiter leak;
+ * the extractor drops such values and `catalogLinkFindings` refuses them, so the two cannot disagree.
+ *
+ * @param {string} value
+ * @returns {boolean}
+ */
+function leaksBacktick(value) {
+  return /`|%60$/u.test(value);
+}
+
+/**
  * Remove trailing punctuation and unbalanced closing parentheses in one backward pass. Parentheses are counted once,
  * so the cost is linear in the input length; a `)` that closes an earlier `(` stays.
  *
@@ -134,7 +145,7 @@ function normalizeUrlCandidate(candidate) {
     value = trimLink(value);
     if (!URL.canParse(value)) return undefined;
     value = normalizedUrl(value);
-    if (value.endsWith("%60")) return undefined;
+    if (leaksBacktick(value)) return undefined;
     if (trimLink(value) === value) return value;
   }
   return undefined;
@@ -170,7 +181,8 @@ function normalizedDois(body) {
 }
 
 /**
- * Extract the source links of an issue body: URLs, DOIs, arXiv identifiers and GitHub release tags.
+ * Extract the source links of an issue body: URLs, DOIs, arXiv identifiers and GitHub release tags. A release tag
+ * that decodes to a backtick or to a value ending in `%60` is skipped.
  *
  * @param {string} body
  * @returns {{urls: string[], dois: string[], arxiv_ids: string[], release_tags: string[]}} each sorted and unique
@@ -191,7 +203,8 @@ export function extractLinks(body) {
     } catch {
       return [];
     }
-    return [`${match[1]}/${match[2]}@${tag}`];
+    const key = `${match[1]}/${match[2]}@${tag}`;
+    return leaksBacktick(key) ? [] : [key];
   });
   return { urls, dois, arxiv_ids: sortedUnique(arxivIds), release_tags: sortedUnique(releaseTags) };
 }
@@ -200,7 +213,7 @@ export function extractLinks(body) {
  * Barrier for the 2026-11-10 delimiter leak: a catalog may hold only URLs the current extractor produces, and each
  * canonical key must derive from its origins. Retained records are copied without re-extraction, so runCli refuses
  * to publish a catalog with findings, and the committed catalog is tested too. The extractor drops URLs ending in
- * `%60`; this barrier names them explicitly because keys derived from stored links would otherwise accept a leaked key.
+ * `%60`; this barrier uses the extractor's predicate so keys derived from stored links cannot accept a leaked key.
  *
  * @param {{entries: object[]}} catalog public catalog as written to `leads.json`
  * @returns {string[]} one line per finding; empty when the catalog is clean
@@ -212,13 +225,13 @@ export function catalogLinkFindings(catalog) {
     for (const origin of entry.origins) {
       validateRecord(origin);
       for (const url of origin.source_links.urls) {
-        if (/`|%60$/iu.test(url)) findings.push(`${origin.stable_key}: backtick in ${url}`);
+        if (leaksBacktick(url)) findings.push(`${origin.stable_key}: backtick in ${url}`);
         else if (JSON.stringify(extractLinks(url).urls) !== JSON.stringify([url])) findings.push(`${origin.stable_key}: ${url} is not what extractLinks keeps`);
       }
       const derived = canonicalKeys(origin.source_links);
       (derived.length > 0 ? derived : [`issue:${origin.node_id}`]).forEach((key) => keys.add(key));
     }
-    if (/`|%60$/iu.test(entry.canonical_key)) findings.push(`${entry.canonical_key}: backtick in canonical key`);
+    if (leaksBacktick(entry.canonical_key)) findings.push(`${entry.canonical_key}: backtick in canonical key`);
     else if (!keys.has(entry.canonical_key)) findings.push(`${entry.canonical_key}: not derived from its origins`);
   }
   return findings;
