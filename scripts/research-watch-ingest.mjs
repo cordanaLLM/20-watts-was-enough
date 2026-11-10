@@ -81,18 +81,22 @@ function normalizedUrl(raw) {
 }
 
 function trimLink(value) {
-  let result = value.replace(/[.,;:!?]+$/u, "");
-  // Markdown's closing delimiter is not part of a URL; balanced DOI parentheses are.
-  for (let index = 0; index < value.length && result.endsWith(")"); index += 1) {
-    if ((result.match(/\)/gu) ?? []).length <= (result.match(/\(/gu) ?? []).length) break;
-    result = result.slice(0, -1);
+  let result = value;
+  // Markdown's closing delimiters are not part of a URL; balanced DOI parentheses are.
+  for (let index = 0; index < value.length; index += 1) {
+    const previous = result;
+    result = result.replace(/[.,;:!?*_~']+$/u, "");
+    if (result.endsWith(")") && (result.match(/\)/gu) ?? []).length > (result.match(/\(/gu) ?? []).length) {
+      result = result.slice(0, -1);
+    }
+    if (result === previous) break;
   }
   return result;
 }
 
 export function extractLinks(body) {
   textValue(body, "body");
-  const urls = sortedUnique((body.match(/https?:\/\/[^\s<>"[\]]+/giu) ?? []).map(trimLink).map(normalizedUrl));
+  const urls = sortedUnique((body.match(/https?:\/\/[A-Za-z0-9\-._~:/?#@!$&'()*+,;=%\p{L}\p{N}\p{M}]+/giu) ?? []).map(trimLink).map(normalizedUrl));
   const dois = sortedUnique((body.match(/\b10\.\d{4,9}\/[-._;()/:a-z0-9]+/giu) ?? []).map(trimLink).map((doi) => doi.toLowerCase()));
   const arxiv = /(?:arxiv\s*:\s*|https?:\/\/(?:www\.)?arxiv\.org\/(?:abs|pdf)\/)(\d{4}\.\d{4,5})(?:v\d+)?\b/giu;
   const arxivIds = [...body.matchAll(arxiv)].map((match) => match[1]);

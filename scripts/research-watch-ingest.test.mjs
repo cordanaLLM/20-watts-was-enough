@@ -127,6 +127,61 @@ test("link extraction normalizes identifiers, release tags, tracking and fragmen
   assert.deepEqual(extractLinks("https://doi.org/10.1234/test(foo)" ).dois, ["10.1234/test(foo)"]);
 });
 
+test("link extraction stops at Markdown delimiters and non-URL characters", () => {
+  assert.deepEqual(extractLinks("see `https://api-docs.overseerr.dev/` for the API").urls, ["https://api-docs.overseerr.dev/"]);
+  assert.deepEqual(extractLinks("`https://plexapi.dev/Intro`").urls, ["https://plexapi.dev/Intro"]);
+  assert.deepEqual(extractLinks("**https://example.org/bold**").urls, ["https://example.org/bold"]);
+  assert.deepEqual(extractLinks("_https://example.org/em_ and ~https://example.org/strike~").urls, ["https://example.org/em", "https://example.org/strike"]);
+  assert.deepEqual(extractLinks("'https://example.org/quoted'").urls, ["https://example.org/quoted"]);
+  assert.deepEqual(extractLinks("https://example.org/a{b}").urls, ["https://example.org/a"]);
+  assert.deepEqual(extractLinks("https://example.org/p|q").urls, ["https://example.org/p"]);
+  assert.deepEqual(extractLinks("(see https://en.wikipedia.org/wiki/Foo_(bar)).").urls, ["https://en.wikipedia.org/wiki/Foo_(bar)"]);
+  assert.deepEqual(extractLinks("https://example.org/end”").urls, ["https://example.org/end"]);
+  assert.deepEqual(extractLinks("https://example.org/naïve/路径").urls, [new URL("https://example.org/naïve/路径").href]);
+  assert.deepEqual(extractLinks("https://example.org/a_b~c*d").urls, ["https://example.org/a_b~c*d"]);
+  const keys = canonicalKeys(extractLinks("`https://listenbrainz.readthedocs.io/`"));
+  assert.deepEqual(keys, ["url:https://listenbrainz.readthedocs.io/"]);
+  assert.equal(keys.some((key) => key.includes("%60")), false);
+});
+
+// Second barrier for the 2026-11-10 delimiter leak: the committed catalog must hold only URLs the current
+// extractor would produce, so CI on a research-watch pull request fails when an older or looser extractor
+// wrote them. An encoded backtick (%60) is a fixed point of extraction, so it is refused by name.
+function catalogLinkFindings(catalog) {
+  const findings = [];
+  for (const entry of catalog.entries) {
+    const keys = new Set();
+    for (const origin of entry.origins) {
+      validateRecord(origin);
+      for (const url of origin.source_links.urls) {
+        if (/%60|`/iu.test(url)) findings.push(`${origin.stable_key}: backtick in ${url}`);
+        else if (JSON.stringify(extractLinks(url).urls) !== JSON.stringify([url])) findings.push(`${origin.stable_key}: ${url} is not what extractLinks keeps`);
+      }
+      const derived = canonicalKeys(origin.source_links);
+      (derived.length > 0 ? derived : [`issue:${origin.node_id}`]).forEach((key) => keys.add(key));
+    }
+    if (/%60|`/iu.test(entry.canonical_key)) findings.push(`${entry.canonical_key}: backtick in canonical key`);
+    else if (!keys.has(entry.canonical_key)) findings.push(`${entry.canonical_key}: not derived from its origins`);
+  }
+  return findings;
+}
+
+test("committed catalog keeps only extractor-clean URLs and keys; planted leaks are named", async () => {
+  const committed = JSON.parse(await readFile(new URL("../research/ingest/leads.json", import.meta.url), "utf8"));
+  assert.deepEqual(catalogLinkFindings(committed), []);
+  const leaked = record({ body: "no links" });
+  leaked.source_links = { ...leaked.source_links, urls: ["https://api-docs.overseerr.dev/%60"] };
+  assert.deepEqual(catalogLinkFindings(buildLeads([leaked]).publicCatalog), [
+    "cordanaLLM/a#1: backtick in https://api-docs.overseerr.dev/%60",
+    "url:https://api-docs.overseerr.dev/%60: backtick in canonical key",
+  ]);
+  const bold = record({ body: "no links" });
+  bold.source_links = { ...bold.source_links, urls: ["https://example.org/bold**"] };
+  assert.deepEqual(catalogLinkFindings(buildLeads([bold]).publicCatalog), [
+    "cordanaLLM/a#1: https://example.org/bold** is not what extractLinks keeps",
+  ]);
+});
+
 test("content hashes normalize CRLF and trailing whitespace with a fixed SHA-256 vector", () => {
   const expected = createHash("sha256").update("Title\nFirst\nSecond").digest("hex");
   assert.equal(contentHash("Title  ", "First \r\nSecond\t\r\n  "), expected);
