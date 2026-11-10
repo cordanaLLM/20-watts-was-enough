@@ -33,10 +33,11 @@ function seededFuzzBodies() {
   const prefixes = ["", "see ", "`", "**", "(", "_"];
   const starts = [
     "https://example.org/", "http://x.test/", "https://github.com/a/r/releases/tag/", "https://[2001:db8::1]/",
-    "https://doi.org/", "https://arxiv.org/abs/2501.01234", "",
+    "https://doi.org/", "https://arxiv.org/abs/2501.01234", "https://", "",
   ];
   const pieces = [
     "a", "v1", "Z", "0", "/", ".", ",", ";", ":", "!", "?", "*", "_", "~", "'", "\"", "`", "(", ")", "[", "]", "{", "}", "|", "<", ">", "#", "&", "=", "+", "$", "@", "-", " ", "\n", "%", "%60", "%2560", "%25", "%5B", "%5D", "%7C", "%22", "%27", "%28", "%29", "%2F", "%zz", "%ff", "%E2%80%8B", "​", "é", "路", "€", "→", "”", "“", "」", "。", "–", "\\", "^", "10.1234/x", "utm_source=a", "ref=b",
+    "\uFF02", "\uFF40", "\uFF5B", "\uFF5D", "\uFE37", "\uFE5C", "\uFF0E",
   ];
   const choose = (values) => values[Math.floor(random() * values.length)];
   const bodies = [];
@@ -201,6 +202,10 @@ test("link extraction drops malformed candidates instead of aborting", () => {
   for (const body of ["https://example.org/a%60", "https://example.org/a%60.", "https://example.org/b?q=%60"]) {
     assert.deepEqual(extractLinks(body).urls, []);
   }
+  assert.deepEqual(
+    extractLinks("https://a\uFF02b.test/x https://a\uFF40b.test/x https://a\uFF5Bb.test/ https://x.test\uFF5D/y https://a\uFE37b.test/ https://a\uFE5Cb.test/ https://ok.test/").urls,
+    ["https://ok.test/"],
+  );
   assert.deepEqual(extractLinks("https://example.org/a%60b").urls, ["https://example.org/a%60b"]);
 
   const releaseLinks = extractLinks("https://github.com/a/b/releases/tag/%zz https://github.com/a/b/releases/tag/%ff https://github.com/a/b/releases/tag/v1.0");
@@ -257,16 +262,37 @@ test("every URL the extractor keeps passes the catalog check", () => {
   }
 });
 
+/**
+ * Catalog-check findings for the catalog built from one issue body; a throw counts as one finding.
+ *
+ * @param {string} body
+ * @returns {string[]}
+ */
+function catalogFindingsForBody(body) {
+  try {
+    return catalogLinkFindings(buildLeads([record({ body })]).publicCatalog);
+  } catch (error) {
+    return [String(error)];
+  }
+}
+
 test("extractor output always passes the catalog check (seeded fuzz)", () => {
+  const failures = seededFuzzBodies()
+    .map((body) => ({ body, findings: catalogFindingsForBody(body) }))
+    .filter(({ findings }) => findings.length > 0);
+  assert.deepEqual(failures.slice(0, 3), []);
+});
+
+test("compatibility forms in a URL host pass the catalog check", () => {
   const failures = [];
-  for (const body of seededFuzzBodies()) {
-    let findings;
-    try {
-      findings = catalogLinkFindings(buildLeads([record({ body })]).publicCatalog);
-    } catch (error) {
-      findings = String(error);
+  for (const [first, last] of [[0xFE30, 0xFE6F], [0xFF01, 0xFFEF]]) {
+    for (let code = first; code <= last; code += 1) {
+      const ch = String.fromCodePoint(code);
+      for (const body of [`https://a${ch}b.test/x`, `https://x.test${ch}/y`]) {
+        const findings = catalogFindingsForBody(body);
+        if (findings.length > 0) failures.push({ code: code.toString(16), findings });
+      }
     }
-    if (findings.length > 0) failures.push({ body, findings });
   }
   assert.deepEqual(failures.slice(0, 3), []);
 });

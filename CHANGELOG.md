@@ -292,7 +292,9 @@ the exact diff; this file records why the project changed.
 - Research-watch link extraction stops at Markdown delimiters (code spans and
   emphasis), keeps GitHub's autolink rules for non-ASCII paths, IPv6 hosts and
   trailing punctuation, drops URLs ending in an encoded backtick (`%60`), and
-  skips release tags decoding to a backtick.
+  skips release tags decoding to a backtick. A URL is dropped when its
+  normalised form would not re-extract to itself, for example when IDNA maps a
+  host character to a quote or brace.
   A malformed URL is dropped, and a release URL with a malformed escape yields
   no release tag, instead of aborting the run. The ingester refuses to
   republish a retained lead whose stored links break these rules and prints up

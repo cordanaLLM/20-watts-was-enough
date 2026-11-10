@@ -95,10 +95,12 @@ fuzz test checks this, so a refusal names a value already in the committed
 `leads.json`. A refused value that is not there came from a newly fetched issue:
 that is an extractor defect to fix in `scripts/research-watch-ingest.mjs` with a
 test, because re-fetching the unchanged issue fails the same way. URLs ending in
-an encoded backtick (`%60`) and release tags that decode to a backtick or to a
-value ending in `%60` are skipped during extraction, so re-fetching never
-re-creates those refused values. The publisher stops at the same check, so the
-daily run keeps failing until the committed catalog is repaired.
+an encoded backtick (`%60`), release tags that decode to a backtick or to a
+value ending in `%60`, and URLs whose normalised form leaves the extractor's URL
+grammar (for example when IDNA maps a host character to a quote or brace) are
+skipped during extraction, so re-fetching never re-creates those refused
+values. The publisher stops at the same check, so the daily run keeps failing
+until the committed catalog is repaired.
 
 To repair it, run the ingester in a checkout of `main` with `GH_TOKEN` set and
 a `--watermark` earlier than the affected issue's last update. The issue is

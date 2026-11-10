@@ -14,6 +14,9 @@ const maximumText = 1_048_576;
 const maximumFileBytes = 128 * 1024 * 1024;
 const tiers = ["news", "paper", "release", "followed"];
 const linkFields = ["urls", "dois", "arxiv_ids", "release_tags"];
+const URL_CANDIDATE = String.raw`https?:\/\/(?:\[[0-9a-f:.]+\])?(?:[A-Za-z0-9\-._~:/?#@!$&'()*+,;=%]|[^\p{ASCII}\s\p{C}])*`;
+const URL_CANDIDATE_REGEX = new RegExp(URL_CANDIDATE, "giu");
+const WHOLE_URL_CANDIDATE_REGEX = new RegExp(`^(?:${URL_CANDIDATE})$`, "iu");
 const recordFields = [
   "stable_key", "node_id", "title", "url", "state", "visibility", "labels",
   "milestone_title", "created_at", "updated_at", "closed_at", "author_type",
@@ -133,8 +136,9 @@ function trimLink(value) {
 /**
  * Trim, parse and normalise a URL candidate until it is stable, at most 8 rounds, so every stored URL re-extracts to
  * itself. A candidate the URL parser rejects, or one that does not settle, is dropped rather than thrown. A URL ending
- * in an encoded backtick (`%60`) is also dropped because it cannot be told apart from the 2026-11-10 delimiter leak, so
- * the extractor never emits a value that `catalogLinkFindings` refuses.
+ * in an encoded backtick (`%60`) is also dropped because it cannot be told apart from the 2026-11-10 delimiter leak. A
+ * normalised URL that leaves the candidate grammar (IDNA maps some host characters to `"`, `{`, `}`) is dropped, so
+ * every kept URL re-extracts to itself.
  *
  * @param {string} candidate
  * @returns {string | undefined}
@@ -145,7 +149,7 @@ function normalizeUrlCandidate(candidate) {
     value = trimLink(value);
     if (!URL.canParse(value)) return undefined;
     value = normalizedUrl(value);
-    if (leaksBacktick(value)) return undefined;
+    if (leaksBacktick(value) || !WHOLE_URL_CANDIDATE_REGEX.test(value)) return undefined;
     if (trimLink(value) === value) return value;
   }
   return undefined;
@@ -154,13 +158,14 @@ function normalizeUrlCandidate(candidate) {
 /**
  * Extract normalised http(s) URLs from an issue body. ASCII characters follow RFC 3986 without `[` `]` (a bracketed
  * IPv6 host only right after `//`); any non-ASCII character is allowed except whitespace and `\p{C}` (controls and
- * format characters such as U+200B), as GitHub's GFM autolink does. Backticks, braces, pipes and quotes end a URL.
+ * format characters such as U+200B), as GitHub's GFM autolink does. Backticks, braces, pipes and quotes end a URL. The
+ * grammar is shared with the whole-value check in `normalizeUrlCandidate`.
  *
  * @param {string} body
  * @returns {string[]} sorted, unique
  */
 function normalizedUrls(body) {
-  const candidates = body.matchAll(/https?:\/\/(?:\[[0-9a-f:.]+\])?(?:[A-Za-z0-9\-._~:/?#@!$&'()*+,;=%]|[^\p{ASCII}\s\p{C}])*/giu);
+  const candidates = body.matchAll(URL_CANDIDATE_REGEX);
   return sortedUnique([...candidates].map((match) => normalizeUrlCandidate(match[0])).filter(Boolean));
 }
 
