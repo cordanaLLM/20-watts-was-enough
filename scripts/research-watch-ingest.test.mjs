@@ -7,7 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
-  assertNoPrivateLeak, assignTier, buildLeads, buildSearchQueries, canonicalKeys,
+  assertNoPrivateLeak, assignTier, buildLeads, buildSearchQueries, canonicalKeys, catalogLinkFindings,
   contentHash, extractLinks, listRepoIssues, loadOwners, normalizeIssue, runCli,
   searchAll, validateRecord,
 } from "./research-watch-ingest.mjs";
@@ -144,27 +144,64 @@ test("link extraction stops at Markdown delimiters and non-URL characters", () =
   assert.equal(keys.some((key) => key.includes("%60")), false);
 });
 
-// Second barrier for the 2026-11-10 delimiter leak: the committed catalog must hold only URLs the current
-// extractor would produce, so CI on a research-watch pull request fails when an older or looser extractor
-// wrote them. An encoded backtick (%60) is a fixed point of extraction, so it is refused by name.
-function catalogLinkFindings(catalog) {
-  const findings = [];
-  for (const entry of catalog.entries) {
-    const keys = new Set();
-    for (const origin of entry.origins) {
-      validateRecord(origin);
-      for (const url of origin.source_links.urls) {
-        if (/%60|`/iu.test(url)) findings.push(`${origin.stable_key}: backtick in ${url}`);
-        else if (JSON.stringify(extractLinks(url).urls) !== JSON.stringify([url])) findings.push(`${origin.stable_key}: ${url} is not what extractLinks keeps`);
-      }
-      const derived = canonicalKeys(origin.source_links);
-      (derived.length > 0 ? derived : [`issue:${origin.node_id}`]).forEach((key) => keys.add(key));
-    }
-    if (/%60|`/iu.test(entry.canonical_key)) findings.push(`${entry.canonical_key}: backtick in canonical key`);
-    else if (!keys.has(entry.canonical_key)) findings.push(`${entry.canonical_key}: not derived from its origins`);
+test("link extraction keeps GitHub's Unicode, IPv6 and trailing-punctuation rules", () => {
+  assert.deepEqual(extractLinks("see https://en.wikipedia.org/wiki/Michaelis–Menten_kinetics now").urls, [new URL("https://en.wikipedia.org/wiki/Michaelis–Menten_kinetics").href]);
+  assert.deepEqual(extractLinks("https://example.org/price/€5").urls, [new URL("https://example.org/price/€5").href]);
+  assert.deepEqual(extractLinks("https://example.org/a→b").urls, [new URL("https://example.org/a→b").href]);
+  assert.deepEqual(extractLinks("“https://example.org/a”").urls, ["https://example.org/a"]);
+  assert.deepEqual(extractLinks("「https://example.org/a」。").urls, ["https://example.org/a"]);
+  assert.deepEqual(extractLinks("https://example.org/a\u200Bnext").urls, ["https://example.org/a"]);
+  assert.deepEqual(extractLinks("see https://[2001:db8::1]/ now").urls, ["https://[2001:db8::1]/"]);
+  // GitHub's GFM autolink drops a trailing `_` too (micromark-extension-gfm-autolink-literal trail set).
+  assert.deepEqual(extractLinks("see https://example.org/Foo_ now").urls, ["https://example.org/Foo"]);
+});
+
+test("link extraction drops malformed candidates instead of aborting", () => {
+  for (const body of ["see https://. now", "(see https://)", "see https://%zz/ now", "https://"]) {
+    assert.deepEqual(extractLinks(body).urls, []);
   }
-  return findings;
-}
+  assert.deepEqual(extractLinks("https://%zz/ and https://example.org/valid").urls, ["https://example.org/valid"]);
+});
+
+test("link extraction is a fixed point", () => {
+  assert.deepEqual(extractLinks("https://x.test/a.#b").urls, ["https://x.test/a"]);
+  const bodies = [
+    "https://example.org/plain",
+    "**https://example.org/bold**",
+    "see https://[2001:db8::1]/ now",
+    "https://en.wikipedia.org/wiki/Michaelis–Menten_kinetics",
+    "https://example.org/a?utm_source=one&b=2&a=1#part",
+    "https://example.org/a.#b",
+    "https://example.org/Foo_",
+    "https://example.org/Foo_(bar)",
+    "https://example.org/price/€5",
+    "https://example.org/a→b",
+  ];
+  for (const body of bodies) {
+    for (const url of extractLinks(body).urls) assert.deepEqual(extractLinks(url).urls, [url]);
+  }
+});
+
+test("DOIs keep a trailing underscore unless emphasis wraps them", () => {
+  assert.deepEqual(extractLinks("_10.1234/abc_").dois, ["10.1234/abc"]);
+  assert.deepEqual(extractLinks("_10.1234/abc._").dois, ["10.1234/abc"]);
+  assert.deepEqual(extractLinks("10.1234/abc_").dois, ["10.1234/abc_"]);
+  assert.deepEqual(extractLinks("x10.1234/abc").dois, []);
+  assert.deepEqual(extractLinks("(10.1234/test(foo)).").dois, ["10.1234/test(foo)"]);
+});
+
+test("link trimming is linear in input length", () => {
+  const cases = [
+    ["https://x.test/" + ")".repeat(100000), "https://x.test/"],
+    ["https://x.test/a" + ".)".repeat(50000), "https://x.test/a"],
+  ];
+  for (const [body, expected] of cases) {
+    const started = performance.now();
+    const links = extractLinks(body).urls;
+    assert.ok(performance.now() - started < 1000);
+    assert.deepEqual(links, [expected]);
+  }
+});
 
 test("committed catalog keeps only extractor-clean URLs and keys; planted leaks are named", async () => {
   const committed = JSON.parse(await readFile(new URL("../research/ingest/leads.json", import.meta.url), "utf8"));
@@ -179,6 +216,15 @@ test("committed catalog keeps only extractor-clean URLs and keys; planted leaks 
   bold.source_links = { ...bold.source_links, urls: ["https://example.org/bold**"] };
   assert.deepEqual(catalogLinkFindings(buildLeads([bold]).publicCatalog), [
     "cordanaLLM/a#1: https://example.org/bold** is not what extractLinks keeps",
+  ]);
+  const encodedPathBacktick = record({ body: "no links" });
+  encodedPathBacktick.source_links = { ...encodedPathBacktick.source_links, urls: ["https://example.org/a%60b"] };
+  assert.deepEqual(catalogLinkFindings(buildLeads([encodedPathBacktick]).publicCatalog), []);
+  const trailingEncodedBacktick = record({ body: "no links" });
+  trailingEncodedBacktick.source_links = { ...trailingEncodedBacktick.source_links, urls: ["https://example.org/a%60"] };
+  assert.deepEqual(catalogLinkFindings(buildLeads([trailingEncodedBacktick]).publicCatalog), [
+    "cordanaLLM/a#1: backtick in https://example.org/a%60",
+    "url:https://example.org/a%60: backtick in canonical key",
   ]);
 });
 
@@ -418,6 +464,28 @@ test("CLI retains the previous watermark on catalog building failures", async (t
       assert.deepEqual((await readdir(path.dirname(watermarkPath))).sort(), [".watermark", "owners.json"]);
     });
   }
+});
+
+test("CLI refuses to republish a retained record that fails the link rules", async (t) => {
+  const options = await fixture(t);
+  const watermarkPath = path.join(options.root, "research/ingest/.watermark");
+  const publicPath = path.join(options.root, "research/ingest/leads.json");
+  await writeFile(watermarkPath, `${watermark}\n`);
+  const leaked = record();
+  leaked.source_links = { ...leaked.source_links, urls: ["https://api-docs.overseerr.dev/%60"] };
+  const leakedText = `${JSON.stringify(buildLeads([leaked]).publicCatalog, null, 2)}\n`;
+  await writeFile(publicPath, leakedText);
+  options.fetchImpl = transport({ "/search/issues": () => searchResponse() });
+  await assert.rejects(runCli(options), (error) => /^Invalid source_links$/u.test(error.message));
+  assert.equal(await readFile(publicPath, "utf8"), leakedText);
+  assert.equal(await readFile(watermarkPath, "utf8"), `${watermark}\n`);
+  assert.ok((await readdir(path.dirname(publicPath))).every((file) => !file.endsWith(".tmp")));
+
+  options.fetchImpl = transport({ "/search/issues": () => searchResponse([issue({ body: "`https://api-docs.overseerr.dev/`" })]) });
+  assert.equal((await runCli({ ...options, args: ["--watermark", "2026-10-01T00:00:00Z"] })).exitCode, 0);
+  const catalog = JSON.parse(await readFile(publicPath, "utf8"));
+  assert.deepEqual(catalog.entries[0].origins[0].source_links.urls, ["https://api-docs.overseerr.dev/"]);
+  assert.deepEqual(catalogLinkFindings(catalog), []);
 });
 
 test("CLI fails visibly after publication when the watermark cannot be advanced", async (t) => {

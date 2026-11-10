@@ -80,24 +80,102 @@ function normalizedUrl(raw) {
   return url.href;
 }
 
-function trimLink(value) {
-  let result = value;
-  // Markdown's closing delimiters are not part of a URL; balanced DOI parentheses are.
-  for (let index = 0; index < value.length; index += 1) {
-    const previous = result;
-    result = result.replace(/[.,;:!?*_~']+$/u, "");
-    if (result.endsWith(")") && (result.match(/\)/gu) ?? []).length > (result.match(/\(/gu) ?? []).length) {
-      result = result.slice(0, -1);
-    }
-    if (result === previous) break;
+/**
+ * Remove trailing punctuation and unbalanced closing parentheses in one backward pass. Parentheses are counted once,
+ * so the cost is linear in the input length; a `)` that closes an earlier `(` stays.
+ *
+ * @param {string} value
+ * @param {RegExp} asciiPunctuation matches one trailing character to remove
+ * @param {boolean} unicodePunctuation also remove trailing non-ASCII punctuation (`\p{P}`)
+ * @returns {string}
+ */
+function trimTrailing(value, asciiPunctuation, unicodePunctuation) {
+  const characters = [...value];
+  let opens = 0;
+  let closes = 0;
+  for (const character of characters) {
+    if (character === "(") opens += 1;
+    if (character === ")") closes += 1;
   }
-  return result;
+  let end = characters.length;
+  for (let scanned = 0; scanned < characters.length; scanned += 1) {
+    if (end === 0) break;
+    const character = characters[end - 1];
+    if (asciiPunctuation.test(character) || (unicodePunctuation && character.codePointAt(0) > 0x7f && /\p{P}/u.test(character))) end -= 1;
+    else if (character === ")" && closes > opens) { closes -= 1; end -= 1; }
+    else break;
+  }
+  return characters.slice(0, end).join("");
 }
 
+/**
+ * Trim a URL candidate the way GitHub's GFM autolink does: sentence punctuation, Markdown emphasis and strike-through
+ * delimiters, a closing apostrophe, non-ASCII punctuation and unbalanced closing parentheses.
+ *
+ * @param {string} value
+ * @returns {string}
+ */
+function trimLink(value) {
+  return trimTrailing(value, /^[.,;:!?*_~']$/u, true);
+}
+
+/**
+ * Trim, parse and normalise a URL candidate until it is stable, at most 8 rounds, so every stored URL re-extracts to
+ * itself. A candidate the URL parser rejects, or one that does not settle, is dropped rather than thrown.
+ *
+ * @param {string} candidate
+ * @returns {string | undefined}
+ */
+function normalizeUrlCandidate(candidate) {
+  let value = candidate;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    value = trimLink(value);
+    if (!URL.canParse(value)) return undefined;
+    value = normalizedUrl(value);
+    if (trimLink(value) === value) return value;
+  }
+  return undefined;
+}
+
+/**
+ * Extract normalised http(s) URLs from an issue body. ASCII characters follow RFC 3986 without `[` `]` (a bracketed
+ * IPv6 host only right after `//`); any non-ASCII character is allowed except whitespace and `\p{C}` (controls and
+ * format characters such as U+200B), as GitHub's GFM autolink does. Backticks, braces, pipes and quotes end a URL.
+ *
+ * @param {string} body
+ * @returns {string[]} sorted, unique
+ */
+function normalizedUrls(body) {
+  const candidates = body.matchAll(/https?:\/\/(?:\[[0-9a-f:.]+\])?(?:[A-Za-z0-9\-._~:/?#@!$&'()*+,;=%]|[^\p{ASCII}\s\p{C}])*/giu);
+  return sortedUnique([...candidates].map((match) => normalizeUrlCandidate(match[0])).filter(Boolean));
+}
+
+/**
+ * Extract lower-cased DOIs from an issue body. GitHub does not autolink DOIs and a DOI may end in `_`, so a trailing
+ * `_` is stripped only when `_` also opens the DOI (emphasis); sentence punctuation is trimmed before and after.
+ *
+ * @param {string} body
+ * @returns {string[]} sorted, unique
+ */
+function normalizedDois(body) {
+  const candidates = body.matchAll(/(?<![A-Za-z0-9])10\.\d{4,9}\/[-._;()/:a-z0-9]+/giu);
+  return sortedUnique([...candidates].map((match) => {
+    let doi = trimTrailing(match[0], /^[.,;:]$/u, false);
+    if (body[match.index - 1] === "_" && doi.endsWith("_")) doi = trimTrailing(doi.slice(0, -1), /^[.,;:]$/u, false);
+    return doi.toLowerCase();
+  }));
+}
+
+/**
+ * Extract the source links of an issue body: URLs, DOIs, arXiv identifiers and GitHub release tags.
+ *
+ * @param {string} body
+ * @returns {{urls: string[], dois: string[], arxiv_ids: string[], release_tags: string[]}} each sorted and unique
+ */
 export function extractLinks(body) {
   textValue(body, "body");
-  const urls = sortedUnique((body.match(/https?:\/\/[A-Za-z0-9\-._~:/?#@!$&'()*+,;=%\p{L}\p{N}\p{M}]+/giu) ?? []).map(trimLink).map(normalizedUrl));
-  const dois = sortedUnique((body.match(/\b10\.\d{4,9}\/[-._;()/:a-z0-9]+/giu) ?? []).map(trimLink).map((doi) => doi.toLowerCase()));
+  const urls = normalizedUrls(body);
+  const dois = normalizedDois(body);
   const arxiv = /(?:arxiv\s*:\s*|https?:\/\/(?:www\.)?arxiv\.org\/(?:abs|pdf)\/)(\d{4}\.\d{4,5})(?:v\d+)?\b/giu;
   const arxivIds = [...body.matchAll(arxiv)].map((match) => match[1]);
   const releaseTags = urls.flatMap((url) => {
@@ -107,6 +185,34 @@ export function extractLinks(body) {
     return [`${match[1]}/${match[2]}@${decodeURIComponent(match[3])}`];
   });
   return { urls, dois, arxiv_ids: sortedUnique(arxivIds), release_tags: sortedUnique(releaseTags) };
+}
+
+/**
+ * Barrier for the 2026-11-10 delimiter leak: a catalog may hold only URLs the current extractor produces, and each
+ * canonical key must derive from its origins. Retained records are copied without re-extraction, so runCli refuses
+ * to publish a catalog with findings, and the committed catalog is tested too. An encoded backtick at the end (`%60`)
+ * is a fixed point of extraction, so it is named.
+ *
+ * @param {{entries: object[]}} catalog public catalog as written to `leads.json`
+ * @returns {string[]} one line per finding; empty when the catalog is clean
+ */
+export function catalogLinkFindings(catalog) {
+  const findings = [];
+  for (const entry of catalog.entries) {
+    const keys = new Set();
+    for (const origin of entry.origins) {
+      validateRecord(origin);
+      for (const url of origin.source_links.urls) {
+        if (/`|%60$/iu.test(url)) findings.push(`${origin.stable_key}: backtick in ${url}`);
+        else if (JSON.stringify(extractLinks(url).urls) !== JSON.stringify([url])) findings.push(`${origin.stable_key}: ${url} is not what extractLinks keeps`);
+      }
+      const derived = canonicalKeys(origin.source_links);
+      (derived.length > 0 ? derived : [`issue:${origin.node_id}`]).forEach((key) => keys.add(key));
+    }
+    if (/`|%60$/iu.test(entry.canonical_key)) findings.push(`${entry.canonical_key}: backtick in canonical key`);
+    else if (!keys.has(entry.canonical_key)) findings.push(`${entry.canonical_key}: not derived from its origins`);
+  }
+  return findings;
 }
 
 export function assignTier(labels, links) {
@@ -588,6 +694,15 @@ function cliEnvironment({ args = process.argv.slice(2), env = process.env, root 
   return { args, env, root, fetchImpl, fetchedAt, sleep };
 }
 
+/**
+ * Run one ingestion: fetch issues updated since the watermark, merge them with retained records, refuse private leaks
+ * and links that break the extractor rules, then write both catalogs, the watermark and run telemetry (or only compare
+ * with `--check`). A refusing check throws before anything is written.
+ *
+ * @param {object} [input] arguments, environment, root, fetch, clock and sleep overrides (see cliEnvironment)
+ * @returns {Promise<{exitCode: number, message: string}>} exit code 2 without a token, 1 for a stale `--check`
+ *   catalog or an unadvanced watermark, otherwise 0
+ */
 export async function runCli(input = {}) {
   const startedAt = performance.now();
   const { args, env, root: requestedRoot, fetchImpl, fetchedAt, sleep } = cliEnvironment(input);
@@ -608,6 +723,7 @@ export async function runCli(input = {}) {
   const records = await normalizeAll(issues, previous, fetchedAt, watermark, options);
   const { publicCatalog, privateCatalog } = buildLeads(records);
   assertNoPrivateLeak(publicCatalog, latestRecords(records).filter((record) => record.visibility !== "public"));
+  requireValue(catalogLinkFindings(publicCatalog).length === 0, "source_links");
   const publicText = `${JSON.stringify(publicCatalog, null, 2)}\n`;
   const privateText = `${JSON.stringify(privateCatalog, null, 2)}\n`;
   requireValue(Buffer.byteLength(publicText) + Buffer.byteLength(privateText) <= maximumFileBytes, "catalog output size");

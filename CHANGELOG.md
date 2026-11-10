@@ -289,6 +289,11 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- Research-watch link extraction stops at Markdown delimiters (code spans and
+  emphasis), keeps GitHub's autolink rules for non-ASCII paths, IPv6 hosts and
+  trailing punctuation, and drops malformed URLs instead of aborting. The
+  ingester refuses to republish a retained lead whose stored links break these
+  rules.
 - PDF renderer base images are fetched in their own bounded phase before
   the image build: 10 minutes per attempt, 3 attempts per image, 30 minutes
   for the phase. A slow first fill after a digest change now fails naming

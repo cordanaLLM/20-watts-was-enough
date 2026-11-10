@@ -14,6 +14,7 @@ publishes verified public leads into the repository.
      [`owners.json`](owners.json).
    - Normalises external links (DOIs, arXiv identifiers, release tags, canonical
      URLs) and merges duplicate reports into shared lead entries.
+   - Drops malformed links rather than failing ingestion.
    - Isolates private or internal origin metadata in `.workingdir/ingest/private-leads.json`.
    - Validates that no private identifiers, titles, or URLs leak into the public
      catalog before writing `leads.json`.
@@ -78,3 +79,22 @@ are dispatched.
   15-minute run deadline.
 - **Diagnostics**: Network and remote errors emit only fixed local diagnostics to
   prevent sensitive remote text from leaking to process output.
+
+## Recovering from refused links
+
+The ingester fails with `Invalid source_links` when a lead already in
+`leads.json` holds a link the current extractor would not produce, such as a
+link written by an older extractor. Nothing is written and the watermark stays
+unchanged. The publisher stops at the same check, so the daily run keeps
+failing until the committed catalog is repaired.
+
+To repair it, run the ingester in a checkout of `main` with `GH_TOKEN` set and
+a `--watermark` earlier than the affected issue's last update. The issue is
+fetched again and the fresh record replaces the retained one:
+
+```bash
+node scripts/research-watch-ingest.mjs --watermark 2026-01-01T00:00:00Z
+```
+
+Land the regenerated `research/ingest/leads.json` through a pull request; the
+next scheduled run starts from it.
