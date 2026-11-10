@@ -212,7 +212,7 @@
             "release_tags": []
           },
           "content_hash": "e7ec6d7430c54fbe66bb06192d960a33f4d861f9506951a1f1a31258f6353d14",
-          "fetched_at": "2026-11-10T02:13:50.261Z",
+          "fetched_at": "2026-11-10T14:30:38.386Z",
           "watermark": "2026-11-09T02:08:31.698Z"
         }
       ],
@@ -245,7 +245,7 @@
             "release_tags": []
           },
           "content_hash": "04c48b159c28fb33a64270d2317c9446bace66c07511e30063924ebc762b8fd5",
-          "fetched_at": "2026-11-10T02:13:50.261Z",
+          "fetched_at": "2026-11-10T14:30:38.386Z",
           "watermark": "2026-11-09T02:08:31.698Z"
         }
       ],
@@ -278,7 +278,7 @@
             "release_tags": []
           },
           "content_hash": "4c0703345df8a244b2b877b3f2973513779723cf423cc0499ae067ffe0e77fed",
-          "fetched_at": "2026-11-10T02:13:50.261Z",
+          "fetched_at": "2026-11-10T14:30:38.386Z",
           "watermark": "2026-11-09T02:08:31.698Z"
         }
       ],
@@ -1157,7 +1157,7 @@
             ]
           },
           "content_hash": "bf4bd7fbdc3fa4547bf9976ffb815f5b001b1dab695c41836d563e0a3b755a63",
-          "fetched_at": "2026-11-10T02:13:50.261Z",
+          "fetched_at": "2026-11-10T14:30:38.386Z",
           "watermark": "2026-11-09T02:08:31.698Z"
         }
       ],
@@ -1165,7 +1165,7 @@
       "content_duplicate_of": []
     },
     {
-      "canonical_key": "url:https://api-docs.overseerr.dev/%60",
+      "canonical_key": "url:https://api-docs.overseerr.dev/",
       "origins": [
         {
           "stable_key": "golusoris/goenvoy#297",
@@ -1185,15 +1185,15 @@
           "tier": "untiered",
           "source_links": {
             "urls": [
-              "https://api-docs.overseerr.dev/%60",
-              "https://readarr.com/docs/api/%60"
+              "https://api-docs.overseerr.dev/",
+              "https://readarr.com/docs/api/"
             ],
             "dois": [],
             "arxiv_ids": [],
             "release_tags": []
           },
           "content_hash": "55e2aa864e959ae127f92b7b57a6f24d4292a8dcfe4328db53ce3ae5f0c2983a",
-          "fetched_at": "2026-11-10T02:13:50.261Z",
+          "fetched_at": "2026-11-10T14:30:38.386Z",
           "watermark": "2026-11-09T02:08:31.698Z"
         }
       ],
@@ -1276,7 +1276,7 @@
             "release_tags": []
           },
           "content_hash": "9a03d314fa8c33f2f4c3cec6f73d8e1cfe007537360e172efadfa5a9ad975c77",
-          "fetched_at": "2026-11-10T02:13:50.261Z",
+          "fetched_at": "2026-11-10T14:30:38.386Z",
           "watermark": "2026-11-09T02:08:31.698Z"
         }
       ],
@@ -1284,40 +1284,40 @@
       "content_duplicate_of": []
     },
     {
-      "canonical_key": "url:https://listenbrainz.readthedocs.io/%60",
+      "canonical_key": "url:https://listenbrainz.readthedocs.io/",
       "origins": [
         {
           "stable_key": "golusoris/goenvoy#298",
           "node_id": "I_kwDOR0KIgs8AAAABd1oI8Q",
           "title": "docs/upstream: five doc URLs moved and 54 pages unverified since 2026-04-15",
           "url": "https://github.com/golusoris/goenvoy/issues/298",
-          "state": "open",
+          "state": "closed",
           "visibility": "public",
           "labels": [
             "research-watch"
           ],
           "milestone_title": "Ongoing — Research and upstream watch",
           "created_at": "2026-11-10T00:12:49Z",
-          "updated_at": "2026-11-10T00:12:49Z",
-          "closed_at": null,
+          "updated_at": "2026-11-10T03:19:15Z",
+          "closed_at": "2026-11-10T03:19:15Z",
           "author_type": "User",
           "tier": "untiered",
           "source_links": {
             "urls": [
-              "https://listenbrainz.readthedocs.io/%60",
-              "https://nzbget.com/documentation/api/%60",
-              "https://nzbget.github.io/%60",
-              "https://nzbget.net/api%60",
-              "https://plexapi.dev/%60",
-              "https://plexapi.dev/Intro%60",
-              "https://rawg.io/apidocs%60"
+              "https://listenbrainz.readthedocs.io/",
+              "https://nzbget.com/documentation/api/",
+              "https://nzbget.github.io/",
+              "https://nzbget.net/api",
+              "https://plexapi.dev/",
+              "https://plexapi.dev/Intro",
+              "https://rawg.io/apidocs"
             ],
             "dois": [],
             "arxiv_ids": [],
             "release_tags": []
           },
           "content_hash": "ba9c4eb60d55cd22c45c9ffa7b3271d1e9f6c4b37d2fe9f305d82b80ae9fba1f",
-          "fetched_at": "2026-11-10T02:13:50.261Z",
+          "fetched_at": "2026-11-10T14:30:38.386Z",
           "watermark": "2026-11-09T02:08:31.698Z"
         }
       ],
