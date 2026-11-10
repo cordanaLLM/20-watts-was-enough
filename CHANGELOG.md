@@ -291,9 +291,11 @@ the exact diff; this file records why the project changed.
 
 - Research-watch link extraction stops at Markdown delimiters (code spans and
   emphasis), keeps GitHub's autolink rules for non-ASCII paths, IPv6 hosts and
-  trailing punctuation, and drops malformed URLs instead of aborting. The
-  ingester refuses to republish a retained lead whose stored links break these
-  rules.
+  trailing punctuation, and drops URLs ending in an encoded backtick (`%60`).
+  A malformed URL is dropped, and a release URL with a malformed escape yields
+  no release tag, instead of aborting the run. The ingester refuses to
+  republish a retained lead whose stored links break these rules and prints up
+  to 20 of the refused links.
 - PDF renderer base images are fetched in their own bounded phase before
   the image build: 10 minutes per attempt, 3 attempts per image, 30 minutes
   for the phase. A slow first fill after a digest change now fails naming

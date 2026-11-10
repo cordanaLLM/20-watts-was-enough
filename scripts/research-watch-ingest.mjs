@@ -121,7 +121,9 @@ function trimLink(value) {
 
 /**
  * Trim, parse and normalise a URL candidate until it is stable, at most 8 rounds, so every stored URL re-extracts to
- * itself. A candidate the URL parser rejects, or one that does not settle, is dropped rather than thrown.
+ * itself. A candidate the URL parser rejects, or one that does not settle, is dropped rather than thrown. A URL ending
+ * in an encoded backtick (`%60`) is also dropped because it cannot be told apart from the 2026-11-10 delimiter leak, so
+ * the extractor never emits a value that `catalogLinkFindings` refuses.
  *
  * @param {string} candidate
  * @returns {string | undefined}
@@ -132,6 +134,7 @@ function normalizeUrlCandidate(candidate) {
     value = trimLink(value);
     if (!URL.canParse(value)) return undefined;
     value = normalizedUrl(value);
+    if (value.endsWith("%60")) return undefined;
     if (trimLink(value) === value) return value;
   }
   return undefined;
@@ -182,7 +185,13 @@ export function extractLinks(body) {
     const parsed = new URL(url);
     const match = /^\/([^/]+)\/([^/]+)\/releases\/tag\/(.+)$/u.exec(parsed.pathname);
     if (parsed.hostname !== "github.com" || !match) return [];
-    return [`${match[1]}/${match[2]}@${decodeURIComponent(match[3])}`];
+    let tag;
+    try {
+      tag = decodeURIComponent(match[3]);
+    } catch {
+      return [];
+    }
+    return [`${match[1]}/${match[2]}@${tag}`];
   });
   return { urls, dois, arxiv_ids: sortedUnique(arxivIds), release_tags: sortedUnique(releaseTags) };
 }
@@ -190,8 +199,8 @@ export function extractLinks(body) {
 /**
  * Barrier for the 2026-11-10 delimiter leak: a catalog may hold only URLs the current extractor produces, and each
  * canonical key must derive from its origins. Retained records are copied without re-extraction, so runCli refuses
- * to publish a catalog with findings, and the committed catalog is tested too. An encoded backtick at the end (`%60`)
- * is a fixed point of extraction, so it is named.
+ * to publish a catalog with findings, and the committed catalog is tested too. The extractor drops URLs ending in
+ * `%60`; this barrier names them explicitly because keys derived from stored links would otherwise accept a leaked key.
  *
  * @param {{entries: object[]}} catalog public catalog as written to `leads.json`
  * @returns {string[]} one line per finding; empty when the catalog is clean
@@ -697,7 +706,7 @@ function cliEnvironment({ args = process.argv.slice(2), env = process.env, root 
 /**
  * Run one ingestion: fetch issues updated since the watermark, merge them with retained records, refuse private leaks
  * and links that break the extractor rules, then write both catalogs, the watermark and run telemetry (or only compare
- * with `--check`). A refusing check throws before anything is written.
+ * with `--check`). It prints up to 20 refused links before refusing; a refusing check throws before anything is written.
  *
  * @param {object} [input] arguments, environment, root, fetch, clock and sleep overrides (see cliEnvironment)
  * @returns {Promise<{exitCode: number, message: string}>} exit code 2 without a token, 1 for a stale `--check`
@@ -723,7 +732,11 @@ export async function runCli(input = {}) {
   const records = await normalizeAll(issues, previous, fetchedAt, watermark, options);
   const { publicCatalog, privateCatalog } = buildLeads(records);
   assertNoPrivateLeak(publicCatalog, latestRecords(records).filter((record) => record.visibility !== "public"));
-  requireValue(catalogLinkFindings(publicCatalog).length === 0, "source_links");
+  const linkFindings = catalogLinkFindings(publicCatalog);
+  // Findings are safe to print: this check uses the public catalog after assertNoPrivateLeak.
+  for (const finding of linkFindings.slice(0, 20)) console.error(`Research-watch refused link: ${JSON.stringify(finding)}`);
+  if (linkFindings.length > 20) console.error(`Research-watch refused links not shown: ${linkFindings.length - 20}`);
+  requireValue(linkFindings.length === 0, "source_links");
   const publicText = `${JSON.stringify(publicCatalog, null, 2)}\n`;
   const privateText = `${JSON.stringify(privateCatalog, null, 2)}\n`;
   requireValue(Buffer.byteLength(publicText) + Buffer.byteLength(privateText) <= maximumFileBytes, "catalog output size");

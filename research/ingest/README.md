@@ -78,15 +78,22 @@ are dispatched.
   exponential backoff retries for rate limits or server errors, and an overall
   15-minute run deadline.
 - **Diagnostics**: Network and remote errors emit only fixed local diagnostics to
-  prevent sensitive remote text from leaking to process output.
+  prevent sensitive remote text from leaking to process output. Refused-link
+  lines name only public catalog values.
 
 ## Recovering from refused links
 
 The ingester fails with `Invalid source_links` when a lead already in
 `leads.json` holds a link the current extractor would not produce, such as a
 link written by an older extractor. Nothing is written and the watermark stays
-unchanged. The publisher stops at the same check, so the daily run keeps
-failing until the committed catalog is repaired.
+unchanged. Before failing, the ingester prints up to 20 refused links to
+stderr. A refused URL line starts with the stable key (`owner/repo#number`) of
+the issue that holds it; that issue's last update bounds `--watermark`. A
+refused canonical-key line names the key, whose entry in `leads.json` lists its
+origins. A URL ending in an encoded backtick (`%60`) is dropped during
+extraction, so re-fetching the issue never re-creates that refused value. The
+publisher stops at the same check, so the daily run keeps failing until the
+committed catalog is repaired.
 
 To repair it, run the ingester in a checkout of `main` with `GH_TOKEN` set and
 a `--watermark` earlier than the affected issue's last update. The issue is

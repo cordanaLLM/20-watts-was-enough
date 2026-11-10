@@ -161,6 +161,54 @@ test("link extraction drops malformed candidates instead of aborting", () => {
     assert.deepEqual(extractLinks(body).urls, []);
   }
   assert.deepEqual(extractLinks("https://%zz/ and https://example.org/valid").urls, ["https://example.org/valid"]);
+  for (const body of ["https://example.org/a%60", "https://example.org/a%60.", "https://example.org/b?q=%60"]) {
+    assert.deepEqual(extractLinks(body).urls, []);
+  }
+  assert.deepEqual(extractLinks("https://example.org/a%60b").urls, ["https://example.org/a%60b"]);
+
+  const releaseLinks = extractLinks("https://github.com/a/b/releases/tag/%zz https://github.com/a/b/releases/tag/%ff https://github.com/a/b/releases/tag/v1.0");
+  assert.deepEqual(releaseLinks.release_tags, ["a/b@v1.0"]);
+  assert.deepEqual(releaseLinks.urls, [
+    "https://github.com/a/b/releases/tag/%ff",
+    "https://github.com/a/b/releases/tag/%zz",
+    "https://github.com/a/b/releases/tag/v1.0",
+  ]);
+});
+
+test("every URL the extractor keeps passes the catalog check", () => {
+  const bodies = [
+    "[paper](https://doi.org/10.1234/EXAMPLE) arXiv:2501.01234v3 https://arxiv.org/pdf/2501.01234v2.pdf https://github.com/Upstream/tool/releases/tag/v1%2Frc https://example.org/a?utm_source=fleet&ref=hub&b=2&a=1#part",
+    "No links here",
+    "https://doi.org/10.1234/test(foo)",
+    "see `https://api-docs.overseerr.dev/` for the API",
+    "`https://plexapi.dev/Intro`",
+    "**https://example.org/bold**",
+    "_https://example.org/em_ and ~https://example.org/strike~",
+    "'https://example.org/quoted'",
+    "https://example.org/a{b}",
+    "https://example.org/p|q",
+    "(see https://en.wikipedia.org/wiki/Foo_(bar)).",
+    "https://example.org/end”",
+    "https://example.org/naïve/路径",
+    "https://example.org/a_b~c*d",
+    "`https://listenbrainz.readthedocs.io/`",
+    "see https://en.wikipedia.org/wiki/Michaelis–Menten_kinetics now",
+    "https://example.org/price/€5",
+    "https://example.org/a→b",
+    "“https://example.org/a”",
+    "「https://example.org/a」。",
+    "https://example.org/a\u200Bnext",
+    "see https://[2001:db8::1]/ now",
+    "see https://example.org/Foo_ now",
+    "https://example.org/a%60",
+    "https://example.org/a%60.",
+    "https://example.org/b?q=%60",
+    "https://example.org/a%60b",
+  ];
+  for (const body of bodies) {
+    const { publicCatalog } = buildLeads([record({ body })]);
+    assert.deepEqual(catalogLinkFindings(publicCatalog), [], body);
+  }
 });
 
 test("link extraction is a fixed point", () => {
@@ -471,12 +519,15 @@ test("CLI refuses to republish a retained record that fails the link rules", asy
   const watermarkPath = path.join(options.root, "research/ingest/.watermark");
   const publicPath = path.join(options.root, "research/ingest/leads.json");
   await writeFile(watermarkPath, `${watermark}\n`);
-  const leaked = record();
+  const leaked = record({ body: "no links" });
   leaked.source_links = { ...leaked.source_links, urls: ["https://api-docs.overseerr.dev/%60"] };
   const leakedText = `${JSON.stringify(buildLeads([leaked]).publicCatalog, null, 2)}\n`;
   await writeFile(publicPath, leakedText);
   options.fetchImpl = transport({ "/search/issues": () => searchResponse() });
+  const consoleError = t.mock.method(console, "error", () => {});
   await assert.rejects(runCli(options), (error) => /^Invalid source_links$/u.test(error.message));
+  assert.equal(consoleError.mock.calls.length, 2);
+  assert.equal(consoleError.mock.calls[0].arguments[0], 'Research-watch refused link: "cordanaLLM/a#1: backtick in https://api-docs.overseerr.dev/%60"');
   assert.equal(await readFile(publicPath, "utf8"), leakedText);
   assert.equal(await readFile(watermarkPath, "utf8"), `${watermark}\n`);
   assert.ok((await readdir(path.dirname(publicPath))).every((file) => !file.endsWith(".tmp")));
@@ -486,6 +537,43 @@ test("CLI refuses to republish a retained record that fails the link rules", asy
   const catalog = JSON.parse(await readFile(publicPath, "utf8"));
   assert.deepEqual(catalog.entries[0].origins[0].source_links.urls, ["https://api-docs.overseerr.dev/"]);
   assert.deepEqual(catalogLinkFindings(catalog), []);
+});
+
+test("CLI drops refused URLs from fetched issues and names only 20 retained findings", async (t) => {
+  const options = await fixture(t);
+  const publicPath = path.join(options.root, "research/ingest/leads.json");
+  const watermarkPath = path.join(options.root, "research/ingest/.watermark");
+  await writeFile(watermarkPath, `${watermark}\n`);
+  options.fetchImpl = transport({
+    "/search/issues": () => searchResponse([issue({ body: "see https://example.org/a%60 and https://example.org/ok" })]),
+  });
+  assert.equal((await runCli(options)).exitCode, 0);
+  const cleanCatalog = JSON.parse(await readFile(publicPath, "utf8"));
+  assert.deepEqual(cleanCatalog.entries[0].origins[0].source_links.urls, ["https://example.org/ok"]);
+  assert.deepEqual(catalogLinkFindings(cleanCatalog), []);
+
+  const leakedRecords = Array.from({ length: 11 }, (_, index) => {
+    const leaked = record({
+      body: "no links",
+      number: index + 1,
+      node_id: `I_LEAK_${index + 1}`,
+      html_url: `https://github.com/cordanaLLM/a/issues/${index + 1}`,
+    });
+    leaked.source_links = { ...leaked.source_links, urls: [`https://example.org/leak-${index + 1}%60`] };
+    return leaked;
+  });
+  const leakedCatalog = buildLeads(leakedRecords).publicCatalog;
+  assert.equal(catalogLinkFindings(leakedCatalog).length, 22);
+  const leakedText = `${JSON.stringify(leakedCatalog, null, 2)}\n`;
+  await writeFile(publicPath, leakedText);
+  await writeFile(watermarkPath, `${watermark}\n`);
+  options.fetchImpl = transport({ "/search/issues": () => searchResponse() });
+  const consoleError = t.mock.method(console, "error", () => {});
+  await assert.rejects(runCli(options), (error) => /^Invalid source_links$/u.test(error.message));
+  assert.equal(consoleError.mock.calls.length, 21);
+  assert.equal(consoleError.mock.calls.at(-1).arguments[0], "Research-watch refused links not shown: 2");
+  assert.equal(await readFile(publicPath, "utf8"), leakedText);
+  assert.equal(await readFile(watermarkPath, "utf8"), `${watermark}\n`);
 });
 
 test("CLI fails visibly after publication when the watermark cannot be advanced", async (t) => {
