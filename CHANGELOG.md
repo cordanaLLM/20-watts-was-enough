@@ -289,6 +289,19 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- Research-watch link extraction stops at Markdown delimiters (code spans and
+  emphasis), keeps GitHub's autolink rules for non-ASCII paths, IPv6 hosts and
+  trailing punctuation, drops URLs ending in an encoded backtick (`%60`), and
+  skips release tags decoding to a backtick. A URL is dropped when its
+  normalised form would not re-extract to itself, for example when IDNA maps a
+  host character to a quote or brace.
+  A malformed URL is dropped, and a release URL with a malformed escape yields
+  no release tag, instead of aborting the run. The ingester refuses to
+  republish a retained lead whose stored links break these rules and prints up
+  to 20 public refused links; refused links in the local private catalog stop
+  the run too and are counted without their values. The recovery guide covers
+  a retained record from a repository that turned public, and removes only the
+  affected origin instead of the whole entry.
 - PDF renderer base images are fetched in their own bounded phase before
   the image build: 10 minutes per attempt, 3 attempts per image, 30 minutes
   for the phase. A slow first fill after a digest change now fails naming
