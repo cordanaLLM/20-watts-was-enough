@@ -187,6 +187,105 @@
       "content_duplicate_of": []
     },
     {
+      "canonical_key": "issue:I_kwDOR0KIgs8AAAABd1nkaw",
+      "origins": [
+        {
+          "stable_key": "golusoris/goenvoy#296",
+          "node_id": "I_kwDOR0KIgs8AAAABd1nkaw",
+          "title": "docs/upstream: record target versions and watch self-hosted upstream releases",
+          "url": "https://github.com/golusoris/goenvoy/issues/296",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-11-10T00:12:02Z",
+          "updated_at": "2026-11-10T00:12:02Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "e7ec6d7430c54fbe66bb06192d960a33f4d861f9506951a1f1a31258f6353d14",
+          "fetched_at": "2026-11-10T02:13:50.261Z",
+          "watermark": "2026-11-09T02:08:31.698Z"
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOR0KIgs8AAAABd1vTFg",
+      "origins": [
+        {
+          "stable_key": "golusoris/goenvoy#300",
+          "node_id": "I_kwDOR0KIgs8AAAABd1vTFg",
+          "title": "qBittorrent 5.2.0 added API-key authentication; downloadclient/qbit supports only cookie login",
+          "url": "https://github.com/golusoris/goenvoy/issues/300",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-11-10T00:22:42Z",
+          "updated_at": "2026-11-10T00:22:42Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "04c48b159c28fb33a64270d2317c9446bace66c07511e30063924ebc762b8fd5",
+          "fetched_at": "2026-11-10T02:13:50.261Z",
+          "watermark": "2026-11-09T02:08:31.698Z"
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOR0KIgs8AAAABd1vVfg",
+      "origins": [
+        {
+          "stable_key": "golusoris/goenvoy#301",
+          "node_id": "I_kwDOR0KIgs8AAAABd1vVfg",
+          "title": "rTorrent 0.16.16 deprecates d.multicall2, which downloadclient/rtorrent sends for every listing",
+          "url": "https://github.com/golusoris/goenvoy/issues/301",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-11-10T00:22:45Z",
+          "updated_at": "2026-11-10T00:22:45Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "4c0703345df8a244b2b877b3f2973513779723cf423cc0499ae067ffe0e77fed",
+          "fetched_at": "2026-11-10T02:13:50.261Z",
+          "watermark": "2026-11-09T02:08:31.698Z"
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
       "canonical_key": "issue:I_kwDOS6YaTc8AAAABV7giew",
       "origins": [
         {
@@ -1028,6 +1127,80 @@
       "content_duplicate_of": []
     },
     {
+      "canonical_key": "transmission/transmission@4.1.0",
+      "origins": [
+        {
+          "stable_key": "golusoris/goenvoy#295",
+          "node_id": "I_kwDOR0KIgs8AAAABd1nf2g",
+          "title": "downloadclient/transmission: speak JSON-RPC 2.0 before Transmission drops the old RPC protocol",
+          "url": "https://github.com/golusoris/goenvoy/issues/295",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-11-10T00:11:56Z",
+          "updated_at": "2026-11-10T00:11:56Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "release",
+          "source_links": {
+            "urls": [
+              "https://github.com/transmission/transmission/blob/ade5919be0a90bc9e30b717428370637a52fd51e/docs/rpc-spec.md",
+              "https://github.com/transmission/transmission/releases/tag/4.1.0"
+            ],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": [
+              "transmission/transmission@4.1.0"
+            ]
+          },
+          "content_hash": "bf4bd7fbdc3fa4547bf9976ffb815f5b001b1dab695c41836d563e0a3b755a63",
+          "fetched_at": "2026-11-10T02:13:50.261Z",
+          "watermark": "2026-11-09T02:08:31.698Z"
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "url:https://api-docs.overseerr.dev/%60",
+      "origins": [
+        {
+          "stable_key": "golusoris/goenvoy#297",
+          "node_id": "I_kwDOR0KIgs8AAAABd1nmIQ",
+          "title": "arr/seerr, arr/readarr: retarget docs from archived Overseerr and Readarr",
+          "url": "https://github.com/golusoris/goenvoy/issues/297",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-11-10T00:12:04Z",
+          "updated_at": "2026-11-10T00:12:04Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [
+              "https://api-docs.overseerr.dev/%60",
+              "https://readarr.com/docs/api/%60"
+            ],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "55e2aa864e959ae127f92b7b57a6f24d4292a8dcfe4328db53ce3ae5f0c2983a",
+          "fetched_at": "2026-11-10T02:13:50.261Z",
+          "watermark": "2026-11-09T02:08:31.698Z"
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
       "canonical_key": "url:https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/24368",
       "origins": [
         {
@@ -1070,6 +1243,82 @@
           "content_hash": "cd37df33a87b7db396085ece1cf73d7eeec6c46c8bf61a98c84cee64543eb952",
           "fetched_at": "2026-10-24T02:03:04.551Z",
           "watermark": "2026-10-23T04:37:44.418Z"
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "url:https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/25893",
+      "origins": [
+        {
+          "stable_key": "VMAFx/ffmpeg-patches#273",
+          "node_id": "I_kwDOVC-MNc8AAAABdzEkfQ",
+          "title": "Track upstream FFmpeg PR 25893: clamp the hqdn3d lowpass result to 16 bits",
+          "url": "https://github.com/VMAFx/ffmpeg-patches/issues/273",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-11-09T21:03:24Z",
+          "updated_at": "2026-11-09T21:03:24Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [
+              "https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/25893"
+            ],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "9a03d314fa8c33f2f4c3cec6f73d8e1cfe007537360e172efadfa5a9ad975c77",
+          "fetched_at": "2026-11-10T02:13:50.261Z",
+          "watermark": "2026-11-09T02:08:31.698Z"
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "url:https://listenbrainz.readthedocs.io/%60",
+      "origins": [
+        {
+          "stable_key": "golusoris/goenvoy#298",
+          "node_id": "I_kwDOR0KIgs8AAAABd1oI8Q",
+          "title": "docs/upstream: five doc URLs moved and 54 pages unverified since 2026-04-15",
+          "url": "https://github.com/golusoris/goenvoy/issues/298",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-11-10T00:12:49Z",
+          "updated_at": "2026-11-10T00:12:49Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [
+              "https://listenbrainz.readthedocs.io/%60",
+              "https://nzbget.com/documentation/api/%60",
+              "https://nzbget.github.io/%60",
+              "https://nzbget.net/api%60",
+              "https://plexapi.dev/%60",
+              "https://plexapi.dev/Intro%60",
+              "https://rawg.io/apidocs%60"
+            ],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "ba9c4eb60d55cd22c45c9ffa7b3271d1e9f6c4b37d2fe9f305d82b80ae9fba1f",
+          "fetched_at": "2026-11-10T02:13:50.261Z",
+          "watermark": "2026-11-09T02:08:31.698Z"
         }
       ],
       "private_origin_count": 0,
