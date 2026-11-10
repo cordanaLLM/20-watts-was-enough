@@ -229,10 +229,10 @@ export function extractLinks(body) {
 /**
  * Barrier for the 2026-11-10 delimiter leak: a catalog may hold only URLs the current extractor produces, and each
  * canonical key must derive from its origins. Retained records are copied without re-extraction, so runCli refuses
- * to publish a catalog with findings, and the committed catalog is tested too. The extractor drops URLs ending in
+ * to write either catalog with findings, and the committed catalog is tested too. The extractor drops URLs ending in
  * `%60`; this barrier uses the extractor's predicate so keys derived from stored links cannot accept a leaked key.
  *
- * @param {{entries: object[]}} catalog public catalog as written to `leads.json`
+ * @param {{entries: object[]}} catalog public or private catalog; both have the same shape
  * @returns {string[]} one line per finding; empty when the catalog is clean
  */
 export function catalogLinkFindings(catalog) {
@@ -252,6 +252,23 @@ export function catalogLinkFindings(catalog) {
     else if (!keys.has(entry.canonical_key)) findings.push(`${entry.canonical_key}: not derived from its origins`);
   }
   return findings;
+}
+
+/**
+ * Refuse findings in either catalog before any output is written. Public findings are safe to print after the
+ * private-leak barrier; private findings name private repositories and links, so print only their count.
+ *
+ * @param {object} publicCatalog catalog intended for `leads.json`
+ * @param {object} privateCatalog catalog intended for the local private file
+ * @returns {void}
+ */
+function requireCleanLinks(publicCatalog, privateCatalog) {
+  const publicFindings = catalogLinkFindings(publicCatalog);
+  for (const finding of publicFindings.slice(0, 20)) console.error(`Research-watch refused link: ${JSON.stringify(finding)}`);
+  if (publicFindings.length > 20) console.error(`Research-watch refused links not shown: ${publicFindings.length - 20}`);
+  const privateCount = catalogLinkFindings(privateCatalog).length;
+  if (privateCount > 0) console.error(`Research-watch refused private links: ${privateCount} (values withheld; see research/ingest/README.md)`);
+  requireValue(publicFindings.length + privateCount === 0, "source_links");
 }
 
 export function assignTier(labels, links) {
@@ -762,11 +779,7 @@ export async function runCli(input = {}) {
   const records = await normalizeAll(issues, previous, fetchedAt, watermark, options);
   const { publicCatalog, privateCatalog } = buildLeads(records);
   assertNoPrivateLeak(publicCatalog, latestRecords(records).filter((record) => record.visibility !== "public"));
-  const linkFindings = catalogLinkFindings(publicCatalog);
-  // Findings are safe to print: this check uses the public catalog after assertNoPrivateLeak.
-  for (const finding of linkFindings.slice(0, 20)) console.error(`Research-watch refused link: ${JSON.stringify(finding)}`);
-  if (linkFindings.length > 20) console.error(`Research-watch refused links not shown: ${linkFindings.length - 20}`);
-  requireValue(linkFindings.length === 0, "source_links");
+  requireCleanLinks(publicCatalog, privateCatalog);
   const publicText = `${JSON.stringify(publicCatalog, null, 2)}\n`;
   const privateText = `${JSON.stringify(privateCatalog, null, 2)}\n`;
   requireValue(Buffer.byteLength(publicText) + Buffer.byteLength(privateText) <= maximumFileBytes, "catalog output size");

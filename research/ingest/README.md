@@ -78,21 +78,38 @@ are dispatched.
   exponential backoff retries for rate limits or server errors, and an overall
   15-minute run deadline.
 - **Diagnostics**: Network and remote errors emit only fixed local diagnostics to
-  prevent sensitive remote text from leaking to process output. Refused-link
-  lines name only public catalog values.
+  prevent sensitive remote text from leaking to process output. Public refused
+  links are named; private refused links are counted with values withheld.
 
 ## Recovering from refused links
 
 The ingester fails with `Invalid source_links` when a retained lead holds a
 link the current extractor would not produce, such as a link written by an
 older extractor. Nothing is written and the watermark stays unchanged. Before
-failing, the ingester prints up to 20 refused links to stderr. A refused URL
-line starts with the stable key (`owner/repo#number`) of the issue that holds
-it; that issue's last update bounds `--watermark`. A refused canonical-key line
-names the key, whose catalog entry lists its origins. The extractor never
-produces a value the check refuses, and a seeded fuzz test checks this, so a
-refusal names a retained value, usually one in the committed `leads.json`.
-If a refused value is missing there, first check
+failing, the ingester prints up to 20 public-catalog findings to stderr. For
+private-catalog findings, it prints one count line only; values are withheld
+because they name private repositories. A public refused URL line starts with
+the stable key (`owner/repo#number`) of the issue that holds it; that issue's
+last update bounds `--watermark`. A refused canonical-key line names the key,
+whose catalog entry lists its origins. The extractor never produces a value the
+check refuses, and a seeded fuzz test checks this, so a refusal names a retained
+value, usually one in the committed `leads.json`.
+
+To see private findings locally, run this from the repository root. Output
+stays on this machine; never paste it into issues, pull requests or hosted
+tools.
+
+```bash
+node --input-type=module -e '
+import { readFileSync } from "node:fs";
+import { catalogLinkFindings } from "./scripts/research-watch-ingest.mjs";
+const file = ".workingdir/ingest/private-leads.json";
+const catalog = JSON.parse(readFileSync(file, "utf8"));
+for (const line of catalogLinkFindings(catalog)) console.log(line);
+'
+```
+
+If a refused value is missing from `leads.json`, check
 `.workingdir/ingest/private-leads.json`: retained private records move into the
 public catalog when their repository becomes public. Re-fetch the affected
 issue so its fresh record replaces the retained one. If re-fetching cannot

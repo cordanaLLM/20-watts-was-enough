@@ -637,6 +637,93 @@ test("CLI refuses to republish a retained record that fails the link rules", asy
   assert.deepEqual(catalogLinkFindings(catalog), []);
 });
 
+test("CLI refuses a retained private record that fails the link rules without printing it", async (t) => {
+  const options = await fixture(t);
+  const publicPath = path.join(options.root, "research/ingest/leads.json");
+  const privatePath = path.join(options.root, ".workingdir/ingest/private-leads.json");
+  const watermarkPath = path.join(options.root, "research/ingest/.watermark");
+  const retained = record({ node_id: "I_PRIVATE_NOT_FOR_STDERR", title: "Private title not for stderr" }, { visibility: "private" });
+  retained.source_links = { ...retained.source_links, urls: ["https://example.org/bold**"] };
+  const publicText = `${JSON.stringify(buildLeads([]).publicCatalog, null, 2)}\n`;
+  const privateText = `${JSON.stringify(buildLeads([retained]).privateCatalog, null, 2)}\n`;
+  const watermarkText = `${watermark}\n`;
+  await mkdir(path.dirname(privatePath), { recursive: true });
+  await writeFile(publicPath, publicText);
+  await writeFile(privatePath, privateText);
+  await writeFile(watermarkPath, watermarkText);
+  options.fetchImpl = transport({
+    "/search/issues": () => searchResponse(),
+    "/repos/cordanaLLM/a": () => response({ full_name: "cordanaLLM/a", visibility: "private" }),
+  });
+  const consoleError = t.mock.method(console, "error", () => {});
+  const assertUnchanged = async () => {
+    assert.equal(await readFile(publicPath, "utf8"), publicText);
+    assert.equal(await readFile(privatePath, "utf8"), privateText);
+    assert.equal(await readFile(watermarkPath, "utf8"), watermarkText);
+    for (const directory of [path.dirname(publicPath), path.dirname(privatePath)]) {
+      assert.ok((await readdir(directory)).every((file) => !file.endsWith(".tmp")));
+    }
+  };
+  const assertPrivateDiagnostic = (calls) => {
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].arguments[0], "Research-watch refused private links: 1 (values withheld; see research/ingest/README.md)");
+    for (const call of calls) {
+      const line = String(call.arguments[0]);
+      for (const secret of ["example.org", "cordanaLLM/a", retained.title, retained.node_id]) assert.ok(!line.includes(secret));
+    }
+  };
+  await assert.rejects(runCli(options), (error) => error.message === "Invalid source_links");
+  assertPrivateDiagnostic(consoleError.mock.calls);
+  await assertUnchanged();
+
+  const callsBeforeCheck = consoleError.mock.calls.length;
+  await assert.rejects(runCli({ ...options, args: ["--check"] }), (error) => error.message === "Invalid source_links");
+  assertPrivateDiagnostic(consoleError.mock.calls.slice(callsBeforeCheck));
+  await assertUnchanged();
+
+  retained.source_links = { ...retained.source_links, urls: ["https://example.org/ok"] };
+  const cleanText = `${JSON.stringify(buildLeads([retained]).privateCatalog, null, 2)}\n`;
+  await writeFile(privatePath, cleanText);
+  assert.equal((await runCli(options)).exitCode, 0);
+  assert.deepEqual(catalogLinkFindings(JSON.parse(await readFile(privatePath, "utf8"))), []);
+});
+
+test("CLI prints public refused links and only a count of private ones", async (t) => {
+  const options = await fixture(t);
+  const publicPath = path.join(options.root, "research/ingest/leads.json");
+  const privatePath = path.join(options.root, ".workingdir/ingest/private-leads.json");
+  const watermarkPath = path.join(options.root, "research/ingest/.watermark");
+  const publicRecord = record({ node_id: "I_PUBLIC_INVALID", body: "no links" });
+  publicRecord.source_links = { ...publicRecord.source_links, urls: ["https://api-docs.overseerr.dev/%60"] };
+  const retainedPrivate = privateRecord("no links");
+  retainedPrivate.source_links = { ...retainedPrivate.source_links, urls: ["https://private.example/hidden**"] };
+  const retained = buildLeads([publicRecord, retainedPrivate]);
+  const publicText = `${JSON.stringify(retained.publicCatalog, null, 2)}\n`;
+  const privateText = `${JSON.stringify(retained.privateCatalog, null, 2)}\n`;
+  const watermarkText = `${watermark}\n`;
+  await mkdir(path.dirname(privatePath), { recursive: true });
+  await writeFile(publicPath, publicText);
+  await writeFile(privatePath, privateText);
+  await writeFile(watermarkPath, watermarkText);
+  options.fetchImpl = transport({
+    "/search/issues": () => searchResponse(),
+    "/repos/cordanaLLM/a": () => response({ full_name: "cordanaLLM/a", visibility: "public" }),
+    "/repos/secret-org/hidden": () => response({ full_name: "secret-org/hidden", visibility: "private" }),
+  });
+  const consoleError = t.mock.method(console, "error", () => {});
+  await assert.rejects(runCli(options), (error) => error.message === "Invalid source_links");
+  const calls = consoleError.mock.calls.map((call) => call.arguments[0]);
+  assert.equal(calls[0], 'Research-watch refused link: "cordanaLLM/a#1: backtick in https://api-docs.overseerr.dev/%60"');
+  assert.equal(calls.at(-1), "Research-watch refused private links: 1 (values withheld; see research/ingest/README.md)");
+  for (const line of calls) {
+    assert.ok(!String(line).includes("private.example"));
+    assert.ok(!String(line).includes("secret-org/hidden"));
+  }
+  assert.equal(await readFile(publicPath, "utf8"), publicText);
+  assert.equal(await readFile(privatePath, "utf8"), privateText);
+  assert.equal(await readFile(watermarkPath, "utf8"), watermarkText);
+});
+
 test("CLI drops refused URLs from fetched issues and names only 20 retained findings", async (t) => {
   const options = await fixture(t);
   const publicPath = path.join(options.root, "research/ingest/leads.json");
