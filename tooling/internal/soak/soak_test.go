@@ -261,20 +261,6 @@ func TestPlatformSupport(t *testing.T) {
 	}
 }
 
-func TestWriteJSONLines(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "samples.jsonl")
-	if err := WriteJSONLines(path, fixedSamples(2)); err != nil {
-		t.Fatal(err)
-	}
-	body, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if lines := strings.Count(string(body), "\n"); lines != 2 {
-		t.Fatalf("JSONL lines = %d, want 2", lines)
-	}
-}
-
 func testConfig(maximum int) Config {
 	return Config{Duration: 5 * time.Second, MaxIterations: maximum, MinIterations: maximum,
 		IterationTimeout: time.Second}

@@ -8,11 +8,9 @@ package soak
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -224,24 +222,4 @@ func appendGrowth[T ~int | ~uint64](findings []string, name string, warmup, tail
 		return findings
 	}
 	return append(findings, fmt.Sprintf("%s warmup max %d, tail min %d, growth %d, allowance %d", name, start, end, end-start, limit))
-}
-
-// WriteJSONLines writes one JSON sample per line to path.
-func WriteJSONLines(path string, samples []Sample) (returnErr error) {
-	file, err := os.OpenFile(filepath.Clean(path), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
-	if err != nil {
-		return fmt.Errorf("create soak report %s: %w", path, err)
-	}
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			returnErr = errors.Join(returnErr, fmt.Errorf("close soak report %s: %w", path, closeErr))
-		}
-	}()
-	encoder := json.NewEncoder(file)
-	for _, current := range samples {
-		if err := encoder.Encode(current); err != nil {
-			return fmt.Errorf("write soak report %s: %w", path, err)
-		}
-	}
-	return nil
 }

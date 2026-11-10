@@ -2,6 +2,5 @@
 
 package soak
 
-func countOpenFiles() (int, error) {
-	return countDirectoryFiles("/proc/self/fd")
-}
+// descriptorDirectory lists one entry per open descriptor of this process.
+const descriptorDirectory = "/proc/self/fd"

@@ -2,6 +2,9 @@ package soak
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -75,8 +78,8 @@ func TestWriteReportFromEnvironmentWithoutDirectoryWritesNothing(t *testing.T) {
 	}
 }
 
-func TestWriteReportFromEnvironmentCreatesDirectory(t *testing.T) {
-	directory := filepath.Join(t.TempDir(), "nested", "soak")
+func TestWriteReportFromEnvironmentWritesIntoExistingDirectory(t *testing.T) {
+	directory := t.TempDir()
 	t.Setenv(ReportDirVariable, directory)
 	if err := WriteReportFromEnvironment("samples.jsonl", fixedSamples(3)); err != nil {
 		t.Fatal(err)
@@ -85,8 +88,68 @@ func TestWriteReportFromEnvironmentCreatesDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if lines := strings.Count(string(body), "\n"); lines != 3 {
-		t.Fatalf("JSONL lines = %d, want 3", lines)
+	lines := strings.Split(strings.TrimSuffix(string(body), "\n"), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("JSONL lines = %d, want 3", len(lines))
+	}
+	for index, line := range lines {
+		var current Sample
+		if err := json.Unmarshal([]byte(line), &current); err != nil || current.Iteration != index+1 {
+			t.Fatalf("line %d = %q, %v; want sample %d", index+1, line, err, index+1)
+		}
+	}
+}
+
+func TestWriteReportFromEnvironmentRefusesMissingDirectory(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "nested", "soak")
+	t.Setenv(ReportDirVariable, directory)
+	err := WriteReportFromEnvironment("samples.jsonl", fixedSamples(1))
+	if err == nil || !strings.Contains(err.Error(), ReportDirVariable+" must name an existing directory") {
+		t.Fatalf("WriteReportFromEnvironment() error = %v, want missing directory refused", err)
+	}
+	if _, statErr := os.Stat(directory); !errors.Is(statErr, fs.ErrNotExist) {
+		t.Fatalf("report directory %s exists after refusal: %v", directory, statErr)
+	}
+}
+
+func TestWriteReportFromEnvironmentRefusesRelativeDirectory(t *testing.T) {
+	// A writer that accepted the relative path would write under the working
+	// directory, so the test moves it out of the source tree.
+	t.Chdir(t.TempDir())
+	t.Setenv(ReportDirVariable, filepath.Join("reports", "soak"))
+	err := WriteReportFromEnvironment("samples.jsonl", fixedSamples(1))
+	if err == nil || !strings.Contains(err.Error(), ReportDirVariable+" must be an absolute directory path") {
+		t.Fatalf("WriteReportFromEnvironment() error = %v, want relative directory refused", err)
+	}
+}
+
+func TestWriteReportFromEnvironmentRefusesNamesOutsideDirectory(t *testing.T) {
+	parent := t.TempDir()
+	directory := filepath.Join(parent, "reports")
+	outside := filepath.Join(parent, "outside")
+	for _, created := range []string{directory, outside} {
+		if err := os.Mkdir(created, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	names := []string{filepath.Join("..", "outside", "dotdot.jsonl"), filepath.Join(outside, "absolute.jsonl")}
+	if err := os.Symlink(outside, filepath.Join(directory, "link")); err == nil {
+		names = append(names, filepath.Join("link", "symlink.jsonl"))
+	} else {
+		t.Logf("symbolic link case not run: %v", err)
+	}
+	t.Setenv(ReportDirVariable, directory)
+	for _, name := range names {
+		if err := WriteReportFromEnvironment(name, fixedSamples(1)); err == nil {
+			t.Errorf("WriteReportFromEnvironment(%q) wrote outside %s", name, directory)
+		}
+	}
+	entries, err := os.ReadDir(outside)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("%s holds %d entries after refused writes, want 0", outside, len(entries))
 	}
 }
 

@@ -1,6 +1,8 @@
 package soak
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -65,15 +67,42 @@ func parseDuration(value string) (time.Duration, error) {
 	return duration, nil
 }
 
-// WriteReportFromEnvironment writes samples to name under the report
-// directory; it does nothing when no report directory is set.
-func WriteReportFromEnvironment(name string, samples []Sample) error {
+// WriteReportFromEnvironment writes one JSON sample per line to the file name
+// inside the report directory; it does nothing when no report directory is
+// set. The directory must be an existing absolute path. The file is created
+// through an os.Root opened on that directory, so a name that would leave the
+// directory, by "..", an absolute path or a symbolic link, is refused.
+func WriteReportFromEnvironment(name string, samples []Sample) (returnErr error) {
 	directory := os.Getenv(ReportDirVariable)
 	if directory == "" {
 		return nil
 	}
-	if err := os.MkdirAll(directory, 0o700); err != nil {
-		return fmt.Errorf("create soak report directory %s: %w", directory, err)
+	if !filepath.IsAbs(directory) {
+		return fmt.Errorf("%s must be an absolute directory path, got %q", ReportDirVariable, directory)
 	}
-	return WriteJSONLines(filepath.Join(directory, name), samples)
+	root, err := os.OpenRoot(directory)
+	if err != nil {
+		return fmt.Errorf("open soak report directory %s (%s must name an existing directory): %w", directory, ReportDirVariable, err)
+	}
+	defer func() {
+		if closeErr := root.Close(); closeErr != nil {
+			returnErr = errors.Join(returnErr, fmt.Errorf("close soak report directory %s: %w", directory, closeErr))
+		}
+	}()
+	file, err := root.OpenFile(name, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+	if err != nil {
+		return fmt.Errorf("create soak report %s in %s: %w", name, directory, err)
+	}
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			returnErr = errors.Join(returnErr, fmt.Errorf("close soak report %s in %s: %w", name, directory, closeErr))
+		}
+	}()
+	encoder := json.NewEncoder(file)
+	for _, current := range samples {
+		if err := encoder.Encode(current); err != nil {
+			return fmt.Errorf("write soak report %s in %s: %w", name, directory, err)
+		}
+	}
+	return nil
 }
