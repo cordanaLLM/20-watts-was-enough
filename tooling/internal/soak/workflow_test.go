@@ -17,8 +17,11 @@ const workflowPath = "../../../.github/workflows/soak.yml"
 var (
 	workflowDurationPattern = regexp.MustCompile(`(?m)^\s+` + DurationVariable + `: (\S+)\s*$`)
 	workflowTimeoutPattern  = regexp.MustCompile(`go -C tooling test .*-timeout (\S+) `)
-	soakReportPattern       = regexp.MustCompile(`RunTest\(t, config, "([^"]+\.jsonl)"`)
-	workflowReportsPattern  = regexp.MustCompile(`(?m)^\s*for report in ([^\n;]+); do\s*$`)
+	// soakReportPattern assumes consumer soak tests pass the report name as
+	// a string literal to RunTest(t, config, ...); consumerReports refuses
+	// any other call form.
+	soakReportPattern      = regexp.MustCompile(`RunTest\(t, config, "([^"]+\.jsonl)"`)
+	workflowReportsPattern = regexp.MustCompile(`(?m)^\s*for report in ([^\n;]+); do\s*$`)
 )
 
 // TestWorkflowDurationsFitBounds keeps the scheduled workflow's one fixed
@@ -71,8 +74,12 @@ func TestWorkflowRequiresEveryReport(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, match := range soakReportPattern.FindAllStringSubmatch(string(body), -1) {
-			reports[match[1]] = true
+		names, err := consumerReports(path, string(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, name := range names {
+			reports[name] = true
 		}
 	}
 	if len(reports) == 0 {
@@ -85,6 +92,46 @@ func TestWorkflowRequiresEveryReport(t *testing.T) {
 	if err := workflowReportMismatch(string(body), reports); err != nil {
 		t.Fatalf("%s: %v", workflowPath, err)
 	}
+}
+
+// TestWorkflowRejectsNonLiteralReport pins the negative case: a consumer call
+// without a literal report name fails extraction and names its source path.
+func TestWorkflowRejectsNonLiteralReport(t *testing.T) {
+	body := `err = soak.RunTest(t, config, reportName, func(ctx context.Context, _ int) error {`
+	_, err := consumerReports("consumer/soak_test.go", body)
+	if err == nil || !strings.Contains(err.Error(), "consumer/soak_test.go: 1 RunTest calls, 0 with a literal report name") {
+		t.Fatalf("consumerReports() = %v, want source path and nonliteral report diagnostic", err)
+	}
+}
+
+// TestConsumerReportsReadsLiteralNames pins the positive case: two literal
+// report names are extracted in source order without an error.
+func TestConsumerReportsReadsLiteralNames(t *testing.T) {
+	body := `soak.RunTest(t, config, "a.jsonl", f)
+soak.RunTest(t, config, "b.jsonl", f)`
+	names, err := consumerReports("consumer/soak_test.go", body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(names) != 2 || names[0] != "a.jsonl" || names[1] != "b.jsonl" {
+		t.Fatalf("consumerReports() = %q, want [a.jsonl b.jsonl]", names)
+	}
+}
+
+// consumerReports returns, in source order, the report names a consumer soak
+// test passes to RunTest. It refuses the file, naming path, when any RunTest
+// call does not pass its report as a string literal, so a drifted call fails
+// here instead of shrinking the set the workflow is compared with.
+func consumerReports(path, body string) ([]string, error) {
+	matches := soakReportPattern.FindAllStringSubmatch(body, -1)
+	if calls := strings.Count(body, "RunTest("); calls != len(matches) {
+		return nil, fmt.Errorf("%s: %d RunTest calls, %d with a literal report name; pass the report as a string literal: RunTest(t, config, \"<name>.jsonl\", ...)", path, calls, len(matches))
+	}
+	var names []string
+	for _, match := range matches {
+		names = append(names, match[1])
+	}
+	return names, nil
 }
 
 // TestWorkflowRejectsMissingReport pins the negative case: a workflow missing
