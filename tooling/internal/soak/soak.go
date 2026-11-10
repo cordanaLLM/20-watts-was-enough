@@ -112,6 +112,8 @@ func pace(ctx context.Context, started time.Time, interval time.Duration) {
 	}
 }
 
+// validateConfig rejects missing execution inputs and invalid time or iteration
+// bounds before the loop allocates samples or invokes the callback.
 func validateConfig(ctx context.Context, config Config, iterate func(context.Context, int) error) error {
 	if ctx == nil {
 		return errors.New("context is required")
@@ -125,6 +127,8 @@ func validateConfig(ctx context.Context, config Config, iterate func(context.Con
 	return nil
 }
 
+// runIteration gives the callback a bounded context and returns its error or
+// context failure, so an expired iteration cannot count as a successful sample.
 func runIteration(parent context.Context, config Config, index int, iterate func(context.Context, int) error) error {
 	iteration, cancel := context.WithTimeout(parent, config.IterationTimeout)
 	defer cancel()
@@ -137,6 +141,8 @@ func runIteration(parent context.Context, config Config, index int, iterate func
 	return nil
 }
 
+// sample returns process resources after garbage collection and watched entry
+// counts, refusing a partial sample if either filesystem measurement fails.
 func sample(index int, watched []string) (Sample, error) {
 	runtime.GC()
 	var memory runtime.MemStats
@@ -159,6 +165,8 @@ func CheckPlatformSupport() error {
 	return err
 }
 
+// countLeftovers totals immediate entries in watched directories, returning an
+// error naming any unreadable directory rather than an incomplete count.
 func countLeftovers(directories []string) (int, error) {
 	total := 0
 	for _, directory := range directories {
@@ -193,8 +201,12 @@ func Verdict(samples []Sample, allowance Allowance) error {
 	return growthError(warmup, tail, allowance)
 }
 
+// windowSize returns the sample fraction with a minimum of three, keeping
+// verdict windows large enough to disregard isolated resource spikes.
 func windowSize(count, divisor int) int { return max(minimumWindow, count/divisor) }
 
+// growthError returns all resource metrics whose sustained tail growth exceeds
+// their allowances, or nil when every metric stays within its bound.
 func growthError(warmup, tail []Sample, allowance Allowance) error {
 	var findings []string
 	findings = appendGrowth(findings, "open files", warmup, tail, func(s Sample) int { return s.OpenFiles }, allowance.OpenFiles)

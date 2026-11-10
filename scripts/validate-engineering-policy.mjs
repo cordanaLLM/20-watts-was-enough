@@ -441,6 +441,11 @@ export function validateScheduledSoakWorkflowObject(
   if (JSON.stringify(names) !== JSON.stringify(["schedule", "workflow_dispatch"])) {
     return [`${relativePath}: scheduled soak may run only on schedule and workflow_dispatch`];
   }
+  // Checkov CKV_GHA_7: a manual run takes no inputs, so it soaks for the same fixed
+  // duration the schedule does.
+  if (triggers.workflow_dispatch?.inputs !== undefined) {
+    return [`${relativePath}: scheduled soak workflow_dispatch must take no inputs`];
+  }
   return [];
 }
 

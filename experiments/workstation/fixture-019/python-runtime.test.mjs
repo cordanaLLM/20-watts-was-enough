@@ -16,10 +16,13 @@ import { verifiedFixture019Python } from "./test-helpers.mjs";
 
 const fixtureRoot = path.dirname(fileURLToPath(import.meta.url));
 
+// readLock returns the pinned fixture environment for runtime acceptance and refusal tests.
 async function readLock() {
   return JSON.parse(await readFile(path.join(fixtureRoot, "python-environment.lock.json"), "utf8"));
 }
 
+// lockedRecord returns a worker runtime record matching the lock and required little-endian
+// byte order, giving tests a valid baseline for individual field mismatches.
 function lockedRecord(lock) {
   return {
     python_implementation: lock.python_implementation,
@@ -44,7 +47,8 @@ test("a relative interpreter path is refused with the variable name", () => {
   for (const relative of ["python3", path.join("venv", "bin", "python"), `.${path.sep}python`]) {
     assert.throws(
       () => fixture019PythonCommand({ [FIXTURE_019_PYTHON_VARIABLE]: relative }),
-      new RegExp(`^Error: ${FIXTURE_019_PYTHON_VARIABLE} must be an absolute interpreter path`, "u"),
+      (error) => error instanceof Error
+        && error.message.startsWith(`${FIXTURE_019_PYTHON_VARIABLE} must be an absolute interpreter path`),
     );
   }
 });
@@ -116,6 +120,8 @@ async function withInterpreterVariable(value, body) {
   }
 }
 
+// runtimeDiffers returns the expected refusal prefix for a stub reporting CPython 3.14.9,
+// letting failure tests pin both the interpreter identity and the reported runtime.
 function runtimeDiffers(stub) {
   return `Fixture 019 runtime differs from python-environment.lock.json: ${stub} reports CPython 3.14.9`;
 }

@@ -678,6 +678,14 @@ test("scheduled soak workflow stays outside pull-request and push gates", () => 
   assert.deepEqual(validateScheduledSoakWorkflowObject(changed), [
     ".github/workflows/soak.yml: scheduled soak may run only on schedule and workflow_dispatch",
   ]);
+  const withInputs = structuredClone(valid);
+  withInputs.on.workflow_dispatch = { inputs: { duration: { type: "choice", options: ["5m", "25m"] } } };
+  assert.deepEqual(validateScheduledSoakWorkflowObject(withInputs), [
+    ".github/workflows/soak.yml: scheduled soak workflow_dispatch must take no inputs",
+  ]);
+  const emptyDispatch = structuredClone(valid);
+  emptyDispatch.on.workflow_dispatch = {};
+  assert.deepEqual(validateScheduledSoakWorkflowObject(emptyDispatch), []);
 });
 
 test("superseded pull-request runs cancel on branches while main runs never cancel", () => {

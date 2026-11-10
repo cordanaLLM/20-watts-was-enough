@@ -56,6 +56,8 @@ func Requested() (time.Duration, string, error) {
 	return duration, "", nil
 }
 
+// parseDuration accepts soak durations from 10 seconds through 25 minutes,
+// naming the environment variable when parsing or range validation fails.
 func parseDuration(value string) (time.Duration, error) {
 	duration, err := time.ParseDuration(value)
 	if err != nil {

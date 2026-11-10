@@ -10,10 +10,14 @@ const workerPath = path.join(fixtureRoot, "worker.py");
 const pythonTimeoutMilliseconds = 10 * 60 * 1000;
 const verifiedCommands = new Set();
 
+// readEnvironmentLock returns the fixture's pinned Python environment so test interpreters
+// can be checked against the same lock as the runner.
 function readEnvironmentLock() {
   return JSON.parse(readFileSync(path.join(fixtureRoot, "python-environment.lock.json"), "utf8"));
 }
 
+// execPython returns interpreter stdout from the fixture directory with a ten-minute
+// timeout, propagating subprocess failures to the calling test.
 function execPython(command, args, input) {
   return execFileSync(command, args, {
     cwd: fixtureRoot,
@@ -24,6 +28,8 @@ function execPython(command, args, input) {
   });
 }
 
+// parseWorkerResponse returns a successful worker result and rejects malformed JSON or a
+// worker failure so tests cannot treat an error response as output.
 function parseWorkerResponse(output) {
   const response = JSON.parse(output.trim());
   if (response.ok !== true) throw new Error(response.error);
@@ -42,10 +48,14 @@ export function verifiedFixture019Python(environment = process.env) {
   return command;
 }
 
+// runFixture019Python returns stdout from a lock-verified interpreter, allowing tests to
+// execute fixture Python code under the runner's runtime contract.
 export function runFixture019Python(args, input) {
   return execPython(verifiedFixture019Python(), args, input);
 }
 
+// workerRequest sends one JSON request through a verified interpreter and returns its
+// successful result, propagating interpreter and worker failures to the test.
 export function workerRequest(request) {
   return parseWorkerResponse(runFixture019Python(["-B", workerPath], `${JSON.stringify(request)}\n`));
 }

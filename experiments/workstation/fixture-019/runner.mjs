@@ -320,6 +320,8 @@ async function withPythonWorker(action) {
   return result;
 }
 
+// failureAfterClosing returns the action error after closing the worker, combining a close
+// failure with it while preserving the action error first and as the cause.
 async function failureAfterClosing(worker, error) {
   try {
     await worker.close();
@@ -333,6 +335,8 @@ async function failureAfterClosing(worker, error) {
   }
 }
 
+// verifyWorkerEnvironment returns the worker's runtime record only if it matches the loaded
+// environment lock, refusing a mismatched runtime before execution or analysis.
 async function verifyWorkerEnvironment(inputs, worker) {
   const actual = await worker.request({ action: "environment" });
   return assertFixture019Runtime(actual, inputs.environment, worker.command);
@@ -397,6 +401,9 @@ function runIdentity(inputs) {
   return { ...body, run_id: sha256Hex(canonicalize(body)) };
 }
 
+// executeFixture019 runs or resumes the profile's work units under the output-directory lock
+// with a lock-verified interpreter, and returns the directory and the complete run record.
+// The record stays claim-ineligible and carries no scientific result.
 export async function executeFixture019({
   profile,
   output,
@@ -448,6 +455,8 @@ export async function executeFixture019({
   }
 }
 
+// openRunLedger opens the checkpoint ledger bound to the supplied run identity and Fixture
+// 019 record contract, so resume uses validated records and work-unit keys.
 function openRunLedger(rawPath, checkpointPath, identity) {
   return openCheckpointLedger({
     artifact: "fixture-019",
@@ -461,6 +470,8 @@ function openRunLedger(rawPath, checkpointPath, identity) {
   });
 }
 
+// prepareRunDirectory requires the output's existence to match the resume request and
+// rejects unsafe paths or non-regular run files before execution can write evidence.
 async function prepareRunDirectory(directory, resume) {
   await assertSafeOutputPath(directory);
   await mkdir(path.dirname(directory), { recursive: true });
@@ -481,6 +492,8 @@ async function prepareRunDirectory(directory, resume) {
   ].map((name) => assertRegularOutputFile(path.join(directory, name), { allowMissing: true })));
 }
 
+// simulateRemainingUnits runs only unfinished work, refuses responses for another unit, and
+// checkpoints each appended event so subsequent resumes can identify completed work.
 async function simulateRemainingUnits(worker, ledger, units) {
   const remaining = remainingWorkUnits(units, ledger.completedWorkKeys(), workUnitKey);
   for (const unit of remaining) {
@@ -608,6 +621,8 @@ async function analyzeContrasts(worker, { directory, inputs, run, contrasts }) {
   return statistical;
 }
 
+// analysisChecks returns diagnostic pass flags for population, record invariants, seed-pack
+// unavailability and absent energy measurements, allowing callers to judge the run.
 function analysisChecks(run, raw) {
   return {
     complete_work_unit_population: raw.records.length === run.expected_work_units,
@@ -624,6 +639,8 @@ function analysisChecks(run, raw) {
   };
 }
 
+// scientificEligibility returns world diversity, contrast variation and confirmation
+// blockers, keeping confirmation ineligible while the private seed packs are unavailable.
 function scientificEligibility(contrasts, base) {
   const contrastMean = contrasts.reduce((sum, value) => sum + value, 0) / contrasts.length;
   const contrastSampleSd = Math.sqrt(contrasts.reduce(
@@ -647,6 +664,8 @@ function scientificEligibility(contrasts, base) {
   };
 }
 
+// computeFixture019Analysis returns diagnostics recomputed from a verified complete run and
+// matching worker runtime, preserving the prohibition on scientific and energy claims.
 export async function computeFixture019Analysis(output, executionIdentity = {}) {
   const directory = outputDirectory(output);
   const { run, raw, inputs } = await loadVerifiedRun(directory, executionIdentity);
@@ -730,6 +749,8 @@ export async function validateFixture019(output, executionIdentity = {}) {
   return { valid: true, decision: expected.decision, claim_eligible: false, scientific_result: false };
 }
 
+// prepareFixture019 validates profile inputs and the worker runtime, returning environment
+// and work-count readiness metadata without granting claim eligibility.
 export async function prepareFixture019(profile) {
   const inputs = await loadInputs(profile);
   const environment = await withPythonWorker((worker) => verifyWorkerEnvironment(inputs, worker));

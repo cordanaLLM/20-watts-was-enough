@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+// TestParseDurationBounds pins both inclusive duration limits and refusal of
+// malformed, negative, and out-of-range requests.
 func TestParseDurationBounds(t *testing.T) {
 	cases := []struct {
 		value string
@@ -39,6 +41,8 @@ func TestParseDurationBounds(t *testing.T) {
 	}
 }
 
+// TestRequestedSkipsWhenUnset pins a zero duration and an explicit skip reason
+// when no soak duration is requested.
 func TestRequestedSkipsWhenUnset(t *testing.T) {
 	t.Setenv(DurationVariable, "")
 	duration, skip, err := Requested()
@@ -47,6 +51,8 @@ func TestRequestedSkipsWhenUnset(t *testing.T) {
 	}
 }
 
+// TestRequestedRejectsInvalidDuration pins an out-of-range request as an error
+// rather than a platform skip.
 func TestRequestedRejectsInvalidDuration(t *testing.T) {
 	t.Setenv(DurationVariable, "2h")
 	if _, _, err := Requested(); err == nil || !strings.Contains(err.Error(), "outside 10s..25m0s") {
@@ -54,6 +60,8 @@ func TestRequestedRejectsInvalidDuration(t *testing.T) {
 	}
 }
 
+// TestRequestedReturnsDurationOrPlatformSkip pins a valid duration on supported
+// platforms and a skip reason naming an unsupported platform.
 func TestRequestedReturnsDurationOrPlatformSkip(t *testing.T) {
 	t.Setenv(DurationVariable, "15s")
 	duration, skip, err := Requested()
@@ -71,6 +79,8 @@ func TestRequestedReturnsDurationOrPlatformSkip(t *testing.T) {
 	}
 }
 
+// TestWriteReportFromEnvironmentWithoutDirectoryWritesNothing pins a successful
+// no-op when no report directory is configured.
 func TestWriteReportFromEnvironmentWithoutDirectoryWritesNothing(t *testing.T) {
 	t.Setenv(ReportDirVariable, "")
 	if err := WriteReportFromEnvironment("unused.jsonl", fixedSamples(1)); err != nil {
@@ -78,16 +88,15 @@ func TestWriteReportFromEnvironmentWithoutDirectoryWritesNothing(t *testing.T) {
 	}
 }
 
+// TestWriteReportFromEnvironmentWritesIntoExistingDirectory pins one valid JSON
+// line per sample, preserving iteration order in an existing report directory.
 func TestWriteReportFromEnvironmentWritesIntoExistingDirectory(t *testing.T) {
 	directory := t.TempDir()
 	t.Setenv(ReportDirVariable, directory)
 	if err := WriteReportFromEnvironment("samples.jsonl", fixedSamples(3)); err != nil {
 		t.Fatal(err)
 	}
-	body, err := os.ReadFile(filepath.Join(directory, "samples.jsonl"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	body := readReport(t, directory, "samples.jsonl")
 	lines := strings.Split(strings.TrimSuffix(string(body), "\n"), "\n")
 	if len(lines) != 3 {
 		t.Fatalf("JSONL lines = %d, want 3", len(lines))
@@ -100,6 +109,8 @@ func TestWriteReportFromEnvironmentWritesIntoExistingDirectory(t *testing.T) {
 	}
 }
 
+// TestWriteReportFromEnvironmentRefusesMissingDirectory pins an explicit error
+// and refusal to create a missing report directory.
 func TestWriteReportFromEnvironmentRefusesMissingDirectory(t *testing.T) {
 	directory := filepath.Join(t.TempDir(), "nested", "soak")
 	t.Setenv(ReportDirVariable, directory)
@@ -112,6 +123,8 @@ func TestWriteReportFromEnvironmentRefusesMissingDirectory(t *testing.T) {
 	}
 }
 
+// TestWriteReportFromEnvironmentRefusesRelativeDirectory pins refusal of a
+// report location whose meaning depends on the working directory.
 func TestWriteReportFromEnvironmentRefusesRelativeDirectory(t *testing.T) {
 	// A writer that accepted the relative path would write under the working
 	// directory, so the test moves it out of the source tree.
@@ -123,6 +136,8 @@ func TestWriteReportFromEnvironmentRefusesRelativeDirectory(t *testing.T) {
 	}
 }
 
+// TestWriteReportFromEnvironmentRefusesNamesOutsideDirectory pins rejection of
+// parent, absolute, and available symlink escapes without writing outside.
 func TestWriteReportFromEnvironmentRefusesNamesOutsideDirectory(t *testing.T) {
 	parent := t.TempDir()
 	directory := filepath.Join(parent, "reports")
@@ -153,6 +168,8 @@ func TestWriteReportFromEnvironmentRefusesNamesOutsideDirectory(t *testing.T) {
 	}
 }
 
+// TestRunWritesSamplesBeforeFailingVerdict pins retention of every collected
+// sample in the report even when leftover growth fails the verdict.
 func TestRunWritesSamplesBeforeFailingVerdict(t *testing.T) {
 	requireSampling(t)
 	directory := t.TempDir()
@@ -166,15 +183,14 @@ func TestRunWritesSamplesBeforeFailingVerdict(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "leftovers warmup max 3, tail min 10, growth 7, allowance 0") {
 		t.Fatalf("Run() error = %v, want leftovers growth", err)
 	}
-	body, readErr := os.ReadFile(filepath.Join(directory, "leak.jsonl"))
-	if readErr != nil {
-		t.Fatal(readErr)
-	}
+	body := readReport(t, directory, "leak.jsonl")
 	if lines := strings.Count(string(body), "\n"); lines != len(samples) || lines != 12 {
 		t.Fatalf("JSONL lines = %d, samples = %d; want 12", lines, len(samples))
 	}
 }
 
+// TestRunPassesCleanLoop pins a successful run with the requested sample count
+// when iterations retain no growing resources and reporting is disabled.
 func TestRunPassesCleanLoop(t *testing.T) {
 	requireSampling(t)
 	t.Setenv(ReportDirVariable, "")
