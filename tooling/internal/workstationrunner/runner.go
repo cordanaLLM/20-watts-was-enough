@@ -53,6 +53,9 @@ var (
 const MaximumSuiteDuration = ((maximumSuiteJobs + defaultConcurrency - 1) / defaultConcurrency) *
 	(maximumJobDuration + maximumCommandWaitDelay)
 
+// allowedEnvironmentNames is the closed set of variables a suite job
+// inherits. TWENTYW_FIXTURE_019_PYTHON names the lock-matching interpreter
+// for the Fixture 019 tests (experiments/workstation/fixture-019/README.md).
 var allowedEnvironmentNames = map[string]struct{}{
 	"APPDATA": {}, "CI": {}, "COMSPEC": {}, "DBUS_SESSION_BUS_ADDRESS": {},
 	"FORCE_COLOR": {}, "HOME": {}, "LANG": {}, "LC_ALL": {}, "LC_CTYPE": {},
@@ -60,6 +63,7 @@ var allowedEnvironmentNames = map[string]struct{}{
 	"SYSTEMROOT": {}, "TEMP": {}, "TMP": {}, "TMPDIR": {}, "TZ": {},
 	"HOMEDRIVE": {}, "HOMEPATH": {}, "SYSTEMDRIVE": {}, "USERPROFILE": {},
 	"WINDIR": {}, "XDG_CACHE_HOME": {}, "XDG_RUNTIME_DIR": {},
+	"TWENTYW_FIXTURE_019_PYTHON": {},
 }
 
 type job struct {

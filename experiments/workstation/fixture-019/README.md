@@ -53,12 +53,13 @@ npm run workstation:fixture-019 -- validate --output experiments/workstation/run
 
 The runner and the fixture tests spawn `python` from `PATH`. Set
 `TWENTYW_FIXTURE_019_PYTHON` to an absolute interpreter path to use another
-one; a relative path is refused. Either interpreter must report the CPython,
-NumPy and bit-generator versions in `python-environment.lock.json`, or the
-runner and the tests stop and name what it reported and what the lock pins.
-A virtual environment on that CPython version with
-`pip install --require-hashes -r requirements-ci.txt` from the repository
-root matches the lock.
+one; a relative path is refused. The bounded workstation suite behind
+`npm test` passes this variable to its jobs. Either interpreter must report
+the CPython, NumPy and bit-generator versions in
+`python-environment.lock.json`, or the runner and the tests stop and name
+what it reported and what the lock pins. A virtual environment on that
+CPython version with `pip install --require-hashes -r requirements-ci.txt`
+from the repository root matches the lock.
 
 The 256-work-unit development profile is:
 
