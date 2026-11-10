@@ -56,6 +56,7 @@ import {
   validateJavaScriptRuntimeWorkflowObject,
   validateLocalHookObject,
   validateRepositoryMetadataSyncWorkflowObject,
+  validateScheduledSoakWorkflowObject,
   validateNodeSetupWorkflowObject,
   validateNodeVersionFile,
   validateNpmRuntimeLock,
@@ -665,6 +666,17 @@ test("workflow validation rejects ambient writes, unbounded concurrency, and cre
     "workflow.yml: top-level permissions must not grant write access",
     "workflow.yml: concurrency must define a group and explicit cancel-in-progress boolean",
     "workflow.yml: job unsafe step 0 must set checkout persist-credentials to false",
+  ]);
+});
+
+test("scheduled soak workflow stays outside pull-request and push gates", () => {
+  const valid = workflow("soak");
+  assert.deepEqual(validateWorkflowObject(valid, ".github/workflows/soak.yml"), []);
+  assert.deepEqual(validateScheduledSoakWorkflowObject(valid), []);
+  const changed = structuredClone(valid);
+  changed.on.pull_request = {};
+  assert.deepEqual(validateScheduledSoakWorkflowObject(changed), [
+    ".github/workflows/soak.yml: scheduled soak may run only on schedule and workflow_dispatch",
   ]);
 });
 

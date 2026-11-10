@@ -1,0 +1,58 @@
+name: Scheduled soak
+
+on:
+  schedule:
+    - cron: '40 2 * * 3'
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: Soak duration
+        required: true
+        type: choice
+        default: 25m
+        options:
+          - 5m
+          - 15m
+          - 25m
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  soak:
+    name: Workstation runner and book renderer soak
+    runs-on: ubuntu-26.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use Go from tooling/go.mod
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: tooling/go.mod
+          cache-dependency-path: tooling/go.sum
+      - name: Run bounded soak loops
+        timeout-minutes: 35
+        env:
+          TWENTYW_SOAK_DURATION: ${{ inputs.duration || '25m' }}
+          TWENTYW_SOAK_REPORT_DIR: ${{ runner.temp }}/soak
+        run: |
+          set -euo pipefail
+          mkdir -p "$TWENTYW_SOAK_REPORT_DIR"
+          go -C tooling test -count=1 -timeout 30m -run '^TestSoak' ./internal/workstationrunner ./internal/pdfrender
+      - name: Upload soak samples
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: soak-samples
+          path: ${{ runner.temp }}/soak/*.jsonl
+          if-no-files-found: warn
+          retention-days: 14

@@ -271,6 +271,10 @@ TypeScript validation, linting, site tests, documentation, source boundaries,
 coverage, taxonomies, mathematics, workstation contracts and tests, readiness,
 the application build, and publication-artifact validation.
 
+The scheduled soak workflow runs bounded workstation-runner and book-renderer
+loops each Wednesday at 02:40 UTC; maintainers can also dispatch 5, 15 or 25
+minutes. Run a short local soak with `TWENTYW_SOAK_DURATION=2m go -C tooling test -run '^TestSoak' ./internal/workstationrunner ./internal/pdfrender`.
+
 Regenerate and validate the PDF after changing its source set or renderer:
 
 ```bash
