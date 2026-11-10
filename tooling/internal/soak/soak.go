@@ -67,7 +67,9 @@ func Run(ctx context.Context, config Config, report string, iterate func(context
 	return samples, Verdict(samples, DefaultAllowance(samples, config.MinIterations))
 }
 
-// Loop runs iterate under duration, count, and per-iteration bounds.
+// Loop runs iterate under duration, count, and per-iteration bounds. Duration
+// is checked between iterations; the last started iteration may run past
+// Duration by up to IterationTimeout, covered by FinishMargin in environment.go.
 func Loop(ctx context.Context, config Config, iterate func(context.Context, int) error) ([]Sample, error) {
 	if err := validateConfig(ctx, config, iterate); err != nil {
 		return nil, err
@@ -79,10 +81,7 @@ func Loop(ctx context.Context, config Config, iterate func(context.Context, int)
 	samples := make([]Sample, 0, config.MaxIterations)
 	for index := 1; index <= config.MaxIterations && bounded.Err() == nil; index++ {
 		iterationStarted := time.Now()
-		if err := runIteration(bounded, config, index, iterate); err != nil {
-			if errors.Is(bounded.Err(), context.DeadlineExceeded) {
-				break
-			}
+		if err := runIteration(ctx, config, index, iterate); err != nil {
 			return samples, fmt.Errorf("iteration %d: %w", index, err)
 		}
 		sample, err := sample(index, config.Watched)
@@ -94,6 +93,9 @@ func Loop(ctx context.Context, config Config, iterate func(context.Context, int)
 			break
 		}
 		pace(bounded, iterationStarted, config.Interval)
+	}
+	if err := ctx.Err(); err != nil {
+		return samples, fmt.Errorf("soak cancelled after iteration %d: %w", len(samples), err)
 	}
 	return samples, nil
 }

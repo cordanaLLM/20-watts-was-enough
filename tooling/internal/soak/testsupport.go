@@ -9,11 +9,11 @@ import (
 // before its verdict counts; a shorter run fails instead of passing on noise.
 const minimumTestIterations = 20
 
-// StartTest prepares one soak test. It skips t when no soak is requested or
-// the platform cannot sample open files, points TMPDIR at a fresh directory
-// that t removes, and returns a Config with the repository defaults that
-// watches that directory. The caller appends its own watched directories.
-// An error means the requested duration is invalid.
+// StartTest prepares one soak test. It skips t only when no soak is requested,
+// points TMPDIR at a fresh directory that t removes, and returns a Config with
+// the repository defaults that watches that directory. The caller appends its
+// own watched directories. An error means the requested duration is invalid
+// or the platform cannot sample open files.
 func StartTest(t testing.TB) (Config, error) {
 	t.Helper()
 	duration, skip, err := Requested()

@@ -39,9 +39,16 @@ const (
 )
 
 // Requested returns the soak duration from the environment. A non-empty
-// skip reason means the soak was not requested or this platform cannot
-// sample open files; an error means the request itself is invalid.
+// skip reason means the soak was not requested; an error means the request
+// is invalid or this platform cannot sample open files, so a requested soak
+// fails instead of skipping.
 func Requested() (time.Duration, string, error) {
+	return requested(CheckPlatformSupport)
+}
+
+// requested is Requested with the platform check passed in, so the
+// unsupported-platform refusal is testable on a supported platform.
+func requested(platformSupport func() error) (time.Duration, string, error) {
 	value := os.Getenv(DurationVariable)
 	if value == "" {
 		return 0, DurationVariable + " is unset", nil
@@ -50,8 +57,8 @@ func Requested() (time.Duration, string, error) {
 	if err != nil {
 		return 0, "", err
 	}
-	if err := CheckPlatformSupport(); err != nil {
-		return 0, err.Error(), nil
+	if err := platformSupport(); err != nil {
+		return 0, "", fmt.Errorf("%s is set but this platform cannot sample open files: %w", DurationVariable, err)
 	}
 	return duration, "", nil
 }

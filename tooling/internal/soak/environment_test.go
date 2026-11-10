@@ -60,22 +60,34 @@ func TestRequestedRejectsInvalidDuration(t *testing.T) {
 	}
 }
 
-// TestRequestedReturnsDurationOrPlatformSkip pins a valid duration on supported
-// platforms and a skip reason naming an unsupported platform.
-func TestRequestedReturnsDurationOrPlatformSkip(t *testing.T) {
+// TestRequestedReturnsDurationOrPlatformError pins the positive case on supported
+// platforms and the negative case: an error naming an unsupported platform.
+func TestRequestedReturnsDurationOrPlatformError(t *testing.T) {
 	t.Setenv(DurationVariable, "15s")
 	duration, skip, err := Requested()
-	if err != nil {
-		t.Fatal(err)
-	}
 	if CheckPlatformSupport() != nil {
-		if !strings.Contains(skip, runtime.GOOS) {
-			t.Fatalf("Requested() skip = %q, want platform named", skip)
+		if err == nil || !strings.Contains(err.Error(), runtime.GOOS) || skip != "" {
+			t.Fatalf("Requested() = %s, %q, %v, want platform error and no skip", duration, skip, err)
 		}
 		return
 	}
+	if err != nil {
+		t.Fatal(err)
+	}
 	if duration != 15*time.Second || skip != "" {
 		t.Fatalf("Requested() = %s, %q", duration, skip)
+	}
+}
+
+// TestRequestedRefusesUnsupportedPlatform pins the negative case on every
+// platform: a valid requested duration with a failing platform check is an
+// error naming the variable and the cause, never a skip.
+func TestRequestedRefusesUnsupportedPlatform(t *testing.T) {
+	t.Setenv(DurationVariable, "15s")
+	planted := errors.New("planted: open files not countable")
+	duration, skip, err := requested(func() error { return planted })
+	if !errors.Is(err, planted) || !strings.Contains(err.Error(), DurationVariable+" is set") || skip != "" || duration != 0 {
+		t.Fatalf("requested(unsupported) = %s, %q, %v; want the platform error and no skip", duration, skip, err)
 	}
 }
 

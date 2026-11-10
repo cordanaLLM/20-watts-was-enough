@@ -213,6 +213,62 @@ func TestLoopStopsAtDuration(t *testing.T) {
 	}
 }
 
+// TestLoopReportsLastIterationError pins the boundary case: an iteration error
+// is reported even when the overall duration expires during that iteration.
+func TestLoopReportsLastIterationError(t *testing.T) {
+	requireSampling(t)
+	config := testConfig(1000)
+	config.Duration = 200 * time.Millisecond
+	_, err := Loop(context.Background(), config, func(_ context.Context, index int) error {
+		if index == 1 {
+			time.Sleep(250 * time.Millisecond)
+			return errors.New("planted")
+		}
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "iteration 1: planted") {
+		t.Fatalf("Loop() error = %v, want last iteration error", err)
+	}
+}
+
+// TestLoopRefusesCallerCancellation pins the negative case: a caller that
+// cancels between iterations, while Loop waits out the interval, fails the
+// soak instead of ending it as a clean stop.
+func TestLoopRefusesCallerCancellation(t *testing.T) {
+	requireSampling(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	config := testConfig(10)
+	config.Duration = 10 * time.Second
+	config.Interval = time.Minute
+	_, err := Loop(ctx, config, func(_ context.Context, index int) error {
+		if index == 1 {
+			time.AfterFunc(50*time.Millisecond, cancel)
+		}
+		return nil
+	})
+	if !errors.Is(err, context.Canceled) || !strings.Contains(err.Error(), "soak cancelled after iteration 1") {
+		t.Fatalf("Loop() error = %v, want cancellation after iteration 1", err)
+	}
+}
+
+// TestLoopRefusesCancellationDuringIteration pins the boundary case: a caller
+// that cancels while an iteration runs fails that iteration.
+func TestLoopRefusesCancellationDuringIteration(t *testing.T) {
+	requireSampling(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_, err := Loop(ctx, testConfig(10), func(_ context.Context, index int) error {
+		if index == 3 {
+			cancel()
+		}
+		return nil
+	})
+	if !errors.Is(err, context.Canceled) || !strings.Contains(err.Error(), "iteration 3:") {
+		t.Fatalf("Loop() error = %v, want iteration 3 cancelled", err)
+	}
+}
+
 // TestLoopPacesIterationsByInterval pins the sample ceiling imposed by spacing
 // iteration starts, including a possible start at the duration boundary.
 func TestLoopPacesIterationsByInterval(t *testing.T) {
