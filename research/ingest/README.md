@@ -83,24 +83,28 @@ are dispatched.
 
 ## Recovering from refused links
 
-The ingester fails with `Invalid source_links` when a lead already in
-`leads.json` holds a link the current extractor would not produce, such as a
-link written by an older extractor. Nothing is written and the watermark stays
-unchanged. Before failing, the ingester prints up to 20 refused links to
-stderr. A refused URL line starts with the stable key (`owner/repo#number`) of
-the issue that holds it; that issue's last update bounds `--watermark`. A
-refused canonical-key line names the key, whose entry in `leads.json` lists its
-origins. The extractor never produces a value the check refuses, and a seeded
-fuzz test checks this, so a refusal names a value already in the committed
-`leads.json`. A refused value that is not there came from a newly fetched issue:
-that is an extractor defect to fix in `scripts/research-watch-ingest.mjs` with a
-test, because re-fetching the unchanged issue fails the same way. URLs ending in
+The ingester fails with `Invalid source_links` when a retained lead holds a
+link the current extractor would not produce, such as a link written by an
+older extractor. Nothing is written and the watermark stays unchanged. Before
+failing, the ingester prints up to 20 refused links to stderr. A refused URL
+line starts with the stable key (`owner/repo#number`) of the issue that holds
+it; that issue's last update bounds `--watermark`. A refused canonical-key line
+names the key, whose catalog entry lists its origins. The extractor never
+produces a value the check refuses, and a seeded fuzz test checks this, so a
+refusal names a retained value, usually one in the committed `leads.json`.
+If a refused value is missing there, first check
+`.workingdir/ingest/private-leads.json`: retained private records move into the
+public catalog when their repository becomes public. Re-fetch the affected
+issue so its fresh record replaces the retained one. If re-fetching cannot
+restore it, remove only that origin from the private file. A value missing from
+both files came from a newly fetched issue; fix the extractor defect in
+`scripts/research-watch-ingest.mjs` with a test. URLs ending in
 an encoded backtick (`%60`), release tags that decode to a backtick or to a
 value ending in `%60`, and URLs whose normalised form leaves the extractor's URL
 grammar (for example when IDNA maps a host character to a quote or brace) are
 skipped during extraction, so re-fetching never re-creates those refused
 values. The publisher stops at the same check, so the daily run keeps failing
-until the committed catalog is repaired.
+until the catalog that holds the refused value is repaired.
 
 To repair it, run the ingester in a checkout of `main` with `GH_TOKEN` set and
 a `--watermark` earlier than the affected issue's last update. The issue is
@@ -115,10 +119,13 @@ the search and repository listing filter on it, while retained records are kept
 whatever their labels. If the affected issue lost the label, add it back before
 the re-fetch; it may be removed again once the regenerated catalog has landed.
 
-If the issue was deleted or the label cannot be restored, delete the entry that
-holds the refused value from `research/ingest/leads.json` in the same checkout,
-then run the re-fetch. The ingester rebuilds the catalog from the remaining
-records and every still-labelled issue.
+If the issue was deleted or the label cannot be restored, remove only the
+affected origin from `research/ingest/leads.json` in the same checkout. For a
+refused URL line, use its stable key to find the origin in the entry's
+`origins` array. For a refused canonical-key line, remove each origin whose
+`source_links` contains the value from which that key derives. Delete the entry
+only when it has no other origins. The ingester rebuilds its other fields from
+the remaining origins on the next run. Apply the same rule to the private file.
 
 Land the regenerated `research/ingest/leads.json` through a pull request; the
 next scheduled run starts from it.

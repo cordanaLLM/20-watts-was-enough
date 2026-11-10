@@ -14,9 +14,7 @@ const maximumText = 1_048_576;
 const maximumFileBytes = 128 * 1024 * 1024;
 const tiers = ["news", "paper", "release", "followed"];
 const linkFields = ["urls", "dois", "arxiv_ids", "release_tags"];
-const URL_CANDIDATE = String.raw`https?:\/\/(?:\[[0-9a-f:.]+\])?(?:[A-Za-z0-9\-._~:/?#@!$&'()*+,;=%]|[^\p{ASCII}\s\p{C}])*`;
-const URL_CANDIDATE_REGEX = new RegExp(URL_CANDIDATE, "giu");
-const WHOLE_URL_CANDIDATE_REGEX = new RegExp(`^(?:${URL_CANDIDATE})$`, "iu");
+const URL_CANDIDATE_REGEX = /https?:\/\/(?:\[[0-9a-f:.]+\])?(?:[A-Za-z0-9\-._~:/?#@!$&'()*+,;=%]|[^\p{ASCII}\s\p{C}])*/giu;
 const recordFields = [
   "stable_key", "node_id", "title", "url", "state", "visibility", "labels",
   "milestone_title", "created_at", "updated_at", "closed_at", "author_type",
@@ -134,6 +132,20 @@ function trimLink(value) {
 }
 
 /**
+ * True when the whole value is one extractor match. A match that equals the value starts at index 0, and the first
+ * match there is the longest one: `[` can only open the IPv6 group, and the rest is a greedy star over
+ * one-character alternatives with nothing after it. `matchAll` copies the regex, so the shared global regex keeps no
+ * `lastIndex` state.
+ *
+ * @param {string} value
+ * @returns {boolean}
+ */
+function matchesUrlGrammar(value) {
+  const [first] = value.matchAll(URL_CANDIDATE_REGEX);
+  return first?.[0] === value;
+}
+
+/**
  * Trim, parse and normalise a URL candidate until it is stable, at most 8 rounds, so every stored URL re-extracts to
  * itself. A candidate the URL parser rejects, or one that does not settle, is dropped rather than thrown. A URL ending
  * in an encoded backtick (`%60`) is also dropped because it cannot be told apart from the 2026-11-10 delimiter leak. A
@@ -149,7 +161,7 @@ function normalizeUrlCandidate(candidate) {
     value = trimLink(value);
     if (!URL.canParse(value)) return undefined;
     value = normalizedUrl(value);
-    if (leaksBacktick(value) || !WHOLE_URL_CANDIDATE_REGEX.test(value)) return undefined;
+    if (leaksBacktick(value) || !matchesUrlGrammar(value)) return undefined;
     if (trimLink(value) === value) return value;
   }
   return undefined;
@@ -159,7 +171,7 @@ function normalizeUrlCandidate(candidate) {
  * Extract normalised http(s) URLs from an issue body. ASCII characters follow RFC 3986 without `[` `]` (a bracketed
  * IPv6 host only right after `//`); any non-ASCII character is allowed except whitespace and `\p{C}` (controls and
  * format characters such as U+200B), as GitHub's GFM autolink does. Backticks, braces, pipes and quotes end a URL. The
- * grammar is shared with the whole-value check in `normalizeUrlCandidate`.
+ * grammar is shared with `matchesUrlGrammar`, the whole-value check in `normalizeUrlCandidate`.
  *
  * @param {string} body
  * @returns {string[]} sorted, unique

@@ -298,7 +298,9 @@ the exact diff; this file records why the project changed.
   A malformed URL is dropped, and a release URL with a malformed escape yields
   no release tag, instead of aborting the run. The ingester refuses to
   republish a retained lead whose stored links break these rules and prints up
-  to 20 of the refused links.
+  to 20 of the refused links. The recovery guide now covers a retained record
+  from a repository that turned public, and removes only the affected origin
+  instead of the whole entry.
 - PDF renderer base images are fetched in their own bounded phase before
   the image build: 10 minutes per attempt, 3 attempts per image, 30 minutes
   for the phase. A slow first fill after a digest change now fails naming

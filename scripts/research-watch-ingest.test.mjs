@@ -283,6 +283,18 @@ test("extractor output always passes the catalog check (seeded fuzz)", () => {
   assert.deepEqual(failures.slice(0, 3), []);
 });
 
+test("URL grammar check accepts exactly the values the extractor keeps", () => {
+  const bodies = seededFuzzBodies();
+  for (let bodyIndex = 0; bodyIndex < bodies.length; bodyIndex += 1) {
+    const urls = extractLinks(bodies[bodyIndex]).urls;
+    for (let urlIndex = 0; urlIndex < urls.length; urlIndex += 1) {
+      assert.deepEqual(extractLinks(urls[urlIndex]).urls, [urls[urlIndex]]);
+    }
+  }
+  assert.deepEqual(extractLinks("https://[::1]:8080/a").urls, ["https://[::1]:8080/a"]);
+  assert.deepEqual(extractLinks("https://a.test/x{y").urls, ["https://a.test/x"]);
+});
+
 test("compatibility forms in a URL host pass the catalog check", () => {
   const failures = [];
   for (const [first, last] of [[0xFE30, 0xFE6F], [0xFF01, 0xFFEF]]) {
