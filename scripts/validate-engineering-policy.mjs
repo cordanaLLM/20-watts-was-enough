@@ -4627,6 +4627,7 @@ export function validateFullCiFanOutCoverageObject(
 const TEST_FILE_PATTERN = /\.test\.(?:mjs|cjs|js|ts|tsx|mts|cts)$/u;
 const WORKSTATION_CATALOGUE_PATH = "tooling/internal/ciplan/workstation-catalogue.json";
 const SHELL_TOKEN_PATTERN = /"([^"]*)"|'([^']*)'|(&&|\|\||[;|&])|([^\s"';|&]+)/gu;
+const NODE_TEST_WRAPPERS = new Set(["scripts/run-in-loopback-netns.mjs"]);
 const NODE_VALUE_OPTIONS = new Set([
   "--test-name-pattern", "--test-skip-pattern", "--test-reporter",
   "--test-reporter-destination", "--test-concurrency", "--test-timeout",
@@ -4648,18 +4649,18 @@ function shellSegments(command) {
 }
 
 /**
- * Scan the prefix once, bounded by its word count, skipping node option values
- * and allowing a wrapper to introduce a later node executable.
+ * Require node first, admit at most one allow-listed wrapper, then scan options
+ * once, bounded by the prefix's word count, skipping separate option values.
  */
 function hasNodeTestPrefix(words, testIndex) {
-  let candidate = false;
-  for (let index = 0; index < testIndex; index += 1) {
+  if (words[0] !== "node") return false;
+  const wrapped = NODE_TEST_WRAPPERS.has(words[1]) && words[2] === "node";
+  for (let index = wrapped ? 3 : 1; index < testIndex; index += 1) {
     const word = words[index];
-    if (word === "node") candidate = true;
-    else if (candidate && NODE_VALUE_OPTIONS.has(word)) index += 1;
-    else if (!word.startsWith("-")) candidate = false;
+    if (NODE_VALUE_OPTIONS.has(word)) index += 1;
+    else if (!word.startsWith("-")) return false;
   }
-  return candidate;
+  return true;
 }
 
 /**

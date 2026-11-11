@@ -138,6 +138,7 @@ test("every test file is run by a script the test script reaches", () => {
 /** Format the unchanged orphan diagnostic for reachability fixtures. */
 const unreachableTestFile = (file) => `package.json: test file ${file} is run by no script reached from the test script`;
 
+/** Check runner prefixes and operand boundaries against every fixture row. */
 test("test file reachability counts only node test operands", () => {
   const a = "lib/a.test.mjs";
   const b = "lib/b.test.mjs";
@@ -147,6 +148,12 @@ test("test file reachability counts only node test operands", () => {
     [{ test: `node --test ${a}; echo ${b}` }, [a, b], [b]],
     [{ test: `node --test --test-name-pattern ${b} ${a}` }, [a, b], [b]],
     [{ test: `node --test ${a} # ${b}` }, [a, b], [b]],
+    [{ test: `echo node --test ${a}` }, [a], [a]],
+    [{ test: `npx node --test ${a}` }, [a], [a]],
+    [{ test: `env node --test ${a}` }, [a], [a]],
+    [{ test: `node scripts/other.mjs node --test ${a}` }, [a], [a]],
+    [{ test: `node --import tsx scripts/run-in-loopback-netns.mjs node --test ${a}` }, [a], [a]],
+    [{ test: `node scripts/run-in-loopback-netns.mjs node scripts/run-in-loopback-netns.mjs node --test ${a}` }, [a], [a]],
     [{ test: `node scripts/run.mjs --test ${a}` }, [a], [a]],
     [{ test: `node --import tsx scripts/run.mjs --test ${a}` }, [a], [a]],
     [{ test: "node --import tsx --test lib/a.test.ts" }, ["lib/a.test.ts"], []],
@@ -159,9 +166,13 @@ test("test file reachability counts only node test operands", () => {
     [{ test: 'node --test "lib/with space.test.mjs"' }, ["lib/with space.test.mjs"], []],
     [{ test: `node --test ${a} || echo ${b} | rm ${b} & echo ${b}` }, [a, b], [b]],
   ];
+  const actual = [];
+  const expected = [];
   for (const [scripts, files, missing] of fixtures) {
-    assert.deepEqual(validateTestFileReachabilityObject({ scripts }, files, {}), missing.map(unreachableTestFile));
+    actual.push([scripts.test, validateTestFileReachabilityObject({ scripts }, files, {})]);
+    expected.push([scripts.test, missing.map(unreachableTestFile)]);
   }
+  assert.deepEqual(actual, expected);
 });
 
 test("test file reachability ignores every separate node option value", () => {
