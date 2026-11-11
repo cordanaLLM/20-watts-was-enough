@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { ESLint } from "eslint";
 import ts from "typescript";
@@ -21,6 +22,7 @@ import {
   TYPE_CHECK_EXCEPTIONS,
 } from "./lib/engine-file-exceptions.mjs";
 import {
+  listRepositoryFiles,
   validateOperationalFilePaths,
   validatePortableOperationsTree,
   validatePortableWorkflowObject,
@@ -79,6 +81,7 @@ import {
   validateToolingValidationScript,
   validateTypeCheckConfigObject,
   validateTaxonomyImporterScriptObject,
+  validateTestFileReachabilityObject,
   validateTopicRegistryScriptsObject,
   validateImpactAuthorityScriptsObject,
   validateUnpinnedImageSourceLabels,
@@ -88,6 +91,44 @@ import {
 } from "./validate-engineering-policy.mjs";
 
 const workflow = (name) => parse(readFileSync(new URL(`../.github/workflows/${name}.yml`, import.meta.url), "utf8"));
+
+test("every test file is run by a script the test script reaches", () => {
+  const root = new URL("../", import.meta.url);
+  const manifest = JSON.parse(readFileSync(new URL("package.json", root), "utf8"));
+  const catalogue = JSON.parse(readFileSync(new URL("tooling/internal/ciplan/workstation-catalogue.json", root), "utf8"));
+  const testFiles = listRepositoryFiles(fileURLToPath(root)).filter((file) => /\.test\.(?:mjs|cjs|js|ts|tsx)$/u.test(file));
+  const finding = (file) => `package.json: test file ${file} is run by no script reached from the test script`;
+  assert.deepEqual(validateTestFileReachabilityObject(manifest, testFiles, catalogue), []);
+
+  const missingFile = structuredClone(manifest);
+  missingFile.scripts["test:site-build"] = missingFile.scripts["test:site-build"]
+    .replace(" scripts/github-pages-dist-browser.test.mjs", "");
+  assert.notEqual(missingFile.scripts["test:site-build"], manifest.scripts["test:site-build"]);
+  assert.deepEqual(validateTestFileReachabilityObject(missingFile, testFiles, catalogue), [finding("scripts/github-pages-dist-browser.test.mjs")]);
+  assert.deepEqual(validateTestFileReachabilityObject(manifest, [...testFiles, "scripts/orphan-example.test.mjs"], catalogue), [finding("scripts/orphan-example.test.mjs")]);
+
+  const missingScript = structuredClone(manifest);
+  missingScript.scripts.test = missingScript.scripts.test
+    .replace(/npm run test:site-build && | && npm run test:site-build/u, "");
+  assert.notEqual(missingScript.scripts.test, manifest.scripts.test);
+  const findings = validateTestFileReachabilityObject(missingScript, testFiles, catalogue);
+  assert.ok(findings.includes(finding("scripts/validate-github-pages-build.test.mjs")));
+  assert.ok(findings.includes(finding("scripts/github-pages-dist-browser.test.mjs")));
+
+  assert.equal(path.posix.matchesGlob("lib/x.test.mjs", "lib/*.test.mjs"), true);
+  assert.equal(path.posix.matchesGlob("lib/sub/y.test.mjs", "lib/*.test.mjs"), false);
+  const globManifest = { scripts: { test: "npm run a", a: "node --test 'lib/*.test.mjs'" } };
+  assert.deepEqual(validateTestFileReachabilityObject(globManifest, ["lib/x.test.mjs", "lib/sub/y.test.mjs"], {}), [finding("lib/sub/y.test.mjs")]);
+
+  const jobManifest = { scripts: { test: "node --version", w: "node --test lib/x.test.mjs" } };
+  assert.deepEqual(validateTestFileReachabilityObject(jobManifest, ["lib/x.test.mjs"], {}), [finding("lib/x.test.mjs")]);
+  assert.deepEqual(validateTestFileReachabilityObject(jobManifest, ["lib/x.test.mjs"], { jobs: [{ script: "w" }] }), []);
+  assert.deepEqual(validateTestFileReachabilityObject({ scripts: {} }, [], {}), ["package.json: script test is missing"]);
+
+  const malformed = { scripts: { test: "node --test lib/x.test.mjs", broken: 7 } };
+  assert.deepEqual(validateTestFileReachabilityObject(malformed, ["lib/x.test.mjs"], null), []);
+  assert.deepEqual(validateTestFileReachabilityObject(malformed, ["lib/x.test.mjs"], { core_script: "broken", jobs: "w" }), []);
+});
 
 test("release caller retains only the serialized tag publication boundary", () => {
   const valid = workflow("release");

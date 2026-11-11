@@ -11,6 +11,7 @@ import {
   TYPE_CHECK_EXCEPTIONS,
 } from "./lib/engine-file-exceptions.mjs";
 import {
+  listRepositoryFiles,
   validatePortableOperationsTree,
   validatePortableWorkflowObject,
 } from "./lib/portable-operations.mjs";
@@ -4623,6 +4624,78 @@ export function validateFullCiFanOutCoverageObject(
   return findings;
 }
 
+/**
+ * Follow npm script references once per declared script, including workstation
+ * catalogue entry points executed by the Go runner instead of npm itself.
+ */
+function reachedTestCommands(scripts, catalogue) {
+  const scriptNames = new Set(Object.keys(scripts).filter((name) => typeof scripts[name] === "string"));
+  const jobs = Array.isArray(catalogue?.jobs) ? catalogue.jobs : [];
+  const queue = [...new Set([
+    "test", catalogue?.core_script, ...jobs.map((job) => job?.script),
+  ])].filter((name) => scriptNames.has(name));
+  const visited = new Set(queue);
+  for (let index = 0; index < queue.length && index < scriptNames.size; index += 1) {
+    const command = scripts[queue[index]];
+    for (const [, name] of command.matchAll(/\bnpm\s+run\s+([^\s;&|]+)/gu)) {
+      if (scriptNames.has(name) && !visited.has(name)) {
+        visited.add(name);
+        queue.push(name);
+      }
+    }
+  }
+  return queue.map((name) => scripts[name]);
+}
+
+/**
+ * Collect literal test paths and glob arguments without executing shell text.
+ */
+function reachedTestArguments(commands) {
+  return commands.flatMap((command) => command.split(/\s+/u))
+    .map((token) => token.replace(/^["']|["']$/gu, ""))
+    .filter((token) => /\.test\.(?:mjs|cjs|js|ts|tsx)$/u.test(token) || /[*?]/u.test(token));
+}
+
+/**
+ * Every repository test file must be named by a script reachable from test or
+ * the workstation catalogue; globs retain POSIX path-segment semantics.
+ */
+export function validateTestFileReachabilityObject(manifest, testFiles, catalogue, relativePath = "package.json") {
+  const scripts = manifest?.scripts ?? {};
+  if (typeof scripts.test !== "string") {
+    return [`${relativePath}: script test is missing`];
+  }
+  const arguments_ = reachedTestArguments(reachedTestCommands(scripts, catalogue));
+  return testFiles.filter((file) => !arguments_.some((argument) => (
+    file === argument || path.posix.matchesGlob(file, argument)
+  ))).sort().map((file) => (
+    `${relativePath}: test file ${file} is run by no script reached from the test script`
+  ));
+}
+
+/**
+ * Load the catalogue and bounded repository inventory at the package boundary,
+ * retaining artifact context for malformed JSON and traversal failures.
+ */
+function validateTestFileReachability(root, manifest, findings) {
+  const cataloguePath = "tooling/internal/ciplan/workstation-catalogue.json";
+  let catalogue;
+  try {
+    catalogue = JSON.parse(readText(root, cataloguePath));
+  } catch (error) {
+    findings.push(`${cataloguePath}: invalid JSON: ${error.message}`);
+    return;
+  }
+  let testFiles;
+  try {
+    testFiles = listRepositoryFiles(root).filter((file) => /\.test\.(?:mjs|cjs|js|ts|tsx)$/u.test(file));
+  } catch (error) {
+    findings.push(`package.json: test file scan failed: ${error.message}`);
+    return;
+  }
+  findings.push(...validateTestFileReachabilityObject(manifest, testFiles, catalogue));
+}
+
 function validatePackage(root, findings) {
   const relativePath = "package.json";
   let manifest;
@@ -4644,6 +4717,7 @@ function validatePackage(root, findings) {
   findings.push(...validateTaxonomyImporterScriptObject(manifest, relativePath));
   findings.push(...validatePackageScripts(manifest, relativePath));
   findings.push(...validatePackageDependenciesAndMetadata(manifest, relativePath));
+  validateTestFileReachability(root, manifest, findings);
 
   const ciWorkflowPath = ".github/workflows/ci.yml";
   const ciWorkflow = parseYaml(root, ciWorkflowPath, []);

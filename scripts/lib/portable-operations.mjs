@@ -51,7 +51,7 @@ function isIgnored(relativePath) {
   ));
 }
 
-function listRepositoryFiles(root) {
+export function listRepositoryFiles(root) {
   const pending = [""];
   const files = [];
   let scannedEntries = 0;
