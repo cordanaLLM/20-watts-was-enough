@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -11,7 +12,6 @@ import {
   TYPE_CHECK_EXCEPTIONS,
 } from "./lib/engine-file-exceptions.mjs";
 import {
-  listRepositoryFiles,
   validatePortableOperationsTree,
   validatePortableWorkflowObject,
 } from "./lib/portable-operations.mjs";
@@ -4624,73 +4624,213 @@ export function validateFullCiFanOutCoverageObject(
   return findings;
 }
 
+const TEST_FILE_PATTERN = /\.test\.(?:mjs|cjs|js|ts|tsx|mts|cts)$/u;
+const WORKSTATION_CATALOGUE_PATH = "tooling/internal/ciplan/workstation-catalogue.json";
+const SHELL_TOKEN_PATTERN = /"([^"]*)"|'([^']*)'|(&&|\|\||[;|&])|([^\s"';|&]+)/gu;
+const NODE_VALUE_OPTIONS = new Set([
+  "--test-name-pattern", "--test-skip-pattern", "--test-reporter",
+  "--test-reporter-destination", "--test-concurrency", "--test-timeout",
+  "--test-shard", "--import", "--require", "-r", "--loader", "--experimental-loader",
+]);
+
 /**
- * Follow npm script references once per declared script, including workstation
- * catalogue entry points executed by the Go runner instead of npm itself.
+ * Tokenise at most command.length matches, retaining quoted words and splitting
+ * shell operators into segments; unquoted comments end the command.
  */
-function reachedTestCommands(scripts, catalogue) {
-  const scriptNames = new Set(Object.keys(scripts).filter((name) => typeof scripts[name] === "string"));
-  const jobs = Array.isArray(catalogue?.jobs) ? catalogue.jobs : [];
-  const queue = [...new Set([
-    "test", catalogue?.core_script, ...jobs.map((job) => job?.script),
-  ])].filter((name) => scriptNames.has(name));
-  const visited = new Set(queue);
-  for (let index = 0; index < queue.length && index < scriptNames.size; index += 1) {
-    const command = scripts[queue[index]];
-    for (const [, name] of command.matchAll(/\bnpm\s+run\s+([^\s;&|]+)/gu)) {
-      if (scriptNames.has(name) && !visited.has(name)) {
-        visited.add(name);
-        queue.push(name);
-      }
+function shellSegments(command) {
+  const segments = [[]];
+  for (const match of command.matchAll(SHELL_TOKEN_PATTERN)) {
+    if (match[4]?.startsWith("#")) break;
+    if (match[3]) segments.push([]);
+    else segments.at(-1).push(match[1] ?? match[2] ?? match[4]);
+  }
+  return segments.filter((words) => words.length > 0);
+}
+
+/**
+ * Recognise a node test runner, including wrappers, and collect operands while
+ * skipping option values in one pass bounded by the segment's word count.
+ */
+function nodeTestOperands(words) {
+  const testIndex = words.indexOf("--test");
+  const preceding = words.slice(0, testIndex).findLast((word) => !word.startsWith("-"));
+  if (testIndex < 0 || preceding !== "node") return null;
+  const operands = [];
+  for (let index = testIndex + 1; index < words.length; index += 1) {
+    const word = words[index];
+    if (NODE_VALUE_OPTIONS.has(word)) index += 1;
+    else if (!word.startsWith("-")) operands.push(word);
+  }
+  return operands;
+}
+
+/**
+ * Read npm script aliases and flag-prefixed targets without treating other npm
+ * subcommands as script references; report unnamed run invocations.
+ */
+function npmScriptTargets(words) {
+  const empty = { names: [], malformed: false };
+  if (words[0] !== "npm") return empty;
+  const arguments_ = words.slice(1).filter((word) => !word.startsWith("-"));
+  if (arguments_[0] === "test") return { names: ["test"], malformed: false };
+  if (!["run", "run-script"].includes(arguments_[0])) return empty;
+  return { names: arguments_.slice(1, 2), malformed: arguments_.length < 2 };
+}
+
+/**
+ * Match consecutive runner command tokens instead of substrings in test paths.
+ */
+function invokesWorkstationRunner(words) {
+  return words.some((word, index) => word === "ci" && words[index + 1] === "run-workstation");
+}
+
+/**
+ * Validate only catalogue fields used for reachability, retaining valid targets
+ * and reporting malformed entries in a pass bounded by the job count.
+ */
+function catalogueScriptTargets(catalogue, findings) {
+  if (!catalogue || typeof catalogue !== "object" || Array.isArray(catalogue)) {
+    findings.push(`${WORKSTATION_CATALOGUE_PATH}: catalogue must be an object`);
+    return [];
+  }
+  const names = [];
+  if (typeof catalogue.core_script === "string") names.push(catalogue.core_script);
+  else findings.push(`${WORKSTATION_CATALOGUE_PATH}: core_script must be a string`);
+  if (!Array.isArray(catalogue.jobs)) {
+    findings.push(`${WORKSTATION_CATALOGUE_PATH}: jobs must be an array`);
+    return names;
+  }
+  for (const [index, job] of catalogue.jobs.entries()) {
+    if (typeof job?.script === "string") names.push(job.script);
+    else findings.push(`${WORKSTATION_CATALOGUE_PATH}: jobs[${index}].script must be a string`);
+  }
+  return names;
+}
+
+/**
+ * Enqueue each declared string script once, bounding the queue by declarations.
+ */
+function enqueueDeclaredScripts(names, scriptNames, visited, queue) {
+  for (const name of names) {
+    if (scriptNames.has(name) && !visited.has(name)) {
+      visited.add(name);
+      queue.push(name);
     }
   }
-  return queue.map((name) => scripts[name]);
 }
 
 /**
- * Collect literal test paths and glob arguments without executing shell text.
+ * Follow npm references and lifecycle hooks once per declared script; catalogue
+ * targets join the queue only after a reached command invokes the Go runner.
  */
-function reachedTestArguments(commands) {
-  return commands.flatMap((command) => command.split(/\s+/u))
-    .map((token) => token.replace(/^["']|["']$/gu, ""))
-    .filter((token) => /\.test\.(?:mjs|cjs|js|ts|tsx)$/u.test(token) || /[*?]/u.test(token));
+function reachedTestCommands(scripts, catalogue, relativePath) {
+  const findings = Object.entries(scripts)
+    .filter(([, command]) => typeof command !== "string")
+    .map(([name]) => `${relativePath}: script ${name} must be a string`);
+  const scriptNames = new Set(Object.keys(scripts).filter((name) => typeof scripts[name] === "string"));
+  if (!scriptNames.has("test")) findings.push(`${relativePath}: script test is missing`);
+  const queue = scriptNames.has("test") ? ["test"] : [];
+  const visited = new Set(queue);
+  let catalogueReached = false;
+  for (let index = 0; index < queue.length && index < scriptNames.size; index += 1) {
+    const name = queue[index];
+    const segments = shellSegments(scripts[name]);
+    const targets = [`pre${name}`, `post${name}`];
+    for (const words of segments) {
+      const npm = npmScriptTargets(words);
+      targets.push(...npm.names);
+      if (npm.malformed) findings.push(`${relativePath}: script ${name} runs npm run without a script name`);
+    }
+    if (!catalogueReached && segments.some(invokesWorkstationRunner)) {
+      catalogueReached = true;
+      targets.push(...catalogueScriptTargets(catalogue, findings));
+    }
+    enqueueDeclaredScripts(targets, scriptNames, visited, queue);
+  }
+  return { commands: queue.map((name) => ({ name, command: scripts[name] })), findings };
 }
 
 /**
- * Every repository test file must be named by a script reachable from test or
- * the workstation catalogue; globs retain POSIX path-segment semantics.
+ * Collect only node test-runner operands from reached commands and reject bare
+ * default discovery; both passes are bounded by scripts and command lengths.
+ */
+function reachedTestArguments(commands, findings, relativePath) {
+  const arguments_ = [];
+  for (const { name, command } of commands) {
+    for (const words of shellSegments(command)) {
+      const operands = nodeTestOperands(words);
+      if (operands === null) continue;
+      if (operands.length === 0) {
+        findings.push(`${relativePath}: script ${name} runs node --test without test file operands`);
+      }
+      arguments_.push(...operands);
+    }
+  }
+  return arguments_;
+}
+
+/**
+ * Require every inventoried test file to be an operand of a reached node test
+ * runner, retaining POSIX path-segment semantics for glob operands.
  */
 export function validateTestFileReachabilityObject(manifest, testFiles, catalogue, relativePath = "package.json") {
-  const scripts = manifest?.scripts ?? {};
-  if (typeof scripts.test !== "string") {
-    return [`${relativePath}: script test is missing`];
-  }
-  const arguments_ = reachedTestArguments(reachedTestCommands(scripts, catalogue));
-  return testFiles.filter((file) => !arguments_.some((argument) => (
+  const { commands, findings } = reachedTestCommands(manifest?.scripts ?? {}, catalogue, relativePath);
+  const arguments_ = reachedTestArguments(commands, findings, relativePath);
+  findings.push(...testFiles.filter((file) => !arguments_.some((argument) => (
     file === argument || path.posix.matchesGlob(file, argument)
   ))).sort().map((file) => (
     `${relativePath}: test file ${file} is run by no script reached from the test script`
-  ));
+  )));
+  return findings;
 }
 
 /**
- * Load the catalogue and bounded repository inventory at the package boundary,
- * retaining artifact context for malformed JSON and traversal failures.
+ * Inventory existing tracked and unignored untracked test files with bounded
+ * Git output and time, preventing discovery outside the requested root.
  */
-function validateTestFileReachability(root, manifest, findings) {
-  const cataloguePath = "tooling/internal/ciplan/workstation-catalogue.json";
+export function listTrackedTestFiles(root) {
+  let output;
+  try {
+    output = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], {
+      cwd: root,
+      encoding: "utf8",
+      timeout: 30_000,
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, GIT_CEILING_DIRECTORIES: path.dirname(path.resolve(root)) },
+    });
+  } catch (error) {
+    throw new Error(`git ls-files failed: ${error.message}`, { cause: error });
+  }
+  return output.split("\0").filter((file) => (
+    TEST_FILE_PATTERN.test(file) && fs.existsSync(path.join(root, file))
+  )).sort();
+}
+
+/**
+ * Load the catalogue and Git inventory without throwing at the package boundary;
+ * distinguish read, JSON parse, and inventory failures by artifact context.
+ */
+export function validateTestFileReachability(root, manifest, findings, listFiles = listTrackedTestFiles) {
+  let body;
+  try {
+    body = readText(root, WORKSTATION_CATALOGUE_PATH);
+  } catch (error) {
+    findings.push(`${WORKSTATION_CATALOGUE_PATH}: cannot read: ${error.message}`);
+    return;
+  }
   let catalogue;
   try {
-    catalogue = JSON.parse(readText(root, cataloguePath));
+    catalogue = JSON.parse(body);
   } catch (error) {
-    findings.push(`${cataloguePath}: invalid JSON: ${error.message}`);
+    findings.push(`${WORKSTATION_CATALOGUE_PATH}: invalid JSON: ${error.message}`);
     return;
   }
   let testFiles;
   try {
-    testFiles = listRepositoryFiles(root).filter((file) => /\.test\.(?:mjs|cjs|js|ts|tsx)$/u.test(file));
+    testFiles = listFiles(root);
   } catch (error) {
-    findings.push(`package.json: test file scan failed: ${error.message}`);
+    findings.push(`repository: test file inventory failed: ${error.message}`);
     return;
   }
   findings.push(...validateTestFileReachabilityObject(manifest, testFiles, catalogue));
