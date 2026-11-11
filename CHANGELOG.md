@@ -11,6 +11,21 @@ the exact diff; this file records why the project changed.
 
 ### Security
 
+- The Go toolchain moves from 1.27.3 to 1.27.4 for GO-2026-6859
+  (CVE-2026-97054, `https://pkg.go.dev/vuln/GO-2026-6859`) in `net/http`: an
+  HTTP/1 server that uses `MaxBytesReader` or `MaxBytesHandler` can panic when
+  its handler reads the request body while it writes a response header. Go
+  1.27.4 is the first fixed 1.27 release. govulncheck reports the advisory as
+  reachable in the tooling module, so the CI step "Scan Go packages for known
+  vulnerabilities" fails under Go 1.27.3, first seen on #434. The builder
+  image `golang:1.27.4-trixie` is pinned by
+  digest `b54b2639de8c` in `tooling/Dockerfile` and
+  `tooling/clrs-specialist/Dockerfile`, and the version moves everywhere it
+  is bound: both Go module files, the release identity checks in `ci.yml`
+  and `release-build.yml`, `tooling/internal/releasebuild/build.go`, the
+  engineering policy and its test, and the contributor guides. The Go module
+  file is a render-free book source, so the book provenance is re-recorded
+  without a render (Decision 0090).
 - Move the pinned Node.js runtime from 26.12.0 to 26.13.0 across policies,
   workflows, fixture Dockerfiles, and manifests. CI container smoke Trivy
   scan reported CVE-2026-109518 (HIGH, fixed in 3.0.4) in `apt` 3.0.3 in

@@ -1,6 +1,6 @@
 module github.com/cordanaLLM/20-watts-was-enough/tooling/tools
 
-go 1.27.3
+go 1.27.4
 
 tool github.com/zricethezav/gitleaks/v8
 
