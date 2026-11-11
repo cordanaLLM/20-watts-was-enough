@@ -558,6 +558,10 @@ func TestRunSuiteFiltersAmbientEnvironmentBeforeExecution(t *testing.T) {
 	}
 }
 
+// TestFilteredEnvironmentIsClosedBoundedAndSorted pins the closed allow-list:
+// HOME, PATH, TZ and TWENTYW_FIXTURE_019_PYTHON pass sorted while other names,
+// TWENTYW_SOAK_DURATION included, are dropped. It also pins refusal of a
+// missing PATH, duplicates, NUL bytes, malformed and oversized entries.
 func TestFilteredEnvironmentIsClosedBoundedAndSorted(t *testing.T) {
 	t.Parallel()
 	filtered, err := filteredEnvironment([]string{
@@ -565,12 +569,14 @@ func TestFilteredEnvironmentIsClosedBoundedAndSorted(t *testing.T) {
 		"WORKSTATION_RUNNER_SECRET=do-not-pass",
 		"TZ=Europe/Berlin",
 		"PATH=/usr/bin",
+		"TWENTYW_FIXTURE_019_PYTHON=/opt/python/bin/python",
+		"TWENTYW_SOAK_DURATION=25m",
 		"HOME=/tmp/home",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"HOME=/tmp/home", "PATH=/usr/bin", "TZ=Europe/Berlin"}
+	want := []string{"HOME=/tmp/home", "PATH=/usr/bin", "TWENTYW_FIXTURE_019_PYTHON=/opt/python/bin/python", "TZ=Europe/Berlin"}
 	if !reflect.DeepEqual(filtered, want) {
 		t.Fatalf("filteredEnvironment() = %q, want %q", filtered, want)
 	}

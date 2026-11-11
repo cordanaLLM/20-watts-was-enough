@@ -14,6 +14,7 @@ publishes verified public leads into the repository.
      [`owners.json`](owners.json).
    - Normalises external links (DOIs, arXiv identifiers, release tags, canonical
      URLs) and merges duplicate reports into shared lead entries.
+   - Drops malformed links rather than failing ingestion.
    - Isolates private or internal origin metadata in `.workingdir/ingest/private-leads.json`.
    - Validates that no private identifiers, titles, or URLs leak into the public
      catalog before writing `leads.json`.
@@ -77,4 +78,71 @@ are dispatched.
   exponential backoff retries for rate limits or server errors, and an overall
   15-minute run deadline.
 - **Diagnostics**: Network and remote errors emit only fixed local diagnostics to
-  prevent sensitive remote text from leaking to process output.
+  prevent sensitive remote text from leaking to process output. Public refused
+  links are named; private refused links are counted with values withheld.
+
+## Recovering from refused links
+
+The ingester fails with `Invalid source_links` when a retained lead holds a
+link the current extractor would not produce, such as a link written by an
+older extractor. Nothing is written and the watermark stays unchanged. Before
+failing, the ingester prints up to 20 public-catalog findings to stderr. For
+private-catalog findings, it prints one count line only; values are withheld
+because they name private repositories. A public refused URL line starts with
+the stable key (`owner/repo#number`) of the issue that holds it; that issue's
+last update bounds `--watermark`. A refused canonical-key line names the key,
+whose catalog entry lists its origins. The extractor never produces a value the
+check refuses, and a seeded fuzz test checks this, so a refusal names a retained
+value, usually one in the committed `leads.json`.
+
+To see private findings locally, run this from the repository root. Output
+stays on this machine; never paste it into issues, pull requests or hosted
+tools.
+
+```bash
+node --input-type=module -e '
+import { readFileSync } from "node:fs";
+import { catalogLinkFindings } from "./scripts/research-watch-ingest.mjs";
+const file = ".workingdir/ingest/private-leads.json";
+const catalog = JSON.parse(readFileSync(file, "utf8"));
+for (const line of catalogLinkFindings(catalog)) console.log(line);
+'
+```
+
+If a refused value is missing from `leads.json`, check
+`.workingdir/ingest/private-leads.json`: retained private records move into the
+public catalog when their repository becomes public. Re-fetch the affected
+issue so its fresh record replaces the retained one. If re-fetching cannot
+restore it, remove only that origin from the private file. A value missing from
+both files came from a newly fetched issue; fix the extractor defect in
+`scripts/research-watch-ingest.mjs` with a test. URLs ending in
+an encoded backtick (`%60`), release tags that decode to a backtick or to a
+value ending in `%60`, and URLs whose normalised form leaves the extractor's URL
+grammar (for example when IDNA maps a host character to a quote or brace) are
+skipped during extraction, so re-fetching never re-creates those refused
+values. The publisher stops at the same check, so the daily run keeps failing
+until the catalog that holds the refused value is repaired.
+
+To repair it, run the ingester in a checkout of `main` with `GH_TOKEN` set and
+a `--watermark` earlier than the affected issue's last update. The issue is
+fetched again and the fresh record replaces the retained one:
+
+```bash
+node scripts/research-watch-ingest.mjs --watermark 2026-01-01T00:00:00Z
+```
+
+The re-fetch finds only issues that still carry `research-watch`, because both
+the search and repository listing filter on it, while retained records are kept
+whatever their labels. If the affected issue lost the label, add it back before
+the re-fetch; it may be removed again once the regenerated catalog has landed.
+
+If the issue was deleted or the label cannot be restored, remove only the
+affected origin from `research/ingest/leads.json` in the same checkout. For a
+refused URL line, use its stable key to find the origin in the entry's
+`origins` array. For a refused canonical-key line, remove each origin whose
+`source_links` contains the value from which that key derives. Delete the entry
+only when it has no other origins. The ingester rebuilds its other fields from
+the remaining origins on the next run. Apply the same rule to the private file.
+
+Land the regenerated `research/ingest/leads.json` through a pull request; the
+next scheduled run starts from it.

@@ -5,8 +5,27 @@ the exact diff; this file records why the project changed.
 
 ## [Unreleased]
 
+### Added
+
+- Add a scheduled bounded soak for workstation runner and book renderer resource growth.
+
 ### Security
 
+- The Go toolchain moves from 1.27.3 to 1.27.4 for GO-2026-6859
+  (CVE-2026-97054, `https://pkg.go.dev/vuln/GO-2026-6859`) in `net/http`: an
+  HTTP/1 server that uses `MaxBytesReader` or `MaxBytesHandler` can panic when
+  its handler reads the request body while it writes a response header. Go
+  1.27.4 is the first fixed 1.27 release. govulncheck reports the advisory as
+  reachable in the tooling module, so the CI step "Scan Go packages for known
+  vulnerabilities" fails under Go 1.27.3, first seen on #434. The builder
+  image `golang:1.27.4-trixie` is pinned by
+  digest `b54b2639de8c` in `tooling/Dockerfile` and
+  `tooling/clrs-specialist/Dockerfile`, and the version moves everywhere it
+  is bound: both Go module files, the release identity checks in `ci.yml`
+  and `release-build.yml`, `tooling/internal/releasebuild/build.go`, the
+  engineering policy and its test, and the contributor guides. The Go module
+  file is a render-free book source, so the book provenance is re-recorded
+  without a render (Decision 0090).
 - Move the pinned Node.js runtime from 26.12.0 to 26.13.0 across policies,
   workflows, fixture Dockerfiles, and manifests. CI container smoke Trivy
   scan reported CVE-2026-109518 (HIGH, fixed in 3.0.4) in `apt` 3.0.3 in
@@ -289,6 +308,19 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- Research-watch link extraction stops at Markdown delimiters (code spans and
+  emphasis), keeps GitHub's autolink rules for non-ASCII paths, IPv6 hosts and
+  trailing punctuation, drops URLs ending in an encoded backtick (`%60`), and
+  skips release tags decoding to a backtick. A URL is dropped when its
+  normalised form would not re-extract to itself, for example when IDNA maps a
+  host character to a quote or brace.
+  A malformed URL is dropped, and a release URL with a malformed escape yields
+  no release tag, instead of aborting the run. The ingester refuses to
+  republish a retained lead whose stored links break these rules and prints up
+  to 20 public refused links; refused links in the local private catalog stop
+  the run too and are counted without their values. The recovery guide covers
+  a retained record from a repository that turned public, and removes only the
+  affected origin instead of the whole entry.
 - PDF renderer base images are fetched in their own bounded phase before
   the image build: 10 minutes per attempt, 3 attempts per image, 30 minutes
   for the phase. A slow first fill after a digest change now fails naming

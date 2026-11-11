@@ -1,0 +1,213 @@
+package soak
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"testing"
+	"time"
+)
+
+// TestParseDurationBounds pins both inclusive duration limits and refusal of
+// malformed, negative, and out-of-range requests.
+func TestParseDurationBounds(t *testing.T) {
+	cases := []struct {
+		value string
+		want  time.Duration
+		fail  bool
+	}{
+		{value: "9s", fail: true},
+		{value: "10s", want: 10 * time.Second},
+		{value: "15m", want: 15 * time.Minute},
+		{value: "25m", want: 25 * time.Minute},
+		{value: "25m1s", fail: true},
+		{value: "30m", fail: true},
+		{value: "-1m", fail: true},
+		{value: "half an hour", fail: true},
+	}
+	for _, current := range cases {
+		got, err := parseDuration(current.value)
+		if current.fail && err == nil {
+			t.Errorf("parseDuration(%q) accepted an out-of-bounds value", current.value)
+		}
+		if !current.fail && (err != nil || got != current.want) {
+			t.Errorf("parseDuration(%q) = %s, %v; want %s", current.value, got, err, current.want)
+		}
+	}
+}
+
+// TestRequestedSkipsWhenUnset pins a zero duration and an explicit skip reason
+// when no soak duration is requested.
+func TestRequestedSkipsWhenUnset(t *testing.T) {
+	t.Setenv(DurationVariable, "")
+	duration, skip, err := Requested()
+	if err != nil || duration != 0 || skip != DurationVariable+" is unset" {
+		t.Fatalf("Requested() = %s, %q, %v", duration, skip, err)
+	}
+}
+
+// TestRequestedRejectsInvalidDuration pins an out-of-range request as an error
+// rather than a platform skip.
+func TestRequestedRejectsInvalidDuration(t *testing.T) {
+	t.Setenv(DurationVariable, "2h")
+	if _, _, err := Requested(); err == nil || !strings.Contains(err.Error(), "outside 10s..25m0s") {
+		t.Fatalf("Requested() error = %v", err)
+	}
+}
+
+// TestRequestedReturnsDurationOrPlatformError pins the positive case on supported
+// platforms and the negative case: an error naming an unsupported platform.
+func TestRequestedReturnsDurationOrPlatformError(t *testing.T) {
+	t.Setenv(DurationVariable, "15s")
+	duration, skip, err := Requested()
+	if CheckPlatformSupport() != nil {
+		if err == nil || !strings.Contains(err.Error(), runtime.GOOS) || skip != "" {
+			t.Fatalf("Requested() = %s, %q, %v, want platform error and no skip", duration, skip, err)
+		}
+		return
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if duration != 15*time.Second || skip != "" {
+		t.Fatalf("Requested() = %s, %q", duration, skip)
+	}
+}
+
+// TestRequestedRefusesUnsupportedPlatform pins the negative case on every
+// platform: a valid requested duration with a failing platform check is an
+// error naming the variable and the cause, never a skip.
+func TestRequestedRefusesUnsupportedPlatform(t *testing.T) {
+	t.Setenv(DurationVariable, "15s")
+	planted := errors.New("planted: open files not countable")
+	duration, skip, err := requested(func() error { return planted })
+	if !errors.Is(err, planted) || !strings.Contains(err.Error(), DurationVariable+" is set") || skip != "" || duration != 0 {
+		t.Fatalf("requested(unsupported) = %s, %q, %v; want the platform error and no skip", duration, skip, err)
+	}
+}
+
+// TestWriteReportFromEnvironmentWithoutDirectoryWritesNothing pins a successful
+// no-op when no report directory is configured.
+func TestWriteReportFromEnvironmentWithoutDirectoryWritesNothing(t *testing.T) {
+	t.Setenv(ReportDirVariable, "")
+	if err := WriteReportFromEnvironment("unused.jsonl", fixedSamples(1)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestWriteReportFromEnvironmentWritesIntoExistingDirectory pins one valid JSON
+// line per sample, preserving iteration order in an existing report directory.
+func TestWriteReportFromEnvironmentWritesIntoExistingDirectory(t *testing.T) {
+	directory := t.TempDir()
+	t.Setenv(ReportDirVariable, directory)
+	if err := WriteReportFromEnvironment("samples.jsonl", fixedSamples(3)); err != nil {
+		t.Fatal(err)
+	}
+	body := readReport(t, directory, "samples.jsonl")
+	lines := strings.Split(strings.TrimSuffix(string(body), "\n"), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("JSONL lines = %d, want 3", len(lines))
+	}
+	for index, line := range lines {
+		var current Sample
+		if err := json.Unmarshal([]byte(line), &current); err != nil || current.Iteration != index+1 {
+			t.Fatalf("line %d = %q, %v; want sample %d", index+1, line, err, index+1)
+		}
+	}
+}
+
+// TestWriteReportFromEnvironmentRefusesMissingDirectory pins an explicit error
+// and refusal to create a missing report directory.
+func TestWriteReportFromEnvironmentRefusesMissingDirectory(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "nested", "soak")
+	t.Setenv(ReportDirVariable, directory)
+	err := WriteReportFromEnvironment("samples.jsonl", fixedSamples(1))
+	if err == nil || !strings.Contains(err.Error(), ReportDirVariable+" must name an existing directory") {
+		t.Fatalf("WriteReportFromEnvironment() error = %v, want missing directory refused", err)
+	}
+	if _, statErr := os.Stat(directory); !errors.Is(statErr, fs.ErrNotExist) {
+		t.Fatalf("report directory %s exists after refusal: %v", directory, statErr)
+	}
+}
+
+// TestWriteReportFromEnvironmentRefusesRelativeDirectory pins refusal of a
+// report location whose meaning depends on the working directory.
+func TestWriteReportFromEnvironmentRefusesRelativeDirectory(t *testing.T) {
+	// A writer that accepted the relative path would write under the working
+	// directory, so the test moves it out of the source tree.
+	t.Chdir(t.TempDir())
+	t.Setenv(ReportDirVariable, filepath.Join("reports", "soak"))
+	err := WriteReportFromEnvironment("samples.jsonl", fixedSamples(1))
+	if err == nil || !strings.Contains(err.Error(), ReportDirVariable+" must be an absolute directory path") {
+		t.Fatalf("WriteReportFromEnvironment() error = %v, want relative directory refused", err)
+	}
+}
+
+// TestWriteReportFromEnvironmentRefusesNamesOutsideDirectory pins rejection of
+// parent, absolute, and available symlink escapes without writing outside.
+func TestWriteReportFromEnvironmentRefusesNamesOutsideDirectory(t *testing.T) {
+	parent := t.TempDir()
+	directory := filepath.Join(parent, "reports")
+	outside := filepath.Join(parent, "outside")
+	for _, created := range []string{directory, outside} {
+		if err := os.Mkdir(created, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	names := []string{filepath.Join("..", "outside", "dotdot.jsonl"), filepath.Join(outside, "absolute.jsonl")}
+	if err := os.Symlink(outside, filepath.Join(directory, "link")); err == nil {
+		names = append(names, filepath.Join("link", "symlink.jsonl"))
+	} else {
+		t.Logf("symbolic link case not run: %v", err)
+	}
+	t.Setenv(ReportDirVariable, directory)
+	for _, name := range names {
+		if err := WriteReportFromEnvironment(name, fixedSamples(1)); err == nil {
+			t.Errorf("WriteReportFromEnvironment(%q) wrote outside %s", name, directory)
+		}
+	}
+	entries, err := os.ReadDir(outside)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("%s holds %d entries after refused writes, want 0", outside, len(entries))
+	}
+}
+
+// TestRunWritesSamplesBeforeFailingVerdict pins retention of every collected
+// sample in the report even when leftover growth fails the verdict.
+func TestRunWritesSamplesBeforeFailingVerdict(t *testing.T) {
+	requireSampling(t)
+	directory := t.TempDir()
+	t.Setenv(ReportDirVariable, directory)
+	watched := t.TempDir()
+	config := testConfig(12)
+	config.Watched = []string{watched}
+	samples, err := Run(context.Background(), config, "leak.jsonl", func(_ context.Context, index int) error {
+		return os.WriteFile(filepath.Join(watched, strings.Repeat("x", index)), nil, 0o600)
+	})
+	if err == nil || !strings.Contains(err.Error(), "leftovers warmup max 3, tail min 10, growth 7, allowance 0") {
+		t.Fatalf("Run() error = %v, want leftovers growth", err)
+	}
+	body := readReport(t, directory, "leak.jsonl")
+	if lines := strings.Count(string(body), "\n"); lines != len(samples) || lines != 12 {
+		t.Fatalf("JSONL lines = %d, samples = %d; want 12", lines, len(samples))
+	}
+}
+
+// TestRunPassesCleanLoop pins a successful run with the requested sample count
+// when iterations retain no growing resources and reporting is disabled.
+func TestRunPassesCleanLoop(t *testing.T) {
+	requireSampling(t)
+	t.Setenv(ReportDirVariable, "")
+	samples, err := Run(context.Background(), testConfig(8), "clean.jsonl", func(context.Context, int) error { return nil })
+	if err != nil || len(samples) != 8 {
+		t.Fatalf("Run() samples=%d error=%v", len(samples), err)
+	}
+}

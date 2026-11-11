@@ -20,7 +20,7 @@ const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const defaultRoot = path.resolve(scriptDirectory, "..");
 
 const runtimePolicy = Object.freeze({
-  goVersion: "1.27.3",
+  goVersion: "1.27.4",
   nodeVersion: REQUIRED_NODE_VERSION,
   npmArchiveBytes: 3_062_824,
   npmArchiveSha256: "228bd64aaef23270dbdbd2cf3d5ef5c467602ef38c4066246cef1984adab9a67",
@@ -158,6 +158,7 @@ const requiredFiles = [
   ".github/workflows/release-build.yml",
   ".github/workflows/scorecard.yml",
   ".github/workflows/sync-repository-metadata.yml",
+  ".github/workflows/soak.yml",
   "AGENTS.md",
   "CITATION.cff",
   "CLAUDE.md",
@@ -427,6 +428,25 @@ export function validateWorkflowObject(workflow, relativePath = "workflow.yml") 
   findings.push(...validatePortableWorkflowObject(workflow, relativePath));
 
   return findings;
+}
+
+export function validateScheduledSoakWorkflowObject(
+  workflow,
+  relativePath = ".github/workflows/soak.yml",
+) {
+  const triggers = workflow?.on;
+  const names = triggers && typeof triggers === "object" && !Array.isArray(triggers)
+    ? Object.keys(triggers).sort()
+    : [];
+  if (JSON.stringify(names) !== JSON.stringify(["schedule", "workflow_dispatch"])) {
+    return [`${relativePath}: scheduled soak may run only on schedule and workflow_dispatch`];
+  }
+  // Checkov CKV_GHA_7: a manual run takes no inputs, so it soaks for the same fixed
+  // duration the schedule does.
+  if (triggers.workflow_dispatch?.inputs !== undefined) {
+    return [`${relativePath}: scheduled soak workflow_dispatch must take no inputs`];
+  }
+  return [];
 }
 
 const publicRepositoryExpectedJobRunners = new Map([
@@ -3819,7 +3839,7 @@ function validateReleaseAdmittedExecution(steps, relativePath, findings) {
       'ghcr.io/${IMAGE_REPOSITORY}-fixture-007@${FIXTURE_007_DIGEST}',
       'ghcr.io/${IMAGE_REPOSITORY}-fixture-019@${FIXTURE_019_DIGEST}',
       '"$tooling" version --json',
-      '"go_version":"go1.27.3"',
+      '"go_version":"go1.27.4"',
       '"os":"linux"',
       '"architecture":"amd64"',
       '"$RELEASE_TAG" "$RELEASE_COMMIT" "$RELEASE_TIMESTAMP"',
@@ -5294,6 +5314,9 @@ function validateWorkflowPolicy(workflow, relativePath, lock, findings) {
     return;
   }
   findings.push(...validateWorkflowObject(workflow, relativePath));
+  if (relativePath === ".github/workflows/soak.yml") {
+    findings.push(...validateScheduledSoakWorkflowObject(workflow, relativePath));
+  }
   findings.push(...validateSupersededRunCancellationWorkflowObject(workflow, relativePath));
   findings.push(...validatePublicRepositoryRunnerWorkflowObject(workflow, relativePath));
   findings.push(...validateNodeSetupWorkflowObject(workflow, relativePath));

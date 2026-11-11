@@ -1,17 +1,12 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import test from "node:test";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { canonicalize, sha256Hex } from "../lib/checkpoint-ledger.mjs";
 import {
   assertFixture019Record,
   fixture019ScientificPayload,
 } from "./contract.mjs";
-import { firstDevelopmentSeed, workerRequest } from "./test-helpers.mjs";
-
-const fixtureRoot = path.dirname(fileURLToPath(import.meta.url));
+import { firstDevelopmentSeed, runFixture019Python, workerRequest } from "./test-helpers.mjs";
 
 function recordFor(cell = "base") {
   const event = workerRequest({
@@ -92,10 +87,7 @@ print(json.dumps({
     "ordinary_enabled": enabled["full-fixed-point"],
 }, sort_keys=True))
 `;
-  const result = JSON.parse(execFileSync("python", ["-B", "-c", source], {
-    cwd: fixtureRoot,
-    encoding: "utf8",
-  }));
+  const result = JSON.parse(runFixture019Python(["-B", "-c", source]));
 
   assert.deepEqual(result.fallback_disabled_cell, result.fallback_enabled_cell);
   assert.equal(result.fallback_disabled_cell.funding_triggered, true);

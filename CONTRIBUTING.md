@@ -37,7 +37,7 @@ before marking it ready for review.
 The complete validation gate currently binds these development tools:
 
 - Git;
-- Go 1.27.3 from `tooling/go.mod`;
+- Go 1.27.4 from `tooling/go.mod`;
 - the official Node.js 26.13.0 distribution or a pinned project container;
 - npm 12.2.1 with the committed `package-lock.json`;
 - CPython 3.15.2 with NumPy 2.5.4; and
@@ -270,6 +270,10 @@ opaque image.
 TypeScript validation, linting, site tests, documentation, source boundaries,
 coverage, taxonomies, mathematics, workstation contracts and tests, readiness,
 the application build, and publication-artifact validation.
+
+The scheduled soak workflow runs bounded workstation-runner and book-renderer
+loops for 25 minutes each Wednesday at 02:40 UTC; a manual dispatch takes no
+inputs and runs the same 25 minutes. Run a shorter local soak with `TWENTYW_SOAK_DURATION=2m go -C tooling test -run '^TestSoak' ./internal/workstationrunner ./internal/pdfrender`.
 
 Regenerate and validate the PDF after changing its source set or renderer:
 
