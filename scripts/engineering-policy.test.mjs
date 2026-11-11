@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { ESLint } from "eslint";
 import ts from "typescript";
@@ -30,6 +31,8 @@ import {
   engineManagedWorkflowPaths,
   formatFindings,
   generatedHookJobSkips,
+  gitEnvironment,
+  listTrackedTestFiles,
   serialisedPullRequestWorkflowPaths,
   supersededRunCancellationWorkflowPaths,
   supersededRunConcurrencyGroup,
@@ -79,6 +82,8 @@ import {
   validateToolingValidationScript,
   validateTypeCheckConfigObject,
   validateTaxonomyImporterScriptObject,
+  validateTestFileReachability,
+  validateTestFileReachabilityObject,
   validateTopicRegistryScriptsObject,
   validateImpactAuthorityScriptsObject,
   validateUnpinnedImageSourceLabels,
@@ -88,6 +93,247 @@ import {
 } from "./validate-engineering-policy.mjs";
 
 const workflow = (name) => parse(readFileSync(new URL(`../.github/workflows/${name}.yml`, import.meta.url), "utf8"));
+
+test("every test file is run by a script the test script reaches", () => {
+  const root = new URL("../", import.meta.url);
+  const manifest = JSON.parse(readFileSync(new URL("package.json", root), "utf8"));
+  const catalogue = JSON.parse(readFileSync(new URL("tooling/internal/ciplan/workstation-catalogue.json", root), "utf8"));
+  const testFiles = listTrackedTestFiles(fileURLToPath(root));
+  const finding = (file) => `package.json: test file ${file} is run by no script reached from the test script`;
+  assert.deepEqual(validateTestFileReachabilityObject(manifest, testFiles, catalogue), []);
+  const repositoryFindings = [];
+  validateTestFileReachability(fileURLToPath(root), manifest, repositoryFindings);
+  assert.deepEqual(repositoryFindings, []);
+
+  const missingFile = structuredClone(manifest);
+  missingFile.scripts["test:site-build"] = missingFile.scripts["test:site-build"]
+    .replace(" scripts/github-pages-dist-browser.test.mjs", "");
+  assert.notEqual(missingFile.scripts["test:site-build"], manifest.scripts["test:site-build"]);
+  assert.deepEqual(validateTestFileReachabilityObject(missingFile, testFiles, catalogue), [finding("scripts/github-pages-dist-browser.test.mjs")]);
+  assert.deepEqual(validateTestFileReachabilityObject(manifest, [...testFiles, "scripts/orphan-example.test.mjs"], catalogue), [finding("scripts/orphan-example.test.mjs")]);
+
+  const missingScript = structuredClone(manifest);
+  missingScript.scripts.test = missingScript.scripts.test
+    .replace(/npm run test:site-build && | && npm run test:site-build/u, "");
+  assert.notEqual(missingScript.scripts.test, manifest.scripts.test);
+  const findings = validateTestFileReachabilityObject(missingScript, testFiles, catalogue);
+  assert.ok(findings.includes(finding("scripts/validate-github-pages-build.test.mjs")));
+  assert.ok(findings.includes(finding("scripts/github-pages-dist-browser.test.mjs")));
+
+  assert.equal(path.posix.matchesGlob("lib/x.test.mjs", "lib/*.test.mjs"), true);
+  assert.equal(path.posix.matchesGlob("lib/sub/y.test.mjs", "lib/*.test.mjs"), false);
+  const globManifest = { scripts: { test: "npm run a", a: "node --test 'lib/*.test.mjs'" } };
+  assert.deepEqual(validateTestFileReachabilityObject(globManifest, ["lib/x.test.mjs", "lib/sub/y.test.mjs"], {}), [finding("lib/sub/y.test.mjs")]);
+
+  const jobManifest = { scripts: { test: "node --version", w: "node --test lib/x.test.mjs" } };
+  assert.deepEqual(validateTestFileReachabilityObject(jobManifest, ["lib/x.test.mjs"], {}), [finding("lib/x.test.mjs")]);
+  assert.deepEqual(validateTestFileReachabilityObject(jobManifest, ["lib/x.test.mjs"], { jobs: [{ script: "w" }] }), [finding("lib/x.test.mjs")]);
+  assert.deepEqual(validateTestFileReachabilityObject({ scripts: {} }, [], {}), ["package.json: script test is missing"]);
+
+  const malformed = { scripts: { test: "node --test lib/x.test.mjs", broken: 7 } };
+  assert.deepEqual(validateTestFileReachabilityObject(malformed, ["lib/x.test.mjs"], null), ["package.json: script broken must be a string"]);
+  assert.deepEqual(validateTestFileReachabilityObject(malformed, ["lib/x.test.mjs"], { core_script: "broken", jobs: "w" }), ["package.json: script broken must be a string"]);
+});
+
+/** Format the unchanged orphan diagnostic for reachability fixtures. */
+const unreachableTestFile = (file) => `package.json: test file ${file} is run by no script reached from the test script`;
+
+/** Check runner prefixes and operand boundaries against every fixture row. */
+test("test file reachability counts only node test operands", () => {
+  const a = "lib/a.test.mjs";
+  const b = "lib/b.test.mjs";
+  const fixtures = [
+    [{ test: "npm run a", a: "npx eslint lib/a.test.mjs" }, [a], [a]],
+    [{ test: `node --test ${a} && rm ${b}` }, [a, b], [b]],
+    [{ test: `node --test ${a}; echo ${b}` }, [a, b], [b]],
+    [{ test: `node --test --test-name-pattern ${b} ${a}` }, [a, b], [b]],
+    [{ test: `node --test ${a} # ${b}` }, [a, b], [b]],
+    [{ test: `echo node --test ${a}` }, [a], [a]],
+    [{ test: `npx node --test ${a}` }, [a], [a]],
+    [{ test: `env node --test ${a}` }, [a], [a]],
+    [{ test: `node scripts/other.mjs node --test ${a}` }, [a], [a]],
+    [{ test: `node --import tsx scripts/run-in-loopback-netns.mjs node --test ${a}` }, [a], [a]],
+    [{ test: `node scripts/run-in-loopback-netns.mjs node scripts/run-in-loopback-netns.mjs node --test ${a}` }, [a], [a]],
+    [{ test: `node scripts/run.mjs --test ${a}` }, [a], [a]],
+    [{ test: `node --import tsx scripts/run.mjs --test ${a}` }, [a], [a]],
+    [{ test: "node --import tsx --test lib/a.test.ts" }, ["lib/a.test.ts"], []],
+    [{ test: "node -r ts-node/register --test lib/a.test.ts" }, ["lib/a.test.ts"], []],
+    [{ test: "node --import=tsx --test lib/a.test.ts" }, ["lib/a.test.ts"], []],
+    [{ test: "node scripts/run-in-loopback-netns.mjs node --import tsx --test lib/a.test.ts" }, ["lib/a.test.ts"], []],
+    [{ test: `node scripts/run-in-loopback-netns.mjs node --test --experimental-test-isolation=none ${a}` }, [a], []],
+    [{ test: "node --test 'lib/with space.test.mjs'&&node --test lib/b.test.mjs" }, ["lib/with space.test.mjs", b], []],
+    [{ test: "node --test --test-concurrency=2 'lib/*.test.mjs'" }, [a, "lib/sub/y.test.mjs"], ["lib/sub/y.test.mjs"]],
+    [{ test: 'node --test "lib/with space.test.mjs"' }, ["lib/with space.test.mjs"], []],
+    [{ test: `node --test ${a} || echo ${b} | rm ${b} & echo ${b}` }, [a, b], [b]],
+  ];
+  const actual = [];
+  const expected = [];
+  for (const [scripts, files, missing] of fixtures) {
+    actual.push([scripts.test, validateTestFileReachabilityObject({ scripts }, files, {})]);
+    expected.push([scripts.test, missing.map(unreachableTestFile)]);
+  }
+  assert.deepEqual(actual, expected);
+});
+
+test("test file reachability ignores every separate node option value", () => {
+  const options = [
+    "--test-name-pattern", "--test-skip-pattern", "--test-reporter",
+    "--test-reporter-destination", "--test-concurrency", "--test-timeout",
+    "--test-shard", "--import", "--require", "-r", "--loader", "--experimental-loader",
+  ];
+  for (const option of options) {
+    const manifest = { scripts: { test: `node --test ${option} lib/b.test.mjs lib/a.test.mjs` } };
+    assert.deepEqual(validateTestFileReachabilityObject(manifest, ["lib/a.test.mjs", "lib/b.test.mjs"], {}), [unreachableTestFile("lib/b.test.mjs")]);
+  }
+});
+
+test("test file reachability validates reached catalogue fields and script values", () => {
+  const cataloguePath = "tooling/internal/ciplan/workstation-catalogue.json";
+  const manifest = { scripts: { test: "go -C tooling run ./cmd/20w ci run-workstation --root .." } };
+  for (const catalogue of [null, [], 7, "w"]) {
+    assert.deepEqual(validateTestFileReachabilityObject(manifest, [], catalogue), [`${cataloguePath}: catalogue must be an object`]);
+  }
+  assert.deepEqual(validateTestFileReachabilityObject(manifest, [], { core_script: 7, jobs: "w" }), [
+    `${cataloguePath}: core_script must be a string`,
+    `${cataloguePath}: jobs must be an array`,
+  ]);
+  assert.deepEqual(validateTestFileReachabilityObject(manifest, [], { core_script: "w", jobs: [{ script: 3 }] }), [
+    `${cataloguePath}: jobs[0].script must be a string`,
+  ]);
+  assert.deepEqual(validateTestFileReachabilityObject({ scripts: { test: "node --version", broken: 7 } }, [], null), [
+    "package.json: script broken must be a string",
+  ]);
+});
+
+test("test file reachability seeds catalogue scripts only from runner tokens", () => {
+  const scripts = {
+    test: "node --version",
+    "test:workstation": "go -C tooling run ./cmd/20w ci run-workstation --root ..",
+    w: "node --test lib/x.test.mjs",
+    job: "node --test lib/job.test.mjs",
+  };
+  const catalogue = { core_script: "w", jobs: [{ script: "job" }] };
+  assert.deepEqual(validateTestFileReachabilityObject({ scripts }, ["lib/x.test.mjs"], catalogue), [unreachableTestFile("lib/x.test.mjs")]);
+  assert.deepEqual(validateTestFileReachabilityObject({ scripts: { ...scripts, test: "npm run test:workstation" } }, ["lib/x.test.mjs", "lib/job.test.mjs"], catalogue), []);
+  assert.deepEqual(validateTestFileReachabilityObject({ scripts: { ...scripts, test: "node --test lib/run-workstation.test.mjs" } }, ["lib/run-workstation.test.mjs", "lib/x.test.mjs"], catalogue), [unreachableTestFile("lib/x.test.mjs")]);
+});
+
+test("test file reachability follows npm aliases, flags, hooks, and bounded cycles", () => {
+  const a = "lib/a.test.mjs";
+  const b = "lib/b.test.mjs";
+  const runnerScripts = { a: `node --test ${a}`, b: `node --test ${b}` };
+  assert.deepEqual(validateTestFileReachabilityObject({ scripts: {
+    test: "node --version", pretest: runnerScripts.a, posttest: "npm run-script b", b: runnerScripts.b,
+  } }, [a, b], {}), []);
+  assert.deepEqual(validateTestFileReachabilityObject({ scripts: {
+    ...runnerScripts, test: "npm run -s a && npm run --silent b",
+  } }, [a, b], {}), []);
+  assert.deepEqual(validateTestFileReachabilityObject({ scripts: {
+    test: "npm run a", a: "npm test", prea: runnerScripts.a, posta: "npm --silent run-script b", b: runnerScripts.b,
+  } }, [a, b, "lib/orphan.test.mjs"], {}), [unreachableTestFile("lib/orphan.test.mjs")]);
+  assert.deepEqual(validateTestFileReachabilityObject({ scripts: {
+    test: `npm exec a && npm ci && npm install b && node --test ${a}`, b: runnerScripts.b,
+  } }, [a, b], {}), [unreachableTestFile(b)]);
+});
+
+test("test file reachability rejects unnamed npm runs and default discovery", () => {
+  for (const command of ["npm run", "npm run-script --silent"]) {
+    assert.deepEqual(validateTestFileReachabilityObject({ scripts: { test: command } }, [], {}), [
+      "package.json: script test runs npm run without a script name",
+    ]);
+  }
+  assert.deepEqual(validateTestFileReachabilityObject({ scripts: { test: "node --test" } }, ["lib/a.test.mjs"], {}), [
+    "package.json: script test runs node --test without test file operands",
+    unreachableTestFile("lib/a.test.mjs"),
+  ]);
+  assert.deepEqual(validateTestFileReachabilityObject({ scripts: { test: "node --test lib/a.test.mts lib/b.test.cts" } }, ["lib/a.test.mts", "lib/b.test.cts", "lib/orphan.test.mts"], {}), [
+    unreachableTestFile("lib/orphan.test.mts"),
+  ]);
+});
+
+test("test file reachability inventories Git files while excluding ignored and deleted files", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "20w-test-reachability-git-"));
+  const outer = mkdtempSync(path.join(tmpdir(), "20w-test-reachability-outer-git-"));
+  const originalGitDir = process.env.GIT_DIR;
+  const originalGitIndexFile = process.env.GIT_INDEX_FILE;
+  try {
+    execFileSync("git", ["init", "-q", root], { env: gitEnvironment(root), timeout: 30_000, stdio: ["ignore", "pipe", "pipe"] });
+    execFileSync("git", ["init", "-q", outer], { env: gitEnvironment(outer), timeout: 30_000, stdio: ["ignore", "pipe", "pipe"] });
+    mkdirSync(path.join(root, "ignored"));
+    mkdirSync(path.join(root, "lib"));
+    writeFileSync(path.join(root, ".gitignore"), "ignored/\n");
+    writeFileSync(path.join(root, "ignored/x.test.mjs"), "");
+    writeFileSync(path.join(root, "lib/a.test.mjs"), "");
+    writeFileSync(path.join(root, "lib/new.test.mjs"), "");
+    process.env.GIT_DIR = path.join(outer, ".git");
+    process.env.GIT_INDEX_FILE = path.join(outer, ".git", "index");
+    execFileSync("git", ["add", ".gitignore", "lib/a.test.mjs"], { cwd: root, env: gitEnvironment(root), timeout: 30_000, stdio: ["ignore", "pipe", "pipe"] });
+    writeFileSync(path.join(root, ".gitignore"), "ignored/\nlib/a.test.mjs\n");
+    assert.deepEqual(listTrackedTestFiles(root), ["lib/a.test.mjs", "lib/new.test.mjs"]);
+    writeFileSync(path.join(root, "lib/a.test.mts"), "");
+    writeFileSync(path.join(root, "lib/b.test.cts"), "");
+    rmSync(path.join(root, "lib/a.test.mjs"));
+    assert.deepEqual(listTrackedTestFiles(root), ["lib/a.test.mts", "lib/b.test.cts", "lib/new.test.mjs"]);
+    assert.equal(execFileSync("git", ["-C", outer, "ls-files"], {
+      env: gitEnvironment(outer), encoding: "utf8", timeout: 30_000, stdio: ["ignore", "pipe", "pipe"],
+    }), "");
+    assert.equal(existsSync(path.join(outer, ".git", "index")), false, "fixture git add must leave the outer index untouched");
+  } finally {
+    if (originalGitDir === undefined) delete process.env.GIT_DIR;
+    else process.env.GIT_DIR = originalGitDir;
+    if (originalGitIndexFile === undefined) delete process.env.GIT_INDEX_FILE;
+    else process.env.GIT_INDEX_FILE = originalGitIndexFile;
+    rmSync(root, { recursive: true, force: true });
+    rmSync(outer, { recursive: true, force: true });
+  }
+});
+
+test("test file reachability reports Git inventory failures with context", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "20w-test-reachability-no-git-"));
+  try {
+    assert.throws(() => listTrackedTestFiles(root), { name: "Error", message: /^git ls-files failed:/u });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("test file reachability distinguishes catalogue read and JSON parse failures", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "20w-test-reachability-catalogue-"));
+  const cataloguePath = "tooling/internal/ciplan/workstation-catalogue.json";
+  const manifest = { scripts: { test: "node --version" } };
+  try {
+    const readFindings = [];
+    validateTestFileReachability(root, manifest, readFindings);
+    assert.equal(readFindings.length, 1);
+    assert.ok(readFindings[0].startsWith(`${cataloguePath}: cannot read:`));
+    mkdirSync(path.dirname(path.join(root, cataloguePath)), { recursive: true });
+    writeFileSync(path.join(root, cataloguePath), "{");
+    const parseFindings = [];
+    validateTestFileReachability(root, manifest, parseFindings);
+    assert.equal(parseFindings.length, 1);
+    assert.ok(parseFindings[0].startsWith(`${cataloguePath}: invalid JSON:`));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("test file reachability contains inventory failures and accepts an injected inventory", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "20w-test-reachability-inventory-"));
+  const cataloguePath = "tooling/internal/ciplan/workstation-catalogue.json";
+  const manifest = { scripts: { test: "node --test lib/a.test.mjs" } };
+  try {
+    mkdirSync(path.dirname(path.join(root, cataloguePath)), { recursive: true });
+    writeFileSync(path.join(root, cataloguePath), "{}");
+    const failureFindings = [];
+    validateTestFileReachability(root, manifest, failureFindings, () => { throw new Error("walker bound"); });
+    assert.deepEqual(failureFindings, ["repository: test file inventory failed: walker bound"]);
+    const validFindings = [];
+    validateTestFileReachability(root, manifest, validFindings, () => ["lib/a.test.mjs"]);
+    assert.deepEqual(validFindings, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test("release caller retains only the serialized tag publication boundary", () => {
   const valid = workflow("release");
