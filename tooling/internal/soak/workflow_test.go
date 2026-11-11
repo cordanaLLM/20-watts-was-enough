@@ -1,9 +1,12 @@
 package soak
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -64,13 +67,38 @@ func TestWorkflowDurationsRejectDrift(t *testing.T) {
 // TestWorkflowRequiresEveryReport pins the positive case: the workflow requires
 // exactly the reports produced by every consumer soak test.
 func TestWorkflowRequiresEveryReport(t *testing.T) {
-	paths, err := filepath.Glob("../*/soak_test.go")
+	reports := collectConsumerReports(t)
+	body, err := os.ReadFile(workflowPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := workflowReportMismatch(string(body), reports); err != nil {
+		t.Fatalf("%s: %v", workflowPath, err)
+	}
+}
+
+// collectConsumerReports returns the report names of every consumer soak test
+// in the sibling packages, read through an os.Root on the parent directory,
+// failing t when a file cannot be read, a RunTest call has no literal report
+// name, or no names are found.
+func collectConsumerReports(t *testing.T) map[string]bool {
+	t.Helper()
+	root, err := os.OpenRoot("..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := root.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	paths, err := fs.Glob(root.FS(), "*/soak_test.go")
 	if err != nil {
 		t.Fatal(err)
 	}
 	reports := make(map[string]bool)
 	for _, path := range paths {
-		body, err := os.ReadFile(path)
+		body, err := fs.ReadFile(root.FS(), path)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -85,13 +113,174 @@ func TestWorkflowRequiresEveryReport(t *testing.T) {
 	if len(reports) == 0 {
 		t.Fatal("no consumer soak report names found")
 	}
+	return reports
+}
+
+// TestWorkflowReportStepRejectsMissingOrEmptyReport pins the positive,
+// negative and boundary cases by executing the workflow's report guard.
+func TestWorkflowReportStepRejectsMissingOrEmptyReport(t *testing.T) {
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skipf("workflow report step requires bash: %v", err)
+	}
+	reports := collectConsumerReports(t)
 	body, err := os.ReadFile(workflowPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := workflowReportMismatch(string(body), reports); err != nil {
+	script, err := reportStepScript(string(body))
+	if err != nil {
 		t.Fatalf("%s: %v", workflowPath, err)
 	}
+	t.Run("all non-empty", func(t *testing.T) {
+		dir := writeReportFixtures(t, reports, "", false)
+		if err := runReportStep(t, script, dir); err != nil {
+			t.Fatal(err)
+		}
+	})
+	names := make([]string, 0, len(reports))
+	for name := range reports {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		for _, state := range []string{"missing", "empty"} {
+			t.Run(state+"/"+name, func(t *testing.T) {
+				dir := writeReportFixtures(t, reports, name, state == "empty")
+				err := runReportStep(t, script, dir)
+				want := "missing or empty soak report " + name
+				if err == nil || !strings.Contains(err.Error(), want) {
+					t.Fatalf("runReportStep() = %v, want %q", err, want)
+				}
+			})
+		}
+	}
+}
+
+// writeReportFixtures writes every report in a fresh directory with one
+// non-empty line, except target: left out, or written empty when empty is true.
+func writeReportFixtures(t *testing.T, reports map[string]bool, target string, empty bool) string {
+	t.Helper()
+	dir := t.TempDir()
+	for name := range reports {
+		content := []byte("{}\n")
+		if name == target {
+			if !empty {
+				continue
+			}
+			content = nil
+		}
+		if err := os.WriteFile(filepath.Join(dir, name), content, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
+}
+
+// TestWorkflowReportStepScript pins extraction, indentation and refusal of
+// missing run blocks, including a block that belongs to the following step.
+func TestWorkflowReportStepScript(t *testing.T) {
+	const step = "  - name: Require every soak report\n"
+	for _, tc := range []struct {
+		name string
+		body string
+		want string
+	}{
+		{"nested shell", step + "    run: |\n      for report in a; do\n        echo done\n      done\n  - name: next\n    run: |\n      false\n", "for report in a; do\n  echo done\ndone\n"},
+		{"blank line", step + "    run: |\n\n      true\n    shell: bash\n", "\ntrue\n"},
+		{"missing step", "  - name: another step\n    run: |\n      true\n", ""},
+		{"missing run", step + "    shell: bash\n", ""},
+		{"following run", step + "  - name: next\n    run: |\n      true\n", ""},
+		{"nested run key", step + "    env:\n      run: |\n        true\n", ""},
+		{"empty run", step + "    run: |\n    shell: bash\n", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := reportStepScript(tc.body)
+			if tc.want == "" {
+				if err == nil {
+					t.Fatalf("reportStepScript() = %q, want an extraction error", got)
+				}
+				return
+			}
+			if err != nil || got != tc.want {
+				t.Fatalf("reportStepScript() = %q, %v; want %q, nil", got, err, tc.want)
+			}
+		})
+	}
+}
+
+// reportStepScript returns the run: | block of the workflow step named
+// "Require every soak report", with its indentation removed. It refuses a
+// missing step or block instead of returning a neighbouring step's script.
+func reportStepScript(body string) (string, error) {
+	lines := strings.Split(body, "\n")
+	stepIndent := -1
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		indent := len(line) - len(strings.TrimLeft(line, " "))
+		if stepIndent < 0 {
+			if trimmed == "- name: Require every soak report" {
+				stepIndent = indent
+			}
+			continue
+		}
+		if indent <= stepIndent {
+			break
+		}
+		if trimmed == "run: |" && indent == stepIndent+2 {
+			return reportBlockScript(lines[i+1:], indent)
+		}
+	}
+	return "", errors.New("missing Require every soak report step or its run: | block")
+}
+
+// reportBlockScript returns the block-scalar lines that follow a run: key at
+// runIndent, with only their common indentation removed, so deeper shell
+// indentation survives.
+func reportBlockScript(lines []string, runIndent int) (string, error) {
+	var block []string
+	commonIndent := -1
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			block = append(block, "")
+			continue
+		}
+		indent := len(line) - len(strings.TrimLeft(line, " "))
+		if indent <= runIndent {
+			break
+		}
+		if commonIndent < 0 || indent < commonIndent {
+			commonIndent = indent
+		}
+		block = append(block, line)
+	}
+	if commonIndent < 0 {
+		return "", errors.New("empty Require every soak report run: | block")
+	}
+	prefix := strings.Repeat(" ", commonIndent)
+	for i, line := range block {
+		block[i] = strings.TrimPrefix(line, prefix)
+	}
+	return strings.Join(block, "\n") + "\n", nil
+}
+
+// runReportStep runs script under bash with a 10 s deadline and an environment
+// of only PATH and TWENTYW_SOAK_REPORT_DIR=dir, and returns its exit error
+// wrapped with the combined output.
+func runReportStep(t *testing.T, script, dir string) error {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "bash", "-s")
+	cmd.Stdin = strings.NewReader(script)
+	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "TWENTYW_SOAK_REPORT_DIR=" + dir}
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("report step: %w\n%s", err, output)
+	}
+	return nil
 }
 
 // TestWorkflowRejectsNonLiteralReport pins the negative case: a consumer call

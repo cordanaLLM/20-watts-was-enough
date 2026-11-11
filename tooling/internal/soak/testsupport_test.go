@@ -56,7 +56,7 @@ func TestStartTestReturnsDefaultsAndWatchedTemporary(t *testing.T) {
 	if len(config.Watched) != 1 || config.Watched[0] != temporary {
 		t.Fatalf("Watched = %q, want only TMPDIR %q", config.Watched, temporary)
 	}
-	if info, err := os.Stat(temporary); err != nil || !info.IsDir() {
+	if info, err := os.Stat(config.Watched[0]); err != nil || !info.IsDir() {
 		t.Fatalf("TMPDIR %q: %v, want an existing directory", temporary, err)
 	}
 }
