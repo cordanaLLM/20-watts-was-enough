@@ -117,6 +117,13 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- npm moves from 12.2.1 to 12.2.2, a bug-fix release (startup accepts Node.js
+  prereleases; a workdir cleanup race is fixed). The locked archive in
+  `scripts/npm-runtime-lock.json` and `scripts/install-locked-npm.mjs` names
+  the new registry tarball by size (3069597 bytes) and SHA-256
+  (`07fecbf753e2`). The `packageManager` field, the install and verify steps in
+  the CI, Pages and release workflows, Renovate's `constraints.npm`, the
+  engineering policy and its test, and the contributor guide move with it.
 - Root `AGENTS.md` drops below the 12,000-character Windsurf rule-file limit:
   the working sequence and common commands move to
   [`docs/agent-working-sequence.md`](docs/agent-working-sequence.md), and the
