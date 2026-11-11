@@ -4648,13 +4648,27 @@ function shellSegments(command) {
 }
 
 /**
+ * Scan the prefix once, bounded by its word count, skipping node option values
+ * and allowing a wrapper to introduce a later node executable.
+ */
+function hasNodeTestPrefix(words, testIndex) {
+  let candidate = false;
+  for (let index = 0; index < testIndex; index += 1) {
+    const word = words[index];
+    if (word === "node") candidate = true;
+    else if (candidate && NODE_VALUE_OPTIONS.has(word)) index += 1;
+    else if (!word.startsWith("-")) candidate = false;
+  }
+  return candidate;
+}
+
+/**
  * Recognise a node test runner, including wrappers, and collect operands while
  * skipping option values in one pass bounded by the segment's word count.
  */
 function nodeTestOperands(words) {
   const testIndex = words.indexOf("--test");
-  const preceding = words.slice(0, testIndex).findLast((word) => !word.startsWith("-"));
-  if (testIndex < 0 || preceding !== "node") return null;
+  if (testIndex < 0 || !hasNodeTestPrefix(words, testIndex)) return null;
   const operands = [];
   for (let index = testIndex + 1; index < words.length; index += 1) {
     const word = words[index];
@@ -4785,6 +4799,27 @@ export function validateTestFileReachabilityObject(manifest, testFiles, catalogu
 }
 
 /**
+ * Discover repository-local Git variables and remove them from a copied
+ * environment, bounding discovery time and preventing parent traversal.
+ */
+export function gitEnvironment(root) {
+  let variables;
+  try {
+    variables = execFileSync("git", ["rev-parse", "--local-env-vars"], {
+      encoding: "utf8",
+      timeout: 30_000,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (error) {
+    throw new Error(`git rev-parse --local-env-vars failed: ${error.message}`, { cause: error });
+  }
+  const env = { ...process.env };
+  for (const name of variables.trim().split(/\s+/u)) delete env[name];
+  env.GIT_CEILING_DIRECTORIES = path.dirname(path.resolve(root));
+  return env;
+}
+
+/**
  * Inventory existing tracked and unignored untracked test files with bounded
  * Git output and time, preventing discovery outside the requested root.
  */
@@ -4797,7 +4832,7 @@ export function listTrackedTestFiles(root) {
       timeout: 30_000,
       maxBuffer: 64 * 1024 * 1024,
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, GIT_CEILING_DIRECTORIES: path.dirname(path.resolve(root)) },
+      env: gitEnvironment(root),
     });
   } catch (error) {
     throw new Error(`git ls-files failed: ${error.message}`, { cause: error });

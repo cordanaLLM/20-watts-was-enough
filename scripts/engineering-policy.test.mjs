@@ -31,6 +31,7 @@ import {
   engineManagedWorkflowPaths,
   formatFindings,
   generatedHookJobSkips,
+  gitEnvironment,
   listTrackedTestFiles,
   serialisedPullRequestWorkflowPaths,
   supersededRunCancellationWorkflowPaths,
@@ -147,6 +148,11 @@ test("test file reachability counts only node test operands", () => {
     [{ test: `node --test --test-name-pattern ${b} ${a}` }, [a, b], [b]],
     [{ test: `node --test ${a} # ${b}` }, [a, b], [b]],
     [{ test: `node scripts/run.mjs --test ${a}` }, [a], [a]],
+    [{ test: `node --import tsx scripts/run.mjs --test ${a}` }, [a], [a]],
+    [{ test: "node --import tsx --test lib/a.test.ts" }, ["lib/a.test.ts"], []],
+    [{ test: "node -r ts-node/register --test lib/a.test.ts" }, ["lib/a.test.ts"], []],
+    [{ test: "node --import=tsx --test lib/a.test.ts" }, ["lib/a.test.ts"], []],
+    [{ test: "node scripts/run-in-loopback-netns.mjs node --import tsx --test lib/a.test.ts" }, ["lib/a.test.ts"], []],
     [{ test: `node scripts/run-in-loopback-netns.mjs node --test --experimental-test-isolation=none ${a}` }, [a], []],
     [{ test: "node --test 'lib/with space.test.mjs'&&node --test lib/b.test.mjs" }, ["lib/with space.test.mjs", b], []],
     [{ test: "node --test --test-concurrency=2 'lib/*.test.mjs'" }, [a, "lib/sub/y.test.mjs"], ["lib/sub/y.test.mjs"]],
@@ -236,22 +242,38 @@ test("test file reachability rejects unnamed npm runs and default discovery", ()
 
 test("test file reachability inventories Git files while excluding ignored and deleted files", () => {
   const root = mkdtempSync(path.join(tmpdir(), "20w-test-reachability-git-"));
+  const outer = mkdtempSync(path.join(tmpdir(), "20w-test-reachability-outer-git-"));
+  const originalGitDir = process.env.GIT_DIR;
+  const originalGitIndexFile = process.env.GIT_INDEX_FILE;
   try {
-    execFileSync("git", ["init", "-q", root], { timeout: 30_000, stdio: ["ignore", "pipe", "pipe"] });
+    execFileSync("git", ["init", "-q", root], { env: gitEnvironment(root), timeout: 30_000, stdio: ["ignore", "pipe", "pipe"] });
+    execFileSync("git", ["init", "-q", outer], { env: gitEnvironment(outer), timeout: 30_000, stdio: ["ignore", "pipe", "pipe"] });
     mkdirSync(path.join(root, "ignored"));
     mkdirSync(path.join(root, "lib"));
     writeFileSync(path.join(root, ".gitignore"), "ignored/\n");
     writeFileSync(path.join(root, "ignored/x.test.mjs"), "");
     writeFileSync(path.join(root, "lib/a.test.mjs"), "");
     writeFileSync(path.join(root, "lib/new.test.mjs"), "");
-    execFileSync("git", ["add", ".gitignore", "lib/a.test.mjs"], { cwd: root, timeout: 30_000, stdio: ["ignore", "pipe", "pipe"] });
+    process.env.GIT_DIR = path.join(outer, ".git");
+    process.env.GIT_INDEX_FILE = path.join(outer, ".git", "index");
+    execFileSync("git", ["add", ".gitignore", "lib/a.test.mjs"], { cwd: root, env: gitEnvironment(root), timeout: 30_000, stdio: ["ignore", "pipe", "pipe"] });
+    writeFileSync(path.join(root, ".gitignore"), "ignored/\nlib/a.test.mjs\n");
     assert.deepEqual(listTrackedTestFiles(root), ["lib/a.test.mjs", "lib/new.test.mjs"]);
     writeFileSync(path.join(root, "lib/a.test.mts"), "");
     writeFileSync(path.join(root, "lib/b.test.cts"), "");
     rmSync(path.join(root, "lib/a.test.mjs"));
     assert.deepEqual(listTrackedTestFiles(root), ["lib/a.test.mts", "lib/b.test.cts", "lib/new.test.mjs"]);
+    assert.equal(execFileSync("git", ["-C", outer, "ls-files"], {
+      env: gitEnvironment(outer), encoding: "utf8", timeout: 30_000, stdio: ["ignore", "pipe", "pipe"],
+    }), "");
+    assert.equal(existsSync(path.join(outer, ".git", "index")), false, "fixture git add must leave the outer index untouched");
   } finally {
+    if (originalGitDir === undefined) delete process.env.GIT_DIR;
+    else process.env.GIT_DIR = originalGitDir;
+    if (originalGitIndexFile === undefined) delete process.env.GIT_INDEX_FILE;
+    else process.env.GIT_INDEX_FILE = originalGitIndexFile;
     rmSync(root, { recursive: true, force: true });
+    rmSync(outer, { recursive: true, force: true });
   }
 });
 
