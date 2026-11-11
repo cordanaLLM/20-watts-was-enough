@@ -1,13 +1,9 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
 
-const fixtureRoot = path.dirname(fileURLToPath(import.meta.url));
+import { runFixture019Python } from "./test-helpers.mjs";
 
-function runMutantMatrix() {
-  const source = String.raw`
+const mutantMatrixSource = String.raw`
 import json
 import numpy as np
 import worker
@@ -98,11 +94,9 @@ print(json.dumps({
     "within_tolerance": within_tolerance,
 }, sort_keys=True))
 `;
-  return JSON.parse(execFileSync("python", ["-B", "-c", source], {
-    cwd: fixtureRoot,
-    encoding: "utf8",
-    windowsHide: true,
-  }));
+
+function runMutantMatrix() {
+  return JSON.parse(runFixture019Python(["-B", "-c", mutantMatrixSource]));
 }
 
 test("independent evaluator agreement covers every terminal endpoint and fails closed on mutants", () => {

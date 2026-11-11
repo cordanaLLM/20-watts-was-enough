@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
 
-const fixtureRoot = path.dirname(fileURLToPath(import.meta.url));
+import { runFixture019Python } from "./test-helpers.mjs";
 
 function forcedBoundaries() {
   const source = String.raw`
@@ -41,11 +38,7 @@ print(json.dumps({
     "negative": negative,
 }, sort_keys=True))
 `;
-  return JSON.parse(execFileSync("python", ["-B", "-c", source], {
-    cwd: fixtureRoot,
-    encoding: "utf8",
-    windowsHide: true,
-  }));
+  return JSON.parse(runFixture019Python(["-B", "-c", source]));
 }
 
 test("forced cap, floor, missing-call, and negative-balance boundaries fail closed", () => {

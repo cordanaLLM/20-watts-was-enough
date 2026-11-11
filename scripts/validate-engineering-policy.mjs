@@ -158,6 +158,7 @@ const requiredFiles = [
   ".github/workflows/release-build.yml",
   ".github/workflows/scorecard.yml",
   ".github/workflows/sync-repository-metadata.yml",
+  ".github/workflows/soak.yml",
   "AGENTS.md",
   "CITATION.cff",
   "CLAUDE.md",
@@ -427,6 +428,25 @@ export function validateWorkflowObject(workflow, relativePath = "workflow.yml") 
   findings.push(...validatePortableWorkflowObject(workflow, relativePath));
 
   return findings;
+}
+
+export function validateScheduledSoakWorkflowObject(
+  workflow,
+  relativePath = ".github/workflows/soak.yml",
+) {
+  const triggers = workflow?.on;
+  const names = triggers && typeof triggers === "object" && !Array.isArray(triggers)
+    ? Object.keys(triggers).sort()
+    : [];
+  if (JSON.stringify(names) !== JSON.stringify(["schedule", "workflow_dispatch"])) {
+    return [`${relativePath}: scheduled soak may run only on schedule and workflow_dispatch`];
+  }
+  // Checkov CKV_GHA_7: a manual run takes no inputs, so it soaks for the same fixed
+  // duration the schedule does.
+  if (triggers.workflow_dispatch?.inputs !== undefined) {
+    return [`${relativePath}: scheduled soak workflow_dispatch must take no inputs`];
+  }
+  return [];
 }
 
 const publicRepositoryExpectedJobRunners = new Map([
@@ -5294,6 +5314,9 @@ function validateWorkflowPolicy(workflow, relativePath, lock, findings) {
     return;
   }
   findings.push(...validateWorkflowObject(workflow, relativePath));
+  if (relativePath === ".github/workflows/soak.yml") {
+    findings.push(...validateScheduledSoakWorkflowObject(workflow, relativePath));
+  }
   findings.push(...validateSupersededRunCancellationWorkflowObject(workflow, relativePath));
   findings.push(...validatePublicRepositoryRunnerWorkflowObject(workflow, relativePath));
   findings.push(...validateNodeSetupWorkflowObject(workflow, relativePath));

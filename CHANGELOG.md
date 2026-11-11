@@ -5,6 +5,10 @@ the exact diff; this file records why the project changed.
 
 ## [Unreleased]
 
+### Added
+
+- Add a scheduled bounded soak for workstation runner and book renderer resource growth.
+
 ### Security
 
 - Move the pinned Node.js runtime from 26.12.0 to 26.13.0 across policies,

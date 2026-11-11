@@ -33,6 +33,38 @@ import {
 } from "./contract.mjs";
 
 export const FIXTURE_019_RUNNER_VERSION = "fixture-019.fm-t02-runner.v1";
+export const FIXTURE_019_PYTHON_VARIABLE = "TWENTYW_FIXTURE_019_PYTHON";
+
+// fixture019PythonCommand returns the interpreter Fixture 019 spawns: the absolute path in
+// TWENTYW_FIXTURE_019_PYTHON, or `python` from PATH when the variable is unset or empty.
+// A relative path is refused, so the choice cannot depend on the working directory. Either
+// way the caller still checks the interpreter against python-environment.lock.json.
+export function fixture019PythonCommand(environment = process.env) {
+  const configured = environment[FIXTURE_019_PYTHON_VARIABLE];
+  if (configured === undefined || configured === "") return "python";
+  if (!path.isAbsolute(configured)) {
+    throw new Error(`${FIXTURE_019_PYTHON_VARIABLE} must be an absolute interpreter path, got ${JSON.stringify(configured)}.`);
+  }
+  return configured;
+}
+
+// assertFixture019Runtime refuses a worker environment record that does not match the lock,
+// naming the interpreter, what it reported and what the lock pins.
+export function assertFixture019Runtime(actual, lock, command) {
+  if (
+    actual?.python_implementation === lock.python_implementation
+    && actual?.python_version === lock.python_version
+    && actual?.numpy_version === lock.packages?.numpy
+    && actual?.bit_generator === lock.bit_generator
+    && actual?.byteorder === "little"
+  ) return actual;
+  const found = `${actual?.python_implementation} ${actual?.python_version}, NumPy ${actual?.numpy_version}, ${actual?.bit_generator}, ${actual?.byteorder}-endian`;
+  const wanted = `${lock.python_implementation} ${lock.python_version}, NumPy ${lock.packages?.numpy}, ${lock.bit_generator}, little-endian`;
+  throw new Error(
+    `Fixture 019 runtime differs from python-environment.lock.json: ${command} reports ${found}; the lock pins ${wanted}. `
+    + `Set ${FIXTURE_019_PYTHON_VARIABLE} to the absolute path of a matching interpreter.`,
+  );
+}
 
 const fixtureRoot = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(fixtureRoot, "../../..");
@@ -228,7 +260,8 @@ async function loadInputs(profile) {
 
 class PythonWorker {
   constructor() {
-    this.child = spawn("python", ["-B", path.join(fixtureRoot, "worker.py")], {
+    this.command = fixture019PythonCommand();
+    this.child = spawn(this.command, ["-B", path.join(fixtureRoot, "worker.py")], {
       cwd: fixtureRoot,
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true,
@@ -272,16 +305,41 @@ class PythonWorker {
   }
 }
 
+// withPythonWorker runs action against a fresh worker and then closes it. A close failure
+// after a successful action is raised; after a failed action both errors are raised
+// together, the action's error first and as the cause.
+async function withPythonWorker(action) {
+  const worker = new PythonWorker();
+  let result;
+  try {
+    result = await action(worker);
+  } catch (error) {
+    throw await failureAfterClosing(worker, error);
+  }
+  await worker.close();
+  return result;
+}
+
+// failureAfterClosing returns the action error after closing the worker, combining a close
+// failure with it while preserving the action error first and as the cause.
+async function failureAfterClosing(worker, error) {
+  try {
+    await worker.close();
+    return error;
+  } catch (closeError) {
+    return new AggregateError(
+      [error, closeError],
+      `${error.message} Closing the Fixture 019 worker also failed: ${closeError.message}`,
+      { cause: error },
+    );
+  }
+}
+
+// verifyWorkerEnvironment returns the worker's runtime record only if it matches the loaded
+// environment lock, refusing a mismatched runtime before execution or analysis.
 async function verifyWorkerEnvironment(inputs, worker) {
   const actual = await worker.request({ action: "environment" });
-  if (
-    actual.python_implementation !== inputs.environment.python_implementation
-    || actual.python_version !== inputs.environment.python_version
-    || actual.numpy_version !== inputs.environment.packages.numpy
-    || actual.bit_generator !== inputs.environment.bit_generator
-    || actual.byteorder !== "little"
-  ) throw new Error("Fixture 019 runtime differs from python-environment.lock.json.");
-  return actual;
+  return assertFixture019Runtime(actual, inputs.environment, worker.command);
 }
 
 function workUnits(inputs) {
@@ -343,6 +401,9 @@ function runIdentity(inputs) {
   return { ...body, run_id: sha256Hex(canonicalize(body)) };
 }
 
+// executeFixture019 runs or resumes the profile's work units under the output-directory lock
+// with a lock-verified interpreter, and returns the directory and the complete run record.
+// The record stays claim-ineligible and carries no scientific result.
 export async function executeFixture019({
   profile,
   output,
@@ -359,6 +420,59 @@ export async function executeFixture019({
     runtime: executionRuntime,
   });
   const directory = outputDirectory(output);
+  await prepareRunDirectory(directory, resume);
+  const lock = await acquireLock(directory);
+  const identity = runIdentity(inputs);
+  const rawPath = path.join(directory, "raw-events.jsonl");
+  const checkpointPath = path.join(directory, "checkpoint.json");
+  try {
+    return await withPythonWorker(async (worker) => {
+      const environment = await verifyWorkerEnvironment(inputs, worker);
+      const ledger = await openRunLedger(rawPath, checkpointPath, identity);
+      const units = workUnits(inputs);
+      await simulateRemainingUnits(worker, ledger, units);
+      const run = {
+        ...identity,
+        command_profile: profile,
+        execution_receipt: executionReceipt,
+        environment,
+        expected_work_units: units.length,
+        ledger: ledger.summary(),
+        raw_path: path.relative(repositoryRoot, rawPath).replaceAll("\\", "/"),
+        checkpoint_path: path.relative(repositoryRoot, checkpointPath).replaceAll("\\", "/"),
+        confirmation_seed_state: "pending-private-escrow-unavailable",
+        held_out_seed_state: "pending-private-escrow-unavailable",
+        measured_energy_present: false,
+        claim_eligible: false,
+        scientific_result: false,
+      };
+      if (run.ledger.completed_work_units !== units.length) throw new Error("Fixture 019 run is incomplete.");
+      await writeStableJson(path.join(directory, "run.json"), run);
+      return { directory, run };
+    });
+  } finally {
+    await lock.release();
+  }
+}
+
+// openRunLedger opens the checkpoint ledger bound to the supplied run identity and Fixture
+// 019 record contract, so resume uses validated records and work-unit keys.
+function openRunLedger(rawPath, checkpointPath, identity) {
+  return openCheckpointLedger({
+    artifact: "fixture-019",
+    ledgerFormat: "fixture-019.fm-t02-ledger.v1",
+    rawPath,
+    checkpointPath,
+    runIdentity: identity,
+    scientificPayload: fixture019ScientificPayload,
+    workKey: fixture019WorkKey,
+    assertRecord: assertFixture019Record,
+  });
+}
+
+// prepareRunDirectory requires the output's existence to match the resume request and
+// rejects unsafe paths or non-regular run files before execution can write evidence.
+async function prepareRunDirectory(directory, resume) {
   await assertSafeOutputPath(directory);
   await mkdir(path.dirname(directory), { recursive: true });
   let exists = true;
@@ -376,55 +490,19 @@ export async function executeFixture019({
     "checkpoint.json",
     "run.json",
   ].map((name) => assertRegularOutputFile(path.join(directory, name), { allowMissing: true })));
-  const lock = await acquireLock(directory);
-  const identity = runIdentity(inputs);
-  const rawPath = path.join(directory, "raw-events.jsonl");
-  const checkpointPath = path.join(directory, "checkpoint.json");
-  let worker = null;
-  try {
-    worker = new PythonWorker();
-    const environment = await verifyWorkerEnvironment(inputs, worker);
-    const ledger = await openCheckpointLedger({
-      artifact: "fixture-019",
-      ledgerFormat: "fixture-019.fm-t02-ledger.v1",
-      rawPath,
-      checkpointPath,
-      runIdentity: identity,
-      scientificPayload: fixture019ScientificPayload,
-      workKey: fixture019WorkKey,
-      assertRecord: assertFixture019Record,
-    });
-    const units = workUnits(inputs);
-    const remaining = remainingWorkUnits(units, ledger.completedWorkKeys(), workUnitKey);
-    for (const unit of remaining) {
-      const event = await worker.request({ action: "simulate", ...unit });
-      if (fixture019WorkKey({ ...event, seed: event.seed_uint64 }) !== workUnitKey(unit)) {
-        throw new Error("Fixture 019 worker returned the wrong work unit.");
-      }
-      await ledger.append(event);
-      await ledger.saveCheckpoint();
+}
+
+// simulateRemainingUnits runs only unfinished work, refuses responses for another unit, and
+// checkpoints each appended event so subsequent resumes can identify completed work.
+async function simulateRemainingUnits(worker, ledger, units) {
+  const remaining = remainingWorkUnits(units, ledger.completedWorkKeys(), workUnitKey);
+  for (const unit of remaining) {
+    const event = await worker.request({ action: "simulate", ...unit });
+    if (fixture019WorkKey({ ...event, seed: event.seed_uint64 }) !== workUnitKey(unit)) {
+      throw new Error("Fixture 019 worker returned the wrong work unit.");
     }
-    const run = {
-      ...identity,
-      command_profile: profile,
-      execution_receipt: executionReceipt,
-      environment,
-      expected_work_units: units.length,
-      ledger: ledger.summary(),
-      raw_path: path.relative(repositoryRoot, rawPath).replaceAll("\\", "/"),
-      checkpoint_path: path.relative(repositoryRoot, checkpointPath).replaceAll("\\", "/"),
-      confirmation_seed_state: "pending-private-escrow-unavailable",
-      held_out_seed_state: "pending-private-escrow-unavailable",
-      measured_energy_present: false,
-      claim_eligible: false,
-      scientific_result: false,
-    };
-    if (run.ledger.completed_work_units !== units.length) throw new Error("Fixture 019 run is incomplete.");
-    await writeStableJson(path.join(directory, "run.json"), run);
-    return { directory, run };
-  } finally {
-    await worker?.close().catch(() => {});
-    await lock.release();
+    await ledger.append(event);
+    await ledger.saveCheckpoint();
   }
 }
 
@@ -491,8 +569,9 @@ async function verifyFrozenRunIdentity(
   return freshIdentity;
 }
 
-export async function computeFixture019Analysis(output, executionIdentity = {}) {
-  const directory = outputDirectory(output);
+// loadVerifiedRun reads run.json and the raw ledger, checks both against a fresh run
+// identity, and requires the complete declared work-unit population.
+async function loadVerifiedRun(directory, executionIdentity) {
   await assertSafeOutputPath(directory, { requireExisting: true });
   await Promise.all([
     "raw-events.jsonl",
@@ -511,40 +590,41 @@ export async function computeFixture019Analysis(output, executionIdentity = {}) 
   const expected = workUnits(inputs).map(workUnitKey).sort();
   const observed = raw.records.map((record) => fixture019WorkKey(record)).sort();
   if (canonicalize(expected) !== canonicalize(observed)) throw new Error("Fixture 019 work-unit population is incomplete.");
+  return { run, raw, inputs };
+}
 
-  const base = raw.records.filter((record) => record.cell === "base");
-  const contrasts = base.map((record) => (
-    0.8 * record.arms["one-pass"].forecast_loss - record.arms["full-fixed-point"].forecast_loss
-  ));
-  const worker = new PythonWorker();
-  let statistical;
-  try {
-    const currentEnvironment = await verifyWorkerEnvironment(inputs, worker);
-    if (canonicalize(currentEnvironment) !== canonicalize(run.environment)) {
-      throw new Error("Fixture 019 current worker environment differs from the frozen run environment.");
-    }
-    const analysisDirectory = path.join(directory, "analysis");
-    const resampleDirectory = path.join(analysisDirectory, "resamples");
-    await assertSafeOutputPath(analysisDirectory);
-    await mkdir(resampleDirectory, { recursive: true });
-    await assertSafeOutputPath(resampleDirectory, { requireExisting: true });
-    const resampleFiles = [
-      path.join(resampleDirectory, "primary-sign-vectors.i8"),
-      path.join(resampleDirectory, "primary-bootstrap-indices.u32le"),
-    ];
-    await Promise.all(resampleFiles.map((file) => assertRegularOutputFile(file, { allowMissing: true })));
-    statistical = await worker.request({
-      action: "analyze",
-      contrasts,
-      resamples: inputs.config.analysis_resamples,
-      label: `${run.profile}-diagnostic`,
-      persist_directory: resampleDirectory,
-    });
-    await Promise.all(resampleFiles.map((file) => assertRegularOutputFile(file)));
-  } finally {
-    await worker.close().catch(() => {});
+// analyzeContrasts runs the worker's resampling analysis on the primary contrasts after
+// checking that the worker environment still equals the frozen run environment.
+async function analyzeContrasts(worker, { directory, inputs, run, contrasts }) {
+  const currentEnvironment = await verifyWorkerEnvironment(inputs, worker);
+  if (canonicalize(currentEnvironment) !== canonicalize(run.environment)) {
+    throw new Error("Fixture 019 current worker environment differs from the frozen run environment.");
   }
-  const checks = {
+  const analysisDirectory = path.join(directory, "analysis");
+  const resampleDirectory = path.join(analysisDirectory, "resamples");
+  await assertSafeOutputPath(analysisDirectory);
+  await mkdir(resampleDirectory, { recursive: true });
+  await assertSafeOutputPath(resampleDirectory, { requireExisting: true });
+  const resampleFiles = [
+    path.join(resampleDirectory, "primary-sign-vectors.i8"),
+    path.join(resampleDirectory, "primary-bootstrap-indices.u32le"),
+  ];
+  await Promise.all(resampleFiles.map((file) => assertRegularOutputFile(file, { allowMissing: true })));
+  const statistical = await worker.request({
+    action: "analyze",
+    contrasts,
+    resamples: inputs.config.analysis_resamples,
+    label: `${run.profile}-diagnostic`,
+    persist_directory: resampleDirectory,
+  });
+  await Promise.all(resampleFiles.map((file) => assertRegularOutputFile(file)));
+  return statistical;
+}
+
+// analysisChecks returns diagnostic pass flags for population, record invariants, seed-pack
+// unavailability and absent energy measurements, allowing callers to judge the run.
+function analysisChecks(run, raw) {
+  return {
     complete_work_unit_population: raw.records.length === run.expected_work_units,
     no_terminal_hard_gate_failure: raw.records.every((record) => record.terminal_status === "ok"),
     independent_evaluator_agreement: raw.records.every((record) => record.checks.independent_evaluator_agreement),
@@ -557,14 +637,49 @@ export async function computeFixture019Analysis(output, executionIdentity = {}) 
     held_out_seed_pack_unavailable: run.held_out_seed_state === "pending-private-escrow-unavailable",
     energy_claim_forbidden: run.measured_energy_present === false,
   };
+}
+
+// scientificEligibility returns world diversity, contrast variation and confirmation
+// blockers, keeping confirmation ineligible while the private seed packs are unavailable.
+function scientificEligibility(contrasts, base) {
   const contrastMean = contrasts.reduce((sum, value) => sum + value, 0) / contrasts.length;
   const contrastSampleSd = Math.sqrt(contrasts.reduce(
     (sum, value) => sum + (value - contrastMean) ** 2,
     0,
   ) / (contrasts.length - 1));
   const contrastRange = Math.max(...contrasts) - Math.min(...contrasts);
-  const distinctWorlds = new Set(base.map((record) => record.world_sha256)).size;
   const seedVariationReachesPrimary = contrastRange > 1e-12;
+  return {
+    distinct_generated_worlds: new Set(base.map((record) => record.world_sha256)).size,
+    contrast_sample_sd: contrastSampleSd,
+    contrast_range: contrastRange,
+    seed_variation_reaches_primary_at_1e_12: seedVariationReachesPrimary,
+    confirmation_eligible: false,
+    blockers: [
+      "confirmation and held-out seed packs are pending fresh private CSPRNG escrow and are unavailable",
+      ...(seedVariationReachesPrimary ? [] : [
+        "the frozen aggregate FM-T02 forecast endpoint is effectively seed-invariant because the Dirichlet residual allocation cancels under common non-primary shocks and proportional sales",
+      ]),
+    ],
+  };
+}
+
+// computeFixture019Analysis returns diagnostics recomputed from a verified complete run and
+// matching worker runtime, preserving the prohibition on scientific and energy claims.
+export async function computeFixture019Analysis(output, executionIdentity = {}) {
+  const directory = outputDirectory(output);
+  const { run, raw, inputs } = await loadVerifiedRun(directory, executionIdentity);
+  const base = raw.records.filter((record) => record.cell === "base");
+  const contrasts = base.map((record) => (
+    0.8 * record.arms["one-pass"].forecast_loss - record.arms["full-fixed-point"].forecast_loss
+  ));
+  const statistical = await withPythonWorker((worker) => analyzeContrasts(worker, {
+    directory,
+    inputs,
+    run,
+    contrasts,
+  }));
+  const checks = analysisChecks(run, raw);
   return {
     schema: 1,
     artifact: "fixture-019",
@@ -582,19 +697,7 @@ export async function computeFixture019Analysis(output, executionIdentity = {}) 
       contrasts,
       statistical,
     },
-    scientific_eligibility: {
-      distinct_generated_worlds: distinctWorlds,
-      contrast_sample_sd: contrastSampleSd,
-      contrast_range: contrastRange,
-      seed_variation_reaches_primary_at_1e_12: seedVariationReachesPrimary,
-      confirmation_eligible: false,
-      blockers: [
-        "confirmation and held-out seed packs are pending fresh private CSPRNG escrow and are unavailable",
-        ...(seedVariationReachesPrimary ? [] : [
-          "the frozen aggregate FM-T02 forecast endpoint is effectively seed-invariant because the Dirichlet residual allocation cancels under common non-primary shocks and proportional sales",
-        ]),
-      ],
-    },
+    scientific_eligibility: scientificEligibility(contrasts, base),
     checks,
     decision: Object.values(checks).every(Boolean) ? "diagnostic-pass" : "diagnostic-fail",
     multiplicity_placeholder: {
@@ -646,24 +749,21 @@ export async function validateFixture019(output, executionIdentity = {}) {
   return { valid: true, decision: expected.decision, claim_eligible: false, scientific_result: false };
 }
 
+// prepareFixture019 validates profile inputs and the worker runtime, returning environment
+// and work-count readiness metadata without granting claim eligibility.
 export async function prepareFixture019(profile) {
   const inputs = await loadInputs(profile);
-  const worker = new PythonWorker();
-  try {
-    const environment = await verifyWorkerEnvironment(inputs, worker);
-    return {
-      prepared: true,
-      artifact: "fixture-019",
-      profile,
-      work_units: workUnits(inputs).length,
-      environment,
-      confirmation_seed_state: "pending-private-escrow-unavailable",
-      held_out_seed_state: "pending-private-escrow-unavailable",
-      claim_eligible: false,
-    };
-  } finally {
-    await worker.close().catch(() => {});
-  }
+  const environment = await withPythonWorker((worker) => verifyWorkerEnvironment(inputs, worker));
+  return {
+    prepared: true,
+    artifact: "fixture-019",
+    profile,
+    work_units: workUnits(inputs).length,
+    environment,
+    confirmation_seed_state: "pending-private-escrow-unavailable",
+    held_out_seed_state: "pending-private-escrow-unavailable",
+    claim_eligible: false,
+  };
 }
 
 export async function main(

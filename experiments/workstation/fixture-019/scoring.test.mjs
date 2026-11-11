@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import path from "node:path";
 import test from "node:test";
 
-const fixtureRoot = path.join(process.cwd(), "experiments", "workstation", "fixture-019");
+import { runFixture019Python } from "./test-helpers.mjs";
 
 function registeredScoringCases() {
   const source = String.raw`
@@ -51,11 +49,7 @@ failed = apply_registered_scoring(failed_fallback, truth)
 
 print(json.dumps({"cap": cap, "floor": floor, "failed": failed}, sort_keys=True))
 `;
-  return JSON.parse(execFileSync("python", ["-B", "-c", source], {
-    cwd: fixtureRoot,
-    encoding: "utf8",
-    windowsHide: true,
-  }));
+  return JSON.parse(runFixture019Python(["-B", "-c", source]));
 }
 
 test("registered scoring assigns Lmax and restarts the staged fallback with its charge", () => {

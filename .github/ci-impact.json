@@ -273,6 +273,7 @@
         "tooling/internal/githubprmetadata/**",
         "tooling/internal/repositorymanifest/**",
         "tooling/internal/secretscan/**",
+        "tooling/internal/soak/**",
         "tooling/internal/vulnscan/**",
         "tooling/tools/**"
       ],
