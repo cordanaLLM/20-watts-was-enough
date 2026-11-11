@@ -11,10 +11,14 @@ the exact diff; this file records why the project changed.
 
 ### Security
 
-- The Go toolchain moves from 1.27.3 to 1.27.4 for GO-2026-6859 in `net/http`
-  (an HTTP/1 server crash from a `MaxBytesReader` header race), which
-  govulncheck reports as reachable in the tooling module and which failed
-  every pull request. The builder image `golang:1.27.4-trixie` is pinned by
+- The Go toolchain moves from 1.27.3 to 1.27.4 for GO-2026-6859
+  (CVE-2026-97054, `https://pkg.go.dev/vuln/GO-2026-6859`) in `net/http`: an
+  HTTP/1 server that uses `MaxBytesReader` or `MaxBytesHandler` can panic when
+  its handler reads the request body while it writes a response header. Go
+  1.27.4 is the first fixed 1.27 release. govulncheck reports the advisory as
+  reachable in the tooling module, so the CI step "Scan Go packages for known
+  vulnerabilities" fails under Go 1.27.3, first seen on #434. The builder
+  image `golang:1.27.4-trixie` is pinned by
   digest `b54b2639de8c` in `tooling/Dockerfile` and
   `tooling/clrs-specialist/Dockerfile`, and the version moves everywhere it
   is bound: both Go module files, the release identity checks in `ci.yml`
