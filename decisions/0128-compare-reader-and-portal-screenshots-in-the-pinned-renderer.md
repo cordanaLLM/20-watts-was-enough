@@ -46,11 +46,10 @@ and a second implementation of that boundary.
 3. A pixel differs when any straight RGBA channel differs by more than
    `channel_tolerance`, on the 0–255 channel scale. Comparison fails when the
    differing pixel count exceeds `maximum_differing_pixels`, or dimensions
-   differ. Equality at either tolerance boundary passes. The initial plan uses
-   channel tolerance 2 and a budget of 16 pixels per image. These values require
-   calibration against repeated pinned captures and the real CSS marker-removal
-   control before the baselines are accepted; synthetic tests establish the
-   comparison law, not browser reproducibility.
+   differ. Equality at either tolerance boundary passes. The plan uses channel
+   tolerance 2 and a budget of 16 pixels per image, calibrated by the repeated
+   pinned captures and the CSS marker-removal control under Verification.
+   Synthetic tests establish the comparison law, not browser reproducibility.
 4. `npm run check:visual` compares captures with the six committed PNGs.
    Baselines change only through `npm run record:visual`, for an intended
    visual change. Reviewers inspect the PNG diff before accepting the update.
@@ -86,16 +85,32 @@ leave a partial set of newly recorded files, visible in Git; rerunning record
 mode completes the intended set.
 
 The synthetic `TestPlantedMarkerRemovalFails` control removes five disc-marker
-blobs. Browser-level acceptance additionally requires removing the list-style
-and marker rules from `app/globals.css` and observing comparison failure at
-both viewports. That capture is integration evidence, not a scientific result.
+blobs. The browser-level control removed the four `.prose` `list-style` rules
+and the `.prose li::marker` rule from `app/globals.css` and ran check mode. It
+exited 1: the portal document differed by 80 306 pixels at desktop and 34 326
+at mobile, maximum channel delta 255, against a budget of 16. The other four
+captures stayed within budget, so this control shows marker-loss detection
+through the portal-document view only. That capture is integration evidence,
+not a scientific result.
 
 ## Verification and disclosure
 
 Implementation and fixture tests use Go's PNG decoder and fake renderer
-executors. Real container captures, repeatability measurements, the committed
-PNG set and the CSS-removal control belong to integration review. No browser
-capture or calibrated pixel-noise result is asserted by this record alone.
+executors. The integration runs below used renderer image
+`sha256:44fdb5e65441…` and lock `sha256:5a7686aceba6…`, linux/amd64, on one
+workstation on 2026-11-12; times are CET.
+
+| Run | Time | Mode | Result |
+| :--- | :--- | :--- | :--- |
+| 1 | 10:21–10:26 | check, before masking | passed |
+| marker removal | 10:30–10:36 | check | failed, as described above |
+| 2 | 10:37–10:45 | record, before masking | rewrote only `book-reader-desktop.png`; maximum channel delta 2, no pixel above tolerance |
+| masked record | 10:46–10:53 | record | rewrote both book-reader PNGs and `portal-home-desktop.png`; `portal-home-mobile.png` kept its bytes (commit 45921cbf) |
+| masked check 1 | 12:18–12:25 | check | all six captures: 0 differing pixels, maximum channel delta 0 |
+| masked check 2 | 12:25–12:32 | check | all six captures: 0 differing pixels, maximum channel delta 0 |
+
+These runs bound capture noise on this host only. CI runners may differ;
+decision item 6 governs that case. No result here is a scientific claim.
 
 ## Revisit trigger
 
