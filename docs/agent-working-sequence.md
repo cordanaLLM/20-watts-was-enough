@@ -84,6 +84,7 @@ Run `npm run check:visual` after reader or portal visual changes; use
 `npm run record:visual` only for an intended change whose PNG diff will be
 reviewed ([Decision 0128](../decisions/0128-compare-reader-and-portal-screenshots-in-the-pinned-renderer.md)).
 Both commands require the locked PDF renderer container environment.
+Full CI plans and site or renderer impact run the visual comparison job.
 
 ## Expert reference and scoped validation
 

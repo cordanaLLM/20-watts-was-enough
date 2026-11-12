@@ -335,7 +335,7 @@ jobs:
   visual-baselines:
     name: Visual baselines
     needs: impact-plan
-    if: needs.impact-plan.outputs.site == 'true' || needs.impact-plan.outputs.renderer == 'true'
+    if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && (needs.impact-plan.outputs.site == 'true' || needs.impact-plan.outputs.renderer == 'true'))
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:
@@ -947,7 +947,6 @@ jobs:
           RESULT_GO_WINDOWS: ${{ needs.lane-go-windows.result }}
           RESULT_GO_MACOS: ${{ needs.lane-go-macos.result }}
           RESULT_RELEASE: ${{ needs.lane-release.result }}
-          SELECT_VISUAL: ${{ needs.impact-plan.outputs.site == 'true' || needs.impact-plan.outputs.renderer == 'true' }}
           RESULT_VISUAL: ${{ needs.visual-baselines.result }}
           RESULT_RENDERER: ${{ needs.pdf-renderer-reproducibility.result }}
           RESULT_RESEARCH: ${{ needs.lane-research.result }}
@@ -984,7 +983,6 @@ jobs:
 
           require_state impact-plan "$RESULT_PLAN" success
           require_state secret-scan "$RESULT_SECRET_SCAN" success
-          require_selection visual-baselines "$RESULT_VISUAL" "$SELECT_VISUAL"
 
           case "$MODE" in
             full)
@@ -1009,6 +1007,7 @@ jobs:
               require_state lane-research "$RESULT_RESEARCH" success
               require_state lane-site "$RESULT_SITE" success
               require_state lane-site-browser "$RESULT_SITE_BROWSER" success
+              require_state visual-baselines "$RESULT_VISUAL" success
               require_state workstation-core "$RESULT_WORKSTATION_CORE" success
               require_state workstation-artifacts "$RESULT_WORKSTATION_ARTIFACTS" success
               require_state container-smoke "$RESULT_CONTAINER" success
@@ -1033,6 +1032,17 @@ jobs:
               require_selection lane-research "$RESULT_RESEARCH" "$SELECT_RESEARCH"
               require_selection lane-site "$RESULT_SITE" "$SELECT_SITE"
               require_selection lane-site-browser "$RESULT_SITE_BROWSER" "$SELECT_SITE"
+              for selector in "$SELECT_SITE" "$SELECT_RENDERER"; do
+                case "$selector" in
+                  true|false) ;;
+                  *) echo "::error::visual-baselines selector is malformed: $selector"; exit 1 ;;
+                esac
+              done
+              visual_selected=false
+              if [[ "$SELECT_SITE" == "true" || "$SELECT_RENDERER" == "true" ]]; then
+                visual_selected=true
+              fi
+              require_selection visual-baselines "$RESULT_VISUAL" "$visual_selected"
               require_selection workstation-core "$RESULT_WORKSTATION_CORE" "$SELECT_WORKSTATION"
               require_selection workstation-artifacts "$RESULT_WORKSTATION_ARTIFACTS" "$SELECT_WORKSTATION"
               require_selection container-smoke "$RESULT_CONTAINER" "$SELECT_CONTAINER"

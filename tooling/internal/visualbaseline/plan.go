@@ -14,11 +14,12 @@ import (
 )
 
 const (
-	BaselineDirectory = "scripts/visual-baselines"
-	maximumJSONBytes  = 128 * 1024
-	maximumViews      = 8
-	maximumViewports  = 4
-	maximumDimension  = 4096
+	BaselineDirectory    = "scripts/visual-baselines"
+	maximumJSONBytes     = 128 * 1024
+	maximumViews         = 8
+	maximumViewports     = 4
+	maximumDimension     = 4096
+	maximumMaskSelectors = 8
 )
 
 var namePattern = regexp.MustCompile(`^[a-z0-9-]{1,40}$`)
@@ -42,10 +43,11 @@ type Viewport struct {
 }
 
 type View struct {
-	Name                   string `json:"name"`
-	Path                   string `json:"path"`
-	ReadySelector          string `json:"ready_selector"`
-	RequireVisibleSelector string `json:"require_visible_selector,omitempty"`
+	Name                   string   `json:"name"`
+	Path                   string   `json:"path"`
+	ReadySelector          string   `json:"ready_selector"`
+	RequireVisibleSelector string   `json:"require_visible_selector,omitempty"`
+	MaskSelectors          []string `json:"mask_selectors,omitempty"`
 }
 
 // LoadPlan rejects ambiguous, oversized and unsafe authority input.
@@ -156,6 +158,26 @@ func validateViews(views []View) error {
 		if len(view.RequireVisibleSelector) > 512 {
 			return fmt.Errorf("views.%s.require_visible_selector exceeds 512 characters", view.Name)
 		}
+		if err := validateMaskSelectors(view); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateMaskSelectors(view View) error {
+	if len(view.MaskSelectors) > maximumMaskSelectors {
+		return fmt.Errorf("views.%s.mask_selectors must contain at most 8 entries", view.Name)
+	}
+	seen := make(map[string]bool, len(view.MaskSelectors))
+	for _, selector := range view.MaskSelectors {
+		if strings.TrimSpace(selector) == "" || len(selector) > 512 {
+			return fmt.Errorf("views.%s.mask_selectors entries must be non-blank and at most 512 bytes", view.Name)
+		}
+		if seen[selector] {
+			return fmt.Errorf("views.%s.mask_selectors contains duplicate %q", view.Name, selector)
+		}
+		seen[selector] = true
 	}
 	return nil
 }
@@ -182,15 +204,16 @@ type CapturePlan struct {
 }
 
 type Capture struct {
-	File                   string `json:"file"`
-	View                   string `json:"view"`
-	Viewport               string `json:"viewport"`
-	Width                  int    `json:"width"`
-	Height                 int    `json:"height"`
-	Mobile                 bool   `json:"mobile"`
-	URL                    string `json:"url"`
-	ReadySelector          string `json:"ready_selector"`
-	RequireVisibleSelector string `json:"require_visible_selector,omitempty"`
+	File                   string   `json:"file"`
+	View                   string   `json:"view"`
+	Viewport               string   `json:"viewport"`
+	Width                  int      `json:"width"`
+	Height                 int      `json:"height"`
+	Mobile                 bool     `json:"mobile"`
+	URL                    string   `json:"url"`
+	ReadySelector          string   `json:"ready_selector"`
+	RequireVisibleSelector string   `json:"require_visible_selector,omitempty"`
+	MaskSelectors          []string `json:"mask_selectors,omitempty"`
 }
 
 // Captures uses a fixed local Pages base, shared with Vite by the capture plan.
@@ -202,6 +225,7 @@ func (plan Plan) Captures() CapturePlan {
 				File: view.Name + "-" + viewport.Name + ".png", View: view.Name, Viewport: viewport.Name,
 				Width: viewport.Width, Height: viewport.Height, Mobile: viewport.Mobile, URL: result.PagesBasePath + view.Path,
 				ReadySelector: view.ReadySelector, RequireVisibleSelector: view.RequireVisibleSelector,
+				MaskSelectors: view.MaskSelectors,
 			})
 		}
 	}

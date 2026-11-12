@@ -31,12 +31,20 @@ type Failure struct {
 	Diff   string `json:"diff"`
 }
 
+type captureComparison struct {
+	View     string `json:"view"`
+	Viewport string `json:"viewport"`
+	Comparison
+	Pass bool `json:"pass"`
+}
+
 type report struct {
-	Schema                 int       `json:"schema"`
-	ChannelTolerance       int       `json:"channel_tolerance"`
-	MaximumDifferingPixels int       `json:"maximum_differing_pixels"`
-	Failures               []Failure `json:"failures"`
-	Error                  string    `json:"error,omitempty"`
+	Schema                 int                 `json:"schema"`
+	ChannelTolerance       int                 `json:"channel_tolerance"`
+	MaximumDifferingPixels int                 `json:"maximum_differing_pixels"`
+	Failures               []Failure           `json:"failures"`
+	Comparisons            []captureComparison `json:"comparisons"`
+	Error                  string              `json:"error,omitempty"`
 }
 
 // Execute stages a plan, validates every output, then compares or explicitly records.
@@ -84,11 +92,17 @@ func processCaptures(options Options, staging string) error {
 		return err
 	}
 	defer actuals.Close()
-	result := report{Schema: 1, ChannelTolerance: options.Plan.ChannelTolerance, MaximumDifferingPixels: options.Plan.MaximumDifferingPixels, Failures: []Failure{}}
+	result := report{
+		Schema: 1, ChannelTolerance: options.Plan.ChannelTolerance, MaximumDifferingPixels: options.Plan.MaximumDifferingPixels,
+		Failures: []Failure{}, Comparisons: []captureComparison{},
+	}
 	for _, capture := range options.Plan.Captures().Captures {
-		failure, err := processCapture(options, actuals, capture)
+		comparison, failure, err := processCapture(options, actuals, capture)
 		if err != nil {
 			return writeCaptureError(options, err)
+		}
+		if !options.Record {
+			result.Comparisons = append(result.Comparisons, comparison)
 		}
 		if failure != nil {
 			result.Failures = append(result.Failures, *failure)
@@ -106,50 +120,55 @@ func processCaptures(options Options, staging string) error {
 	return nil
 }
 
-func processCapture(options Options, actuals *os.Root, capture Capture) (*Failure, error) {
+func processCapture(options Options, actuals *os.Root, capture Capture) (captureComparison, *Failure, error) {
 	body, err := readFile(actuals, capture.File, maximumPNGBytes)
 	if err != nil {
-		return nil, err
+		return captureComparison{}, nil, err
 	}
 	if options.Record {
 		changed, err := Record(options.RepositoryRoot, capture.File, body)
 		if err != nil {
-			return nil, err
+			return captureComparison{}, nil, err
 		}
 		if changed {
 			_, err = fmt.Fprintf(options.Output, "Recorded %s/%s\n", BaselineDirectory, capture.File)
 		}
-		return nil, err
+		return captureComparison{}, nil, err
 	}
 	return checkCapture(options, capture, body)
 }
 
-func checkCapture(options Options, capture Capture, body []byte) (*Failure, error) {
+func checkCapture(options Options, capture Capture, body []byte) (captureComparison, *Failure, error) {
 	directory, err := openDirectory(options.RepositoryRoot, BaselineDirectory, false)
 	if err != nil {
-		return nil, err
+		return captureComparison{}, nil, err
 	}
 	defer directory.Close()
 	baselineBody, err := readFile(directory, capture.File, maximumPNGBytes)
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("missing baseline %s; run npm run record:visual for an intended visual change", capture.File)
+		return captureComparison{}, nil, fmt.Errorf("missing baseline %s; run npm run record:visual for an intended visual change", capture.File)
 	}
 	if err != nil {
-		return nil, err
+		return captureComparison{}, nil, err
 	}
 	baseline, err := decodePNG(baselineBody)
 	if err != nil {
-		return nil, fmt.Errorf("baseline %s: %w", capture.File, err)
+		return captureComparison{}, nil, fmt.Errorf("baseline %s: %w", capture.File, err)
 	}
 	actual, err := decodePNG(body)
 	if err != nil {
-		return nil, err
+		return captureComparison{}, nil, err
 	}
 	comparison := Compare(baseline, actual, options.Plan.ChannelTolerance)
-	if comparison.Pass(options.Plan.MaximumDifferingPixels) {
-		return nil, nil
+	entry := captureComparison{
+		View: capture.View, Viewport: capture.Viewport, Comparison: comparison,
+		Pass: comparison.Pass(options.Plan.MaximumDifferingPixels),
 	}
-	return retainFailure(options, capture, comparison, baseline, actual, body)
+	if entry.Pass {
+		return entry, nil, nil
+	}
+	failure, err := retainFailure(options, capture, comparison, baseline, actual, body)
+	return entry, failure, err
 }
 
 func retainFailure(options Options, capture Capture, comparison Comparison, baseline, actual image.Image, body []byte) (*Failure, error) {
@@ -177,7 +196,10 @@ func retainFailure(options Options, capture Capture, comparison Comparison, base
 }
 
 func writeCaptureError(options Options, cause error) error {
-	result := report{Schema: 1, ChannelTolerance: options.Plan.ChannelTolerance, MaximumDifferingPixels: options.Plan.MaximumDifferingPixels, Failures: []Failure{}, Error: cause.Error()}
+	result := report{
+		Schema: 1, ChannelTolerance: options.Plan.ChannelTolerance, MaximumDifferingPixels: options.Plan.MaximumDifferingPixels,
+		Failures: []Failure{}, Comparisons: []captureComparison{}, Error: cause.Error(),
+	}
 	return errors.Join(cause, writeReport(options.RepositoryRoot, result))
 }
 

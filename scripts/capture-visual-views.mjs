@@ -88,6 +88,7 @@ async function captureView(capture, product) {
   const navigation = await cdp.send("Page.navigate", { url });
   if (navigation.errorText) throw new Error(`${capture.view}: ${navigation.errorText}`);
   await settleView(capture, url);
+  await maskView(capture);
   const screenshot = await cdp.send("Page.captureScreenshot", {
     format: "png", captureBeyondViewport: false, fromSurface: true,
   });
@@ -97,6 +98,27 @@ async function captureView(capture, product) {
     file: capture.file, view: capture.view, viewport: capture.viewport,
     width: capture.width, height: capture.height, url, browser_product: product,
   };
+}
+
+async function maskView(capture) {
+  const selectors = capture.mask_selectors ?? [];
+  if (!Array.isArray(selectors) || selectors.length > 8) {
+    throw new Error(`${capture.view}: mask_selectors must contain at most 8 entries`);
+  }
+  await evaluate(`(async () => {
+    let masked = 0;
+    for (const selector of ${JSON.stringify(selectors)}) {
+      const elements = document.querySelectorAll(selector);
+      if (elements.length === 0) throw new Error(${JSON.stringify(capture.view)} + ": mask selector " + selector + " matched nothing");
+      masked += elements.length;
+      if (masked > 256) throw new Error(${JSON.stringify(capture.view)} + ": masked elements exceed 256");
+      for (const element of elements) {
+        element.textContent = "masked";
+        element.style.setProperty("visibility", "hidden", "important");
+      }
+    }
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  })()`);
 }
 
 async function captureWithDeadline(capture, product) {

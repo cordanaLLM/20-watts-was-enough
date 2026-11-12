@@ -7,8 +7,8 @@
     { "name": "mobile", "width": 375, "height": 844, "mobile": true }
   ],
   "views": [
-    { "name": "portal-home", "path": "", "ready_selector": ".portal-hero-meta" },
-    { "name": "book-reader", "path": "book/", "ready_selector": ".book-document" },
+    { "name": "portal-home", "path": "", "ready_selector": ".portal-hero-meta", "mask_selectors": [".portal-overview-metrics dd", ".portal-status-outcome span"] },
+    { "name": "book-reader", "path": "book/", "ready_selector": ".book-document", "mask_selectors": [".book-cover dd"] },
     {
       "name": "portal-document",
       "path": "concept/01-working-architecture/#4-one-event-end-to-end",

@@ -1,11 +1,65 @@
 package visualbaseline
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
+
+func TestPlanMaskSelectorsAndProjection(t *testing.T) {
+	for _, selectors := range [][]string{
+		nil, {}, {".counts dd", ".status span"}, {strings.Repeat("x", 512)},
+		{"a", "b", "c", "d", "e", "f", "g", "h"},
+	} {
+		body, err := json.Marshal(selectors)
+		if err != nil {
+			t.Fatal(err)
+		}
+		plan, err := loadTestPlan(t, strings.Replace(validPlan, `"ready_selector":"main"`, `"ready_selector":"main","mask_selectors":`+string(body), 1))
+		if err != nil {
+			t.Fatal(err)
+		}
+		plan.Viewports = append(plan.Viewports, Viewport{Name: "mobile", Width: 1, Height: 2, Mobile: true})
+		captures := plan.Captures().Captures
+		if len(captures) != 2 || !slices.Equal(plan.Views[0].MaskSelectors, selectors) {
+			t.Fatalf("plan=%+v captures=%+v", plan, captures)
+		}
+		for _, capture := range captures {
+			if !slices.Equal(capture.MaskSelectors, selectors) {
+				t.Fatalf("%s masks=%v, want %v", capture.Viewport, capture.MaskSelectors, selectors)
+			}
+		}
+	}
+}
+
+func TestPlanRejectsInvalidMaskSelectors(t *testing.T) {
+	cases := []struct {
+		name      string
+		selectors []string
+	}{
+		{name: "nine entries", selectors: []string{"a", "b", "c", "d", "e", "f", "g", "h", "i"}},
+		{name: "blank", selectors: []string{""}},
+		{name: "whitespace", selectors: []string{" \t\n"}},
+		{name: "513 bytes", selectors: []string{strings.Repeat("x", 513)}},
+		{name: "multibyte exceeds bytes", selectors: []string{strings.Repeat("é", 257)}},
+		{name: "duplicate", selectors: []string{".counts dd", ".counts dd"}},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			body, err := json.Marshal(test.selectors)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = loadTestPlan(t, strings.Replace(validPlan, `"ready_selector":"main"`, `"ready_selector":"main","mask_selectors":`+string(body), 1))
+			if err == nil || !strings.Contains(err.Error(), "views.home.mask_selectors") {
+				t.Fatalf("error=%v, want contextual mask_selectors rejection", err)
+			}
+		})
+	}
+}
 
 const validPlan = `{"schema":1,"channel_tolerance":2,"maximum_differing_pixels":16,"viewports":[{"name":"desktop","width":2,"height":2,"mobile":false}],"views":[{"name":"home","path":"","ready_selector":"main"}]}`
 

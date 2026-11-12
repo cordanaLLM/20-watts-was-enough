@@ -496,6 +496,7 @@ function runCiSuccessGate(source, overrides = {}) {
     RESULT_RESEARCH: "success",
     RESULT_SITE: "success",
     RESULT_SITE_BROWSER: "success",
+    RESULT_VISUAL: "success",
     RESULT_WORKSTATION_CORE: "success",
     RESULT_WORKSTATION_ARTIFACTS: "success",
     RESULT_CONTAINER: "success",
@@ -2747,6 +2748,7 @@ function impactStateVector() {
     RESULT_RESEARCH: "skipped",
     RESULT_SITE: "success",
     RESULT_SITE_BROWSER: "success",
+    RESULT_VISUAL: "success",
     RESULT_WORKSTATION_CORE: "success",
     RESULT_WORKSTATION_ARTIFACTS: "success",
     RESULT_CONTAINER: "skipped",
@@ -2755,6 +2757,113 @@ function impactStateVector() {
     RESULT_GO_MACOS: "skipped",
   };
 }
+
+test("CI visual baselines run for full plans or selected site and renderer impact", async (t) => {
+  const valid = workflow("ci");
+  const finding = ".github/workflows/ci.yml: visual-baselines must run for full plans or site or renderer impact and fail closed";
+  await t.test("valid", () => assert.deepEqual(validateCiImpactWorkflowObject(valid), []));
+  for (const condition of [
+    undefined,
+    "needs.impact-plan.outputs.site == 'true' || needs.impact-plan.outputs.renderer == 'true'",
+    "needs.impact-plan.outputs.mode == 'full'",
+    "needs.impact-plan.outputs.mode == 'impact' && needs.impact-plan.outputs.site == 'true'",
+  ]) {
+    const subject = structuredClone(valid);
+    subject.jobs["visual-baselines"].if = condition;
+    await t.test(`reject condition ${condition}`, () => {
+      assert.ok(validateCiImpactWorkflowObject(subject).includes(finding));
+    });
+  }
+  const bypassed = structuredClone(valid);
+  bypassed.jobs["visual-baselines"]["continue-on-error"] = true;
+  await t.test("reject ignored failure", () => {
+    assert.ok(validateCiImpactWorkflowObject(bypassed).includes(finding));
+  });
+});
+
+test("CI success pins visual needs, result and exactly one check per mode", async (t) => {
+  const valid = workflow("ci");
+  const step = (subject) => subject.jobs["ci-success"].steps.find((candidate) => (
+    candidate.name === "Require every expected gate state"
+  ));
+  const missingNeed = structuredClone(valid);
+  missingNeed.jobs["ci-success"].needs = missingNeed.jobs["ci-success"].needs.filter((job) => job !== "visual-baselines");
+  await t.test("missing visual need", () => {
+    assert.ok(validateCiImpactWorkflowObject(missingNeed).includes(
+      ".github/workflows/ci.yml: ci-success must depend on every full, impact, matrix, container, and PR gate",
+    ));
+  });
+  const missingResult = structuredClone(valid);
+  delete step(missingResult).env.RESULT_VISUAL;
+  await t.test("missing visual result", () => {
+    assert.ok(validateCiImpactWorkflowObject(missingResult).includes(
+      ".github/workflows/ci.yml: ci-success must unconditionally inspect the exact fail-closed state vector",
+    ));
+  });
+  for (const line of [
+    'require_state visual-baselines "$RESULT_VISUAL" success',
+    'require_selection visual-baselines "$RESULT_VISUAL" "$visual_selected"',
+    'true|false) ;;',
+  ]) {
+    for (const replacement of ["", `${line}\n${line}`]) {
+      const subject = structuredClone(valid);
+      const before = step(subject).run;
+      step(subject).run = before.replace(line, replacement);
+      assert.notEqual(step(subject).run, before, "the planted mutation must change the script");
+      await t.test(`${replacement ? "duplicate" : "delete"} ${line}`, () => {
+        assert.ok(validateCiImpactWorkflowObject(subject).includes(
+          ".github/workflows/ci.yml: ci-success must reject unexpected states and any skipped selected lane",
+        ));
+      });
+    }
+  }
+});
+
+test("CI success requires visual success for every full plan", () => {
+  const source = workflow("ci").jobs["ci-success"].steps.find((step) => (
+    step.name === "Require every expected gate state"
+  )).run;
+  for (const selected of ["false", "true"]) {
+    const vector = { SELECT_RENDERER: selected, RESULT_RENDERER: selected === "true" ? "success" : "skipped" };
+    assert.equal(runCiSuccessGate(source, vector).status, 0);
+    for (const state of ["skipped", "failure", "cancelled", ""]) {
+      const result = runCiSuccessGate(source, { ...vector, RESULT_VISUAL: state });
+      assert.notEqual(result.status, 0, `full visual state ${state} must fail`);
+      assert.match(result.stdout, /::error::visual-baselines state/);
+    }
+  }
+});
+
+test("CI success derives visual impact selection only from valid selectors", () => {
+  const source = workflow("ci").jobs["ci-success"].steps.find((step) => (
+    step.name === "Require every expected gate state"
+  )).run;
+  for (const site of ["false", "true"]) {
+    for (const renderer of ["false", "true"]) {
+      const selected = site === "true" || renderer === "true";
+      const vector = {
+        ...impactStateVector(), SELECT_SITE: site, SELECT_RENDERER: renderer,
+        RESULT_SITE: site === "true" ? "success" : "skipped",
+        RESULT_SITE_BROWSER: site === "true" ? "success" : "skipped",
+        RESULT_RENDERER: renderer === "true" ? "success" : "skipped",
+        RESULT_VISUAL: selected ? "success" : "skipped",
+      };
+      assert.equal(runCiSuccessGate(source, vector).status, 0, `site=${site} renderer=${renderer}`);
+      for (const state of [selected ? "skipped" : "success", "failure", "cancelled", ""]) {
+        const result = runCiSuccessGate(source, { ...vector, RESULT_VISUAL: state });
+        assert.notEqual(result.status, 0, `site=${site} renderer=${renderer} visual=${state}`);
+        assert.match(result.stdout, /::error::visual-baselines state/);
+      }
+      for (const field of ["SELECT_SITE", "SELECT_RENDERER"]) {
+        for (const malformed of ["", "TRUE", "garbage"]) {
+          const result = runCiSuccessGate(source, { ...vector, [field]: malformed });
+          assert.notEqual(result.status, 0, `${field}=${malformed} must fail closed`);
+          assert.match(result.stdout, /::error::.*selector is malformed/);
+        }
+      }
+    }
+  }
+});
 
 test("CI success requires the native Go lanes in full plans and selected Go plans", () => {
   const source = workflow("ci").jobs["ci-success"].steps.find((step) => (

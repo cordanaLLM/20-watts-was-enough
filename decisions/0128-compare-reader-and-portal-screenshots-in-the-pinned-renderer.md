@@ -31,6 +31,13 @@ and a second implementation of that boundary.
    `concept/01-working-architecture.md`, an architectural overview whose preceding
    maintenance list and following event list exercise unordered and ordered
    markers in the same viewport.
+   Per-view `mask_selectors` replace volatile values with the fixed text
+   `masked` and hide them with `visibility: hidden !important`, so their
+   original length cannot change the layout. The book reader masks
+   `.book-cover dd`; the portal home masks `.portal-overview-metrics dd` and
+   `.portal-status-outcome span`. A selector that matches nothing fails the
+   capture. Each view admits at most eight selectors, each non-blank, unique
+   and at most 512 bytes; a capture masks at most 256 elements.
 2. Run captures only inside the pinned renderer image, using the locked Chrome
    executable, light colour scheme, reduced motion and fixed font-rendering
    flags. The manifest must identify the expected browser version, every
@@ -49,12 +56,20 @@ and a second implementation of that boundary.
    visual change. Reviewers inspect the PNG diff before accepting the update.
    Check mode never repairs a baseline. Missing baselines and malformed
    manifests fail closed.
-5. Site or renderer impact selects the read-only CI job. On failure it retains
+   An edit to section 4 of `concept/01-working-architecture.md`, or any other
+   change to unmasked content shown by a view, requires an explicit
+   `--record` run and review of the resulting PNG diff.
+5. Full plans and site or renderer impact select the read-only CI job. On failure it retains
    `build/visual-check` for seven days, including actual and red-highlighted
    difference PNGs and `report.json`. The job has a 15-minute ceiling and
    inherits workflow concurrency. It requires no new credentials or write
    permission. Capture output is bounded to 32 images, each at most 4096 × 4096
    pixels and 80 MiB; the committed inventory contains six images.
+   In check mode, `report.json` lists every comparison in capture order with
+   its view, viewport, dimension match, differing pixel count, maximum channel
+   delta and pass status, including passing captures for tolerance calibration.
+   Failures also retain their artifact paths in the failure list; capture
+   errors produce an empty comparison list and an error message.
 6. If repeatable CPU variance makes CI exceed the tolerance, use the CI capture
    artifact as review evidence and run the explicit record command on that
    runner to adopt its captures as the baseline. Commit the resulting PNG diff
