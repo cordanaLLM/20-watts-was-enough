@@ -131,3 +131,4 @@ than silently changing its outcome.
 | [0124](0124-state-why-a-fixture-has-no-harness.md) | State why a fixture has no harness | accepted |
 | [0125](0125-bound-ci-jobs-by-measured-time.md) | Bound CI jobs by measured time | accepted |
 | [0126](0126-bound-pages-deploy-jobs-by-the-action-timeout.md) | Bound Pages deploy jobs by the action timeout | accepted |
+| [0128](0128-compare-reader-and-portal-screenshots-in-the-pinned-renderer.md) | Compare reader and portal screenshots in the pinned renderer | accepted |

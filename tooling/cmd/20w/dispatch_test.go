@@ -76,7 +76,7 @@ func sortedMapKeys[V any](m map[string]V) []string {
 func buildUsageTestCases() []usageTestCase {
 	silent := map[string]map[string]bool{
 		"ci":          {"run-workstation": true},
-		"publication": {"render-pdf": true, "verify-pdf-tools": true, "verify-public-transport": true},
+		"publication": {"visual-check": true, "render-pdf": true, "verify-pdf-tools": true, "verify-public-transport": true},
 		"github":      {"sync-metadata": true, "sync-pr-metadata": true, "sync-issue-lifecycle": true, "sync-labels": true},
 		"release": {
 			"inspect-image": true, "asset-inventory": true, "fetch-assets": true, "state": true,

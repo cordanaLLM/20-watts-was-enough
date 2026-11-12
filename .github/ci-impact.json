@@ -377,6 +377,16 @@
       ]
     },
     {
+      "id": "go-visual-baselines",
+      "paths": [
+        "tooling/internal/visualbaseline/**"
+      ],
+      "lanes": [
+        "go",
+        "site"
+      ]
+    },
+    {
       "id": "publication",
       "paths": [
         "CHANGELOG.md",
@@ -521,6 +531,16 @@
         "translations/**",
         "tsconfig.json",
         "vite.pages.config.ts"
+      ],
+      "lanes": [
+        "site"
+      ]
+    },
+    {
+      "id": "site-visual-baselines",
+      "paths": [
+        "scripts/capture-visual-views.mjs",
+        "scripts/visual-baselines/**"
       ],
       "lanes": [
         "site"

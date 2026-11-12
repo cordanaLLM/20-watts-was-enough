@@ -136,34 +136,16 @@ func renderWithLockedBuilder(
 	preparer buildContextPreparer, executor commandExecutor, temporaryRoot string,
 	fetchPolicy baseFetchPolicy,
 ) (result Result, returnError error) {
-	contextRoot := filepath.Join(temporaryRoot, "context")
-	if err := os.Mkdir(contextRoot, 0o755); err != nil { //#nosec G301 -- container build context directory must be readable by container builder
-		return Result{}, fmt.Errorf("create PDF renderer build context: %w", err)
-	}
-	prepareContext, cancelPrepare := context.WithTimeout(ctx, time.Duration(configuration.Lock.Limits.BuildSeconds)*time.Second)
-	defer cancelPrepare()
-	builder, err := prepareRendererBuilder(ctx, prepareContext, configuration, preparer, executor, contextRoot)
+	imageID, builder, err := prepareRendererImage(ctx, configuration, preparer, executor, temporaryRoot, fetchPolicy)
 	if err != nil {
 		return Result{}, err
 	}
 	builderActive := builder.owned
 	defer func() {
 		if builderActive {
-			if cleanupError := removeBuilder(executor, builder.name, configuration.Lock.Limits.OutputBytes); cleanupError != nil {
-				returnError = errors.Join(returnError, cleanupError)
-			}
+			returnError = errors.Join(returnError, removeBuilder(executor, builder.name, configuration.Lock.Limits.OutputBytes))
 		}
 	}()
-	if err := fetchBaseImages(ctx, configuration, executor, builder.name, filepath.Join(temporaryRoot, "base-fetch"), fetchPolicy); err != nil {
-		return Result{}, err
-	}
-	buildContext, cancelBuild := context.WithTimeout(ctx, time.Duration(configuration.Lock.Limits.BuildSeconds)*time.Second)
-	defer cancelBuild()
-	iidPath := filepath.Join(temporaryRoot, "renderer.iid")
-	imageID, err := buildRendererImage(ctx, buildContext, configuration, executor, builder, contextRoot, iidPath)
-	if err != nil {
-		return Result{}, err
-	}
 	artifacts, err := renderIsolatedPair(ctx, configuration, executor, imageID, sourceRef, sourceRevision, temporaryRoot)
 	if err != nil {
 		return Result{}, err
@@ -186,6 +168,42 @@ func renderWithLockedBuilder(
 		Platform:   configuration.Lock.Platform,
 		Builder:    describeBuilder(builder),
 	}, nil
+}
+
+func prepareRendererImage(
+	ctx context.Context, configuration Configuration, preparer buildContextPreparer,
+	executor commandExecutor, temporaryRoot string, fetchPolicy baseFetchPolicy,
+) (imageID string, builder rendererBuilder, returnError error) {
+	contextRoot := filepath.Join(temporaryRoot, "context")
+	if err := os.Mkdir(contextRoot, 0o755); err != nil { //#nosec G301 -- container build context directory must be readable by container builder
+		return "", rendererBuilder{}, fmt.Errorf("create PDF renderer build context: %w", err)
+	}
+	prepareContext, cancelPrepare := context.WithTimeout(ctx, time.Duration(configuration.Lock.Limits.BuildSeconds)*time.Second)
+	defer cancelPrepare()
+	var err error
+	builder, err = prepareRendererBuilder(ctx, prepareContext, configuration, preparer, executor, contextRoot)
+	if err != nil {
+		return "", rendererBuilder{}, err
+	}
+	preparedBuilder := builder
+	defer func() {
+		if returnError != nil && preparedBuilder.owned {
+			if cleanupError := removeBuilder(executor, preparedBuilder.name, configuration.Lock.Limits.OutputBytes); cleanupError != nil {
+				returnError = errors.Join(returnError, cleanupError)
+			}
+		}
+	}()
+	if err := fetchBaseImages(ctx, configuration, executor, builder.name, filepath.Join(temporaryRoot, "base-fetch"), fetchPolicy); err != nil {
+		return "", rendererBuilder{}, err
+	}
+	buildContext, cancelBuild := context.WithTimeout(ctx, time.Duration(configuration.Lock.Limits.BuildSeconds)*time.Second)
+	defer cancelBuild()
+	iidPath := filepath.Join(temporaryRoot, "renderer.iid")
+	imageID, err = buildRendererImage(ctx, buildContext, configuration, executor, builder, contextRoot, iidPath)
+	if err != nil {
+		return "", rendererBuilder{}, err
+	}
+	return imageID, builder, nil
 }
 
 func prepareRendererBuilder(
@@ -374,10 +392,7 @@ func rejectTimestampRewriteWarnings(output []byte) error {
 	return nil
 }
 
-func runArguments(
-	configuration Configuration,
-	imageID, containerName, sourceRef, sourceRevision, outputDirectory, temporaryDirectory string,
-) []string {
+func hardenedRunArguments(configuration Configuration, imageID, containerName, outputDirectory, temporaryDirectory string) []string {
 	root := configuration.RepositoryRoot
 	limits := configuration.Lock.Limits
 	arguments := []string{
@@ -405,6 +420,14 @@ func runArguments(
 	if containerUser := currentContainerUser(); containerUser != "" {
 		arguments = append(arguments, "--user", containerUser)
 	}
+	return arguments
+}
+
+func runArguments(
+	configuration Configuration,
+	imageID, containerName, sourceRef, sourceRevision, outputDirectory, temporaryDirectory string,
+) []string {
+	arguments := hardenedRunArguments(configuration, imageID, containerName, outputDirectory, temporaryDirectory)
 	arguments = append(arguments, imageID)
 	if sourceRef != "main" {
 		arguments = append(arguments, "--ref", sourceRef)

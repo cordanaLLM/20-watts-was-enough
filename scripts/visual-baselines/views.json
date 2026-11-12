@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "channel_tolerance": 2,
+  "maximum_differing_pixels": 16,
+  "viewports": [
+    { "name": "desktop", "width": 1440, "height": 900, "mobile": false },
+    { "name": "mobile", "width": 375, "height": 844, "mobile": true }
+  ],
+  "views": [
+    { "name": "portal-home", "path": "", "ready_selector": ".portal-hero-meta" },
+    { "name": "book-reader", "path": "book/", "ready_selector": ".book-document" },
+    {
+      "name": "portal-document",
+      "path": "concept/01-working-architecture/#4-one-event-end-to-end",
+      "ready_selector": ".prose ol",
+      "require_visible_selector": ".prose li"
+    }
+  ]
+}
