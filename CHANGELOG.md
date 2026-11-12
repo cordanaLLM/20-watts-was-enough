@@ -9,6 +9,16 @@ the exact diff; this file records why the project changed.
 
 - Add a scheduled bounded soak for workstation runner and book renderer resource growth.
 
+### Changed
+
+- The pre-push gate runs its npm stages on the Node release pinned in
+  `.node-version`, installed through mise with checksum and signature
+  verification, first on `PATH` for the gate only, with a named npm cache
+  (Decision 0129). The host moved to Node 26.13.1, which the pretest runtime
+  check refuses, so every push from it failed. The generated pre-push `gate`
+  job is skipped through 2027-03-12 and replaced by `pinned-node-gate`, which
+  replays the same engine command under `admit`.
+
 ### Security
 
 - The Go toolchain moves from 1.27.3 to 1.27.4 for GO-2026-6859

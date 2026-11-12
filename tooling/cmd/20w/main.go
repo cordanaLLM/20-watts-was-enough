@@ -55,6 +55,7 @@ func usage(writer io.Writer) {
 	fmt.Fprintln(writer, "  20w ci run-workstation [--root <repository>]")
 	fmt.Fprintln(writer, "  20w validate docs [--root <repository>]")
 	fmt.Fprintln(writer, "  20w validate relations [--root <repository>]")
+	fmt.Fprintln(writer, "  20w hooks pre-push-gate [--root <repository>]")
 	fmt.Fprintln(writer, "  20w security govulncheck [--root <repository>]")
 	fmt.Fprintln(writer, "  20w security gitleaks-canary [--root <repository>]")
 	experimentcli.Usage(writer)
@@ -170,6 +171,7 @@ func subcommands() map[string]map[string]subcommand {
 			"run-workstation": runCIWorkstation,
 		},
 		"validate": {"docs": runValidateDocs, "relations": runValidateRelations},
+		"hooks":    {"pre-push-gate": runHooksPrePushGate},
 		"security": {"govulncheck": runSecurityGovulncheck, "gitleaks-canary": runSecurityGitleaksCanary},
 		"release": {
 			"inspect-image":                runReleaseInspectImage,

@@ -31,6 +31,7 @@ import {
   engineManagedWorkflowPaths,
   formatFindings,
   generatedHookJobSkips,
+  pinnedNodeGate,
   gitEnvironment,
   listTrackedTestFiles,
   serialisedPullRequestWorkflowPaths,
@@ -4577,6 +4578,7 @@ test("a local hook file may skip a generated job only by a dated exception", () 
   const local = parse(readFileSync(new URL("../lefthook-local.yml", import.meta.url), "utf8"));
   assert.deepEqual(generatedHookJobSkips.map((entry) => ({ ...entry })), [
     { hook: "pre-commit", job: "reuse-lint", lastDay: "2026-11-30" },
+    { hook: "pre-push", job: "gate", lastDay: "2027-03-12" },
   ]);
   const validate = (candidate, today = "2026-10-11", skips = generatedHookJobSkips) =>
     validateLocalHookObject(candidate, generated, today, skips);
@@ -4592,6 +4594,11 @@ test("a local hook file may skip a generated job only by a dated exception", () 
   assert.deepEqual(validate(local, "2026-11-30"), []);
   assert.deepEqual(validate(local, "2026-12-01"), [expired]);
   assert.deepEqual(validate(local, "2027-01-01"), [expired]);
+  assert.deepEqual(validate(local, "2027-03-12"), [expired]);
+  assert.deepEqual(validate(local, "2027-03-13"), [
+    expired,
+    "lefthook-local.yml: the skip of pre-push command gate ended on 2027-03-12; remove it or decide a new date",
+  ]);
   assert.deepEqual(validateRepositoryPolicy(undefined, "2026-11-30"), []);
   assert.deepEqual(validateRepositoryPolicy(undefined, "2026-12-01"), [expired]);
   for (const today of ["2026-12-1", "11.10.2026", "", "tomorrow"]) {
@@ -4604,7 +4611,7 @@ test("a local hook file may skip a generated job only by a dated exception", () 
   const overrides = Object.entries(generated).flatMap(([hook, body]) =>
     Object.keys(body.commands).map((job) => [hook, job]));
   assert.ok(overrides.length >= 9, String(overrides.length));
-  for (const [hook, job] of overrides.filter(([hook, job]) => `${hook}/${job}` !== "pre-commit/reuse-lint")) {
+  for (const [hook, job] of overrides.filter(([hook, job]) => !["pre-commit/reuse-lint", "pre-push/gate"].includes(`${hook}/${job}`))) {
     for (const body of [{ skip: true }, { run: "true" }, { env: { X: "1" } }, null]) {
       assert.deepEqual(mutated((candidate) => {
         candidate[hook] = { commands: { ...(candidate[hook]?.commands ?? {}), [job]: body } };
@@ -4625,8 +4632,12 @@ test("a local hook file may skip a generated job only by a dated exception", () 
     ["a commands list", (candidate) => { candidate["pre-push"] = { commands: [] }; }],
   ]) {
     const findings = mutated(change);
-    assert.equal(findings.length, 1, `${name}: ${findings.join(" | ")}`);
+    const unusedGate = name === "a hook without commands" || name === "a commands list";
+    assert.equal(findings.length, unusedGate ? 2 : 1, `${name}: ${findings.join(" | ")}`);
     assert.match(findings[0], /^lefthook-local\.yml: hook pre-(commit|push) may only declare a commands mapping$/u, name);
+    if (unusedGate) {
+      assert.equal(findings[1], "lefthook-local.yml: the declared exception for pre-push command gate is unused; remove it");
+    }
   }
 
   assert.deepEqual(mutated((candidate) => { delete candidate["pre-commit"].commands["reuse-lint"]; }), [
@@ -4637,12 +4648,44 @@ test("a local hook file may skip a generated job only by a dated exception", () 
   ]);
   assert.deepEqual(validate(local, "2026-10-11", []), [
     "lefthook-local.yml: pre-commit command reuse-lint changes a generated job without a declared exception",
+    "lefthook-local.yml: pre-push command gate changes a generated job without a declared exception",
   ]);
   for (const pair of [[null, generated], [local, null], [[], generated], [local, "x"]]) {
     assert.deepEqual(validateLocalHookObject(pair[0], pair[1], "2026-10-11"), [
       "lefthook-local.yml: lefthook-local.yml and lefthook.yml must each be a mapping",
     ]);
   }
+});
+
+test("the pinned-node gate replays the generated gate line", () => {
+  const generated = parse(readFileSync(new URL("../lefthook.yml", import.meta.url), "utf8"));
+  const local = parse(readFileSync(new URL("../lefthook-local.yml", import.meta.url), "utf8"));
+  const { run, generatedRun } = pinnedNodeGate;
+  const skips = generatedHookJobSkips;
+  const validate = (candidate, engine = generated) =>
+    validateLocalHookObject(candidate, engine, "2026-11-12", skips);
+  const required = `lefthook-local.yml: pre-push command gate is skipped, so pinned-node-gate must run exactly ${run}`;
+  assert.deepEqual(validate(local), []);
+  for (const replacement of [undefined, { run: "true" }, { run, env: { X: "1" } }]) {
+    const candidate = structuredClone(local);
+    if (replacement === undefined) delete candidate["pre-push"].commands["pinned-node-gate"];
+    else candidate["pre-push"].commands["pinned-node-gate"] = replacement;
+    assert.deepEqual(validate(candidate), [required]);
+  }
+  const changedEngine = structuredClone(generated);
+  changedEngine["pre-push"].commands.gate.run = "true";
+  assert.deepEqual(validate(local, changedEngine), [
+    `lefthook-local.yml: generated pre-push command gate runs true; pinned-node-gate replays ${generatedRun}; change tooling/internal/pinnednode and this pin together`,
+  ]);
+  const duplicate = structuredClone(local);
+  delete duplicate["pre-push"].commands.gate;
+  assert.deepEqual(validate(duplicate), [
+    "lefthook-local.yml: pinned-node-gate without the gate skip runs the gate twice",
+  ]);
+  delete duplicate["pre-push"].commands["pinned-node-gate"];
+  assert.deepEqual(validate(duplicate), [
+    "lefthook-local.yml: the declared exception for pre-push command gate is unused; remove it",
+  ]);
 });
 
 test("policy diagnostics are actionable", () => {
