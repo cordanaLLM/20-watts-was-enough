@@ -271,6 +271,7 @@
         "tooling/internal/githublabels/**",
         "tooling/internal/githubmilestones/**",
         "tooling/internal/githubprmetadata/**",
+        "tooling/internal/pinnednode/**",
         "tooling/internal/repositorymanifest/**",
         "tooling/internal/secretscan/**",
         "tooling/internal/soak/**",
