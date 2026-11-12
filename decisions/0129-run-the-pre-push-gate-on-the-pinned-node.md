@@ -36,7 +36,9 @@ it from project configuration, so the wrapper also checks `node --version`.
    the established version manager. Force checksum and signature verification
    with `MISE_NODE_VERIFY=true` and `MISE_NODE_GPG_VERIFY=true`; enable the
    Node idiomatic version file for the mise calls. Add no `mise.toml`, so
-   interactive shells keep the host Node.
+   interactive shells keep the host Node. `.node-version` must be a regular
+   file; a symlink, a directory or a file replaced between inspection and
+   opening refuses the push.
 2. Put that installation's `bin` directory first on `PATH` only inside the
    gate job. Missing mise, fetch failure, checksum mismatch or a reported
    version different from the pin refuses the push with the reason.
@@ -44,7 +46,10 @@ it from project configuration, so the wrapper also checks `node --version`.
    of 16 GiB memory high, 24 GiB memory maximum and 4 GiB swap maximum. Wait
    at most 30 minutes for admission and run for at most 3 hours. Bound
    installation to 10 minutes, each query to 1 minute and captured output
-   to 64 KiB; failure diagnostics retain at most the last 2 KiB captured.
+   to 64 KiB; a failing command's diagnostic keeps the last 2 KiB of its
+   output, so a reason printed after long output survives. Cancellation
+   stops the command's whole process group. On a platform without Unix
+   process groups the wrapper refuses the push with that reason.
 4. Set `npm_config_cache` to `20-watts-was-enough/npm` beneath the user cache
    directory for this job.
 5. Skip only the generated pre-push `gate` job through 2027-03-12, a category
@@ -64,14 +69,17 @@ it from project configuration, so the wrapper also checks `node --version`.
 
 ## Consequences
 
-Contributors need mise on `PATH` to push. The wrapper leaves the shell's
-Node selection unchanged and preserves the gate's exit status. Re-pinning
-the repository to 26.13.1 remains a separate unit.
+Contributors need mise on `PATH` and a Linux or macOS host to push; the
+Windows CI lane still compiles and tests the package. The wrapper leaves
+the shell's Node selection unchanged and preserves the gate's exit status.
+Re-pinning the repository to 26.13.1 remains a separate unit.
 
 ## Verification and disclosure
 
 The Go runner tests inject tool discovery, subprocess results and cache
 locations; they install nothing and do not execute the repository gate.
+On Unix hosts, further tests run the test binary itself as the child
+process to check the output bounds and the failure tail.
 Policy fixtures cover replacement omission, command drift, extra job keys,
 duplicate execution and exception expiry. The dispatching session runs the
 repository gates; these fixture contracts do not establish a successful

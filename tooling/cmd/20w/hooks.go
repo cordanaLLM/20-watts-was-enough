@@ -13,6 +13,10 @@ import (
 )
 
 func runHooksPrePushGate(arguments []string, stdout, stderr io.Writer) int {
+	return prePushGate(arguments, pinnednode.ExecDeps(), stdout, stderr)
+}
+
+func prePushGate(arguments []string, deps pinnednode.Deps, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("hooks pre-push-gate", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	root := flags.String("root", ".", "repository root")
@@ -27,7 +31,7 @@ func runHooksPrePushGate(arguments []string, stdout, stderr io.Writer) int {
 	defer cancel()
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	status, err := pinnednode.Run(ctx, *root, pinnednode.ExecDeps(), stdout, stderr)
+	status, err := pinnednode.Run(ctx, *root, deps, stdout, stderr)
 	if err != nil {
 		fmt.Fprintf(stderr, "Pre-push gate refused: %v\n", err)
 		return 1

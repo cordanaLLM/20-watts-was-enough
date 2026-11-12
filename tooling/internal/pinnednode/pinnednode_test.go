@@ -201,6 +201,33 @@ func TestReadPin(t *testing.T) {
 	}
 }
 
+func TestReadPinRefusesNonRegularFile(t *testing.T) {
+	t.Parallel()
+	for _, name := range []string{"symlink", "directory"} {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			pin := filepath.Join(root, PinFile)
+			if name == "directory" {
+				if err := os.Mkdir(pin, 0o700); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				target := filepath.Join(root, "other")
+				if err := os.WriteFile(target, []byte("26.13.0\n"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(target, pin); err != nil {
+					t.Skipf("this platform or account cannot create symlinks, so the symlink refusal is unobservable here: %v", err)
+				}
+			}
+			got, err := ReadPin(root)
+			if err == nil || !strings.Contains(err.Error(), "not a regular file") || !strings.Contains(err.Error(), PinFile) {
+				t.Fatalf("ReadPin = %q, %v; want non-regular-file refusal", got, err)
+			}
+		})
+	}
+}
+
 func TestRunRefusesMissingPinAndMise(t *testing.T) {
 	t.Parallel()
 	for _, name := range []string{"pin", "mise"} {

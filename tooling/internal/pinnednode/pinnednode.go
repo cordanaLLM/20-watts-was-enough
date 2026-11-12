@@ -22,6 +22,7 @@ const (
 	InstallDeadline   = 10 * time.Minute
 	QueryDeadline     = time.Minute
 	outputLimit       = 64 * 1024
+	failureTail       = 2048
 	AdmitWait         = 30 * time.Minute
 	AdmitTimeout      = 3 * time.Hour
 	RunDeadline       = InstallDeadline + 2*QueryDeadline + AdmitWait + AdmitTimeout + 5*time.Minute
@@ -53,13 +54,8 @@ func ReadPin(root string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("read %s: %w", name, err)
 	}
-	file, err := directory.Open(PinFile)
-	if err != nil {
-		return "", fmt.Errorf("read %s: %w", name, errors.Join(err, directory.Close()))
-	}
-	content, readErr := io.ReadAll(io.LimitReader(file, maximumPinBytes+1))
-	closeErr := errors.Join(file.Close(), directory.Close())
-	if err := errors.Join(readErr, closeErr); err != nil {
+	content, err := readPinFile(directory)
+	if err = errors.Join(err, directory.Close()); err != nil {
 		return "", fmt.Errorf("read %s: %w", name, err)
 	}
 	if len(content) > maximumPinBytes {
@@ -71,20 +67,52 @@ func ReadPin(root string) (string, error) {
 	return strings.TrimSuffix(string(content), "\n"), nil
 }
 
+// readPinFile reads at most one byte past the pin limit. It refuses a symlink
+// or other non-regular file, and a file replaced between inspection and open.
+func readPinFile(directory *os.Root) ([]byte, error) {
+	before, err := directory.Lstat(PinFile)
+	if err != nil {
+		return nil, err
+	}
+	if !before.Mode().IsRegular() {
+		return nil, fmt.Errorf("not a regular file (mode %s); symlinks are refused", before.Mode())
+	}
+	file, err := directory.Open(PinFile)
+	if err != nil {
+		return nil, err
+	}
+	opened, statErr := file.Stat()
+	content, readErr := io.ReadAll(io.LimitReader(file, maximumPinBytes+1))
+	if err := errors.Join(statErr, readErr, file.Close()); err != nil {
+		return nil, err
+	}
+	if !os.SameFile(before, opened) {
+		return nil, errors.New("replaced while it was opened")
+	}
+	return content, nil
+}
+
 // ExecDeps returns bounded process implementations without changing global state.
 func ExecDeps() Deps {
 	return Deps{LookPath: exec.LookPath, Output: commandOutput, Exec: commandExec,
 		CacheDir: os.UserCacheDir, Environ: os.Environ}
 }
 
+// commandOutput returns the first outputLimit bytes on success and the final
+// failureTail bytes otherwise, so a reason printed after long output survives.
 func commandOutput(ctx context.Context, dir string, env []string, name string, args ...string) (int, []byte, error) {
 	output := boundedexec.NewOutput(outputLimit)
-	status, err := commandExec(ctx, dir, env, append([]string{name}, args...), output, output)
+	tail := newOutputTail(failureTail)
+	writer := io.MultiWriter(output, tail)
+	status, err := commandExec(ctx, dir, env, append([]string{name}, args...), writer, writer)
+	if status != 0 || err != nil {
+		return status, tail.Bytes(), err
+	}
 	body, overflow := output.Result()
 	if overflow {
-		err = errors.Join(err, fmt.Errorf("%s output exceeds %d bytes", name, outputLimit))
+		return status, body, fmt.Errorf("%s output exceeds %d bytes", name, outputLimit)
 	}
-	return status, body, err
+	return status, body, nil
 }
 
 func commandExec(ctx context.Context, dir string, env []string, argv []string, stdout, stderr io.Writer) (int, error) {
@@ -92,8 +120,11 @@ func commandExec(ctx context.Context, dir string, env []string, argv []string, s
 	command.Dir, command.Env = dir, env
 	command.Stdout, command.Stderr = stdout, stderr
 	command.WaitDelay = 5 * time.Second
-	cleanup := boundedexec.KillProcessGroupOnCancel(command)
-	err := command.Run()
+	cleanup, err := configureProcess(command)
+	if err != nil {
+		return 0, err
+	}
+	err = command.Run()
 	cleanupErr := cleanup()
 	if ctx.Err() != nil {
 		return 0, fmt.Errorf("%s stopped: %w", argv[0], errors.Join(ctx.Err(), cleanupErr))
@@ -115,8 +146,8 @@ func query(ctx context.Context, deps Deps, deadline time.Duration, root string, 
 	if status == 0 && err == nil {
 		return output, nil
 	}
-	if len(output) > 2048 {
-		output = output[len(output)-2048:]
+	if len(output) > failureTail {
+		output = output[len(output)-failureTail:]
 	}
 	message := fmt.Sprintf("%s %s failed (exit %d): %s", filepath.Base(name), strings.Join(args, " "), status, output)
 	if err != nil {
