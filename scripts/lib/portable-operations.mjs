@@ -1,20 +1,8 @@
-import fs from "node:fs";
 import path from "node:path";
 
+import { listRepositoryFiles as listInventoryFiles } from "./repository-inventory.mjs";
+
 const MAX_SCANNED_ENTRIES = 20_000;
-const ignoredPrefixes = Object.freeze([
-  ".claude/worktrees",
-  ".git",
-  ".workingdir",
-  ".workingdir2",
-  "build",
-  "coverage",
-  "dist",
-  "dist-github-pages",
-  "experiments/workstation/runs",
-  "node_modules",
-  "tmp",
-]);
 const hostScriptExtensions = new Set([
   ".bat",
   ".cmd",
@@ -41,38 +29,12 @@ const retiredHostExecutionPaths = new Set([
 const windowsRunnerPattern = /(^|[^a-z0-9])windows(?:-[a-z0-9]+)*(?=$|[^a-z0-9])/iu;
 const powershellInvocationPattern = /(?:^|[\s;&|])(?:pwsh|powershell)(?:\.exe)?(?=\s|$)/imu;
 
-function toPosix(value) {
-  return value.split(path.sep).join("/");
-}
-
-function isIgnored(relativePath) {
-  return ignoredPrefixes.some((prefix) => (
-    relativePath === prefix || relativePath.startsWith(`${prefix}/`)
-  ));
-}
-
 function listRepositoryFiles(root) {
-  const pending = [""];
-  const files = [];
-  let scannedEntries = 0;
-
-  while (pending.length > 0) {
-    const directory = pending.pop();
-    const entries = fs.readdirSync(path.join(root, directory), { withFileTypes: true })
-      .sort((left, right) => left.name.localeCompare(right.name));
-    for (const entry of entries) {
-      scannedEntries += 1;
-      if (scannedEntries > MAX_SCANNED_ENTRIES) {
-        throw new Error(`repository operation scan exceeds ${MAX_SCANNED_ENTRIES} entries`);
-      }
-      const relativePath = toPosix(path.join(directory, entry.name));
-      if (isIgnored(relativePath)) continue;
-      if (entry.isDirectory()) pending.push(relativePath);
-      else files.push(relativePath);
-    }
+  const files = listInventoryFiles(root);
+  if (files.length > MAX_SCANNED_ENTRIES) {
+    throw new Error(`repository operation scan exceeds ${MAX_SCANNED_ENTRIES} entries`);
   }
-
-  return files.sort();
+  return files;
 }
 
 function containsWindowsRunner(value) {
