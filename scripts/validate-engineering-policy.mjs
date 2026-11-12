@@ -5844,7 +5844,17 @@ const generatedHookFile = "lefthook.yml";
 const localHookFile = "lefthook-local.yml";
 export const generatedHookJobSkips = Object.freeze([
   Object.freeze({ hook: "pre-commit", job: "reuse-lint", lastDay: "2026-11-30" }),
+  Object.freeze({ hook: "pre-push", job: "gate", lastDay: "2027-03-12" }),
 ]);
+
+// Decision 0129: skipping the generated gate requires its exact replacement.
+export const pinnedNodeGate = Object.freeze({
+  hook: "pre-push",
+  job: "pinned-node-gate",
+  run: "go -C tooling run ./cmd/20w hooks pre-push-gate --root ..",
+  generatedJob: "gate",
+  generatedRun: "sh .config/lefthook/engine.sh gate run --path=. --admit-unsupported",
+});
 
 function isMapping(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -5881,6 +5891,45 @@ function validateLocalHook(hook, body, generated, today, skips, relativePath) {
   return findings;
 }
 
+function validatePinnedNodeGeneratedRun(generated, relativePath) {
+  const generatedRun = generated[pinnedNodeGate.hook]?.commands?.[pinnedNodeGate.generatedJob]?.run;
+  return generatedRun === pinnedNodeGate.generatedRun ? [] : [
+    `${relativePath}: generated pre-push command gate runs ${generatedRun}; pinned-node-gate replays ${pinnedNodeGate.generatedRun}; change tooling/internal/pinnednode and this pin together`,
+  ];
+}
+
+function validatePinnedNodeGate(local, generated, relativePath) {
+  const commands = local[pinnedNodeGate.hook]?.commands;
+  if (!isMapping(commands)) return [];
+  const replacement = commands[pinnedNodeGate.job];
+  if (commands[pinnedNodeGate.generatedJob]?.skip !== true) {
+    return Object.hasOwn(commands, pinnedNodeGate.job)
+      ? [`${relativePath}: pinned-node-gate without the gate skip runs the gate twice`]
+      : [];
+  }
+  const findings = [];
+  if (!isMapping(replacement) || Object.keys(replacement).length !== 1 || replacement.run !== pinnedNodeGate.run) {
+    findings.push(`${relativePath}: pre-push command gate is skipped, so pinned-node-gate must run exactly ${pinnedNodeGate.run}`);
+  }
+  findings.push(...validatePinnedNodeGeneratedRun(generated, relativePath));
+  return findings;
+}
+
+function validateUnusedHookJobSkips(local, skips, relativePath) {
+  const findings = [];
+  for (const exception of skips) {
+    const commands = local[exception.hook]?.commands ?? {};
+    if (Object.hasOwn(commands, exception.job)) continue;
+    // The double-run diagnostic already refuses this missing gate skip.
+    if (exception.hook === pinnedNodeGate.hook && exception.job === pinnedNodeGate.generatedJob
+      && Object.hasOwn(commands, pinnedNodeGate.job)) continue;
+    findings.push(
+      `${relativePath}: the declared exception for ${exception.hook} command ${exception.job} is unused; remove it`,
+    );
+  }
+  return findings;
+}
+
 export function validateLocalHookObject(
   local,
   generated,
@@ -5898,13 +5947,8 @@ export function validateLocalHookObject(
   for (const [hook, body] of Object.entries(local)) {
     findings.push(...validateLocalHook(hook, body, generated, today, skips, relativePath));
   }
-  for (const exception of skips) {
-    if (!Object.hasOwn(local[exception.hook]?.commands ?? {}, exception.job)) {
-      findings.push(
-        `${relativePath}: the declared exception for ${exception.hook} command ${exception.job} is unused; remove it`,
-      );
-    }
-  }
+  findings.push(...validatePinnedNodeGate(local, generated, relativePath));
+  findings.push(...validateUnusedHookJobSkips(local, skips, relativePath));
   return findings;
 }
 

@@ -25,3 +25,13 @@ pre-push:
     # the scanner misses a planted advisory, so an absent tool cannot pass.
     security:
       run: go -C tooling run ./cmd/20w security govulncheck --root ..
+    # Exception, one job: the generated gate job is skipped until 2027-03-12. Its
+    # npm stages take node from PATH and the engine selects no version, so a host
+    # node that drifts from .node-version fails pretest on every push.
+    # pinned-node-gate replays the same engine line on node from .node-version
+    # through mise, under the engine's admit scope. scripts/validate-engineering-policy.mjs
+    # pins both lines and refuses this skip from 2027-03-13 on. Decision 0129.
+    gate:
+      skip: true
+    pinned-node-gate:
+      run: go -C tooling run ./cmd/20w hooks pre-push-gate --root ..
