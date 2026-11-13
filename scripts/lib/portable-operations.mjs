@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { listRepositoryFiles as listInventoryFiles } from "./repository-inventory.mjs";
+import { listRepositoryFiles } from "./repository-inventory.mjs";
 
 const MAX_SCANNED_ENTRIES = 20_000;
 const hostScriptExtensions = new Set([
@@ -29,14 +29,6 @@ const retiredHostExecutionPaths = new Set([
 const windowsRunnerPattern = /(^|[^a-z0-9])windows(?:-[a-z0-9]+)*(?=$|[^a-z0-9])/iu;
 const powershellInvocationPattern = /(?:^|[\s;&|])(?:pwsh|powershell)(?:\.exe)?(?=\s|$)/imu;
 
-function listRepositoryFiles(root) {
-  const files = listInventoryFiles(root);
-  if (files.length > MAX_SCANNED_ENTRIES) {
-    throw new Error(`repository operation scan exceeds ${MAX_SCANNED_ENTRIES} entries`);
-  }
-  return files;
-}
-
 function containsWindowsRunner(value) {
   if (typeof value === "string") return windowsRunnerPattern.test(value);
   if (Array.isArray(value)) return value.some(containsWindowsRunner);
@@ -59,7 +51,7 @@ export function validateOperationalFilePaths(relativePaths) {
 
 export function validatePortableOperationsTree(root) {
   try {
-    return validateOperationalFilePaths(listRepositoryFiles(root));
+    return validateOperationalFilePaths(listRepositoryFiles(root, { maxEntries: MAX_SCANNED_ENTRIES }));
   } catch (error) {
     return [`repository: portable-operation scan failed: ${error.message}`];
   }

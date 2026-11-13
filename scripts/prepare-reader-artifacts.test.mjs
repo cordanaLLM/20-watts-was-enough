@@ -124,6 +124,32 @@ test("ignored local notes with missing targets and dangling links do not affect 
   }
 });
 
+test("reader artifact collection skips symlinked Markdown notes and directories", {
+  skip: process.platform === "win32",
+}, async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "reader-artifacts-symlinks-"));
+  try {
+    execFileSync("git", ["init", "-q", root], { env: gitEnvironment(root), timeout: 30_000, stdio: ["ignore", "pipe", "pipe"] });
+    await writeFile(path.join(root, ".gitignore"), ".workingdir/\n");
+    await mkdir(path.join(root, ".workingdir"));
+    await writeFile(path.join(root, ".workingdir", "notes.md"), "[missing](missing.json)\n");
+    await symlink(".workingdir/notes.md", path.join(root, "notes.md"));
+    await symlink(".workingdir", path.join(root, "folder.md"));
+    await mkdir(path.join(root, "github-pages"));
+    await writeFile(path.join(root, "contract.json"), "{\"schema\":1}\n");
+    await writeFile(path.join(root, "README.md"), "[contract](contract.json)\n");
+    await writeFile(path.join(root, "github-pages", "public-artifacts.json"),
+      `${JSON.stringify({ schema: 1, artifacts: ["contract.json"] })}\n`);
+    execFileSync("git", ["add", "README.md", "contract.json"], { cwd: root, env: gitEnvironment(root), timeout: 30_000, stdio: ["ignore", "pipe", "pipe"] });
+    const outputRoot = path.join(root, "public", "repository-files");
+    const prepared = await prepareReaderArtifacts({ repositoryRoot: root, outputRoot });
+    assert.deepEqual(prepared.artifacts, ["contract.json"]);
+    assert.equal(await readFile(path.join(outputRoot, "contract.json.txt"), "utf8"), "{\"schema\":1}\n");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("reader artifact collection excludes Markdown inside a custom output directory", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "reader-artifacts-custom-output-"));
   try {

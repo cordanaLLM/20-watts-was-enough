@@ -124,6 +124,15 @@ async function resolveLinkedTarget(root, markdown, linked) {
   return relative;
 }
 
+/** Accept only regular repository files whose resolved paths stay inside root. */
+async function isRegularRepositoryFile(root, file) {
+  try {
+    return (await lstat(file)).isFile() && isInside(root, await realpath(file));
+  } catch (error) {
+    throw new Error(`cannot inspect repository Markdown ${file}: ${error.message}`, { cause: error });
+  }
+}
+
 async function collectLinkedTargets(root, resolvedOutput, allowedArtifacts) {
   const markdownFiles = listRepositoryFiles(root)
     .filter((file) => file.endsWith(".md"))
@@ -131,6 +140,7 @@ async function collectLinkedTargets(root, resolvedOutput, allowedArtifacts) {
     .filter((file) => !isInside(resolvedOutput, file));
   const targets = new Set();
   for (const markdown of markdownFiles) {
+    if (!await isRegularRepositoryFile(root, markdown)) continue;
     const body = await readFile(markdown, "utf8");
     for (const match of body.matchAll(LINK_PATTERN)) {
       const linked = linkPath(match.groups?.target ?? "");

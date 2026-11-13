@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -42,6 +42,48 @@ test("repository inventory drops tracked files deleted from disk", () => {
     rmSync(path.join(root, "deleted.json"));
     assert.deepEqual(listRepositoryFiles(root), []);
   } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("repository inventory accepts the entry limit and rejects one entry over it", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "20w-inventory-limit-"));
+  try {
+    git(root, ["init", "-q"]);
+    for (const file of ["a.md", "b.md", "c.md"]) writeFileSync(path.join(root, file), "");
+    assert.deepEqual(listRepositoryFiles(root, { maxEntries: 3 }), ["a.md", "b.md", "c.md"]);
+    assert.throws(() => listRepositoryFiles(root, { maxEntries: 2 }), /exceeds 2 entries/u);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("repository inventory retains a dangling tracked symlink", { skip: process.platform === "win32" }, () => {
+  const root = mkdtempSync(path.join(tmpdir(), "20w-inventory-symlink-"));
+  try {
+    git(root, ["init", "-q"]);
+    symlinkSync("missing.md", path.join(root, "dangling.md"));
+    git(root, ["add", "dangling.md"]);
+    assert.deepEqual(listRepositoryFiles(root), ["dangling.md"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("repository inventory reports an unreadable tracked path", {
+  skip: process.platform === "win32" || process.getuid?.() === 0,
+}, () => {
+  const root = mkdtempSync(path.join(tmpdir(), "20w-inventory-unreadable-"));
+  const directory = path.join(root, "locked");
+  try {
+    git(root, ["init", "-q"]);
+    mkdirSync(directory);
+    writeFileSync(path.join(directory, "tracked.md"), "");
+    git(root, ["add", "locked/tracked.md"]);
+    chmodSync(directory, 0o000);
+    assert.throws(() => listRepositoryFiles(root), /cannot inspect repository entry/u);
+  } finally {
+    if (existsSync(directory)) chmodSync(directory, 0o755);
     rmSync(root, { recursive: true, force: true });
   }
 });
