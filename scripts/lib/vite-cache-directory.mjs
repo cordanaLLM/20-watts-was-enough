@@ -42,8 +42,8 @@ export function resolvePagesOutputDirectory({ override, repositoryRoot } = {}) {
   const output = path.resolve(repositoryRoot, override);
   const temporaryRoot = path.join(repositoryRoot, "tmp");
   const temporaryChild = output !== temporaryRoot && isWithin(output, temporaryRoot);
-  invariant(output !== path.parse(output).root && output !== repositoryRoot,
-    "PAGES_OUTPUT_DIR must not be a filesystem or repository root.");
+  invariant(output !== path.parse(output).root && !isWithin(repositoryRoot, output),
+    "PAGES_OUTPUT_DIR must not be a filesystem root or contain the repository.");
   invariant(temporaryChild || (path.isAbsolute(override) && !isWithin(output, repositoryRoot)),
     "PAGES_OUTPUT_DIR must be outside the repository or beneath repository tmp/; source directories are forbidden.");
   assertOutputAncestors(output);

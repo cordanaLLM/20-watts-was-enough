@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -133,6 +134,33 @@ func TestPlanRejectsTampering(t *testing.T) {
 				t.Fatalf("error=%v, want %s", err, test.field)
 			}
 		})
+	}
+}
+
+func TestPlanRejectsCaseAliasedKeys(t *testing.T) {
+	for _, test := range []struct{ name, old, replacement, field string }{
+		{"tolerance alias with canonical", `"channel_tolerance":2`, `"channel_tolerance":2,"CHANNEL_TOLERANCE":255`, "CHANNEL_TOLERANCE"},
+		{"tolerance alias alone", `"channel_tolerance":2`, `"CHANNEL_TOLERANCE":255`, "CHANNEL_TOLERANCE"},
+		{"viewport alias", `"width":2`, `"Width":2`, "Width"},
+		{"view alias", `"path":""`, `"Path":""`, "Path"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := loadTestPlan(t, strings.Replace(validPlan, test.old, test.replacement, 1))
+			if err == nil || !strings.Contains(err.Error(), "unknown or case-aliased field") || !strings.Contains(err.Error(), test.field) {
+				t.Fatalf("error=%v, want exact-key rejection of %s", err, test.field)
+			}
+		})
+	}
+}
+
+func TestExactJSONKeysKeepTheDepthBound(t *testing.T) {
+	work := jsonKeyWork{body: []byte(`{}`), target: reflect.TypeOf(Plan{}), depth: maximumJSONDepth - 1}
+	if _, err := jsonKeyChildren(work); err != nil {
+		t.Fatalf("object at depth limit: %v", err)
+	}
+	work.depth++
+	if _, err := jsonKeyChildren(work); err == nil || !strings.Contains(err.Error(), "depth limit") {
+		t.Fatalf("object beyond depth limit: error=%v", err)
 	}
 }
 

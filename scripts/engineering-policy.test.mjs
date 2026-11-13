@@ -2799,6 +2799,11 @@ test("CI visual baselines run for full plans or selected site and renderer impac
   await t.test("reject ignored failure", () => {
     assert.ok(validateCiImpactWorkflowObject(bypassed).includes(finding));
   });
+  const defaults = structuredClone(valid);
+  defaults.jobs["visual-baselines"].defaults = { run: { shell: "bash -c 'exit 0' {0}" } };
+  await t.test("reject job-level defaults", () => {
+    assert.ok(validateCiImpactWorkflowObject(defaults).includes(finding));
+  });
 });
 
 test("CI visual comparison and locked module download cannot be bypassed", async (t) => {

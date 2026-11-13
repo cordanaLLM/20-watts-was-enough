@@ -16,6 +16,7 @@ import (
 const (
 	BaselineDirectory    = "scripts/visual-baselines"
 	maximumJSONBytes     = 128 * 1024
+	maximumJSONDepth     = 8
 	maximumViews         = 8
 	maximumViewports     = 4
 	maximumDimension     = 4096
@@ -73,7 +74,10 @@ func decodeStrict(body []byte, value any) error {
 	if len(body) == 0 || len(body) > maximumJSONBytes {
 		return errors.New("JSON size must be 1..131072 bytes")
 	}
-	if err := strictjson.Validate(body, 8); err != nil {
+	if err := strictjson.Validate(body, maximumJSONDepth); err != nil {
+		return err
+	}
+	if err := validateExactJSONKeys(body, value); err != nil {
 		return err
 	}
 	decoder := json.NewDecoder(bytes.NewReader(body))

@@ -1781,7 +1781,8 @@ function validateCiVisualBaselinesJob(jobs, relativePath, findings) {
       && job?.if
         === "needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && (needs.impact-plan.outputs.site == 'true' || needs.impact-plan.outputs.renderer == 'true'))"
       && continueOnErrorIsDisabled(job)
-      && (job?.steps ?? []).every(continueOnErrorIsDisabled),
+      && job?.defaults === undefined
+      && (job.steps ?? []).every(continueOnErrorIsDisabled),
     `${relativePath}: visual-baselines must run for full plans or site or renderer impact and fail closed`,
   );
   recordExpectation(

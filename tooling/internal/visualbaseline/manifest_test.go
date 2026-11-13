@@ -13,7 +13,7 @@ import (
 func manifestFixture(t *testing.T) (string, CapturePlan, pdfrenderlock.Lock, Manifest) {
 	t.Helper()
 	root := t.TempDir()
-	if err := os.Mkdir(filepath.Join(root, "visual-capture"), 0o755); err != nil {
+	if err := os.Mkdir(filepath.Join(root, "visual-capture"), 0o750); err != nil {
 		t.Fatal(err)
 	}
 	plan, err := loadTestPlan(t, validPlan)
@@ -51,6 +51,24 @@ func TestManifestAcceptsOnlyTheExactCapture(t *testing.T) {
 	saveManifest(t, root, manifest)
 	if _, err := ValidateManifest(root, plan, lock); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestManifestRejectsCaseAliasedKeys(t *testing.T) {
+	for _, test := range []struct{ name, old, replacement, field string }{
+		{"top-level alias", `"schema":1`, `"schema":1,"Schema":1`, "Schema"},
+		{"capture alias", `"width":2`, `"Width":2`, "Width"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root, plan, lock, _ := manifestFixture(t)
+			file := filepath.Join(root, "visual-capture", "capture-manifest.json")
+			body := strings.Replace(string(readTestFile(t, file)), test.old, test.replacement, 1)
+			writeTestFile(t, file, []byte(body))
+			_, err := ValidateManifest(root, plan, lock)
+			if err == nil || !strings.Contains(err.Error(), "unknown or case-aliased field") || !strings.Contains(err.Error(), test.field) {
+				t.Fatalf("error=%v, want exact-key rejection of %s", err, test.field)
+			}
+		})
 	}
 }
 

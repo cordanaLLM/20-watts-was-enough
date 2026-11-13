@@ -1,6 +1,7 @@
 package visualbaseline
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -46,14 +47,27 @@ func checkBaselineInventory(directory string) error {
 	return nil
 }
 
-func baselineEntries(directory string) ([]os.DirEntry, error) {
-	files, err := os.Open(directory)
+func baselineEntries(directory string) (entries []os.DirEntry, err error) {
+	root, err := os.OpenRoot(directory)
+	if err != nil {
+		return nil, fmt.Errorf("open inventory root: %w", err)
+	}
+	defer func() {
+		if closeErr := root.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close inventory root: %w", closeErr))
+		}
+	}()
+	files, err := root.Open(".")
 	if err != nil {
 		return nil, fmt.Errorf("open inventory: %w", err)
 	}
-	defer files.Close()
-	entries, err := files.ReadDir(128 + 1)
-	if err != nil && err != io.EOF {
+	defer func() {
+		if closeErr := files.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close inventory: %w", closeErr))
+		}
+	}()
+	entries, err = files.ReadDir(128 + 1)
+	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("list inventory: %w", err)
 	}
 	if len(entries) > 128 {
@@ -97,6 +111,21 @@ func copyBaselineInventory(t *testing.T) (string, string) {
 func TestCommittedBaselineInventory(t *testing.T) {
 	if err := checkBaselineInventory(committedBaselineDirectory(t)); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestBaselineEntriesKeepTheDirectoryBound(t *testing.T) {
+	directory := t.TempDir()
+	for index := 0; index < 128; index++ {
+		writeTestFile(t, filepath.Join(directory, fmt.Sprintf("entry-%03d", index)), nil)
+	}
+	entries, err := baselineEntries(directory)
+	if err != nil || len(entries) != 128 {
+		t.Fatalf("128-entry inventory: entries=%d error=%v", len(entries), err)
+	}
+	writeTestFile(t, filepath.Join(directory, "entry-128"), nil)
+	if _, err := baselineEntries(directory); err == nil || !strings.Contains(err.Error(), "exceeds 128 entries") {
+		t.Fatalf("129-entry inventory: error=%v", err)
 	}
 }
 

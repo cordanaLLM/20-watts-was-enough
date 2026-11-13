@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, symlink } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -20,6 +20,18 @@ test("Pages output permits staging beneath tmp or an absolute external directory
 test("Pages output rejects roots, sources and relative paths outside tmp", () => {
   for (const override of ["/workspace", "/workspace/app", "/", "app", "../pages", "tmp/../app", "tmp", " tmp/pages", ""]) {
     assert.throws(() => resolvePagesOutputDirectory({ repositoryRoot: "/workspace", override }), /PAGES_OUTPUT_DIR/u);
+  }
+});
+
+test("Pages output rejects canonical repository parents and grandparents", async (t) => {
+  const temporaryRoot = await realpath(await mkdtemp(path.join(os.tmpdir(), "pages-output-")));
+  t.after(() => rm(temporaryRoot, { recursive: true, force: true }));
+  await mkdir(path.join(temporaryRoot, "parent"), { mode: 0o750 });
+  const repositoryRoot = await mkdtemp(path.join(temporaryRoot, "parent", "repository-"));
+  for (const override of [path.dirname(repositoryRoot), path.dirname(path.dirname(repositoryRoot))]) {
+    await t.test(`reject ${override}`, () => {
+      assert.throws(() => resolvePagesOutputDirectory({ repositoryRoot, override }), /PAGES_OUTPUT_DIR/u);
+    });
   }
 });
 
