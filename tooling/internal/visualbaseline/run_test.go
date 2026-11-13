@@ -16,7 +16,7 @@ func fakeCapture(t *testing.T, body []byte) func(context.Context, string) error 
 	t.Helper()
 	return func(_ context.Context, root string) error {
 		_, _, lock, _ := manifestFixture(t)
-		planBody, err := os.ReadFile(filepath.Join(root, "capture-plan.json"))
+		planBody, err := readPath(filepath.Join(root, "capture-plan.json"), maximumPNGBytes)
 		if err != nil {
 			return err
 		}
@@ -55,7 +55,7 @@ func runOptions(t *testing.T) (Options, []byte) {
 
 func readTestReport(t *testing.T, root string) report {
 	t.Helper()
-	body, err := os.ReadFile(filepath.Join(root, "build/visual-check/report.json"))
+	body, err := readPath(filepath.Join(root, "build/visual-check/report.json"), maximumPNGBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func TestExecuteRecordsThenChecksAndRetainsFailure(t *testing.T) {
 	if err := Execute(context.Background(), options, fakeCapture(t, changedBody)); err == nil {
 		t.Fatal("visual change passed")
 	}
-	reportBody, err := os.ReadFile(filepath.Join(options.RepositoryRoot, "build/visual-check/report.json"))
+	reportBody, err := readPath(filepath.Join(options.RepositoryRoot, "build/visual-check/report.json"), maximumPNGBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +161,7 @@ func TestExecuteRecordsThenChecksAndRetainsFailure(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	baseline, err := os.ReadFile(filepath.Join(options.RepositoryRoot, BaselineDirectory, "home-desktop.png"))
+	baseline, err := readPath(filepath.Join(options.RepositoryRoot, BaselineDirectory, "home-desktop.png"), maximumPNGBytes)
 	if err != nil || !bytes.Equal(baseline, body) {
 		t.Fatalf("check changed baseline: %v", err)
 	}

@@ -70,6 +70,15 @@ func writeTestFile(t *testing.T, path string, body []byte) {
 	}
 }
 
+func readTestFile(t *testing.T, path string) []byte {
+	t.Helper()
+	body, err := readPath(path, maximumPNGBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return body
+}
+
 func loadTestPlan(t *testing.T, body string) (Plan, error) {
 	t.Helper()
 	file := filepath.Join(t.TempDir(), "views.json")

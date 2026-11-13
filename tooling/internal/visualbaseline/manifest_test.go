@@ -81,11 +81,11 @@ func TestManifestRejectsTampering(t *testing.T) {
 			saveManifest(t, root, manifest)
 			file := filepath.Join(root, "visual-capture", "capture-manifest.json")
 			if kind == "unknown" {
-				body, _ := os.ReadFile(file)
+				body := readTestFile(t, file)
 				writeTestFile(t, file, []byte(strings.Replace(string(body), `"schema":1`, `"schema":1,"unknown":1`, 1)))
 			}
 			if kind == "duplicate key" {
-				body, _ := os.ReadFile(file)
+				body := readTestFile(t, file)
 				writeTestFile(t, file, []byte(strings.Replace(string(body), `"schema":1`, `"schema":1,"schema":1`, 1)))
 			}
 			if _, err := ValidateManifest(root, plan, lock); err == nil {
