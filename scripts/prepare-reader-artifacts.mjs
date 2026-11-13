@@ -1,16 +1,14 @@
-import { copyFile, lstat, mkdir, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
+import { copyFile, lstat, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { listRepositoryFiles } from "./lib/repository-inventory.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRepositoryRoot = path.resolve(path.dirname(scriptPath), "..");
 const SOURCE_EXTENSIONS = new Set([
   ".csv", ".js", ".json", ".mjs", ".py", ".sh", ".toml",
   ".ts", ".tsx", ".tsv", ".yaml", ".yml",
-]);
-const EXCLUDED_DIRECTORIES = new Set([
-  ".git", ".vite", "dist", "dist-github-pages",
-  "node_modules", "tmp",
 ]);
 const LINK_PATTERN = /(?<!!)\[[^\]]+\]\((?<target>[^)]+)\)/gu;
 const FORBIDDEN_PUBLIC_PREFIXES = Object.freeze([
@@ -25,23 +23,6 @@ function isInside(root, candidate) {
 function sourceExtension(file) {
   const lower = file.toLowerCase();
   return [...SOURCE_EXTENSIONS].find((extension) => lower.endsWith(extension)) ?? null;
-}
-
-async function markdownFiles(directory, repositoryRoot) {
-  const files = [];
-  for (const entry of await readdir(directory, { withFileTypes: true })) {
-    if (entry.isDirectory() && EXCLUDED_DIRECTORIES.has(entry.name)) continue;
-    const absolute = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      if (path.resolve(absolute) === path.resolve(repositoryRoot, "public", "repository-files")) {
-        continue;
-      }
-      files.push(...await markdownFiles(absolute, repositoryRoot));
-    } else if (entry.isFile() && entry.name.endsWith(".md")) {
-      files.push(absolute);
-    }
-  }
-  return files;
 }
 
 function linkPath(target) {
@@ -60,12 +41,7 @@ function linkPath(target) {
   }
 }
 
-export async function prepareReaderArtifacts({
-  repositoryRoot = defaultRepositoryRoot,
-  outputRoot = path.join(repositoryRoot, "public", "repository-files"),
-  allowlistPath = path.join(repositoryRoot, "github-pages", "public-artifacts.json"),
-} = {}) {
-  const root = await realpath(repositoryRoot);
+function resolveOutputRoot(root, outputRoot) {
   const resolvedOutput = path.resolve(outputRoot);
   const expectedDefault = path.resolve(root, "public", "repository-files");
   if (!isInside(root, resolvedOutput) || resolvedOutput === root) {
@@ -76,6 +52,39 @@ export async function prepareReaderArtifacts({
     throw new Error("Reader-artifact default output does not match the resolved repository root.");
   }
 
+  return resolvedOutput;
+}
+
+function validateArtifactPath(artifact) {
+  if (typeof artifact !== "string"
+      || artifact.length === 0
+      || artifact.includes("\\")
+      || path.posix.isAbsolute(artifact)
+      || artifact.split("/").includes("..")
+      || !sourceExtension(artifact)
+      || FORBIDDEN_PUBLIC_PREFIXES.some((prefix) => artifact.startsWith(prefix))) {
+    throw new Error(`Reader-artifact allowlist contains an unsafe path: ${artifact}`);
+  }
+}
+
+function validateAllowlistArtifacts(artifacts) {
+  const allowedArtifacts = new Set();
+  for (const artifact of artifacts) {
+    validateArtifactPath(artifact);
+    if (allowedArtifacts.has(artifact)) {
+      throw new Error(`Reader-artifact allowlist contains a duplicate: ${artifact}`);
+    }
+    allowedArtifacts.add(artifact);
+  }
+  const sortedAllowedArtifacts = [...allowedArtifacts].sort();
+  if (JSON.stringify(artifacts) !== JSON.stringify(sortedAllowedArtifacts)) {
+    throw new Error("Reader-artifact allowlist must be sorted.");
+  }
+
+  return allowedArtifacts;
+}
+
+async function loadAllowlist(root, allowlistPath) {
   const resolvedAllowlist = path.resolve(allowlistPath);
   if (!isInside(root, resolvedAllowlist)) {
     throw new Error("Reader-artifact allowlist must stay inside the repository.");
@@ -92,49 +101,51 @@ export async function prepareReaderArtifacts({
   if (allowlist?.schema !== 1 || !Array.isArray(allowlist.artifacts)) {
     throw new Error("Reader-artifact allowlist has an unsupported schema.");
   }
-  const allowedArtifacts = new Set();
-  for (const artifact of allowlist.artifacts) {
-    if (typeof artifact !== "string"
-        || artifact.length === 0
-        || artifact.includes("\\")
-        || path.posix.isAbsolute(artifact)
-        || artifact.split("/").includes("..")
-        || !sourceExtension(artifact)
-        || FORBIDDEN_PUBLIC_PREFIXES.some((prefix) => artifact.startsWith(prefix))) {
-      throw new Error(`Reader-artifact allowlist contains an unsafe path: ${artifact}`);
-    }
-    if (allowedArtifacts.has(artifact)) {
-      throw new Error(`Reader-artifact allowlist contains a duplicate: ${artifact}`);
-    }
-    allowedArtifacts.add(artifact);
-  }
-  const sortedAllowedArtifacts = [...allowedArtifacts].sort();
-  if (JSON.stringify(allowlist.artifacts) !== JSON.stringify(sortedAllowedArtifacts)) {
-    throw new Error("Reader-artifact allowlist must be sorted.");
-  }
+  return validateAllowlistArtifacts(allowlist.artifacts);
+}
 
+async function resolveLinkedTarget(root, markdown, linked) {
+  const candidate = path.resolve(
+    linked.startsWith("/") ? root : path.dirname(markdown),
+    linked.replace(/^[/\\]+/u, ""),
+  );
+  if (!isInside(root, candidate)) {
+    throw new Error(`Reader artifact escapes the repository: ${linked}`);
+  }
+  const information = await lstat(candidate);
+  if (!information.isFile() || information.isSymbolicLink()) {
+    throw new Error(`Reader artifact is not a regular file: ${linked}`);
+  }
+  const realCandidate = await realpath(candidate);
+  if (!isInside(root, realCandidate)) {
+    throw new Error(`Reader artifact resolves outside the repository: ${linked}`);
+  }
+  const relative = path.relative(root, realCandidate).replaceAll("\\", "/");
+  return relative;
+}
+
+/** Accept only regular repository files whose resolved paths stay inside root. */
+async function isRegularRepositoryFile(root, file) {
+  try {
+    return (await lstat(file)).isFile() && isInside(root, await realpath(file));
+  } catch (error) {
+    throw new Error(`cannot inspect repository Markdown ${file}: ${error.message}`, { cause: error });
+  }
+}
+
+async function collectLinkedTargets(root, resolvedOutput, allowedArtifacts) {
+  const markdownFiles = listRepositoryFiles(root)
+    .filter((file) => file.endsWith(".md"))
+    .map((file) => path.join(root, file))
+    .filter((file) => !isInside(resolvedOutput, file));
   const targets = new Set();
-  for (const markdown of await markdownFiles(root, root)) {
+  for (const markdown of markdownFiles) {
+    if (!await isRegularRepositoryFile(root, markdown)) continue;
     const body = await readFile(markdown, "utf8");
     for (const match of body.matchAll(LINK_PATTERN)) {
       const linked = linkPath(match.groups?.target ?? "");
       if (!linked || !sourceExtension(linked)) continue;
-      const candidate = path.resolve(
-        linked.startsWith("/") ? root : path.dirname(markdown),
-        linked.replace(/^[/\\]+/u, ""),
-      );
-      if (!isInside(root, candidate)) {
-        throw new Error(`Reader artifact escapes the repository: ${linked}`);
-      }
-      const information = await lstat(candidate);
-      if (!information.isFile() || information.isSymbolicLink()) {
-        throw new Error(`Reader artifact is not a regular file: ${linked}`);
-      }
-      const realCandidate = await realpath(candidate);
-      if (!isInside(root, realCandidate)) {
-        throw new Error(`Reader artifact resolves outside the repository: ${linked}`);
-      }
-      const relative = path.relative(root, realCandidate).replaceAll("\\", "/");
+      const relative = await resolveLinkedTarget(root, markdown, linked);
       if (!allowedArtifacts.has(relative)) {
         continue;
       }
@@ -148,6 +159,10 @@ export async function prepareReaderArtifacts({
     }
   }
 
+  return targets;
+}
+
+async function writeArtifacts(root, resolvedOutput, targets) {
   await rm(resolvedOutput, { recursive: true, force: true });
   await mkdir(resolvedOutput, { recursive: true });
   const artifacts = [...targets].sort();
@@ -162,6 +177,18 @@ export async function prepareReaderArtifacts({
     "utf8",
   );
   return Object.freeze({ outputRoot: resolvedOutput, artifacts: Object.freeze(artifacts) });
+}
+
+export async function prepareReaderArtifacts({
+  repositoryRoot = defaultRepositoryRoot,
+  outputRoot = path.join(repositoryRoot, "public", "repository-files"),
+  allowlistPath = path.join(repositoryRoot, "github-pages", "public-artifacts.json"),
+} = {}) {
+  const root = await realpath(repositoryRoot);
+  const resolvedOutput = resolveOutputRoot(root, outputRoot);
+  const allowedArtifacts = await loadAllowlist(root, allowlistPath);
+  const targets = await collectLinkedTargets(root, resolvedOutput, allowedArtifacts);
+  return writeArtifacts(root, resolvedOutput, targets);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(scriptPath)) {

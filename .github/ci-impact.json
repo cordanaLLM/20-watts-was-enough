@@ -491,6 +491,8 @@
         "scripts/lib/browser-wait.test.mjs",
         "scripts/lib/pages-dev-server.mjs",
         "scripts/lib/pages-dev-server.test.mjs",
+        "scripts/lib/repository-inventory.mjs",
+        "scripts/lib/repository-inventory.test.mjs",
         "scripts/mermaid-browser.test.mjs",
         "scripts/pages-base.test.mjs",
         "scripts/pages-seo.test.mjs",
