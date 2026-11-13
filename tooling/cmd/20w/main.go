@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -33,6 +34,7 @@ import (
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/pdfrenderlock"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/releasecheck"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/releaseimage"
+	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/visualbaseline"
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/workstationrunner"
 )
 
@@ -59,6 +61,7 @@ func usage(writer io.Writer) {
 	fmt.Fprintln(writer, "  20w security govulncheck [--root <repository>]")
 	fmt.Fprintln(writer, "  20w security gitleaks-canary [--root <repository>]")
 	experimentcli.Usage(writer)
+	fmt.Fprintln(writer, "  20w publication visual-check [--root <repository>] [--record]")
 	fmt.Fprintln(writer, "  20w publication render-pdf [--root <repository>] [--ref main|vMAJOR.MINOR.PATCH] [--revision <commit>] [--check]")
 	fmt.Fprintln(writer, "  20w publication verify-pdf-tools [--root <repository>]")
 	fmt.Fprintln(writer, "  20w publication reproduce-pdf-tools-image --receipt <new.json> [--candidate-bundle <new.tar> --final-archive <new.tar> --spdx <new.spdx.json> --source-bundle <new.tar.gz>] [--root <repository>]")
@@ -184,6 +187,7 @@ func subcommands() map[string]map[string]subcommand {
 			"validate-oci-images":          runReleaseValidateOCIImages,
 		},
 		"publication": {
+			"visual-check":                      runPublicationVisualCheck,
 			"render-pdf":                        runPublicationRenderPDF,
 			"verify-pdf-tools":                  runPublicationVerifyPDFTools,
 			"reproduce-pdf-tools-image":         runPublicationReproducePDFToolsImage,
@@ -933,4 +937,55 @@ func runVersion(arguments []string, stdout, stderr io.Writer) int {
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
+
+func runPublicationVisualCheck(arguments []string, stdout, stderr io.Writer) int {
+	return runPublicationVisualCheckWithRunner(arguments, stdout, stderr, executePublicationVisualCheck)
+}
+
+func runPublicationVisualCheckWithRunner(arguments []string, stdout, stderr io.Writer,
+	runner func(context.Context, string, bool, io.Writer, io.Writer) error,
+) int {
+	flags := flag.NewFlagSet("publication visual-check", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	root := flags.String("root", ".", "repository root")
+	record := flags.Bool("record", false, "explicitly replace changed visual baselines")
+	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 {
+		return 2
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), publicationRenderDeadline)
+	defer cancel()
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := runner(ctx, *root, *record, stdout, stderr); err != nil {
+		fmt.Fprintf(stderr, "Visual check: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+func executePublicationVisualCheck(ctx context.Context, root string, record bool, stdout, stderr io.Writer) error {
+	configuration, err := pdfrender.Check(root)
+	if err != nil {
+		return fmt.Errorf("visual renderer configuration: %w", err)
+	}
+	plan, err := visualbaseline.LoadPlan(filepath.Join(configuration.RepositoryRoot, visualbaseline.BaselineDirectory, "views.json"))
+	if err != nil {
+		return fmt.Errorf("visual capture plan: %w", err)
+	}
+	output := stderr
+	if record {
+		output = stdout
+	}
+	options := visualbaseline.Options{RepositoryRoot: configuration.RepositoryRoot, Plan: plan, Lock: configuration.Lock, Record: record, Output: output}
+	return pdfrender.WithVisualCapture(ctx, pdfrender.VisualOptions{RepositoryRoot: configuration.RepositoryRoot, Diagnostics: stderr}, func(capture pdfrender.VisualCapture) error {
+		return visualbaseline.Execute(ctx, options, func(ctx context.Context, directory string) error {
+			result, err := capture(ctx, directory)
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(stdout, "Visual capture: %s (%s, lock sha256:%s).\n", result.ImageID, result.Platform, result.LockSHA256)
+			return err
+		})
+	})
 }

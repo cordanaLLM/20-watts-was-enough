@@ -332,6 +332,62 @@ jobs:
       - name: Run release checks
         run: npm run check:lane-release
 
+  visual-baselines:
+    name: Visual baselines
+    needs: impact-plan
+    if: needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && (needs.impact-plan.outputs.site == 'true' || needs.impact-plan.outputs.renderer == 'true'))
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out canonical source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use Go 1.27
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: tooling/go.mod
+          cache-dependency-path: tooling/go.sum
+      - name: Use Node.js 26
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Install locked npm 12.2.2
+        run: node scripts/install-locked-npm.mjs
+      - name: Verify locked npm 12.2.2
+        run: test "$(npm --version)" = "12.2.2"
+      - name: Install locked dependencies
+        run: npm ci --no-audit
+      - name: Set up the locked PDF Docker Buildx client
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          version: v0.38.2
+          driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
+      - name: Download locked Go modules
+        run: go -C tooling mod download
+      - name: Compare the pinned reader and portal captures
+        env:
+          CGO_ENABLED: "0"
+          GOOS: "linux"
+          GOARCH: "amd64"
+          GOENV: "off"
+          GOWORK: "off"
+          GOTOOLCHAIN: "local"
+          GOFLAGS: "-mod=readonly"
+          GOPROXY: "off"
+          GOSUMDB: "off"
+        run: go -C tooling run ./cmd/20w publication visual-check --root ..
+      - name: Retain visual comparison failures
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: visual-baselines
+          path: build/visual-check
+          retention-days: 7
+
   pdf-renderer-reproducibility:
     name: PDF renderer reproducibility
     needs: impact-plan
@@ -862,6 +918,7 @@ jobs:
       - lane-go-macos
       - lane-release
       - pdf-renderer-reproducibility
+      - visual-baselines
       - lane-research
       - lane-site
       - lane-site-browser
@@ -892,6 +949,7 @@ jobs:
           RESULT_GO_WINDOWS: ${{ needs.lane-go-windows.result }}
           RESULT_GO_MACOS: ${{ needs.lane-go-macos.result }}
           RESULT_RELEASE: ${{ needs.lane-release.result }}
+          RESULT_VISUAL: ${{ needs.visual-baselines.result }}
           RESULT_RENDERER: ${{ needs.pdf-renderer-reproducibility.result }}
           RESULT_RESEARCH: ${{ needs.lane-research.result }}
           RESULT_SITE: ${{ needs.lane-site.result }}
@@ -951,6 +1009,7 @@ jobs:
               require_state lane-research "$RESULT_RESEARCH" success
               require_state lane-site "$RESULT_SITE" success
               require_state lane-site-browser "$RESULT_SITE_BROWSER" success
+              require_state visual-baselines "$RESULT_VISUAL" success
               require_state workstation-core "$RESULT_WORKSTATION_CORE" success
               require_state workstation-artifacts "$RESULT_WORKSTATION_ARTIFACTS" success
               require_state container-smoke "$RESULT_CONTAINER" success
@@ -975,6 +1034,17 @@ jobs:
               require_selection lane-research "$RESULT_RESEARCH" "$SELECT_RESEARCH"
               require_selection lane-site "$RESULT_SITE" "$SELECT_SITE"
               require_selection lane-site-browser "$RESULT_SITE_BROWSER" "$SELECT_SITE"
+              for selector in "$SELECT_SITE" "$SELECT_RENDERER"; do
+                case "$selector" in
+                  true|false) ;;
+                  *) echo "::error::visual-baselines selector is malformed: $selector"; exit 1 ;;
+                esac
+              done
+              visual_selected=false
+              if [[ "$SELECT_SITE" == "true" || "$SELECT_RENDERER" == "true" ]]; then
+                visual_selected=true
+              fi
+              require_selection visual-baselines "$RESULT_VISUAL" "$visual_selected"
               require_selection workstation-core "$RESULT_WORKSTATION_CORE" "$SELECT_WORKSTATION"
               require_selection workstation-artifacts "$RESULT_WORKSTATION_ARTIFACTS" "$SELECT_WORKSTATION"
               require_selection container-smoke "$RESULT_CONTAINER" "$SELECT_CONTAINER"

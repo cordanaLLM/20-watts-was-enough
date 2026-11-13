@@ -7,6 +7,8 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- Add pinned reader and portal screenshot comparisons with explicit PNG baseline recording and CI difference artifacts ([Decision 0128](decisions/0128-compare-reader-and-portal-screenshots-in-the-pinned-renderer.md), #239).
+
 - Add a scheduled bounded soak for workstation runner and book renderer resource growth.
 
 ### Changed

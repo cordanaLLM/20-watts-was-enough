@@ -1745,8 +1745,56 @@ function validateCiImpactPlanJob(workflow, jobs, relativePath, findings) {
   );
 }
 
+const visualComparisonSource = "go -C tooling run ./cmd/20w publication visual-check --root ..";
+
+function visualComparisonStepIsExact(step) {
+  return pdfRendererCacheStepIsExact(step, {
+    name: "Compare the pinned reader and portal captures",
+    env: {
+      CGO_ENABLED: "0", GOOS: "linux", GOARCH: "amd64", GOENV: "off", GOWORK: "off",
+      GOTOOLCHAIN: "local", GOFLAGS: "-mod=readonly", GOPROXY: "off", GOSUMDB: "off",
+    },
+    run: visualComparisonSource,
+  });
+}
+
+function visualComparisonStepsAreExact(steps) {
+  if (!Array.isArray(steps)) return false;
+  const comparisonName = "Compare the pinned reader and portal captures";
+  const matches = steps.filter((step) => step?.name === comparisonName);
+  const index = steps.findIndex((step) => step?.name === comparisonName);
+  return matches.length === 1 && visualComparisonStepIsExact(matches[0])
+    && steps.filter((step) => step?.run === visualComparisonSource).length === 1
+    && pdfRendererCacheStepIsExact(steps[index - 1], {
+      name: "Download locked Go modules",
+      run: "go -C tooling mod download",
+    });
+}
+
+// Decision 0128: every full plan and site or renderer impact runs the
+// screenshot comparison, and no step may continue on error.
+function validateCiVisualBaselinesJob(jobs, relativePath, findings) {
+  const job = jobs["visual-baselines"];
+  recordExpectation(
+    findings,
+    job?.needs === "impact-plan"
+      && job?.if
+        === "needs.impact-plan.outputs.mode == 'full' || (needs.impact-plan.outputs.mode == 'impact' && (needs.impact-plan.outputs.site == 'true' || needs.impact-plan.outputs.renderer == 'true'))"
+      && continueOnErrorIsDisabled(job)
+      && job?.defaults === undefined
+      && (job.steps ?? []).every(continueOnErrorIsDisabled),
+    `${relativePath}: visual-baselines must run for full plans or site or renderer impact and fail closed`,
+  );
+  recordExpectation(
+    findings,
+    visualComparisonStepsAreExact(job?.steps),
+    `${relativePath}: visual-baselines must unconditionally download locked Go modules immediately before exactly one pinned comparison`,
+  );
+}
+
 function validateCiImpactLaneJobs(jobs, relativePath, findings) {
   const impactMode = "needs.impact-plan.outputs.mode == 'impact'";
+  validateCiVisualBaselinesJob(jobs, relativePath, findings);
   recordExpectation(
     findings,
     jobs["quality-full"]?.if === "needs.impact-plan.outputs.mode == 'full'",
@@ -1890,6 +1938,7 @@ const ciImpactSuccessExpectedNeeds = [
   "lane-research",
   "lane-site",
   "lane-site-browser",
+  "visual-baselines",
   "workstation-core",
   "workstation-artifacts",
   "container-smoke",
@@ -1919,6 +1968,7 @@ const ciImpactSuccessExpectedEnvironment = {
   RESULT_RESEARCH: "${{ needs.lane-research.result }}",
   RESULT_SITE: "${{ needs.lane-site.result }}",
   RESULT_SITE_BROWSER: "${{ needs.lane-site-browser.result }}",
+  RESULT_VISUAL: "${{ needs.visual-baselines.result }}",
   RESULT_WORKSTATION_CORE: "${{ needs.workstation-core.result }}",
   RESULT_WORKSTATION_ARTIFACTS: "${{ needs.workstation-artifacts.result }}",
   RESULT_CONTAINER: "${{ needs.container-smoke.result }}",
@@ -1951,6 +2001,8 @@ function validateCiImpactSuccessNeedsAndEnvironment(success, successStep, relati
 // Exact occurrence counts: full and impact cases each name these lines a
 // fixed number of times, so a dropped or duplicated case is refused.
 const ciImpactSuccessLineCounts = Object.freeze([
+  ['require_state visual-baselines "$RESULT_VISUAL" success', 1],
+  ['require_selection visual-baselines "$RESULT_VISUAL" "$visual_selected"', 1],
   ['require_selection pdf-renderer-reproducibility "$RESULT_RENDERER" "$SELECT_RENDERER"', 2],
   ['require_selection dependency-review "$RESULT_DEPENDENCY_REVIEW" "$SELECT_DEPENDENCY"', 1],
   ['require_state dependency-review "$RESULT_DEPENDENCY_REVIEW" skipped', 2],
@@ -1963,10 +2015,26 @@ const ciImpactSuccessLineCounts = Object.freeze([
   ['require_state lane-site-browser "$RESULT_SITE_BROWSER" success', 1],
 ]);
 
+const ciImpactVisualSelectionSource = [
+  '    for selector in "$SELECT_SITE" "$SELECT_RENDERER"; do',
+  '      case "$selector" in',
+  '        true|false) ;;',
+  '        *) echo "::error::visual-baselines selector is malformed: $selector"; exit 1 ;;',
+  '      esac',
+  '    done',
+  '    visual_selected=false',
+  '    if [[ "$SELECT_SITE" == "true" || "$SELECT_RENDERER" == "true" ]]; then',
+  '      visual_selected=true',
+  '    fi',
+  '    require_selection visual-baselines "$RESULT_VISUAL" "$visual_selected"',
+].join("\n");
+
 function validateCiImpactSuccessScript(successSource, relativePath, findings) {
   recordExpectation(
     findings,
     stringIncludesAll(successSource, [
+      'require_state visual-baselines "$RESULT_VISUAL" success',
+      ciImpactVisualSelectionSource,
       'require_state impact-plan "$RESULT_PLAN" success',
       'require_state dependency-review "$RESULT_DEPENDENCY_REVIEW" success',
       'require_state quality-full "$RESULT_QUALITY_FULL" success',

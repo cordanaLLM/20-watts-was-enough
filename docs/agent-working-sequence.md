@@ -71,10 +71,20 @@ npm run check
 # GitHub Pages reader and portal validation
 npm run test:github-pages
 
+# Pinned reader and portal screenshot comparison
+npm run check:visual
+npm run record:visual
+
 # Book PDF generation and semantic validation
 npm run generate:book-pdf
 npm run validate:book-pdf
 ```
+
+Run `npm run check:visual` after reader or portal visual changes; use
+`npm run record:visual` only for an intended change whose PNG diff will be
+reviewed ([Decision 0128](../decisions/0128-compare-reader-and-portal-screenshots-in-the-pinned-renderer.md)).
+Both commands require the locked PDF renderer container environment.
+Full CI plans and site or renderer impact run the visual comparison job.
 
 ## Expert reference and scoped validation
 

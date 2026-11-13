@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/cordanaLLM/20-watts-was-enough/tooling/internal/boundedexec"
 )
@@ -244,7 +245,11 @@ func runDockerCommand(ctx context.Context, request commandRequest, environment [
 func commandFailure(operation string, err error, output []byte) error {
 	diagnostic := strings.TrimSpace(string(output))
 	if len(diagnostic) > maximumDiagnosticBytes {
-		diagnostic = diagnostic[:maximumDiagnosticBytes] + "..."
+		start := len(diagnostic) - maximumDiagnosticBytes
+		for advanced := 0; advanced < utf8.UTFMax && start < len(diagnostic) && !utf8.RuneStart(diagnostic[start]); advanced++ {
+			start++
+		}
+		diagnostic = "..." + diagnostic[start:]
 	}
 	if diagnostic == "" {
 		return fmt.Errorf("%s: %w", operation, err)
