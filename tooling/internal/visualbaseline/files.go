@@ -56,7 +56,13 @@ func openDirectory(root, relative string, create bool) (*os.Root, error) {
 	}
 	for _, component := range strings.Split(relative, "/") {
 		next, err := openChild(directory, component, create)
-		directory.Close()
+		if closeErr := directory.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close visual directory: %w", closeErr))
+			if next != nil {
+				err = errors.Join(err, next.Close())
+			}
+			return nil, err
+		}
 		if err != nil {
 			return nil, err
 		}

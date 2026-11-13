@@ -71,14 +71,16 @@ func prepareCapture(root string, plan CapturePlan) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	directory.Close()
+	if err := directory.Close(); err != nil {
+		return "", fmt.Errorf("close visual tmp directory: %w", err)
+	}
 	staging, err := os.MkdirTemp(filepath.Join(root, "tmp"), "visual-check-")
 	if err != nil {
 		return "", fmt.Errorf("create visual staging directory: %w", err)
 	}
 	body, err := strictjson.Canonical(plan)
 	if err == nil {
-		err = os.WriteFile(filepath.Join(staging, "capture-plan.json"), body, 0o644)
+		err = os.WriteFile(filepath.Join(staging, "capture-plan.json"), body, 0o600)
 	}
 	if err != nil {
 		return "", errors.Join(err, os.RemoveAll(staging))
