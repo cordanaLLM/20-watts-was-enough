@@ -17,6 +17,8 @@ const root = "/workspace";
 const base = "/";
 const output = path.join(root, "tmp/visual-capture");
 const origin = VISUAL_PAGES_ORIGIN;
+export const SEO_FALLBACK_SELECTOR = ".seo-static-page";
+export const CAPTURE_STYLE = "*,*::before,*::after { animation: none !important; transition: none !important; caret-color: transparent !important; scroll-behavior: auto !important; overflow-anchor: none !important; }";
 let server;
 let browser;
 let cdp;
@@ -33,17 +35,26 @@ async function settleView(capture, url) {
   await waitForCondition({
     budgetMs: 60_000,
     label: `${capture.view}/${capture.viewport} did not become ready`,
-    probe: () => evaluate(`location.href === ${JSON.stringify(url)}
-      && document.readyState === "complete"
-      && Boolean(document.querySelector(${JSON.stringify(capture.ready_selector)}))`),
+    probe: () => evaluate(`(${isViewReady.toString()})(${JSON.stringify(url)}, ${JSON.stringify(capture.ready_selector)}, ${JSON.stringify(SEO_FALLBACK_SELECTOR)}, globalThis)`),
   });
   await evaluate(`(async () => {
     await document.fonts.ready;
     const style = document.createElement("style");
-    style.textContent = "*,*::before,*::after { animation: none !important; transition: none !important; caret-color: transparent !important; scroll-behavior: auto !important; }";
+    style.textContent = ${JSON.stringify(CAPTURE_STYLE)};
     document.head.append(style);
   })()`);
-  await evaluate(`(${settleDocumentTargets.toString()})(${JSON.stringify(capture)}, ${intersectsViewport.toString()}, globalThis, ${inspectLoadingDiagrams.toString()})`);
+  await evaluate(`(${settleDocumentTargets.toString()})(${JSON.stringify(capture)}, ${intersectsViewport.toString()}, globalThis, ${inspectLoadingDiagrams.toString()}, ${alignedScrollTop.toString()})`);
+}
+
+export function isViewReady(url, readySelector, fallbackSelector, page) {
+  return page.location.href === url && page.document.readyState === "complete"
+    && !page.document.querySelector(fallbackSelector)
+    && Boolean(page.document.querySelector(readySelector));
+}
+
+export function alignedScrollTop(box, scrollY, innerHeight, scrollHeight) {
+  const desired = Math.round(box.top + scrollY) - Math.round((innerHeight - Math.round(box.height)) / 2);
+  return Math.max(0, Math.min(desired, Math.max(0, scrollHeight - innerHeight)));
 }
 
 export function intersectsViewport(box, width, height) {
@@ -54,7 +65,7 @@ export function intersectsViewport(box, width, height) {
 export function inspectLoadingDiagrams(target, intersects, page, label) {
   const error = page.document.querySelector(".diagram-error");
   if (error) throw new Error(`${label}: diagram error: ${(error.textContent ?? "").slice(0, 200)}`);
-  const loading = page.document.querySelectorAll(".diagram-loading");
+  const loading = page.document.querySelectorAll(".diagram-loading, pre > code.language-mermaid");
   if (loading.length > 10000) throw new Error(`${label}: loading diagrams exceed 10000 elements`);
   return Array.from(loading).filter(diagram => {
     const precedesTarget = target && (diagram.compareDocumentPosition(target) & page.Node.DOCUMENT_POSITION_FOLLOWING);
@@ -62,12 +73,15 @@ export function inspectLoadingDiagrams(target, intersects, page, label) {
   }).length;
 }
 
-export async function settleDocumentTargets(capture, intersects, page = globalThis, inspect = inspectLoadingDiagrams) {
+export async function settleDocumentTargets(capture, intersects, page = globalThis, inspect = inspectLoadingDiagrams, align = alignedScrollTop) {
   const { document, location, innerWidth, innerHeight } = page;
   const fragment = decodeURIComponent(location.hash.slice(1));
   const target = fragment ? document.getElementById(fragment) : null;
   const label = `${capture.view}/${capture.viewport}: fragment #${fragment}`;
   if (fragment && !target) throw new Error(`${label} missing`);
+  const alignedTop = () => align(target.getBoundingClientRect(), document.scrollingElement.scrollTop,
+    innerHeight, document.scrollingElement.scrollHeight);
+  const alignTarget = () => { if (target) page.scrollTo(0, alignedTop()); };
   const readLayout = () => ({
     loading: inspect(target, intersects, page, label),
     top: target?.getBoundingClientRect().top ?? null,
@@ -82,7 +96,7 @@ export async function settleDocumentTargets(capture, intersects, page = globalTh
     // The existing capture deadline also bounds slow or suspended animation frames.
     for (let sample = 0; sample < maxSamples; sample += 1) {
       const loading = inspect(target, intersects, page, label);
-      if (sample > 0 && !previous && loading === 0) target?.scrollIntoView({ block: "center" });
+      if (sample > 0 && loading === 0) alignTarget();
       await new Promise(resolve => page.requestAnimationFrame(() => page.requestAnimationFrame(resolve)));
       last = readLayout();
       if (sameLayout(previous, last)) return;
@@ -101,8 +115,15 @@ export async function settleDocumentTargets(capture, intersects, page = globalTh
       if (!visible) throw new Error(`${label}: require_visible_selector has no visible match`);
     }
   };
-  target?.scrollIntoView({ block: "center" });
+  alignTarget();
   await waitForLayout();
+  if (target) {
+    const actual = document.scrollingElement.scrollTop;
+    const expected = alignedTop();
+    if (!Number.isInteger(actual) || actual !== expected) {
+      throw new Error(`${label}: scroll alignment expected ${expected}, actual ${actual}`);
+    }
+  }
   assertVisibleTargets();
 }
 

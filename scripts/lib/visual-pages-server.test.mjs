@@ -7,9 +7,9 @@ test("visual capture builds then previews one staged Pages output", () => {
   const environment = { VITE_CACHE_DIR: "/tmp/vite-cache", PAGES_BASE_PATH: "/old/" };
   for (const mode of ["build", "preview"]) {
     const { args, options } = visualPagesCommand(mode, "/workspace", "/workspace/tmp/stage", environment);
-    assert.deepEqual(args.slice(0, 6), ["/workspace/node_modules/vite/bin/vite.js", mode,
-      "--config", "vite.pages.config.ts", "--configLoader", "runner"]);
-    assert.deepEqual(args.slice(6), mode === "build" ? []
+    assert.deepEqual(args.slice(0, 8), ["/workspace/node_modules/vite/bin/vite.js", mode,
+      "--config", "vite.pages.config.ts", "--configLoader", "runner", "--logLevel", "warn"]);
+    assert.deepEqual(args.slice(8), mode === "build" ? []
       : ["--port", "3137", "--host", "127.0.0.1", "--strictPort"]);
     assert.equal(options.cwd, "/workspace");
     assert.deepEqual(options.env, { VITE_CACHE_DIR: "/tmp/vite-cache", BROWSER: "none",

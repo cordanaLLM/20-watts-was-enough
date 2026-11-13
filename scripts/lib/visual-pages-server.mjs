@@ -8,7 +8,7 @@ export const VISUAL_PAGES_ORIGIN = "http://127.0.0.1:3137";
 export function visualPagesCommand(mode, repositoryRoot, outputRoot, environment = process.env) {
   if (!["build", "preview"].includes(mode)) throw new Error(`Unsupported visual Pages command: ${mode}`);
   const args = [path.join(repositoryRoot, "node_modules/vite/bin/vite.js"), mode,
-    "--config", "vite.pages.config.ts", "--configLoader", "runner"];
+    "--config", "vite.pages.config.ts", "--configLoader", "runner", "--logLevel", "warn"];
   if (mode === "preview") args.push("--port", "3137", "--host", "127.0.0.1", "--strictPort");
   return {
     args,
