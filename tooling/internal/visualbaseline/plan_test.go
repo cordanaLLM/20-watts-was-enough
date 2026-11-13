@@ -92,7 +92,7 @@ func TestPlanAndProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	captures := plan.Captures()
-	if len(captures.Captures) != 1 || captures.PagesBasePath != "/" {
+	if len(captures.Captures) != 1 {
 		t.Fatal(captures)
 	}
 	first := captures.Captures[0]
@@ -180,5 +180,24 @@ func TestRequiredFieldsAndCaptureNameCollisions(t *testing.T) {
 	plan.Views = make([]View, maximumViews+1)
 	if err := plan.validate(); err == nil || !strings.Contains(err.Error(), "views") {
 		t.Fatal(err)
+	}
+}
+
+func TestCapturePlanOmitsServedBaseAndPreservesFragmentNavigation(t *testing.T) {
+	plan, err := loadTestPlan(t, validPlan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan.Views[0].Path = "book/#chapter-1"
+	captures := plan.Captures()
+	body, err := json.Marshal(captures)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(body), "pages_base_path") {
+		t.Fatal("capture plan still controls the served base")
+	}
+	if captures.Captures[0].URL != "/book/#chapter-1" {
+		t.Fatal(captures.Captures[0].URL)
 	}
 }

@@ -984,12 +984,14 @@ func executePublicationVisualCheck(ctx context.Context, root string, record bool
 		output = stdout
 	}
 	options := visualbaseline.Options{RepositoryRoot: configuration.RepositoryRoot, Plan: plan, Lock: configuration.Lock, Record: record, Output: output}
-	return visualbaseline.Execute(ctx, options, func(ctx context.Context, directory string) error {
-		result, err := pdfrender.CaptureVisual(ctx, pdfrender.VisualOptions{RepositoryRoot: configuration.RepositoryRoot, TemporaryDirectory: directory, Diagnostics: stderr})
-		if err != nil {
+	return pdfrender.WithVisualCapture(ctx, pdfrender.VisualOptions{RepositoryRoot: configuration.RepositoryRoot, Diagnostics: stderr}, func(capture pdfrender.VisualCapture) error {
+		return visualbaseline.Execute(ctx, options, func(ctx context.Context, directory string) error {
+			result, err := capture(ctx, directory)
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(stdout, "Visual capture: %s (%s, lock sha256:%s).\n", result.ImageID, result.Platform, result.LockSHA256)
 			return err
-		}
-		_, err = fmt.Fprintf(stdout, "Visual capture: %s (%s, lock sha256:%s).\n", result.ImageID, result.Platform, result.LockSHA256)
-		return err
+		})
 	})
 }

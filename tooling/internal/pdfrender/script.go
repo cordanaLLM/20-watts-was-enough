@@ -27,27 +27,61 @@ func CaptureVisual(ctx context.Context, options VisualOptions) (Result, error) {
 		&rendererDiagnosticExecutor{commandExecutor: localCommandExecutor{}, writer: options.Diagnostics})
 }
 
+// VisualCapture captures within the publication lock owned by WithVisualCapture.
+type VisualCapture func(context.Context, string) (Result, error)
+
+// WithVisualCapture holds the publication lock through capture and all result processing.
+func WithVisualCapture(ctx context.Context, options VisualOptions, run func(VisualCapture) error) error {
+	configuration, err := Check(options.RepositoryRoot)
+	if err != nil {
+		return err
+	}
+	return withVisualCaptureDependencies(ctx, configuration, remoteBuildContextPreparer{},
+		&rendererDiagnosticExecutor{commandExecutor: localCommandExecutor{}, writer: options.Diagnostics}, run)
+}
+
 func captureVisualWithDependencies(
 	ctx context.Context, configuration Configuration, directory string,
 	preparer buildContextPreparer, executor commandExecutor,
 ) (result Result, returnError error) {
+	returnError = withVisualCaptureDependencies(ctx, configuration, preparer, executor, func(capture VisualCapture) error {
+		var err error
+		result, err = capture(ctx, directory)
+		return err
+	})
+	return result, returnError
+}
+
+func withVisualCaptureDependencies(
+	ctx context.Context, configuration Configuration, preparer buildContextPreparer,
+	executor commandExecutor, run func(VisualCapture) error,
+) (returnError error) {
 	defer func() { returnError = joinRendererDiagnostics(executor, returnError) }()
 	configuration, err := bindInstalledDependencies(ctx, configuration)
 	if err != nil {
-		return Result{}, err
+		return err
 	}
 	if err := prepareWritableRenderPaths(configuration.RepositoryRoot); err != nil {
-		return Result{}, err
-	}
-	directory, err = validateVisualDirectory(directory)
-	if err != nil {
-		return Result{}, err
+		return err
 	}
 	publication, err := acquirePublicationLock(configuration.RepositoryRoot)
 	if err != nil {
-		return Result{}, err
+		return err
 	}
 	defer func() { returnError = errors.Join(returnError, publication.release()) }()
+	return run(func(ctx context.Context, directory string) (Result, error) {
+		return captureVisualLocked(ctx, configuration, directory, preparer, executor)
+	})
+}
+
+func captureVisualLocked(
+	ctx context.Context, configuration Configuration, directory string,
+	preparer buildContextPreparer, executor commandExecutor,
+) (result Result, returnError error) {
+	directory, err := validateVisualDirectory(directory)
+	if err != nil {
+		return Result{}, err
+	}
 	staging, err := os.MkdirTemp(filepath.Join(configuration.RepositoryRoot, "tmp"), "visual-builder-")
 	if err != nil {
 		return Result{}, fmt.Errorf("stage visual renderer: %w", err)

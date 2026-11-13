@@ -1,7 +1,8 @@
 import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
 import {
   connectCdp, devtoolsPage, settleCleanupSteps, stopProcess, waitForUrl,
 } from "./lib/chromium-cdp.mjs";
@@ -9,23 +10,11 @@ import { waitForCondition } from "./lib/browser-wait.mjs";
 import {
   assertBookRendererLockIdentity, bookRendererIdentityFromEnvironment,
 } from "./lib/book-renderer-identity.mjs";
-import { resolvePagesBase } from "./lib/pages-base.mjs";
+import { readStableOpenedFile } from "./lib/opened-file.mjs";
 
 const root = "/workspace";
-const planPath = path.join(root, "tmp/capture-plan.json");
-if ((await stat(planPath)).size > 128 * 1024) throw new Error("Visual capture plan exceeds 128 KiB");
-const plan = JSON.parse(await readFile(planPath, "utf8"));
-if (plan.schema !== 1 || !Array.isArray(plan.captures) || plan.captures.length < 1 || plan.captures.length > 32) {
-  throw new Error("Visual capture plan needs schema 1 and 1..32 captures");
-}
-const lockBytes = await readFile(path.join(root, "tooling/pdf-renderer/lock.json"));
-assertBookRendererLockIdentity(bookRendererIdentityFromEnvironment(), lockBytes);
-const lock = JSON.parse(lockBytes);
-const signal = AbortSignal.timeout(lock.limits.render_seconds * 1000);
-const base = resolvePagesBase(plan.pages_base_path);
+const base = "/";
 const output = path.join(root, "tmp/visual-capture");
-await mkdir(output, { recursive: true });
-const profile = await mkdtemp(path.join(tmpdir(), "20w-visual-chrome-"));
 const origin = "http://127.0.0.1:3137";
 let server;
 let browser;
@@ -52,20 +41,30 @@ async function settleView(capture, url) {
     const style = document.createElement("style");
     style.textContent = "*,*::before,*::after { animation: none !important; transition: none !important; caret-color: transparent !important; scroll-behavior: auto !important; }";
     document.head.append(style);
-    const fragment = decodeURIComponent(location.hash.slice(1));
-    if (fragment) document.getElementById(fragment)?.scrollIntoView({block: "center"});
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   })()`);
+  await evaluate(`(${settleDocumentTargets.toString()})(${JSON.stringify(capture)}, ${intersectsViewport.toString()})`);
+}
+
+export function intersectsViewport(box, width, height) {
+  return box.width > 0 && box.height > 0 && box.right > 0 && box.bottom > 0
+    && box.left < width && box.top < height;
+}
+
+export async function settleDocumentTargets(capture, intersects, page = globalThis) {
+  const { document, location, innerWidth, innerHeight } = page;
+  const fragment = decodeURIComponent(location.hash.slice(1));
+  const target = fragment ? document.getElementById(fragment) : null;
+  const label = `${capture.view}/${capture.viewport}: fragment #${fragment}`;
+  if (fragment && !target) throw new Error(`${label} missing`);
+  target?.scrollIntoView({ block: "center" });
+  await new Promise(resolve => page.requestAnimationFrame(() => page.requestAnimationFrame(resolve)));
+  if (target && !intersects(target.getBoundingClientRect(), innerWidth, innerHeight)) {
+    throw new Error(`${label} does not intersect viewport`);
+  }
   if (capture.require_visible_selector) {
-    const visible = await evaluate(`(() => {
-      const elements = document.querySelectorAll(${JSON.stringify(capture.require_visible_selector)});
-      if (elements.length > 10000) throw new Error("Visible selector exceeds 10000 elements");
-      return Array.from(elements).some(element => {
-        const box = element.getBoundingClientRect();
-        return box.width > 0 && box.height > 0 && box.right > 0 && box.bottom > 0
-          && box.left < innerWidth && box.top < innerHeight;
-      });
-    })()`);
+    const elements = document.querySelectorAll(capture.require_visible_selector);
+    if (elements.length > 10000) throw new Error("Visible selector exceeds 10000 elements");
+    const visible = Array.from(elements).some(element => intersects(element.getBoundingClientRect(), innerWidth, innerHeight));
     if (!visible) throw new Error(`${capture.view}: require_visible_selector has no visible match`);
   }
 }
@@ -137,37 +136,61 @@ async function captureWithDeadline(capture, product) {
   }
 }
 
-try {
-  server = spawn(process.execPath, [
-    path.join(root, "node_modules/vite/bin/vite.js"), "--config", "vite.pages.config.ts",
-    "--configLoader", "runner", "--port", "3137", "--host", "127.0.0.1", "--strictPort",
-  ], {
-    cwd: root, env: { ...process.env, BROWSER: "none", PAGES_BASE_PATH: base },
-    stdio: ["pipe", "inherit", "inherit"], windowsHide: true,
-  });
-  await waitForUrl(`${origin}${base}`, server, 60_000, signal);
-  browser = spawn(lock.chrome_for_testing.executable_path, [
-    "--headless=new", "--disable-gpu", "--disable-extensions", "--disable-background-networking",
-    "--disable-dev-shm-usage", "--disable-features=NetworkServiceSandbox", "--no-sandbox",
-    "--no-proxy-server", "--allow-insecure-localhost", "--no-first-run", "--no-default-browser-check",
-    "--hide-scrollbars", "--window-size=1440,900", "--remote-debugging-port=3138",
-    "--force-color-profile=srgb", "--disable-lcd-text", "--font-render-hinting=none",
-    "--force-device-scale-factor=1", `--user-data-dir=${profile}`, "about:blank",
-  ], { stdio: "ignore", windowsHide: true });
-  cdp = await connectCdp(await devtoolsPage(browser, 3138, { signal }), {
-    signal, commandTimeoutMs: 60_000,
-  });
-  await cdp.send("Page.enable");
-  await cdp.send("Runtime.enable");
-  const version = await cdp.send("Browser.getVersion");
-  const captures = [];
-  for (const capture of plan.captures) captures.push(await captureWithDeadline(capture, version.product));
-  await writeFile(path.join(output, "capture-manifest.json"), `${JSON.stringify({ schema: 1, captures }, null, 2)}\n`);
-} finally {
-  await settleCleanupSteps([
-    async () => cdp?.socket.close(),
-    async () => stopProcess(browser),
-    async () => stopProcess(server),
-    async () => rm(profile, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }),
-  ]);
+async function runCaptures(plan, lock, signal, profile) {
+  try {
+    server = spawn(process.execPath, [
+      path.join(root, "node_modules/vite/bin/vite.js"), "--config", "vite.pages.config.ts",
+      "--configLoader", "runner", "--port", "3137", "--host", "127.0.0.1", "--strictPort",
+    ], {
+      cwd: root, env: { ...process.env, BROWSER: "none", PAGES_BASE_PATH: base },
+      stdio: ["pipe", "inherit", "inherit"], windowsHide: true,
+    });
+    await waitForUrl(`${origin}${base}`, server, 60_000, signal);
+    browser = spawn(lock.chrome_for_testing.executable_path, [
+      "--headless=new", "--disable-gpu", "--disable-extensions", "--disable-background-networking",
+      "--disable-dev-shm-usage", "--disable-features=NetworkServiceSandbox", "--no-sandbox",
+      "--no-proxy-server", "--allow-insecure-localhost", "--no-first-run", "--no-default-browser-check",
+      "--hide-scrollbars", "--window-size=1440,900", "--remote-debugging-port=3138",
+      "--force-color-profile=srgb", "--disable-lcd-text", "--font-render-hinting=none",
+      "--force-device-scale-factor=1", `--user-data-dir=${profile}`, "about:blank",
+    ], { stdio: "ignore", windowsHide: true });
+    cdp = await connectCdp(await devtoolsPage(browser, 3138, { signal }), {
+      signal, commandTimeoutMs: 60_000,
+    });
+    await cdp.send("Page.enable");
+    await cdp.send("Runtime.enable");
+    const version = await cdp.send("Browser.getVersion");
+    const captures = [];
+    for (const capture of plan.captures) captures.push(await captureWithDeadline(capture, version.product));
+    await writeFile(path.join(output, "capture-manifest.json"), `${JSON.stringify({ schema: 1, captures }, null, 2)}\n`);
+  } finally {
+    await settleCleanupSteps([
+      async () => cdp?.socket.close(),
+      async () => stopProcess(browser),
+      async () => stopProcess(server),
+      async () => rm(profile, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }),
+    ]);
+  }
 }
+
+export async function readCapturePlan(file) {
+  const bytes = await readStableOpenedFile(file, { label: "visual capture plan", maximumBytes: 128 * 1024 });
+  const plan = JSON.parse(bytes.toString("utf8"));
+  if (plan.schema !== 1 || !Array.isArray(plan.captures) || plan.captures.length < 1 || plan.captures.length > 32) {
+    throw new Error("Visual capture plan needs schema 1 and 1..32 captures");
+  }
+  return plan;
+}
+
+async function main() {
+  const plan = await readCapturePlan(path.join(root, "tmp/capture-plan.json"));
+  const lockBytes = await readFile(path.join(root, "tooling/pdf-renderer/lock.json"));
+  assertBookRendererLockIdentity(bookRendererIdentityFromEnvironment(), lockBytes);
+  const lock = JSON.parse(lockBytes);
+  const signal = AbortSignal.timeout(lock.limits.render_seconds * 1000);
+  await mkdir(output, { recursive: true });
+  const profile = await mkdtemp(path.join(tmpdir(), "20w-visual-chrome-"));
+  await runCaptures(plan, lock, signal, profile);
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) await main();

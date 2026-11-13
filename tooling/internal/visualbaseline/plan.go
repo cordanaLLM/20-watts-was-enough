@@ -198,9 +198,8 @@ func validateRoute(route string) error {
 
 // CapturePlan is the validated projection consumed by the container executor.
 type CapturePlan struct {
-	Schema        int       `json:"schema"`
-	PagesBasePath string    `json:"pages_base_path"`
-	Captures      []Capture `json:"captures"`
+	Schema   int       `json:"schema"`
+	Captures []Capture `json:"captures"`
 }
 
 type Capture struct {
@@ -216,14 +215,14 @@ type Capture struct {
 	MaskSelectors          []string `json:"mask_selectors,omitempty"`
 }
 
-// Captures uses a fixed local Pages base, shared with Vite by the capture plan.
+// Captures projects navigation URLs relative to the fixed local Pages root.
 func (plan Plan) Captures() CapturePlan {
-	result := CapturePlan{Schema: 1, PagesBasePath: "/", Captures: make([]Capture, 0, len(plan.Views)*len(plan.Viewports))}
+	result := CapturePlan{Schema: 1, Captures: make([]Capture, 0, len(plan.Views)*len(plan.Viewports))}
 	for _, view := range plan.Views {
 		for _, viewport := range plan.Viewports {
 			result.Captures = append(result.Captures, Capture{
 				File: view.Name + "-" + viewport.Name + ".png", View: view.Name, Viewport: viewport.Name,
-				Width: viewport.Width, Height: viewport.Height, Mobile: viewport.Mobile, URL: result.PagesBasePath + view.Path,
+				Width: viewport.Width, Height: viewport.Height, Mobile: viewport.Mobile, URL: "/" + view.Path,
 				ReadySelector: view.ReadySelector, RequireVisibleSelector: view.RequireVisibleSelector,
 				MaskSelectors: view.MaskSelectors,
 			})
