@@ -193,6 +193,25 @@ func validateRoute(route string) error {
 	if parsed.IsAbs() || parsed.Host != "" {
 		return errors.New("scheme and host are forbidden")
 	}
+	if err := validateRouteSegments(parsed.Path); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateRouteSegments(route string) error {
+	if route == "" {
+		return nil
+	}
+	segments := strings.Split(strings.TrimSuffix(route, "/"), "/")
+	if len(segments) > 512 {
+		return errors.New("route exceeds 512 path segments")
+	}
+	for _, segment := range segments {
+		if segment == "." || segment == "" {
+			return errors.New("route forbids dot and empty path segments except one trailing slash")
+		}
+	}
 	return nil
 }
 

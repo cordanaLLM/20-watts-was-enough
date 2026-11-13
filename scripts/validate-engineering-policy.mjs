@@ -1743,6 +1743,32 @@ function validateCiImpactPlanJob(workflow, jobs, relativePath, findings) {
   );
 }
 
+const visualComparisonSource = "go -C tooling run ./cmd/20w publication visual-check --root ..";
+
+function visualComparisonStepIsExact(step) {
+  return pdfRendererCacheStepIsExact(step, {
+    name: "Compare the pinned reader and portal captures",
+    env: {
+      CGO_ENABLED: "0", GOOS: "linux", GOARCH: "amd64", GOENV: "off", GOWORK: "off",
+      GOTOOLCHAIN: "local", GOFLAGS: "-mod=readonly", GOPROXY: "off", GOSUMDB: "off",
+    },
+    run: visualComparisonSource,
+  });
+}
+
+function visualComparisonStepsAreExact(steps) {
+  if (!Array.isArray(steps)) return false;
+  const comparisonName = "Compare the pinned reader and portal captures";
+  const matches = steps.filter((step) => step?.name === comparisonName);
+  const index = steps.findIndex((step) => step?.name === comparisonName);
+  return matches.length === 1 && visualComparisonStepIsExact(matches[0])
+    && steps.filter((step) => step?.run === visualComparisonSource).length === 1
+    && pdfRendererCacheStepIsExact(steps[index - 1], {
+      name: "Download locked Go modules",
+      run: "go -C tooling mod download",
+    });
+}
+
 // Decision 0128: every full plan and site or renderer impact runs the
 // screenshot comparison, and no step may continue on error.
 function validateCiVisualBaselinesJob(jobs, relativePath, findings) {
@@ -1755,6 +1781,11 @@ function validateCiVisualBaselinesJob(jobs, relativePath, findings) {
       && continueOnErrorIsDisabled(job)
       && (job?.steps ?? []).every(continueOnErrorIsDisabled),
     `${relativePath}: visual-baselines must run for full plans or site or renderer impact and fail closed`,
+  );
+  recordExpectation(
+    findings,
+    visualComparisonStepsAreExact(job?.steps),
+    `${relativePath}: visual-baselines must unconditionally download locked Go modules immediately before exactly one pinned comparison`,
   );
 }
 

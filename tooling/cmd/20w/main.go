@@ -943,8 +943,6 @@ func runPublicationVisualCheck(arguments []string, stdout, stderr io.Writer) int
 	return runPublicationVisualCheckWithRunner(arguments, stdout, stderr, executePublicationVisualCheck)
 }
 
-type visualConfigurationError struct{ error }
-
 func runPublicationVisualCheckWithRunner(arguments []string, stdout, stderr io.Writer,
 	runner func(context.Context, string, bool, io.Writer, io.Writer) error,
 ) int {
@@ -961,10 +959,6 @@ func runPublicationVisualCheckWithRunner(arguments []string, stdout, stderr io.W
 	defer stop()
 	if err := runner(ctx, *root, *record, stdout, stderr); err != nil {
 		fmt.Fprintf(stderr, "Visual check: %v\n", err)
-		var configurationError visualConfigurationError
-		if errors.As(err, &configurationError) {
-			return 2
-		}
 		return 1
 	}
 	return 0
@@ -973,11 +967,11 @@ func runPublicationVisualCheckWithRunner(arguments []string, stdout, stderr io.W
 func executePublicationVisualCheck(ctx context.Context, root string, record bool, stdout, stderr io.Writer) error {
 	configuration, err := pdfrender.Check(root)
 	if err != nil {
-		return visualConfigurationError{err}
+		return fmt.Errorf("visual renderer configuration: %w", err)
 	}
 	plan, err := visualbaseline.LoadPlan(filepath.Join(configuration.RepositoryRoot, visualbaseline.BaselineDirectory, "views.json"))
 	if err != nil {
-		return visualConfigurationError{err}
+		return fmt.Errorf("visual capture plan: %w", err)
 	}
 	output := stderr
 	if record {

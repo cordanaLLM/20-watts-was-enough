@@ -22,7 +22,7 @@ import {
 } from "./scripts/lib/pages-seo.mjs";
 import { resolvePagesBase } from "./scripts/lib/pages-base.mjs";
 import { renderThirdPartyNotices } from "./scripts/lib/third-party-notices.mjs";
-import { resolveViteCacheDirectory } from "./scripts/lib/vite-cache-directory.mjs";
+import { resolvePagesOutputDirectory, resolveViteCacheDirectory } from "./scripts/lib/vite-cache-directory.mjs";
 import {
   translationAvailabilityRecords,
   translatedSourceDocuments,
@@ -33,7 +33,10 @@ const repositoryRoot = path.dirname(fileURLToPath(import.meta.url));
 const projectVersion = JSON.parse(
   readFileSync(path.join(repositoryRoot, "package.json"), "utf8"),
 ).version as string;
-const pagesOutputRoot = path.join(repositoryRoot, "dist-github-pages");
+const pagesOutputRoot = resolvePagesOutputDirectory({
+  override: process.env.PAGES_OUTPUT_DIR,
+  repositoryRoot,
+});
 const pagesBase = resolvePagesBase(process.env.PAGES_BASE_PATH);
 const pagesCacheDirectory = resolveViteCacheDirectory({
   override: process.env.VITE_CACHE_DIR,

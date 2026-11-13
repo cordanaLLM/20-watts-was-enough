@@ -4,18 +4,19 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import {
-  connectCdp, devtoolsPage, settleCleanupSteps, stopProcess, waitForUrl,
+  connectCdp, devtoolsPage, settleCleanupSteps, stopProcess,
 } from "./lib/chromium-cdp.mjs";
 import { waitForCondition } from "./lib/browser-wait.mjs";
 import {
   assertBookRendererLockIdentity, bookRendererIdentityFromEnvironment,
 } from "./lib/book-renderer-identity.mjs";
+import { buildVisualPages, startVisualPagesPreview, VISUAL_PAGES_ORIGIN } from "./lib/visual-pages-server.mjs";
 import { readStableOpenedFile } from "./lib/opened-file.mjs";
 
 const root = "/workspace";
 const base = "/";
 const output = path.join(root, "tmp/visual-capture");
-const origin = "http://127.0.0.1:3137";
+const origin = VISUAL_PAGES_ORIGIN;
 let server;
 let browser;
 let cdp;
@@ -137,15 +138,11 @@ async function captureWithDeadline(capture, product) {
 }
 
 async function runCaptures(plan, lock, signal, profile) {
+  let staging;
   try {
-    server = spawn(process.execPath, [
-      path.join(root, "node_modules/vite/bin/vite.js"), "--config", "vite.pages.config.ts",
-      "--configLoader", "runner", "--port", "3137", "--host", "127.0.0.1", "--strictPort",
-    ], {
-      cwd: root, env: { ...process.env, BROWSER: "none", PAGES_BASE_PATH: base },
-      stdio: ["pipe", "inherit", "inherit"], windowsHide: true,
-    });
-    await waitForUrl(`${origin}${base}`, server, 60_000, signal);
+    staging = await mkdtemp(path.join(root, "tmp/visual-pages-"));
+    await buildVisualPages(root, staging, signal);
+    server = await startVisualPagesPreview(root, staging, signal);
     browser = spawn(lock.chrome_for_testing.executable_path, [
       "--headless=new", "--disable-gpu", "--disable-extensions", "--disable-background-networking",
       "--disable-dev-shm-usage", "--disable-features=NetworkServiceSandbox", "--no-sandbox",
@@ -168,6 +165,7 @@ async function runCaptures(plan, lock, signal, profile) {
       async () => cdp?.socket.close(),
       async () => stopProcess(browser),
       async () => stopProcess(server),
+      async () => { if (staging) await rm(staging, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }); },
       async () => rm(profile, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }),
     ]);
   }

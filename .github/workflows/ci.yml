@@ -366,6 +366,8 @@ jobs:
         with:
           version: v0.38.2
           driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
+      - name: Download locked Go modules
+        run: go -C tooling mod download
       - name: Compare the pinned reader and portal captures
         env:
           CGO_ENABLED: "0"

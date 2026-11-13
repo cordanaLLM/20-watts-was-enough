@@ -112,6 +112,9 @@ func TestPlanRejectsTampering(t *testing.T) {
 		{"duplicate key", `"schema":1`, `"schema":1,"schema":1`, "schema"},
 		{"traversal name", `"name":"home"`, `"name":"../home"`, "name"},
 		{"traversal path", `"path":""`, `"path":"a/../b"`, "path"},
+		{"dot segment", `"path":""`, `"path":"book/./"`, "path"},
+		{"leading dot", `"path":""`, `"path":"./book/"`, "path"},
+		{"empty segment", `"path":""`, `"path":"book//x/"`, "path"},
 		{"scheme", `"path":""`, `"path":"https://example.invalid"`, "path"},
 		{"encoded traversal", `"path":""`, `"path":"%2e%2e/"`, "path"},
 		{"absolute", `"path":""`, `"path":"//example.invalid/"`, "path"},
@@ -199,5 +202,15 @@ func TestCapturePlanOmitsServedBaseAndPreservesFragmentNavigation(t *testing.T) 
 	}
 	if captures.Captures[0].URL != "/book/#chapter-1" {
 		t.Fatal(captures.Captures[0].URL)
+	}
+}
+
+func TestPlanAcceptsCanonicalRoute(t *testing.T) {
+	plan, err := loadTestPlan(t, strings.Replace(validPlan, `"path":""`, `"path":"book/#chapter-1"`, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := plan.Captures().Captures[0].URL; got != "/book/#chapter-1" {
+		t.Fatal(got)
 	}
 }

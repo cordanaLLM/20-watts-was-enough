@@ -2782,6 +2782,33 @@ test("CI visual baselines run for full plans or selected site and renderer impac
   });
 });
 
+test("CI visual comparison and locked module download cannot be bypassed", async (t) => {
+  const valid = workflow("ci");
+  const finding = ".github/workflows/ci.yml: visual-baselines must unconditionally download locked Go modules immediately before exactly one pinned comparison";
+  const cases = [
+    ["comparison omitted", (steps, index) => steps.splice(index, 1)],
+    ["comparison replaced", (steps, index) => { steps[index].run = "true"; }],
+    ["comparison conditional", (steps, index) => { steps[index].if = false; }],
+    ["proxy changed", (steps, index) => { steps[index].env.GOPROXY = "direct"; }],
+    ["download removed", (steps) => {
+      const index = steps.findIndex((step) => step.name === "Download locked Go modules");
+      if (index >= 0) steps.splice(index, 1);
+    }],
+    ["comparison duplicated", (steps, index) => steps.push(structuredClone(steps[index]))],
+    ["comparison duplicated under another name", (steps, index) => {
+      steps.push({ ...structuredClone(steps[index]), name: "Another comparison" });
+    }],
+    ["download conditional", (steps, index) => { steps[index - 1].if = false; }],
+  ];
+  for (const [name, mutate] of cases) {
+    const subject = structuredClone(valid);
+    const steps = subject.jobs["visual-baselines"].steps;
+    const index = steps.findIndex((step) => step.name === "Compare the pinned reader and portal captures");
+    mutate(steps, index);
+    await t.test(name, () => assert.ok(validateCiImpactWorkflowObject(subject).includes(finding)));
+  }
+});
+
 test("CI success pins visual needs, result and exactly one check per mode", async (t) => {
   const valid = workflow("ci");
   const step = (subject) => subject.jobs["ci-success"].steps.find((candidate) => (

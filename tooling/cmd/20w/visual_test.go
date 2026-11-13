@@ -48,11 +48,19 @@ func TestVisualCheckInvalidFlagsAndFailureCodes(t *testing.T) {
 	for _, test := range []struct {
 		err  error
 		code int
-	}{{errors.New("capture failed"), 1}, {visualConfigurationError{errors.New("invalid plan")}, 2}} {
+	}{{errors.New("capture failed"), 1}, {errors.New("invalid plan"), 1}} {
 		var output bytes.Buffer
 		runner := func(context.Context, string, bool, io.Writer, io.Writer) error { return test.err }
 		if code := runPublicationVisualCheckWithRunner(nil, &output, &output, runner); code != test.code {
 			t.Fatalf("error=%v code=%d", test.err, code)
 		}
+	}
+}
+
+func TestVisualCheckMissingConfigurationIsOperationalFailure(t *testing.T) {
+	var output bytes.Buffer
+	code := runPublicationVisualCheck([]string{"--root", t.TempDir()}, &output, &output)
+	if code != 1 || !bytes.Contains(output.Bytes(), []byte("visual renderer configuration:")) {
+		t.Fatalf("code=%d output=%s", code, &output)
 	}
 }
