@@ -13,6 +13,11 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- The F-019 contract now states that the FM-T02 smoke harness exists and that
+  confirmation is blocked under
+  [Decision 0013](decisions/0013-development-can-block-a-protocol.md),
+  replacing the stale statement that no runner exists (#356).
+
 - The pre-push gate runs its npm stages on the Node release pinned in
   `.node-version`, installed through mise with checksum and signature
   verification, first on `PATH` for the gate only, with a named npm cache
