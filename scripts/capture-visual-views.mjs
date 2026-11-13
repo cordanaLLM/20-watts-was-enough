@@ -43,7 +43,7 @@ async function settleView(capture, url) {
     style.textContent = "*,*::before,*::after { animation: none !important; transition: none !important; caret-color: transparent !important; scroll-behavior: auto !important; }";
     document.head.append(style);
   })()`);
-  await evaluate(`(${settleDocumentTargets.toString()})(${JSON.stringify(capture)}, ${intersectsViewport.toString()})`);
+  await evaluate(`(${settleDocumentTargets.toString()})(${JSON.stringify(capture)}, ${intersectsViewport.toString()}, globalThis, ${inspectLoadingDiagrams.toString()})`);
 }
 
 export function intersectsViewport(box, width, height) {
@@ -51,23 +51,59 @@ export function intersectsViewport(box, width, height) {
     && box.left < width && box.top < height;
 }
 
-export async function settleDocumentTargets(capture, intersects, page = globalThis) {
+export function inspectLoadingDiagrams(target, intersects, page, label) {
+  const error = page.document.querySelector(".diagram-error");
+  if (error) throw new Error(`${label}: diagram error: ${(error.textContent ?? "").slice(0, 200)}`);
+  const loading = page.document.querySelectorAll(".diagram-loading");
+  if (loading.length > 10000) throw new Error(`${label}: loading diagrams exceed 10000 elements`);
+  return Array.from(loading).filter(diagram => {
+    const precedesTarget = target && (diagram.compareDocumentPosition(target) & page.Node.DOCUMENT_POSITION_FOLLOWING);
+    return precedesTarget || intersects(diagram.getBoundingClientRect(), page.innerWidth, page.innerHeight);
+  }).length;
+}
+
+export async function settleDocumentTargets(capture, intersects, page = globalThis, inspect = inspectLoadingDiagrams) {
   const { document, location, innerWidth, innerHeight } = page;
   const fragment = decodeURIComponent(location.hash.slice(1));
   const target = fragment ? document.getElementById(fragment) : null;
   const label = `${capture.view}/${capture.viewport}: fragment #${fragment}`;
   if (fragment && !target) throw new Error(`${label} missing`);
+  const readLayout = () => ({
+    loading: inspect(target, intersects, page, label),
+    top: target?.getBoundingClientRect().top ?? null,
+    scrollTop: document.scrollingElement?.scrollTop ?? page.scrollY,
+  });
+  const sameLayout = (before, after) => before?.loading === 0 && after.loading === 0
+    && before.top === after.top && before.scrollTop === after.scrollTop;
+  const waitForLayout = async () => {
+    const maxSamples = 500;
+    let previous;
+    let last;
+    // The existing capture deadline also bounds slow or suspended animation frames.
+    for (let sample = 0; sample < maxSamples; sample += 1) {
+      const loading = inspect(target, intersects, page, label);
+      if (sample > 0 && !previous && loading === 0) target?.scrollIntoView({ block: "center" });
+      await new Promise(resolve => page.requestAnimationFrame(() => page.requestAnimationFrame(resolve)));
+      last = readLayout();
+      if (sameLayout(previous, last)) return;
+      previous = !previous && loading === 0 && last.loading === 0 ? last : undefined;
+    }
+    throw new Error(`${label}: layout did not settle after ${maxSamples} samples: ${JSON.stringify(last)}`);
+  };
+  const assertVisibleTargets = () => {
+    if (target && !intersects(target.getBoundingClientRect(), innerWidth, innerHeight)) {
+      throw new Error(`${label} does not intersect viewport`);
+    }
+    if (capture.require_visible_selector) {
+      const elements = document.querySelectorAll(capture.require_visible_selector);
+      if (elements.length > 10000) throw new Error(`${label}: visible selector exceeds 10000 elements`);
+      const visible = Array.from(elements).some(element => intersects(element.getBoundingClientRect(), innerWidth, innerHeight));
+      if (!visible) throw new Error(`${label}: require_visible_selector has no visible match`);
+    }
+  };
   target?.scrollIntoView({ block: "center" });
-  await new Promise(resolve => page.requestAnimationFrame(() => page.requestAnimationFrame(resolve)));
-  if (target && !intersects(target.getBoundingClientRect(), innerWidth, innerHeight)) {
-    throw new Error(`${label} does not intersect viewport`);
-  }
-  if (capture.require_visible_selector) {
-    const elements = document.querySelectorAll(capture.require_visible_selector);
-    if (elements.length > 10000) throw new Error("Visible selector exceeds 10000 elements");
-    const visible = Array.from(elements).some(element => intersects(element.getBoundingClientRect(), innerWidth, innerHeight));
-    if (!visible) throw new Error(`${capture.view}: require_visible_selector has no visible match`);
-  }
+  await waitForLayout();
+  assertVisibleTargets();
 }
 
 async function captureView(capture, product) {
