@@ -309,6 +309,8 @@ func TestEverySiteLaneEntrypointIsMappedToTheSiteLane(t *testing.T) {
 		"scripts/css-authority.test.mjs",
 		"scripts/github-pages.test.mjs",
 		"scripts/language-access.test.mjs",
+		"scripts/lib/repository-inventory.mjs",
+		"scripts/lib/repository-inventory.test.mjs",
 		"scripts/mermaid-browser.test.mjs",
 		"scripts/pages-base.test.mjs",
 		"scripts/pages-seo.test.mjs",

@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -15,7 +14,10 @@ import {
   validatePortableOperationsTree,
   validatePortableWorkflowObject,
 } from "./lib/portable-operations.mjs";
+import { listRepositoryFiles } from "./lib/repository-inventory.mjs";
 import { validateResearchDisclosure } from "./prepare-release-assets.mjs";
+
+export { gitEnvironment } from "./lib/repository-inventory.mjs";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const defaultRoot = path.resolve(scriptDirectory, "..");
@@ -4867,47 +4869,11 @@ export function validateTestFileReachabilityObject(manifest, testFiles, catalogu
 }
 
 /**
- * Discover repository-local Git variables and remove them from a copied
- * environment, bounding discovery time and preventing parent traversal.
- */
-export function gitEnvironment(root) {
-  let variables;
-  try {
-    variables = execFileSync("git", ["rev-parse", "--local-env-vars"], {
-      encoding: "utf8",
-      timeout: 30_000,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-  } catch (error) {
-    throw new Error(`git rev-parse --local-env-vars failed: ${error.message}`, { cause: error });
-  }
-  const env = { ...process.env };
-  for (const name of variables.trim().split(/\s+/u)) delete env[name];
-  env.GIT_CEILING_DIRECTORIES = path.dirname(path.resolve(root));
-  return env;
-}
-
-/**
  * Inventory existing tracked and unignored untracked test files with bounded
  * Git output and time, preventing discovery outside the requested root.
  */
 export function listTrackedTestFiles(root) {
-  let output;
-  try {
-    output = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], {
-      cwd: root,
-      encoding: "utf8",
-      timeout: 30_000,
-      maxBuffer: 64 * 1024 * 1024,
-      stdio: ["ignore", "pipe", "pipe"],
-      env: gitEnvironment(root),
-    });
-  } catch (error) {
-    throw new Error(`git ls-files failed: ${error.message}`, { cause: error });
-  }
-  return output.split("\0").filter((file) => (
-    TEST_FILE_PATTERN.test(file) && fs.existsSync(path.join(root, file))
-  )).sort();
+  return listRepositoryFiles(root).filter((file) => TEST_FILE_PATTERN.test(file));
 }
 
 /**

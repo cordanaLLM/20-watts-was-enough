@@ -1161,6 +1161,8 @@ test("portable operations reject host-specific scripts without rejecting Go port
 test("the portable-operation scan skips agent worktrees and still scans the source tree", () => {
   const root = mkdtempSync(path.join(tmpdir(), "20w-portable-scan-"));
   try {
+    execFileSync("git", ["init", "-q", root], { env: gitEnvironment(root), timeout: 30_000, stdio: ["ignore", "pipe", "pipe"] });
+    writeFileSync(path.join(root, ".gitignore"), ".claude/worktrees/\n");
     mkdirSync(path.join(root, ".claude/worktrees/agent/scripts"), { recursive: true });
     writeFileSync(path.join(root, ".claude/worktrees/agent/scripts/check.ps1"), "Write-Output agent\n");
     assert.deepEqual(validatePortableOperationsTree(root), []);
@@ -1172,6 +1174,23 @@ test("the portable-operation scan skips agent worktrees and still scans the sour
     assert.deepEqual(validatePortableOperationsTree(root), [
       ".claude/settings/hook.ps1: host-specific operational artifact is forbidden; use the portable Go command or a scoped container",
       "tools/run.ps1: host-specific operational artifact is forbidden; use the portable Go command or a scoped container",
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the portable-operation scan excludes gitignored cache scripts", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "20w-portable-scan-cache-"));
+  try {
+    execFileSync("git", ["init", "-q", root], { env: gitEnvironment(root), timeout: 30_000, stdio: ["ignore", "pipe", "pipe"] });
+    writeFileSync(path.join(root, ".gitignore"), ".cache/\n");
+    mkdirSync(path.join(root, ".cache"));
+    writeFileSync(path.join(root, ".cache/x.cmd"), "echo cache\n");
+    assert.deepEqual(validatePortableOperationsTree(root), []);
+    writeFileSync(path.join(root, "source.cmd"), "echo source\n");
+    assert.deepEqual(validatePortableOperationsTree(root), [
+      "source.cmd: host-specific operational artifact is forbidden; use the portable Go command or a scoped container",
     ]);
   } finally {
     rmSync(root, { recursive: true, force: true });

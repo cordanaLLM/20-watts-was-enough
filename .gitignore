@@ -15,6 +15,7 @@ Desktop.ini
 .workingdir2/worktrees/
 tmp/
 /build/
+/coverage/
 assets/rendered/*.tmp
 
 # Dependencies, static-site output, and experiment runs

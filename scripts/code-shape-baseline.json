@@ -828,12 +828,6 @@
       "rule": "max-statements",
       "count": 2,
       "maxActual": 112
-    },
-    {
-      "path": "scripts/prepare-reader-artifacts.mjs",
-      "rule": "complexity",
-      "count": 1,
-      "maxActual": 41
     }
   ]
 }
