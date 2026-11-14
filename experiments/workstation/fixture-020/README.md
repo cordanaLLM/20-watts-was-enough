@@ -109,7 +109,8 @@ retain current RSS. The receipt describes software execution only.
 
 Rejection sites allow 10,000 attempts. Smoke allows 300 s and 52,428,800 B
 of artifacts. Development allows eight hours and 1,073,741,824 B of artifacts.
-Both profiles declare a 134,217,728 B memory cap. At every world boundary,
+Smoke declares a 134,217,728 B memory cap and development declares a
+268,435,456 B memory cap. At every world boundary,
 Linux checks its monotonic VmHWM; a peak inside a world is caught at the
 next boundary. Other platforms check current RSS as a lower bound: exceeding
 the cap fails, while remaining below it proves nothing about peak memory.

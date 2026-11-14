@@ -29,7 +29,7 @@
     },
     "workstation": {
       "cpu": "one ordinary little-endian CPU thread; ICP-T01 public-development A-only smoke scope",
-      "memory_bytes": 134217728,
+      "memory_bytes": 268435456,
       "disk_bytes": 1073741824,
       "energy": "not measured or modeled; energy conclusions forbidden"
     }
@@ -42,7 +42,7 @@
   "data": {
     "generator": "experiments/workstation/fixture-020/generator.mjs",
     "full_profile": "experiments/workstation/fixture-020/configs/development.json",
-    "full_profile_sha256": "250c525aa057f2e6c41af3f3300c18b1b84afa4e698eb3020b894e95a1344713",
+    "full_profile_sha256": "98933fd13c98b2c856ffcedc3d170b829a6742a74b5440601ebe60fbcad0e7eb",
     "external": []
   },
   "outputs": {

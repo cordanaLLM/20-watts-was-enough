@@ -81,6 +81,7 @@ test("profiles preserve full spatial/time contract, public seed counts and finit
   for (const profile of ["smoke", "development"]) {
     const config = JSON.parse(await readFile(new URL(`./configs/${profile}.json`, import.meta.url), "utf8"));
     assert.equal(validateFixture020Config(config), config);
+    assert.equal(config.memory_bytes, profile === "smoke" ? 134217728 : 268435456);
     assert.throws(() => validateFixture020Config({ ...config, minutes: 1 }), /frozen bounds/);
     assert.throws(() => validateFixture020Config({ ...config, oracle: true }), /fields are not closed/);
   }
@@ -93,5 +94,13 @@ test("profiles preserve full spatial/time contract, public seed counts and finit
     assert.equal(unavailable.contains_seeds, false);
     assert.equal(unavailable.contains_commitment, false);
     assert.equal(unavailable.state, "not-created");
+  }
+});
+
+test("profiles reject memory caps outside their frozen value", async () => {
+  for (const [profile, memory_bytes] of [["development", 134217728], ["smoke", 268435456],
+    ["development", 268435457]]) {
+    const config = JSON.parse(await readFile(new URL(`./configs/${profile}.json`, import.meta.url), "utf8"));
+    assert.throws(() => validateFixture020Config({ ...config, memory_bytes }), /frozen bounds/);
   }
 });

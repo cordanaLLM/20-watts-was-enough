@@ -61,7 +61,8 @@ export function validateFixture020Config(config) {
   if (!exactKeys(config, keys)) throw new Error("ICP-T01 config fields are not closed.");
   const expected = { schema: 1, artifact: "fixture-020", worlds_per_seed: 1, minutes: 1440,
     truth_dt_min: 0.25, decision_interval_min: 5, max_rejection_attempts: 10000,
-    max_output_bytes: config.profile === "smoke" ? 52428800 : 1073741824, memory_bytes: 134217728 };
+    max_output_bytes: config.profile === "smoke" ? 52428800 : 1073741824,
+    memory_bytes: config.profile === "smoke" ? 134217728 : 268435456 };
   if (!new Set(["smoke", "development"]).has(config.profile)
     || Object.entries(expected).some(([key, value]) => config[key] !== value)
     || !Number.isSafeInteger(config.max_wall_ms) || config.max_wall_ms < 1

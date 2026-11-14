@@ -39,7 +39,7 @@ test("memory cap at the post-world boundary retains an ordinary record and inter
   const fixture = await temporaryOutput("fixture-020-memory-boundary-");
   let reads = 0;
   const low = syntheticProcessCounters();
-  const high = syntheticProcessCounters({ peak_resident_bytes: 134217729 });
+  const high = syntheticProcessCounters({ peak_resident_bytes: 268435457 });
   try {
     await assert.rejects(() => executeFixture020({ profile: "development", output: fixture.output, maxWorkUnits: 1,
       counters: () => (++reads === 1 ? low() : high()) }), /memory-cap/);
@@ -52,15 +52,30 @@ test("memory cap at the post-world boundary retains an ordinary record and inter
 });
 
 test("both profiles stop at the first boundary when the peak exceeds their cap", async () => {
-  for (const profile of ["smoke", "development"]) {
+  for (const [profile, peakBytes] of [["smoke", 134217729], ["development", 268435457]]) {
     const fixture = await temporaryOutput("fixture-020-memory-first-boundary-");
     try {
       await assert.rejects(() => executeFixture020({ profile, output: fixture.output, maxWorkUnits: 1,
-        counters: syntheticProcessCounters({ peak_resident_bytes: 134217729 }) }), /memory-cap/);
+        counters: syntheticProcessCounters({ peak_resident_bytes: peakBytes }) }), /memory-cap/);
       const interruption = JSON.parse(await readFile(path.join(fixture.output, "interruption-0.json"), "utf8"));
       assert.equal(interruption.completed_worlds, 0);
       assert.match(interruption.reason, /memory-cap/);
       await assert.rejects(() => readFile(path.join(fixture.output, "raw-events.jsonl")), { code: "ENOENT" });
+    } finally { await cleanup(fixture); }
+  }
+});
+
+test("development completes a work unit at its cap and above the smoke cap", async () => {
+  for (const peakBytes of [268435456, 134217729]) {
+    const fixture = await temporaryOutput("fixture-020-memory-within-development-cap-");
+    try {
+      const result = await executeFixture020({ profile: "development", output: fixture.output, maxWorkUnits: 1,
+        counters: syntheticProcessCounters({ peak_resident_bytes: peakBytes }) });
+      assert.equal(result.complete, false);
+      const record = JSON.parse(await readFile(path.join(fixture.output, "raw-events.jsonl"), "utf8"));
+      assert.equal(record.profile, "development");
+      assert.equal(record.execution_stop, null);
+      await assert.rejects(() => readFile(path.join(fixture.output, "interruption-1.json")), { code: "ENOENT" });
     } finally { await cleanup(fixture); }
   }
 });
