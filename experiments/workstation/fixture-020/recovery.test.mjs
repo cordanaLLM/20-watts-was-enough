@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-import { cleanup, temporaryOutput } from "../lib/runner-test-helpers.mjs";
+import { cleanup, syntheticProcessCounters, temporaryOutput } from "../lib/runner-test-helpers.mjs";
 import { canonical, ExecutionStop, scientificPayload } from "./contract.mjs";
 import { analyzeFixture020, executeFixture020 as execute } from "./runner.mjs";
 import { hashFile, IoDeadline } from "./storage.mjs";
@@ -11,7 +11,7 @@ const worldName = "ICP-T01-0x54010000";
 
 // Recovery contracts use explicit counters, independent of this test process's VmHWM.
 function executeFixture020(options) {
-  return execute({ ...options, counters: async () => ({ peak_resident_bytes: 1, current_resident_bytes: 1 }) });
+  return execute({ ...options, counters: syntheticProcessCounters() });
 }
 
 async function assertUnlocked(output) {

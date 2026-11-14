@@ -3,11 +3,19 @@ import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { assertCliExecutionRejections, assertResumeMatchesUninterruptedExecution,
-  cleanup, temporaryOutput } from "../lib/runner-test-helpers.mjs";
+  cleanup, syntheticProcessCounters, temporaryOutput } from "../lib/runner-test-helpers.mjs";
 import { canonical, sha256, scientificPayload } from "./contract.mjs";
-import { analyzeFixture020, computeFixture020Analysis, executeFixture020, executionCheck,
-  main, prepareFixture020, validateFixture020Output } from "./runner.mjs";
+import { analyzeFixture020, computeFixture020Analysis, executeFixture020 as execute, executionCheck,
+  main as runMain, prepareFixture020, validateFixture020Output } from "./runner.mjs";
 import { atomicText, hashFile, outputBytes, outputDirectory, stableRows, stableText } from "./storage.mjs";
+
+function executeFixture020(options) {
+  return execute({ ...options, counters: syntheticProcessCounters() });
+}
+
+function main(argv, options) {
+  return runMain(argv, { counters: syntheticProcessCounters(), ...options });
+}
 
 test("public prepare and CLI expose bounded A-only NO_RESULT profiles", async () => {
   const smoke = await prepareFixture020("smoke");

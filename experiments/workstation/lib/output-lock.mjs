@@ -14,16 +14,30 @@ async function lockIo(operation, label, timeoutMs) {
   } finally { clearTimeout(timer); }
 }
 
-export async function acquireLock(directory, artifact, timeoutMs = 30000) {
+async function cleanupFailedLock(handle, lockPath, timeoutMs, removeLock, error) {
+  const cleanupErrors = [];
+  const operations = [
+    [() => handle.close(), "close"],
+    [() => removeLock(lockPath), "remove"],
+  ];
+  for (const [operation, label] of operations) {
+    try { await lockIo(operation, label + " " + lockPath, timeoutMs); }
+    catch (cleanupError) { cleanupErrors.push(cleanupError); }
+  }
+  if (cleanupErrors.length > 0) error.cleanupErrors = cleanupErrors;
+}
+
+export async function acquireLock(directory, artifact, timeoutMs = 30000,
+  { open: openLock = open, rm: removeLock = rm } = {}) {
   const lockPath = `${directory}.${artifact}.lock`;
   const token = randomBytes(32).toString("hex");
-  const handle = await lockIo(() => open(lockPath, "wx", 0o600), `open ${lockPath}`, timeoutMs);
+  const handle = await lockIo(() => openLock(lockPath, "wx", 0o600), `open ${lockPath}`, timeoutMs);
   try {
     const body = `${JSON.stringify({ schema: 1, artifact, token_sha256: sha256Hex(token) })}\n`;
     await lockIo((signal) => handle.writeFile(body, { signal }), `write ${lockPath}`, timeoutMs);
     await lockIo(() => handle.sync(), `sync ${lockPath}`, timeoutMs);
   } catch (error) {
-    await lockIo(() => handle.close(), `close ${lockPath}`, timeoutMs);
+    await cleanupFailedLock(handle, lockPath, timeoutMs, removeLock, error);
     throw error;
   }
   return Object.freeze({
@@ -35,7 +49,7 @@ export async function acquireLock(directory, artifact, timeoutMs = 30000) {
         throw new Error(`Fixture ${artifact.slice(8)} lock ownership changed.`);
       }
       await lockIo(() => handle.close(), `close ${lockPath}`, timeoutMs);
-      await lockIo(() => rm(lockPath), `remove ${lockPath}`, timeoutMs);
+      await lockIo(() => removeLock(lockPath), `remove ${lockPath}`, timeoutMs);
     },
   });
 }

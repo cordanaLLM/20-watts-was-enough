@@ -383,7 +383,7 @@ function validateActionProfile(action, profile, executing) {
   if (action === "run" && profile !== "development") throw new Error("run requires --profile development.");
 }
 
-export async function main(argv = process.argv, { signal, clock = () => performance.now(), fromProcessStart = false } = {}) {
+export async function main(argv = process.argv, { signal, clock = () => performance.now(), fromProcessStart = false, counters = processCounters } = {}) {
   const commandStarted = clock();
   const { started, cpuStarted, scope } = smokeBaseline(fromProcessStart);
   const { action, options } = parseOptions(argv);
@@ -402,12 +402,12 @@ export async function main(argv = process.argv, { signal, clock = () => performa
   const identity = await loadInputs(options.profile);
   execution.deadline = commandStarted + identity.config.max_wall_ms;
   const result = await executeFixture020({ profile: options.profile, output: options.output,
-    resume: options.resume === "true", ...execution });
+    resume: options.resume === "true", counters, ...execution });
   executionCheck(execution)();
   if (action === "run") return result;
   await analyzeFixture020(options.output, execution);
   const validation = await validateFixture020Output(options.output, execution);
-  const resources = await smokeResources(options.output, started, cpuStarted, scope, identity.config.memory_bytes);
+  const resources = await smokeResources(options.output, started, cpuStarted, scope, identity.config.memory_bytes, counters);
   executionCheck(execution)();
   return { ...validation, resources };
 }
@@ -418,10 +418,10 @@ function smokeBaseline(fromProcessStart) {
     scope: fromProcessStart ? "whole smoke command from process start" : "in-process main call after module load" };
 }
 
-async function smokeResources(output, started, cpuStarted, scope, capBytes) {
+async function smokeResources(output, started, cpuStarted, scope, capBytes, readCounters) {
   const directory = await outputDirectory(repositoryRoot, output);
   const cpu = process.cpuUsage(cpuStarted);
-  const counters = await processCounters();
+  const counters = await readCounters();
   let memoryError;
   let status = counters.peak_resident_bytes === null ? "current-resident-lower-bound" : "linux-peak-resident";
   try {

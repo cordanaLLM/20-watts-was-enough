@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
+import { promisify } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 import { cleanup, temporaryOutput } from "../lib/runner-test-helpers.mjs";
 
@@ -49,4 +50,24 @@ test("SIGINT retains an ordinary in-flight world then stops at the next yield", 
     await exited;
     await cleanup(fixture);
   }
+});
+
+test("CLI smoke records real process counters and completes without a memory stop", { timeout: 60000 }, async () => {
+  const fixture = await temporaryOutput("fixture-020-cli-smoke-");
+  try {
+    const { stdout, stderr } = await promisify(execFile)(process.execPath,
+      ["experiments/workstation/fixture-020/runner.mjs", "smoke", "--profile", "smoke", "--output", fixture.output],
+      { timeout: 55000, killSignal: "SIGKILL", maxBuffer: 65536 });
+    assert.equal(stderr, "");
+    assert.equal(JSON.parse(stdout).valid, true);
+    const resources = JSON.parse(await readFile(path.join(fixture.output, "resources.json"), "utf8"));
+    assert.equal(resources.scope, "whole smoke command from process start");
+    assert.equal(resources.memory_cap_bytes, 134217728);
+    assert.equal(resources.memory_cap_check,
+      process.platform === "linux" ? "linux-peak-resident" : "current-resident-lower-bound");
+    assert.equal(resources.counter_mode, process.platform === "linux"
+      ? "linux-self-process-high-water-and-syscall-bytes" : "unavailable-on-this-platform");
+    assert.ok(resources.current_resident_bytes > 0);
+    assert.equal((await readdir(fixture.output)).some((name) => name.startsWith("interruption-")), false);
+  } finally { await cleanup(fixture); }
 });
