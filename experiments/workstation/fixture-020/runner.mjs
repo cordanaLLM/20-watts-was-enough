@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { performance } from "node:perf_hooks";
 import { openCheckpointLedger } from "../lib/checkpoint-ledger.mjs";
 import { assertFixture020Record, canonical, ExecutionStop, FIXTURE_020_EVENT_CONTRACT_VERSION,
-  NO_RESULT, scientificPayload, sha256 } from "./contract.mjs";
+  NO_RESULT, scientificPayload } from "./contract.mjs";
 import { evaluateArmA } from "./evaluator.mjs";
 import { generateFixture020World, interruptedWorld } from "./generator.mjs";
 import { loadInputs, repositoryRoot } from "./inputs.mjs";

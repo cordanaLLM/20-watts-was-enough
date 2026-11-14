@@ -70,7 +70,8 @@ export function validateFixture020Config(config) {
 }
 
 export function scientificPayload(record) {
-  const { integrity: _integrity, ...payload } = record;
+  const payload = { ...record };
+  delete payload.integrity;
   return payload;
 }
 
