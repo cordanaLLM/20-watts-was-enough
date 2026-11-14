@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { constants } from "node:fs";
 import { open, readFile, rm, writeFile } from "node:fs/promises";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
@@ -171,4 +172,98 @@ test("release accepts a valid lock document padded to exactly 4096 bytes", async
     await lock.release();
     await assert.rejects(() => readFile(file), { code: "ENOENT" });
   } finally { await cleanup(fixture); }
+});
+
+function delayedReadOpen(state, openFailure, closeFailure) {
+  return async (...args) => {
+    if (args[1] === "wx") {
+      state.owner = await open(...args);
+      return state.owner;
+    }
+    assert.equal(args[1], constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+    const slowRead = state.slowRead;
+    if (slowRead) {
+      await delay(150);
+      if (openFailure) throw openFailure;
+    }
+    const reader = await open(...args);
+    state.reader = reader;
+    return {
+      read: (...values) => reader.read(...values),
+      stat: () => reader.stat(),
+      close: async () => {
+        await reader.close();
+        if (slowRead) {
+          state.closed = true;
+          if (closeFailure) throw closeFailure;
+        }
+      },
+    };
+  };
+}
+
+async function waitForLateReader(predicate) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    if (predicate()) return;
+    await delay(25);
+  }
+  assert.fail("late reader did not settle after bounded poll");
+}
+
+for (const closeFailure of [null, new Error("injected late reader close failure")]) {
+  const outcome = closeFailure ? "records late reader close failure" : "closes late reader";
+  test(`release deadline ${outcome} and preserves owner bytes`, async () => {
+    const fixture = await temporaryOutput("fixture-020-late-reader-");
+    const file = fixture.output + ".fixture-020.lock";
+    const state = { slowRead: true, closed: false };
+    const lock = await acquireLock(fixture.output, "fixture-020", 50, {
+      open: delayedReadOpen(state, null, closeFailure),
+    });
+    const original = await readFile(file);
+    let deadline;
+    try {
+      await assert.rejects(() => lock.release(), (error) => {
+        deadline = error;
+        return /Output lock deadline/.test(error.message);
+      });
+      await waitForLateReader(() => state.closed && (!closeFailure || deadline.cleanupErrors?.includes(closeFailure)));
+      if (closeFailure) assert.deepEqual(deadline.cleanupErrors, [closeFailure]);
+      assert.deepEqual(await readFile(file), original);
+      state.slowRead = false;
+      await lock.release();
+      await assert.rejects(() => readFile(file), { code: "ENOENT" });
+    } finally {
+      if (state.reader) await state.reader.close();
+      await state.owner.close();
+      await cleanup(fixture);
+    }
+  });
+}
+
+test("release deadline records late reader open failure and preserves owner bytes", async () => {
+  const fixture = await temporaryOutput("fixture-020-late-reader-failure-");
+  const file = fixture.output + ".fixture-020.lock";
+  const state = { slowRead: true };
+  const failure = new Error("injected late reader open failure");
+  const lock = await acquireLock(fixture.output, "fixture-020", 50, {
+    open: delayedReadOpen(state, failure),
+  });
+  const original = await readFile(file);
+  let deadline;
+  try {
+    await assert.rejects(() => lock.release(), (error) => {
+      deadline = error;
+      return /Output lock deadline/.test(error.message);
+    });
+    await waitForLateReader(() => deadline.lateOpenError === failure);
+    assert.equal(deadline.lateOpenError, failure);
+    assert.deepEqual(await readFile(file), original);
+    state.slowRead = false;
+    await lock.release();
+    await assert.rejects(() => readFile(file), { code: "ENOENT" });
+  } finally {
+    if (state.reader) await state.reader.close();
+    await state.owner.close();
+    await cleanup(fixture);
+  }
 });

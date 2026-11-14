@@ -32,24 +32,30 @@ async function cleanupFailedLock(handle, lockPath, timeoutMs, removeLock, error)
   if (cleanupErrors.length > 0) error.cleanupErrors = cleanupErrors;
 }
 
-async function openLockHandle(lockPath, timeoutMs, openLock, removeLock) {
-  const pending = Promise.resolve().then(() => openLock(lockPath, "wx", 0o600));
+async function openWithLateCleanup(operation, label, timeoutMs, cleanupLateHandle) {
+  const pending = Promise.resolve().then(operation);
   try {
-    return await lockIo(() => pending, `open ${lockPath}`, timeoutMs);
+    return await lockIo(() => pending, label, timeoutMs);
   } catch (error) {
     if (error instanceof OutputLockDeadline) {
       void pending.then(
-        (handle) => cleanupFailedLock(handle, lockPath, timeoutMs, removeLock, error),
+        (handle) => cleanupLateHandle(handle, error),
         (openError) => { error.lateOpenError = openError; },
-      );
+      ).catch((cleanupError) => { (error.cleanupErrors ??= []).push(cleanupError); });
     }
     throw error;
   }
 }
 
-async function readLockDocument(lockPath, artifact, timeoutMs) {
+async function openLockHandle(lockPath, timeoutMs, openLock, removeLock) {
+  return openWithLateCleanup(() => openLock(lockPath, "wx", 0o600), `open ${lockPath}`, timeoutMs,
+    (handle, error) => cleanupFailedLock(handle, lockPath, timeoutMs, removeLock, error));
+}
+
+async function readLockDocument(lockPath, artifact, timeoutMs, openLock) {
   const flags = constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0);
-  const reader = await lockIo(() => open(lockPath, flags), `open read ${lockPath}`, timeoutMs);
+  const reader = await openWithLateCleanup(() => openLock(lockPath, flags), `open read ${lockPath}`, timeoutMs,
+    (handle) => lockIo(() => handle.close(), `close read ${lockPath}`, timeoutMs));
   try {
     const buffer = Buffer.alloc(LOCK_DOCUMENT_MAX_BYTES);
     const { bytesRead } = await lockIo(() => reader.read(buffer, 0, buffer.length, 0), `read ${lockPath}`, timeoutMs);
@@ -79,7 +85,7 @@ export async function acquireLock(directory, artifact, timeoutMs = 30000,
   }
   return Object.freeze({
     async release() {
-      const document = await readLockDocument(lockPath, artifact, timeoutMs);
+      const document = await readLockDocument(lockPath, artifact, timeoutMs, openLock);
       if (document.token_sha256 !== sha256Hex(token)) {
         throw new Error(`Fixture ${artifact.slice(8)} lock ownership changed.`);
       }
