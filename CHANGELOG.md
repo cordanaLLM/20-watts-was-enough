@@ -13,6 +13,12 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- The bounded workstation suite error now names every failed and cancelled
+  job after its counts, for example `workstation suite incomplete: 1 failed,
+  0 cancelled out of 21 jobs; failed: <artifact>`. The pre-push gate keeps
+  only the tail of the per-job summary, so a one-job failure on PR 455 showed
+  a count without the job name (#456).
+
 - The F-019 contract now states that the FM-T02 smoke harness exists and that
   confirmation is blocked under
   [Decision 0013](decisions/0013-development-can-block-a-protocol.md),

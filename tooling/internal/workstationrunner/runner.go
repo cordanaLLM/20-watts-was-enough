@@ -217,16 +217,23 @@ func runSuite(
 		return fmt.Errorf("write workstation plan: %w", err)
 	}
 	results := executeJobs(ctx, root, jobs, options)
-	failed, cancelled := countIncomplete(results)
+	failed, cancelled := incompleteJobNames(results)
 	writeErr := writeSummary(summary, results)
 	var suiteErr error
-	if failed > 0 || cancelled > 0 {
-		suiteErr = fmt.Errorf(
+	if len(failed) > 0 || len(cancelled) > 0 {
+		message := fmt.Sprintf(
 			"workstation suite incomplete: %d failed, %d cancelled out of %d jobs",
-			failed,
-			cancelled,
+			len(failed),
+			len(cancelled),
 			len(results),
 		)
+		if len(failed) > 0 {
+			message += "; failed: " + strings.Join(failed, ", ")
+		}
+		if len(cancelled) > 0 {
+			message += "; cancelled: " + strings.Join(cancelled, ", ")
+		}
+		suiteErr = errors.New(message)
 	}
 	if writeErr != nil {
 		writeErr = fmt.Errorf("write workstation summary: %w", writeErr)
@@ -887,13 +894,13 @@ func cancelledResultWithOutput(current job, err error, output []byte) jobResult 
 	return jobResult{job: current, status: statusCancelled, detail: detail, output: output}
 }
 
-func countIncomplete(results []jobResult) (failed, cancelled int) {
+func incompleteJobNames(results []jobResult) (failed, cancelled []string) {
 	for _, result := range results {
 		switch result.status {
 		case statusFailed:
-			failed++
+			failed = append(failed, result.job.artifact)
 		case statusCancelled:
-			cancelled++
+			cancelled = append(cancelled, result.job.artifact)
 		}
 	}
 	return failed, cancelled
