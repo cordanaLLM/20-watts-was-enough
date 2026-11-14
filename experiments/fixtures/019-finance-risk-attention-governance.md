@@ -1,6 +1,7 @@
 # Fixture F-019 — Finance-risk, attention, and governance controls
 
-- **Status:** pre-implementation experiment contract
+- **Status:** experiment contract with one bounded FM-T02 public-development
+  smoke slice; FM-T01 and FM-T03 through FM-T10 remain pre-implementation
 - **Proposed direct claims:** [C-1480](../../research/claims.md#c-1480),
   [C-1481](../../research/claims.md#c-1481),
   [C-1482](../../research/claims.md#c-1482),
@@ -17,14 +18,19 @@
   [C-144](../../research/claims.md#c-144)
 - **Primary evidence and qualification source:**
   [finance and management-science audit](../../research/audits/2026-08-24-finance-management-risk-attention-governance.md)
-- **Execution boundary:** CPU-only specification; no runner, executable
-  manifest, generated data, or result exists
+- **Execution state:** the CPU-only
+  [FM-T02 smoke harness](../workstation/fixture-019/README.md) and
+  [smoke-ready manifest](../workstation/manifests/fixture-019.json) cover
+  C-1481 only; every output remains `NO_RESULT`. Confirmation is blocked under
+  [Decision 0013](../../decisions/0013-development-can-block-a-protocol.md).
+  No FM-T01 or FM-T03 through FM-T10 runner, confirmation or held-out data,
+  measured energy, or scientific result exists
 - **Authority:** no empirical, scientific, compliance, operational-resilience,
   financial, or energy result is asserted
 - **Registry disposition:** no new principle or candidate
 
 This fixture converts the audit's ten protocol specifications into one durable
-pre-implementation contract. Finance and management vocabulary is admissible
+experiment contract. Finance and management vocabulary is admissible
 only where the corresponding variables exist in the synthetic system. A
 formal or legal result is never treated as evidence that an AI translation
 works. EU/German legal and supervisory sources remain normative comparators;
@@ -431,9 +437,12 @@ capped at $L_{\max}$. Stop for a negative holding or liability,
 unexplained asset creation, timestamp/order failure, or common-contract failure.
 Development must meet the common power target for the 20% shifted contrast.
 
-**No-results wording.** Protocol specification only; no FM-T02 result exists.
-It does not establish that endogenous feedback is material in any deployment or
-that staged liquidation is safer.
+**No-results wording.** No FM-T02 result exists. The harness runs only the
+public-development smoke and development profiles; every output remains
+`NO_RESULT`. The implementation shakedown found the aggregate primary contrast
+effectively invariant to the registered development seeds, so Decision 0013
+blocks confirmation. The slice does not establish that endogenous feedback is
+material in any deployment or that staged liquidation is safer.
 
 ### FM-T03 — Estimated portfolios and diversification limits
 
@@ -1706,17 +1715,19 @@ retuning, a new fallback, or selective rerun.
 
 ### No-results authority
 
-This is a **pre-implementation contract**. No FM-T01 through FM-T10 runner,
-manifest, data set, confirmation, transfer, compliance assessment, measured
-joule value, or empirical result exists here. “Smoke-ready” is not asserted.
+The FM-T02 smoke-ready harness exercises execution and artifact plumbing;
+it produces no scientific result. FM-T01 and FM-T03 through FM-T10 remain
+pre-implementation. No confirmation, transfer, compliance assessment, measured
+joule value, or empirical result exists for any protocol.
 No claim, principle, mechanism, legal compliance, resilience, safety, financial,
 or energy conclusion follows from writing this fixture.
 
 ## Implementation and artifact boundary
 
-A later implementation must add a separate runner, machine-readable manifest,
-schemas, environment lock, tests, raw terminal-status rows, summaries, and
-resource artifacts without changing this contract silently. Any semantic change
+The FM-T02 harness supplies a runner, machine-readable manifest, schemas,
+environment lock, tests, raw terminal-status rows, summaries, and resource
+artifacts for FM-T02 only. FM-T01 and FM-T03 through FM-T10 still require them,
+and adding them must not change this contract silently. Any semantic change
 to a DGP, arm, information boundary, scalar loss, fallback, margin, interval,
 transfer, or hard gate requires a new protocol version and an explicit audit
 diff. The primary audit remains the evidence and qualification source; this
