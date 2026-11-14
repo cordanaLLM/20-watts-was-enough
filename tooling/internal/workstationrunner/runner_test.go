@@ -290,6 +290,43 @@ func TestRunRejectsMissingPublicBoundaries(t *testing.T) {
 	}
 }
 
+func TestRunSuiteNamesOnlyTheFailedJob(t *testing.T) {
+	t.Parallel()
+	jobs := []job{
+		helperJob("pass-before", "test:workstation:pass-before"),
+		helperJob("fail-middle", "test:workstation:fail-middle"),
+		helperJob("pass-after", "test:workstation:pass-after"),
+	}
+	err := runSuite(context.Background(), repositoryFixture(t), jobs, helperOptions(t, 2), &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "; failed: fail-middle") {
+		t.Fatalf("runSuite() error = %v, want failed artifact name", err)
+	}
+	if strings.Contains(err.Error(), "pass-before") || strings.Contains(err.Error(), "pass-after") {
+		t.Fatalf("runSuite() error = %v, contains passing artifact name", err)
+	}
+	if want := "workstation suite incomplete: 1 failed, 0 cancelled out of 3 jobs; failed: fail-middle"; err.Error() != want {
+		t.Fatalf("runSuite() error = %q, want %q", err.Error(), want)
+	}
+}
+
+func TestRunSuitePassesWithoutError(t *testing.T) {
+	t.Parallel()
+	jobs := []job{
+		helperJob("pass-first", "test:workstation:pass-first"),
+		helperJob("pass-second", "test:workstation:pass-second"),
+	}
+	var summary bytes.Buffer
+	if err := runSuite(context.Background(), repositoryFixture(t), jobs, helperOptions(t, 2), &summary); err != nil {
+		t.Fatalf("runSuite() error = %v, want nil for all passing jobs", err)
+	}
+	wantSummary := "PASS pass-first (test:workstation:pass-first)\n" +
+		"PASS pass-second (test:workstation:pass-second)\n" +
+		"Workstation suite: 2 passed, 0 failed, 0 cancelled.\n"
+	if !strings.HasSuffix(summary.String(), "\n"+wantSummary) {
+		t.Fatalf("summary =\n%s\nwant suffix =\n%s", summary.String(), wantSummary)
+	}
+}
+
 func TestRunSuiteCollectsEveryFailureAndOrdersTheSummary(t *testing.T) {
 	t.Parallel()
 	root := repositoryFixture(t)
@@ -302,8 +339,11 @@ func TestRunSuiteCollectsEveryFailureAndOrdersTheSummary(t *testing.T) {
 	}
 	var summary bytes.Buffer
 	err := runSuite(context.Background(), root, jobs, options, &summary)
-	if err == nil || !strings.Contains(err.Error(), "2 failed, 0 cancelled out of 4 jobs") {
-		t.Fatalf("runSuite() error = %v, want complete failure count", err)
+	if err == nil || !strings.HasSuffix(err.Error(), "2 failed, 0 cancelled out of 4 jobs; failed: fail-second, fail-third") {
+		t.Fatalf("runSuite() error = %v, want ordered failure names and count", err)
+	}
+	if strings.Contains(err.Error(), "cancelled:") {
+		t.Fatalf("runSuite() error = %v, want no cancelled clause", err)
 	}
 	lines := strings.Split(summary.String(), "\n")
 	wantPrefixes := []string{
@@ -456,6 +496,9 @@ func TestRunSuiteEnforcesPerJobTimeout(t *testing.T) {
 	if err == nil || !strings.Contains(summary.String(), "exceeded 50ms timeout") {
 		t.Fatalf("runSuite() error/summary = %v/%q, want timeout failure", err, summary.String())
 	}
+	if !strings.HasSuffix(err.Error(), "; failed: block") {
+		t.Fatalf("runSuite() error = %v, want timed-out artifact under failed", err)
+	}
 	if elapsed := time.Since(started); elapsed > 2*time.Second {
 		t.Fatalf("timed-out command returned after %s", elapsed)
 	}
@@ -474,6 +517,12 @@ func TestRunSuiteCancelsInflightAndUnscheduledJobs(t *testing.T) {
 	}, options, &summary)
 	if err == nil || strings.Count(summary.String(), "CANCELLED ") != 2 {
 		t.Fatalf("runSuite() error/summary = %v/%q, want two cancellations", err, summary.String())
+	}
+	if !strings.Contains(err.Error(), "; cancelled: block, later") {
+		t.Fatalf("runSuite() error = %v, want ordered cancellation names", err)
+	}
+	if strings.Contains(err.Error(), "; failed:") {
+		t.Fatalf("runSuite() error = %v, want no failed clause", err)
 	}
 }
 
