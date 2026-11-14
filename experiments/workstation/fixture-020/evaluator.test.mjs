@@ -52,6 +52,88 @@ test("A closes exact tree/source identity, uses no chords, and records secondary
   assert.equal(validateFlows({ ...world.graph, source_flow: world.graph.source_flow + 1e-8 }, flows).failure, "infeasible-flow");
 });
 
+test("frozen forcing preserves reference maximum loss and arm A accounting", (t) => {
+  const world = generateFixture020World({ seed: 0x54010000 });
+  const result = evaluateArmA(world);
+  const expected = { maximum_loss_mmol: 11084.515497362665, loss_mmol: 513.4054078188917,
+    delivered_mmol: 12295.093363789085, consumed_mmol: 10571.110089543761,
+    exported_mmol: 1564.88377344659, leaked_mmol: 142.33637482933906,
+    simulated_work_j: 1915.8707532099559, edge_flow_exposure_l: 8677.04976416392 };
+  t.diagnostic(JSON.stringify({ reference: expected,
+    actual: Object.fromEntries(Object.keys(expected).map((key) => [key, result[key]])) }));
+  for (const key of ["maximum_loss_mmol", "loss_mmol"]) {
+    const value = expected[key];
+    assert.ok(Math.abs(result[key] / value - 1) <= 1e-12, `${key}: ${result[key]} versus ${value}`);
+  }
+  assert.equal(result.minimum_storage_mmol, 0);
+  assert.equal(result.failure_reason, null);
+  const second = evaluateArmA(generateFixture020World({ seed: 0x54010001 }));
+  t.diagnostic(JSON.stringify({ seed: "0x54010001", maximum_loss_mmol: second.maximum_loss_mmol,
+    loss_mmol: second.loss_mmol }));
+  assert.ok(Math.abs(second.maximum_loss_mmol / 10855.006851991686 - 1) <= 1e-12);
+  assert.ok(Math.abs(second.loss_mmol / 459.9679501308705 - 1) <= 1e-12);
+  assert.equal(second.failure_reason, null);
+});
+
+function threeCells() {
+  const world = cell();
+  world.graph.nodes.push(...[2, 3].map((id) => ({ ...world.graph.nodes[1], id })));
+  world.graph.edges.push(...[2, 3].map((to) => ({ ...world.graph.edges[0],
+    id: `000:00${to}`, to })));
+  world.graph.source_flow = 3.6;
+  world.forcing.demand = new Float64Array(1440 * 3).fill(1);
+  return world;
+}
+
+function closureTrace(failingSteps, failedNodes = 1) {
+  const before = [];
+  let calls = 0;
+  const rowStep = (...args) => {
+    const step = Math.floor(calls / 3);
+    const node = calls % 3;
+    if (step < 2) before.push(args[0]);
+    calls += 1;
+    const row = oxygenStep(...args);
+    return step < failingSteps && node < failedNodes ? { ...row, exported: 1 } : row;
+  };
+  return { before, rowStep, calls: () => calls };
+}
+
+test("broken closure on first node preserves later storage updates and one failure per step", () => {
+  const trace = closureTrace(1);
+  const result = evaluateArmA(threeCells(), trace);
+  const updated = oxygenStep(5, 0.3, 0.25, 10).storage_after;
+  assert.deepEqual(trace.before, [5, 5, 5, 5, updated, updated]);
+  assert.equal(result.failure_reason, "broken-closure");
+  assert.equal(result.terminated, false);
+  assert.equal(result.truth_steps, 5760);
+  assert.equal(trace.calls(), 5760 * 3);
+  assert.equal(result.closure_failures_consecutive, 0);
+  assert.equal(result.loss_mmol, 1440);
+  const everyStep = closureTrace(3, 2);
+  const stopped = evaluateArmA(threeCells(), everyStep);
+  assert.equal(everyStep.calls(), 9);
+  assert.equal(everyStep.before[5], updated);
+  assert.equal(stopped.truth_steps, 3);
+  assert.equal(stopped.closure_failures_consecutive, 3);
+  assert.equal(stopped.failure_reason, "broken-closure");
+  assert.equal(stopped.terminated, true);
+});
+
+test("first failing node stays recorded when a later terminating row stops the step", () => {
+  let calls = 0;
+  const result = evaluateArmA(threeCells(), { rowStep: (...args) => {
+    calls += 1;
+    const row = oxygenStep(...args);
+    return calls === 1 ? { ...row, exported: 1 } : { ...row, storage_after: -1 };
+  } });
+  assert.equal(calls, 2);
+  assert.equal(result.failure_reason, "broken-closure");
+  assert.equal(result.truth_steps, 1);
+  assert.equal(result.terminated, true);
+  assert.equal(result.loss_mmol, 1440);
+});
+
 test("every terminal-loss path gets L_max with retained failure typing", () => {
   const world = cell();
   const missing = evaluateArmA(world, { policy: () => null });

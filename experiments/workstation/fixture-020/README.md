@@ -126,10 +126,23 @@ gaps in the executable slice; they do not amend the frozen protocol.
   construction order without renumbering. Shares use ascending demand ID;
   capacities use lexicographic edge order, then all radii use that order.
 - Minute zero uses the initial AR state zero. Updates start at minute one
-  and run in minute-major, ascending demand-ID order. Every rejected hotspot
-  candidate redraws the complete schedule, including K. Hotspots occupy
-  half-open minute intervals; adjacent intervals may touch. Centres exclude
-  the source, and descendants follow primary-tree edges only.
+  and run in minute-major, ascending demand-ID order. After the AR path,
+  each of at most 10,000 schedule attempts draws K uniformly from integers
+  8--20 once. Place hotspots in ID order 0 through K-1. Each hotspot allows
+  at most 10,000 tries, drawing start (integer 60--1320), duration (integer
+  10--90), centre (integer 1--N) and multiplier (uniform 1.5--3), in that
+  order; N is the number of demand nodes. Accept the first try whose
+  half-open interval does not overlap any accepted hotspot. Touching is
+  allowed. An overlap redraws only that hotspot; K stays fixed. Exhausted
+  placement raises `GenerationFailure` at `hotspot-placement` and retains
+  the failed world. Centres exclude the source, and descendants follow
+  primary-tree edges only.
+- After placing all K hotspots, apply the schedule. Count minutes with
+  aggregate demand greater than `1.15*C_a*Q_src`. More than 120 overload
+  minutes rejects the complete schedule; the next attempt draws a fresh K.
+  Exhausting 10,000 schedules raises `GenerationFailure` at
+  `hotspot-schedule`. Both exhaustion paths retain the world in the
+  denominator with the generation-failure envelope.
 - Source readings occur at minutes 0--1439. Local panels measure storage at
   minutes 5, 10, ..., 1440 and consumption over the preceding 5 min. Arrival
   is measurement time plus the seed delay. Minute 1440 emits only the final
@@ -148,12 +161,27 @@ gaps in the executable slice; they do not amend the frozen protocol.
   flows in lexicographic edge order. Both use binary64 little-endian bytes.
 - Any broken closure receives terminal loss immediately; three consecutive
   failing truth steps terminate execution. A failed node row does not update
-  its storage. Negative storage terminates immediately. Negative amounts
-  within flow-feasibility tolerance still receive terminal loss.
+  its storage. A broken closure continues through later nodes in the same
+  step; each later valid row updates normally. Record the first failing node
+  in ascending ID order once per step. Every other failure stops the step
+  immediately, including a later terminating failure after a broken closure;
+  retain the first failure reason. Negative storage terminates immediately.
+  Negative amounts within flow-feasibility tolerance still receive terminal
+  loss.
+- Dinic layered-search, augmentation and phase bounds remain finite and
+  iterative. Exhaustion raises `GenerationFailure` at `max-flow-bound` and
+  retains the world in the denominator with the generation-failure envelope.
+  Generation stages are `pair-separation`, `graph-max-flow`,
+  `hotspot-placement`, `hotspot-schedule` and `max-flow-bound`. The two new
+  stages keep their specific reason in the world manifest and arm outcome.
+  Existing stages retain `generator-failure` as their outcome reason and
+  the specific stage in the manifest.
 - Exhaustion before a complete demand path has no exact path-specific
   maximum loss. Its retained generation-failure charge uses the conservative
   finite envelope `1440*8*exp(5)*3` mmol. A test-only rejection limit may be
-  lowered to plant exhaustion; the CLI fixes 10,000 attempts.
+  lowered to plant exhaustion; the CLI fixes 10,000 attempts. Tests may lower
+  the hotspot placement cap separately or lower any Dinic bound to zero;
+  these controls do not change CLI defaults or draw order.
 - A timeout or cancellation during generation uses that generation-failure
   envelope. Once forcing exists, an interrupted arm retains its partial
   accounting and receives its path-specific terminal loss. The outcome

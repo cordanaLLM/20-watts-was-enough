@@ -75,7 +75,9 @@
         "oracle-key-leak",
         "broken-closure",
         "negative-storage",
-        "policy-exception"
+        "policy-exception",
+        "hotspot-placement",
+        "max-flow-bound"
       ]
     },
     "evaluation": {
@@ -164,7 +166,9 @@
             "oracle-key-leak",
             "broken-closure",
             "negative-storage",
-            "policy-exception"
+            "policy-exception",
+            "hotspot-placement",
+            "max-flow-bound"
           ]
         },
         "terminated": {

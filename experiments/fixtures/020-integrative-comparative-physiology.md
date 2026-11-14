@@ -2414,11 +2414,3 @@ Parquet artifacts and ICP-T02--ICP-T09 are not built. No confirmation or
 transfer data, seed pack or commitment exists. These implementation records
 supply no result, effect estimate or claim promotion. Future implementation
 must preserve the frozen IDs and version scientific changes.
-
-## Harness status
-
-The [public-development harness](../workstation/fixture-020/README.md) has a
-[smoke-ready manifest](../workstation/manifests/fixture-020.json) for ICP-T01 /
-C-1488 only. Readiness records execution plumbing; every summary remains
-`NO_RESULT`. B/C/O, inference, transfer and ICP-T02--ICP-T09 remain deferred;
-no confirmation or transfer data, measured energy or scientific result exists.

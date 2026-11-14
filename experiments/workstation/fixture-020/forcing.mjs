@@ -17,12 +17,23 @@ export function generateArPath(graph, random, check = () => {}) {
   return demand;
 }
 
-function drawSchedule(graph, random) {
+function placeHotspot(graph, random, id, schedule, check, limit) {
+  for (let attempt = 0; attempt < limit; attempt += 1) {
+    check();
+    const hotspot = { id, start: random.integer(60, 1320), duration: random.integer(10, 90),
+      centre: random.integer(1, graph.nodes.length - 1), multiplier: random.range(1.5, 3) };
+    if (nonOverlapping([...schedule, hotspot])) return hotspot;
+  }
+  throw new GenerationFailure("hotspot-placement");
+}
+
+function drawSchedule(graph, random, check, placementLimit) {
   const count = random.integer(8, 20);
-  return Array.from({ length: count }, (_, id) => ({
-    id, start: random.integer(60, 1320), duration: random.integer(10, 90),
-    centre: random.integer(1, graph.nodes.length - 1), multiplier: random.range(1.5, 3),
-  }));
+  const hotspots = [];
+  for (let id = 0; id < count; id += 1) {
+    hotspots.push(placeHotspot(graph, random, id, hotspots, check, placementLimit));
+  }
+  return hotspots;
 }
 
 export function nonOverlapping(schedule) {
@@ -67,14 +78,13 @@ export function aggregateScheduleAccepted(demand, count, threshold) {
   return overloadMinutes(demand, count, threshold) <= 120;
 }
 
-export function generateForcing(graph, random, check = () => {}, limit = 10000) {
+export function generateForcing(graph, random, check = () => {}, limit = 10000, placementLimit = limit) {
   const base = generateArPath(graph, random, check);
   const count = graph.nodes.length - 1;
   const threshold = 1.15 * graph.concentration * graph.source_flow;
   for (let attempt = 0; attempt < limit; attempt += 1) {
     check();
-    const hotspots = drawSchedule(graph, random);
-    if (!nonOverlapping(hotspots)) continue;
+    const hotspots = drawSchedule(graph, random, check, placementLimit);
     const demand = applySchedule(graph, base, hotspots);
     const overloaded = overloadMinutes(demand, count, threshold);
     if (overloaded > 120) continue;

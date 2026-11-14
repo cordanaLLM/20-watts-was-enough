@@ -2,10 +2,54 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { generateFixture020World } from "./generator.mjs";
 import { IcpRandom, uniformFromUint64 } from "./random.mjs";
-import { aggregateScheduleAccepted, applySchedule, generateArPath, nonOverlapping } from "./forcing.mjs";
+import { aggregateScheduleAccepted, applySchedule, generateArPath, generateForcing, nonOverlapping } from "./forcing.mjs";
 import { baselineFeasible, dinicMaxFlow } from "./max-flow.mjs";
-import { generateGraph } from "./graph.mjs";
+import { generateGraph, GenerationFailure } from "./graph.mjs";
 import { sha256, binary64Bytes } from "./contract.mjs";
+import { evaluateArmA } from "./evaluator.mjs";
+
+const FIRST_HOTSPOTS = [
+  [1169, 14, 56, 2.546381078489672], [1019, 26, 69, 1.9641329396134144],
+  [570, 53, 48, 2.6888456386727904], [685, 76, 83, 1.5131895687199812],
+  [788, 46, 80, 2.926622919839558], [1238, 61, 96, 1.611516371293575],
+  [928, 20, 77, 1.6920197289866374], [953, 60, 90, 2.2379348988963805],
+  [628, 44, 47, 2.693155517144235], [457, 22, 91, 2.3131697676843364],
+  [525, 10, 60, 1.5123501865298192], [249, 90, 111, 2.2980087093126995],
+  [1315, 16, 29, 1.9667576684918395], [127, 22, 37, 1.5642424303164557],
+  [1135, 30, 54, 2.7791129510326362], [857, 69, 85, 2.585748797509052],
+  [1081, 47, 93, 2.920538126601855],
+];
+
+test("frozen hotspot vector keeps K fixed while placing ICP-T01-0x54010000", () => {
+  const world = generateFixture020World({ seed: 0x54010000 });
+  assert.equal(world.graph.nodes.length - 1, 112);
+  assert.equal(world.forcing.hotspots.length, 17);
+  assert.equal(world.forcing.attempts, 1);
+  assert.equal(world.forcing.overload_minutes, 0);
+  assert.deepEqual(world.forcing.hotspots.map(({ start, duration, centre, multiplier }) => (
+    [start, duration, centre, multiplier]
+  )), FIRST_HOTSPOTS);
+  assert.deepEqual(world.forcing.hotspots.map(({ id }) => id), Array.from({ length: 17 }, (_, id) => id));
+  assert.ok(Math.abs(world.forcing.maximum_loss / 11084.515497362665 - 1) <= 1e-12);
+});
+
+test("second public seed agrees with its frozen hotspot vector", () => {
+  const world = generateFixture020World({ seed: 0x54010001 });
+  assert.equal(world.graph.nodes.length - 1, 98);
+  assert.equal(world.forcing.hotspots.length, 12);
+  assert.equal(world.forcing.attempts, 1);
+  assert.equal(world.forcing.overload_minutes, 0);
+  assert.deepEqual(world.forcing.hotspots.map(({ start, duration, centre, multiplier }) => (
+    [start, duration, centre, multiplier]
+  )), [
+    [901, 20, 75, 2.9645969396043075], [841, 34, 54, 2.9292728494161757],
+    [488, 56, 69, 2.9850645260882334], [945, 69, 96, 1.9807426936162673],
+    [1304, 54, 4, 2.1700045379835715], [1063, 20, 64, 2.845976296431222],
+    [352, 36, 32, 1.8506017270178134], [747, 13, 51, 2.4359629617899183],
+    [1089, 16, 44, 2.378444078383307], [1179, 73, 92, 2.6353199293275313],
+    [808, 21, 9, 2.1978929478737412], [444, 15, 79, 2.3313140970244333],
+  ]);
+});
 
 test("F-020 uniforms use single rounding, including the upper endpoint event", () => {
   const events = { uniform_upper_round: 0 };
@@ -112,11 +156,110 @@ test("AR minute zero is initial state; extreme Gaussian innovations clamp instea
   assert.equal(negative[1], Math.exp(-0.3));
 });
 
-test("all 64 public development seeds retain a finite registered base world", () => {
+test("K histogram over all 64 development seeds matches the frozen registration", () => {
+  const histogram = {};
+  const attempts = [];
+  let overloadedWorlds = 0;
+  let maximumOverload = 0;
   for (let offset = 0; offset < 64; offset += 1) {
     const world = generateFixture020World({ seed: 0x54010000 + offset });
     assert.equal(world.manifest.terminal_failure, null, world.world_id);
     assert.ok(Number.isFinite(world.manifest.maximum_loss_mmol));
     assert.equal(baselineFeasible(world.graph), true);
+    const k = world.forcing.hotspots.length;
+    histogram[k] = (histogram[k] ?? 0) + 1;
+    attempts.push(world.forcing.attempts);
+    if (world.forcing.overload_minutes > 0) overloadedWorlds += 1;
+    maximumOverload = Math.max(maximumOverload, world.forcing.overload_minutes);
   }
+  assert.deepEqual(histogram, { 8: 4, 9: 6, 10: 5, 11: 5, 12: 3, 13: 3, 14: 8,
+    15: 2, 16: 2, 17: 3, 18: 8, 19: 11, 20: 4 });
+  assert.deepEqual(attempts, new Array(64).fill(1));
+  assert.equal(overloadedWorlds, 3);
+  assert.equal(maximumOverload, 8);
+});
+
+function hotspotDraws(start, duration = 10, multiplier = 1.5) {
+  return [[60, 1320, start], [10, 90, duration], [1, 1, 1], [1.5, 3, multiplier]];
+}
+
+function scriptedForcing(draws) {
+  let position = 0;
+  const take = (a, b) => {
+    assert.ok(position < draws.length, `unexpected forcing draw ${position}`);
+    const [lower, upper, value] = draws[position];
+    assert.deepEqual([a, b], [lower, upper], `forcing draw ${position}`);
+    position += 1;
+    return value;
+  };
+  return { random: { gaussian: () => 0, integer: take, range: take },
+    drawn: () => position };
+}
+
+function forcingCell() {
+  return { nodes: [{ id: 0 }, { id: 1, parent: 0, m0: 1 }],
+    concentration: 1, source_flow: 2 / 1.15 };
+}
+
+test("placement redraws an overlapping try without K; touching intervals are accepted", () => {
+  const starts = [60, 69, 70, 80, 90, 100, 110, 120, 130];
+  const draws = [[8, 20, 8], ...starts.flatMap((start) => hotspotDraws(start))];
+  const scripted = scriptedForcing(draws);
+  const forcing = generateForcing(forcingCell(), scripted.random);
+  assert.deepEqual(forcing.hotspots.map(({ start }) => start), [60, 70, 80, 90, 100, 110, 120, 130]);
+  assert.equal(forcing.hotspots.length, 8);
+  assert.equal(forcing.attempts, 1);
+  assert.equal(scripted.drawn(), 37);
+});
+
+test("aggregate overload rejection draws a fresh K for the next complete schedule", () => {
+  const first = Array.from({ length: 8 }, (_, i) => 60 + i * 20);
+  const second = Array.from({ length: 9 }, (_, i) => 60 + i * 10);
+  const draws = [[8, 20, 8], ...first.flatMap((start) => hotspotDraws(start, 20, 3)),
+    [8, 20, 9], ...second.flatMap((start) => hotspotDraws(start))];
+  const scripted = scriptedForcing(draws);
+  const forcing = generateForcing(forcingCell(), scripted.random, () => {}, 2);
+  assert.equal(forcing.attempts, 2);
+  assert.equal(forcing.hotspots.length, 9);
+  assert.equal(forcing.overload_minutes, 0);
+  assert.equal(scripted.drawn(), draws.length);
+  assert.throws(() => generateForcing(forcingCell(), scriptedForcing(draws).random, () => {}, 1),
+    (error) => error instanceof GenerationFailure && error.stage === "hotspot-schedule");
+});
+
+function assertRetainedGenerationFailure(world, stage) {
+  assert.deepEqual(world.manifest.terminal_failure, { reason: stage, stage });
+  assert.equal(world.forcing, null);
+  assert.equal(world.manifest.maximum_loss_mmol, 1440 * 8 * Math.exp(5) * 3);
+  const evaluation = evaluateArmA(world);
+  assert.equal(evaluation.failure_reason, stage);
+  assert.equal(evaluation.loss_mmol, world.manifest.maximum_loss_mmol);
+  assert.equal(evaluation.terminated, true);
+  assert.equal(evaluation.truth_steps, 0);
+}
+
+test("placement exhaustion is typed and retains the world with its finite envelope", () => {
+  const scripted = scriptedForcing([[8, 20, 8], ...hotspotDraws(60), ...hotspotDraws(69)]);
+  assert.throws(() => generateForcing(forcingCell(), scripted.random, () => {}, 1, 1),
+    (error) => error instanceof GenerationFailure && error.stage === "hotspot-placement");
+  assert.equal(scripted.drawn(), 9);
+  const world = generateFixture020World({ seed: 0x54010000, hotspotPlacementLimit: 0 });
+  assertRetainedGenerationFailure(world, "hotspot-placement");
+  assert.equal(world.graph.nodes.length - 1, 112);
+  assert.throws(() => generateFixture020World({ seed: 0x54010000, hotspotPlacementLimit: 10001 }),
+    /hotspot placement limit/);
+});
+
+test("all Dinic bound exhaustions are typed and retain generation-failure worlds", () => {
+  const arcs = [{ from: 0, to: 1, capacity: 1 }];
+  const cases = [["searchSteps", "layered-search"], ["augmentations", "augmentation"], ["phases", "phase"]];
+  for (const [key, message] of cases) {
+    assert.throws(() => dinicMaxFlow(2, arcs, 0, 1, { [key]: 0 }),
+      (error) => error instanceof GenerationFailure && error.stage === "max-flow-bound"
+        && error.message.includes(message));
+    assertRetainedGenerationFailure(generateFixture020World({ seed: 0x54010000,
+      maxFlowBounds: { [key]: 0 } }), "max-flow-bound");
+  }
+  assert.equal(dinicMaxFlow(2, arcs, 0, 1), 1);
+  assert.throws(() => dinicMaxFlow(2, arcs, 0, 1, { phases: 3 }), /phases limit/);
 });

@@ -56,7 +56,7 @@
   "artifacts": {
     "total": 49,
     "protocolComplete": 49,
-    "smokeReady": 11,
+    "smokeReady": 12,
     "workstationReady": 0,
     "items": [
       {
@@ -802,11 +802,68 @@
         "linkedClaims": 9,
         "protocolComplete": true,
         "missingFacets": [],
-        "executionReadiness": "absent",
+        "executionReadiness": "smoke-ready",
         "executionReady": false,
-        "executionManifest": null,
-        "executionClaims": [],
-        "promotionChecks": []
+        "executionManifest": "experiments/workstation/manifests/fixture-020.json",
+        "executionClaims": [
+          "C-1488"
+        ],
+        "promotionChecks": [
+          {
+            "id": "execution-claim-scope",
+            "label": "Explicit execution-track claim scope",
+            "passed": true,
+            "detail": "execution track is limited to C-1488"
+          },
+          {
+            "id": "full-profile",
+            "label": "Frozen full profile",
+            "passed": false,
+            "detail": "data.full_profile must match its registered artifact, development profile, schema version, exact positive safe-integer workload cardinality fields, full_profile_sha256, and any declared embedded seed/config hashes"
+          },
+          {
+            "id": "full-tests",
+            "label": "Full experiment-path tests",
+            "passed": true,
+            "detail": "implementation.full_tests is part of the workstation suite executed by npm test"
+          },
+          {
+            "id": "hash-chain",
+            "label": "Corruption-evident output ledger",
+            "passed": false,
+            "detail": "outputs.hash_chain must be wired through a tested ledger implementation"
+          },
+          {
+            "id": "resume",
+            "label": "Deterministic resume",
+            "passed": false,
+            "detail": "resume must declare an existing module/test and be integrated by the runner"
+          },
+          {
+            "id": "energy-provider",
+            "label": "Measured-energy or explicit non-energy boundary",
+            "passed": false,
+            "detail": "energy provider config/module/test and frozen hash must enforce measured energy, or a non-energy claim must explicitly forbid energy conclusions"
+          },
+          {
+            "id": "confirmation-seeds",
+            "label": "Frozen confirmation seeds",
+            "passed": false,
+            "detail": "seeds.confirmation does not disclose a frozen non-empty seed list"
+          },
+          {
+            "id": "held_out-seeds",
+            "label": "Frozen held-out seeds",
+            "passed": false,
+            "detail": "seeds.held_out does not disclose a frozen non-empty seed list"
+          },
+          {
+            "id": "promotion-evidence",
+            "label": "Strict recomputed promotion evidence",
+            "passed": false,
+            "detail": "strict promotion evidence is pending and no claim-eligible bundle exists"
+          }
+        ]
       },
       {
         "id": "fixture-021",

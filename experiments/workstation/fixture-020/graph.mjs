@@ -1,11 +1,7 @@
 import { baselineFeasible } from "./max-flow.mjs";
+import { GenerationFailure } from "./contract.mjs";
 
-export class GenerationFailure extends Error {
-  constructor(stage) {
-    super(`ICP-T01 generation exhausted at ${stage}.`);
-    this.stage = stage;
-  }
-}
+export { GenerationFailure };
 
 function distance(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
@@ -67,7 +63,7 @@ function decorateEdges(edges, nodes, values, random) {
   for (const edge of edges) edge.radius = random.logRange(0.001, 0.004);
 }
 
-export function generateGraph(random, limit = 10000, check = () => {}) {
+export function generateGraph(random, limit = 10000, check = () => {}, maxFlowBounds = {}) {
   for (let attempt = 0; attempt < limit; attempt += 1) {
     check();
     const count = random.integer(48, 128);
@@ -77,7 +73,7 @@ export function generateGraph(random, limit = 10000, check = () => {}) {
     const { tree, ...values } = baseline(nodes, order, random);
     decorateEdges(edges, nodes, { ...values, tree }, random);
     const graph = { nodes, edges, order, ...values, attempts: attempt + 1 };
-    if (baselineFeasible(graph)) return graph;
+    if (baselineFeasible(graph, maxFlowBounds)) return graph;
   }
   throw new GenerationFailure("graph-max-flow");
 }

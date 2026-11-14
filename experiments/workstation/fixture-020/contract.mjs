@@ -16,6 +16,7 @@ export const NO_RESULT = Object.freeze({
 export const FAILURE_REASONS = Object.freeze([
   "generator-failure", "missing-output", "infeasible-flow", "negative-amount",
   "oracle-key-leak", "broken-closure", "negative-storage", "policy-exception",
+  "hotspot-placement", "max-flow-bound",
 ]);
 export const ARTIFACT_FILES = Object.freeze(["world-manifest.json", "graph.json", "demand.jsonl",
   "oxygen-ledger.jsonl", "flows.json", "observations.jsonl", "fallbacks.jsonl"]);
@@ -33,6 +34,13 @@ export class ExecutionStop extends Error {
   constructor(reason) {
     super(`ICP-T01 ${reason}.`);
     this.reason = reason;
+  }
+}
+
+export class GenerationFailure extends Error {
+  constructor(stage, detail = "") {
+    super(`ICP-T01 generation exhausted at ${stage}.${detail ? ` ${detail}` : ""}`);
+    this.stage = stage;
   }
 }
 

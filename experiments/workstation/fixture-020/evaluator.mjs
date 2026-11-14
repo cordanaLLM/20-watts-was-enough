@@ -106,16 +106,23 @@ function accumulateRow(state, row) {
   state.interval.deficit_mmol += row.deficit;
 }
 
-function truthStep(state, world, step, rowStep) {
+function updateNodes(state, world, step, rowStep) {
   let failure = null;
   for (let node = 1; node < world.graph.nodes.length; node += 1) {
     const nodeFailure = updateNode(state, world, step, node, rowStep);
-    if (nodeFailure) { failure = nodeFailure; break; }
+    if (!nodeFailure) continue;
+    failure ??= nodeFailure;
+    if (nodeFailure !== "broken-closure") return { failure, terminated: true };
   }
+  return { failure, terminated: false };
+}
+
+function truthStep(state, world, step, rowStep) {
+  const { failure, terminated } = updateNodes(state, world, step, rowStep);
   const closure = closureState(state.consecutive, failure);
   state.consecutive = closure.consecutive;
   if (failure) state.failure = failure;
-  state.terminated = closure.terminate || (failure !== null && failure !== "broken-closure");
+  state.terminated = closure.terminate || terminated;
   const work = pumpPower(world.graph, state.flows) * TRUTH_DT * 60;
   state.work += work;
   state.interval.work_j += work;
@@ -147,7 +154,7 @@ function finish(state, world) {
 
 function generationFailure(world) {
   return { ...Object.fromEntries(EVALUATION_NUMBERS.map((key) => [key, 0])),
-    failure_reason: "generator-failure", loss_mmol: world.manifest.maximum_loss_mmol,
+    failure_reason: world.manifest.terminal_failure.reason, loss_mmol: world.manifest.maximum_loss_mmol,
     maximum_loss_mmol: world.manifest.maximum_loss_mmol, terminated: true,
     deprived_episode_durations_min: [], oxygen_ledger_sha256: sha256(""), flows_sha256: sha256(""),
     aggregates: [], observations: [], fallbacks: [] };

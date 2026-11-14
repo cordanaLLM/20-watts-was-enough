@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { ARTIFACT_FILES, assertFixture020Record, canonical, EVALUATION_KEYS,
-  EVALUATION_NUMBERS, FIXTURE_020_EVENT_CONTRACT_VERSION, NO_RESULT, scientificPayload,
+  EVALUATION_NUMBERS, FAILURE_REASONS, FIXTURE_020_EVENT_CONTRACT_VERSION, NO_RESULT, scientificPayload,
   sha256, validateFixture020Config, worldId } from "./contract.mjs";
 
 function record() {
@@ -60,6 +60,21 @@ test("output schema is closed and agrees structurally with the runtime event", a
   assert.deepEqual([...schema.properties.evaluation.required].sort(), [...EVALUATION_KEYS].sort());
   assert.equal(schema["x-runtime-validator"].contract_version, FIXTURE_020_EVENT_CONTRACT_VERSION);
   assert.deepEqual(schema.properties.protocol_outcome, { const: "NO_RESULT" });
+  assert.deepEqual(schema.properties.failure_reason.enum, [null, ...FAILURE_REASONS]);
+  assert.deepEqual(schema.properties.evaluation.properties.failure_reason.enum, [null, ...FAILURE_REASONS]);
+});
+
+test("new generation reasons validate and unknown failure reasons remain rejected", () => {
+  for (const reason of ["hotspot-placement", "max-flow-bound"]) {
+    const value = record();
+    value.failure_reason = reason;
+    value.evaluation.failure_reason = reason;
+    assert.equal(assertFixture020Record(rehash(value)), value);
+  }
+  const value = record();
+  value.failure_reason = "unknown-generation-failure";
+  value.evaluation.failure_reason = value.failure_reason;
+  assert.throws(() => assertFixture020Record(rehash(value)), /failure reason invalid/);
 });
 
 test("profiles preserve full spatial/time contract, public seed counts and finite caps", async () => {
