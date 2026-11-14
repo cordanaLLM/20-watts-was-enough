@@ -285,3 +285,29 @@ test("nullish policy exceptions retain policy-exception terminal loss", () => {
     assert.equal(result.loss_mmol, 1440);
   }
 });
+
+function redistributionPolicy(delta, mutate) {
+  return (input, previous) => {
+    if (!previous) return input.graph.edges.map((edge) => edge.tree_flow);
+    const flows = mutate ? previous : previous.slice();
+    if (input.minute === 5) { flows[0] -= delta; flows[1] += delta; }
+    return flows;
+  };
+}
+
+test("in-place policy mutation obeys the same step limit as fresh flows", () => {
+  const fresh = evaluateArmA(threeCells(), { policy: redistributionPolicy(0.6, false) });
+  const mutated = evaluateArmA(threeCells(), { policy: redistributionPolicy(0.6, true) });
+  assert.equal(fresh.failure_reason, "infeasible-flow");
+  assert.equal(mutated.failure_reason, fresh.failure_reason);
+  assert.equal(mutated.truth_steps, fresh.truth_steps);
+});
+
+test("in-place policy mutation retains the same accepted flow variation as fresh flows", () => {
+  const fresh = evaluateArmA(threeCells(), { policy: redistributionPolicy(0.25, false) });
+  const mutated = evaluateArmA(threeCells(), { policy: redistributionPolicy(0.25, true) });
+  assert.equal(fresh.failure_reason, null);
+  assert.equal(fresh.edge_flow_total_variation_l_min, 0.5);
+  assert.equal(mutated.failure_reason, fresh.failure_reason);
+  assert.equal(mutated.edge_flow_total_variation_l_min, fresh.edge_flow_total_variation_l_min);
+});

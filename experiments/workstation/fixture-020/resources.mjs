@@ -4,7 +4,9 @@ export function memoryCapCheck({ peakBytes, currentBytes, capBytes }) {
   const status = peakBytes === null ? "current-resident-lower-bound" : "linux-peak-resident";
   const observed = peakBytes ?? currentBytes;
   if (!Number.isFinite(observed) || observed < 0) throw new Error("ICP-T01 memory counter unavailable.");
-  if (observed > capBytes) throw new Error(`ICP-T01 memory-cap exceeded: ${observed} B > ${capBytes} B.`);
+  if (observed > capBytes || currentBytes > capBytes) {
+    throw new Error(`ICP-T01 memory-cap exceeded: ${Math.max(observed, currentBytes)} B > ${capBytes} B.`);
+  }
   return status;
 }
 

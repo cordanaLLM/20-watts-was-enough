@@ -69,6 +69,7 @@ const fixtureRoot = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(fixtureRoot, "../../..");
 const coreSources = [
   "../lib/checkpoint-ledger.mjs",
+  "../lib/output-lock.mjs",
   "analysis.py",
   "contract.mjs",
   "evaluator.py",

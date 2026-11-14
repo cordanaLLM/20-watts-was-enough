@@ -190,14 +190,15 @@ function inside(root, file) {
   return !relative.startsWith("..") && !path.isAbsolute(relative);
 }
 
-export async function outputDirectory(root, output, create = false) {
+export async function outputDirectory(root, output, create = false,
+  { syncDirectory: syncParent = syncDirectory } = {}) {
   const directory = path.resolve(root, output);
   if (!inside(root, directory) || directory === root) throw new Error("ICP-T01 output must stay inside repository.");
   const segments = path.relative(root, directory).split(path.sep);
   let current = root;
   for (const segment of segments) {
     current = path.join(current, segment);
-    await directorySegment(current, create);
+    await directorySegment(current, create, syncParent);
   }
   if (create && await io(() => realpath(directory), "resolve output") !== directory) {
     throw new Error("ICP-T01 output real path differs.");
@@ -205,13 +206,16 @@ export async function outputDirectory(root, output, create = false) {
   return directory;
 }
 
-async function directorySegment(current, create) {
+async function directorySegment(current, create, syncParent) {
   try {
     const info = await io(() => lstat(current), `inspect output ${current}`);
     if (!info.isDirectory() || info.isSymbolicLink()) throw new Error("ICP-T01 output path substitution rejected.");
   } catch (error) {
     if (error.cause?.code !== "ENOENT") throw error;
-    if (create) await io(() => mkdir(current), `mkdir ${current}`);
+    if (create) {
+      await io(() => mkdir(current), `mkdir ${current}`);
+      await syncParent(path.dirname(current));
+    }
   }
 }
 

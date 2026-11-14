@@ -35,7 +35,7 @@ function decision(state, world, minute, policy) {
     arrivedPanels(state.observations, minute));
   let flows;
   try {
-    flows = policy(visible, state.flows);
+    flows = policy(visible, state.flows ? state.flows.slice() : state.flows);
   } catch (error) {
     return error?.message === "oracle-key-leak" ? "oracle-key-leak" : "policy-exception";
   }

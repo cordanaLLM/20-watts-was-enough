@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { open, readFile, rm, writeFile } from "node:fs/promises";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import { acquireLock } from "../lib/output-lock.mjs";
 import { cleanup, temporaryOutput } from "../lib/runner-test-helpers.mjs";
 
@@ -77,6 +78,97 @@ test("failed lock cleanup attempts close and removal and attaches every failure"
       return true;
     });
     assert.equal(removed, true);
+    await assert.rejects(() => readFile(file), { code: "ENOENT" });
+  } finally { await cleanup(fixture); }
+});
+
+async function waitForLockRemoval(file) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    try { await readFile(file); }
+    catch (error) { if (error.code === "ENOENT") return; throw error; }
+    await delay(25);
+  }
+  assert.fail("late-open lock remained after bounded poll");
+}
+
+test("late successful lock open closes and removes the abandoned lock", async () => {
+  const fixture = await temporaryOutput("fixture-020-late-open-");
+  const file = fixture.output + ".fixture-020.lock";
+  let lateHandle;
+  let closed = false;
+  const pending = acquireLock(fixture.output, "fixture-020", 50, { open: async (...args) => {
+    await delay(150);
+    lateHandle = await open(...args);
+    return { close: async () => { await lateHandle.close(); closed = true; } };
+  } });
+  try {
+    await assert.rejects(() => pending, /Output lock deadline/);
+    await delay(175);
+    await waitForLockRemoval(file);
+    assert.equal(closed, true);
+    const lock = await acquireLock(fixture.output, "fixture-020");
+    await lock.release();
+    await assert.rejects(() => readFile(file), { code: "ENOENT" });
+  } finally {
+    if (lateHandle) await lateHandle.close();
+    await cleanup(fixture);
+  }
+});
+
+test("existing owner lock stays byte-identical after immediate EEXIST", async () => {
+  const fixture = await temporaryOutput("fixture-020-existing-lock-");
+  const file = fixture.output + ".fixture-020.lock";
+  const original = Buffer.from("other owner's lock\n");
+  try {
+    await writeFile(file, original);
+    await assert.rejects(() => acquireLock(fixture.output, "fixture-020"), { code: "EEXIST" });
+    assert.deepEqual(await readFile(file), original);
+  } finally { await cleanup(fixture); }
+});
+
+test("late failed lock open records EEXIST and preserves the other owner's bytes", async () => {
+  const fixture = await temporaryOutput("fixture-020-late-existing-lock-");
+  const file = fixture.output + ".fixture-020.lock";
+  const original = Buffer.from("other owner's late lock\n");
+  let deadline;
+  try {
+    await writeFile(file, original);
+    await assert.rejects(() => acquireLock(fixture.output, "fixture-020", 50, {
+      open: async (...args) => { await delay(150); return open(...args); },
+    }), (error) => { deadline = error; return /Output lock deadline/.test(error.message); });
+    await delay(175);
+    assert.equal(deadline.lateOpenError?.code, "EEXIST");
+    assert.deepEqual(await readFile(file), original);
+  } finally { await cleanup(fixture); }
+});
+
+test("release rejects a 4097-byte lock document and leaves it byte-identical", async () => {
+  const fixture = await temporaryOutput("fixture-020-oversized-lock-");
+  const file = fixture.output + ".fixture-020.lock";
+  const lock = await acquireLock(fixture.output, "fixture-020");
+  const original = await readFile(file, "utf8");
+  const oversized = original.trimEnd().padEnd(4096, " ") + "\n";
+  try {
+    await writeFile(file, oversized);
+    await assert.rejects(() => lock.release(), /Fixture 020.*4096.*bytes/);
+    assert.equal(await readFile(file, "utf8"), oversized);
+  } finally {
+    await writeFile(file, original);
+    await lock.release();
+    await cleanup(fixture);
+  }
+});
+
+test("release accepts a valid lock document padded to exactly 4096 bytes", async () => {
+  const fixture = await temporaryOutput("fixture-020-boundary-lock-");
+  const file = fixture.output + ".fixture-020.lock";
+  const lock = await acquireLock(fixture.output, "fixture-020");
+  try {
+    const original = await readFile(file, "utf8");
+    const boundary = original.trimEnd().padEnd(4095, " ") + "\n";
+    assert.equal(Buffer.byteLength(boundary), 4096);
+    await writeFile(file, boundary);
+    await lock.release();
     await assert.rejects(() => readFile(file), { code: "ENOENT" });
   } finally { await cleanup(fixture); }
 });

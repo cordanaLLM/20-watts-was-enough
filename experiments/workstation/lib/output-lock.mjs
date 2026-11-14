@@ -1,6 +1,11 @@
 import { randomBytes } from "node:crypto";
-import { open, readFile, rm } from "node:fs/promises";
+import { open, rm } from "node:fs/promises";
+import { constants } from "node:fs";
 import { sha256Hex } from "./checkpoint-ledger.mjs";
+
+const LOCK_DOCUMENT_MAX_BYTES = 4096;
+
+class OutputLockDeadline extends Error {}
 
 async function lockIo(operation, label, timeoutMs) {
   let timer;
@@ -8,7 +13,7 @@ async function lockIo(operation, label, timeoutMs) {
     return await Promise.race([
       operation(AbortSignal.timeout(timeoutMs)),
       new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error(`Output lock deadline: ${label}.`)), timeoutMs);
+        timer = setTimeout(() => reject(new OutputLockDeadline(`Output lock deadline: ${label}.`)), timeoutMs);
       }),
     ]);
   } finally { clearTimeout(timer); }
@@ -27,11 +32,43 @@ async function cleanupFailedLock(handle, lockPath, timeoutMs, removeLock, error)
   if (cleanupErrors.length > 0) error.cleanupErrors = cleanupErrors;
 }
 
+async function openLockHandle(lockPath, timeoutMs, openLock, removeLock) {
+  const pending = Promise.resolve().then(() => openLock(lockPath, "wx", 0o600));
+  try {
+    return await lockIo(() => pending, `open ${lockPath}`, timeoutMs);
+  } catch (error) {
+    if (error instanceof OutputLockDeadline) {
+      void pending.then(
+        (handle) => cleanupFailedLock(handle, lockPath, timeoutMs, removeLock, error),
+        (openError) => { error.lateOpenError = openError; },
+      );
+    }
+    throw error;
+  }
+}
+
+async function readLockDocument(lockPath, artifact, timeoutMs) {
+  const flags = constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0);
+  const reader = await lockIo(() => open(lockPath, flags), `open read ${lockPath}`, timeoutMs);
+  try {
+    const buffer = Buffer.alloc(LOCK_DOCUMENT_MAX_BYTES);
+    const { bytesRead } = await lockIo(() => reader.read(buffer, 0, buffer.length, 0), `read ${lockPath}`, timeoutMs);
+    const { size } = await lockIo(() => reader.stat(), `stat ${lockPath}`, timeoutMs);
+    if (size > LOCK_DOCUMENT_MAX_BYTES) {
+      throw new Error(`Fixture ${artifact.slice(8)} lock document exceeds ${LOCK_DOCUMENT_MAX_BYTES} bytes.`);
+    }
+    if (bytesRead !== size) throw new Error(`Fixture ${artifact.slice(8)} lock document read incomplete.`);
+    return JSON.parse(buffer.subarray(0, bytesRead).toString("utf8"));
+  } finally {
+    await lockIo(() => reader.close(), `close read ${lockPath}`, timeoutMs);
+  }
+}
+
 export async function acquireLock(directory, artifact, timeoutMs = 30000,
   { open: openLock = open, rm: removeLock = rm } = {}) {
   const lockPath = `${directory}.${artifact}.lock`;
   const token = randomBytes(32).toString("hex");
-  const handle = await lockIo(() => openLock(lockPath, "wx", 0o600), `open ${lockPath}`, timeoutMs);
+  const handle = await openLockHandle(lockPath, timeoutMs, openLock, removeLock);
   try {
     const body = `${JSON.stringify({ schema: 1, artifact, token_sha256: sha256Hex(token) })}\n`;
     await lockIo((signal) => handle.writeFile(body, { signal }), `write ${lockPath}`, timeoutMs);
@@ -42,9 +79,7 @@ export async function acquireLock(directory, artifact, timeoutMs = 30000,
   }
   return Object.freeze({
     async release() {
-      const raw = await lockIo((signal) => readFile(lockPath, { encoding: "utf8", signal }),
-        `read ${lockPath}`, timeoutMs);
-      const document = JSON.parse(raw);
+      const document = await readLockDocument(lockPath, artifact, timeoutMs);
       if (document.token_sha256 !== sha256Hex(token)) {
         throw new Error(`Fixture ${artifact.slice(8)} lock ownership changed.`);
       }
