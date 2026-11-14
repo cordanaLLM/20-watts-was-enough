@@ -28,12 +28,13 @@ test("argument parser requires an explicit bounded selection and output for real
 test("all validated smoke manifests produce shell-free bounded plans", async () => {
   const outputRoot = path.join(os.tmpdir(), "smoke-suite-plan-test");
   const plans = await loadSmokeSuitePlans({ repositoryRoot, all: true, outputRoot });
-  assert.equal(plans.length, 11);
+  assert.equal(plans.length, 12);
   assert.deepEqual(plans.map((plan) => plan.artifact), [
     "candidate-010",
     "fixture-007",
     "fixture-012",
     "fixture-019",
+    "fixture-020",
     "fixture-022",
     "fixture-023",
     "fixture-024",

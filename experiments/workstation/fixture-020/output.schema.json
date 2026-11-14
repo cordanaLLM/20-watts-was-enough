@@ -1,0 +1,370 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://20-watts-was-enough.local/schemas/fixture-020.icp-t01-event.schema.json",
+  "title": "Fixture 020 ICP-T01 public-development smoke event",
+  "type": "object",
+  "additionalProperties": false,
+  "x-runtime-validator": {
+    "module": "contract.mjs",
+    "export": "assertFixture020Record",
+    "version_export": "FIXTURE_020_EVENT_CONTRACT_VERSION",
+    "contract_version": "fixture-020.icp-t01-event.v1",
+    "test": "contract.test.mjs"
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "contract_version": {
+      "const": "fixture-020.icp-t01-event.v1"
+    },
+    "artifact": {
+      "const": "fixture-020"
+    },
+    "track": {
+      "const": "ICP-T01"
+    },
+    "run_id": {
+      "$ref": "#/$defs/sha256"
+    },
+    "profile": {
+      "enum": [
+        "smoke",
+        "development"
+      ]
+    },
+    "pack": {
+      "const": "public-development"
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 1409351680,
+      "maximum": 1409351743
+    },
+    "world_id": {
+      "type": "string",
+      "pattern": "^ICP-T01-0x540100[0-3][0-9a-f]$"
+    },
+    "world_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "arm": {
+      "const": "A"
+    },
+    "maximum_loss_mmol": {
+      "type": "number",
+      "minimum": 0
+    },
+    "loss_mmol": {
+      "type": "number",
+      "minimum": 0
+    },
+    "failure_reason": {
+      "enum": [
+        null,
+        "generator-failure",
+        "missing-output",
+        "infeasible-flow",
+        "negative-amount",
+        "oracle-key-leak",
+        "broken-closure",
+        "negative-storage",
+        "policy-exception",
+        "hotspot-placement",
+        "max-flow-bound"
+      ]
+    },
+    "evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "loss_mmol": {
+          "type": "number",
+          "minimum": 0
+        },
+        "maximum_loss_mmol": {
+          "type": "number",
+          "minimum": 0
+        },
+        "observed_loss_mmol": {
+          "type": "number",
+          "minimum": 0
+        },
+        "truth_steps": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "closure_failures_consecutive": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maximum_relative_closure": {
+          "type": "number",
+          "minimum": 0
+        },
+        "delivered_mmol": {
+          "type": "number",
+          "minimum": 0
+        },
+        "consumed_mmol": {
+          "type": "number",
+          "minimum": 0
+        },
+        "exported_mmol": {
+          "type": "number",
+          "minimum": 0
+        },
+        "leaked_mmol": {
+          "type": "number",
+          "minimum": 0
+        },
+        "minimum_storage_mmol": {
+          "type": "number",
+          "minimum": 0
+        },
+        "simulated_work_j": {
+          "type": "number",
+          "minimum": 0
+        },
+        "resource_cap_j": {
+          "type": "number",
+          "minimum": 0
+        },
+        "edge_flow_exposure_l": {
+          "type": "number",
+          "minimum": 0
+        },
+        "edge_flow_total_variation_l_min": {
+          "type": "number",
+          "minimum": 0
+        },
+        "deprived_node_episodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "node_debt_p95_mmol": {
+          "type": "number",
+          "minimum": 0
+        },
+        "uniform_upper_round": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failure_reason": {
+          "enum": [
+            null,
+            "generator-failure",
+            "missing-output",
+            "infeasible-flow",
+            "negative-amount",
+            "oracle-key-leak",
+            "broken-closure",
+            "negative-storage",
+            "policy-exception",
+            "hotspot-placement",
+            "max-flow-bound"
+          ]
+        },
+        "terminated": {
+          "type": "boolean"
+        },
+        "deprived_episode_durations_min": {
+          "type": "array",
+          "maxItems": 737280,
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "oxygen_ledger_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "flows_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "loss_mmol",
+        "maximum_loss_mmol",
+        "observed_loss_mmol",
+        "truth_steps",
+        "closure_failures_consecutive",
+        "maximum_relative_closure",
+        "delivered_mmol",
+        "consumed_mmol",
+        "exported_mmol",
+        "leaked_mmol",
+        "minimum_storage_mmol",
+        "simulated_work_j",
+        "resource_cap_j",
+        "edge_flow_exposure_l",
+        "edge_flow_total_variation_l_min",
+        "deprived_node_episodes",
+        "node_debt_p95_mmol",
+        "uniform_upper_round",
+        "failure_reason",
+        "terminated",
+        "deprived_episode_durations_min",
+        "oxygen_ledger_sha256",
+        "flows_sha256"
+      ]
+    },
+    "artifacts_sha256": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "world-manifest.json": {
+          "$ref": "#/$defs/sha256"
+        },
+        "graph.json": {
+          "$ref": "#/$defs/sha256"
+        },
+        "demand.jsonl": {
+          "$ref": "#/$defs/sha256"
+        },
+        "oxygen-ledger.jsonl": {
+          "$ref": "#/$defs/sha256"
+        },
+        "flows.json": {
+          "$ref": "#/$defs/sha256"
+        },
+        "observations.jsonl": {
+          "$ref": "#/$defs/sha256"
+        },
+        "fallbacks.jsonl": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "world-manifest.json",
+        "graph.json",
+        "demand.jsonl",
+        "oxygen-ledger.jsonl",
+        "flows.json",
+        "observations.jsonl",
+        "fallbacks.jsonl"
+      ]
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "previous_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "record_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "sequence",
+        "previous_sha256",
+        "record_sha256"
+      ]
+    },
+    "protocol_outcome": {
+      "const": "NO_RESULT"
+    },
+    "no_result": {
+      "const": true
+    },
+    "claim_eligible": {
+      "const": false
+    },
+    "scientific_result": {
+      "const": false
+    },
+    "performance_result": {
+      "const": false
+    },
+    "measured_energy_present": {
+      "const": false
+    },
+    "energy_conclusion_allowed": {
+      "const": false
+    },
+    "comparison_inference_permitted": {
+      "const": false
+    },
+    "arms_implemented": {
+      "const": [
+        "A"
+      ]
+    },
+    "arms_deferred": {
+      "const": [
+        "B",
+        "C",
+        "O"
+      ]
+    },
+    "execution_stop": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reason",
+            "check_index"
+          ],
+          "properties": {
+            "reason": {
+              "enum": [
+                "timeout",
+                "cancelled"
+              ]
+            },
+            "check_index": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1099511627776
+            }
+          }
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "contract_version",
+    "artifact",
+    "track",
+    "run_id",
+    "profile",
+    "pack",
+    "seed",
+    "world_id",
+    "world_sha256",
+    "arm",
+    "maximum_loss_mmol",
+    "loss_mmol",
+    "failure_reason",
+    "evaluation",
+    "artifacts_sha256",
+    "integrity",
+    "protocol_outcome",
+    "no_result",
+    "claim_eligible",
+    "scientific_result",
+    "performance_result",
+    "measured_energy_present",
+    "energy_conclusion_allowed",
+    "comparison_inference_permitted",
+    "arms_implemented",
+    "arms_deferred",
+    "execution_stop"
+  ]
+}

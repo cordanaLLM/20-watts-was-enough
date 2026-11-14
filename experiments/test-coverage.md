@@ -85,7 +85,7 @@ appear on the claim side, 1165 on the document side, and
 
 There are 49 experiment artifacts: 49
 pass the written-protocol gate, a validated smoke harness exists for
-11, and 0 pass the full execution gate.
+12, and 0 pass the full execution gate.
 Smoke readiness verifies deterministic plumbing but cannot promote a claim.
 
 | Artifact | Directly related claims | Protocol status | Execution status | Harness |
@@ -129,7 +129,7 @@ Smoke readiness verifies deterministic plumbing but cannot promote a claim.
 | [fixture-017](fixtures/017-low-bit-model-hardware-crossover.md) | 1 | complete description | not executable | none; not yet built |
 | [fixture-018](fixtures/018-environmental-process-state-control.md) | 14 | complete description | not executable | none; not yet built |
 | [fixture-019](fixtures/019-finance-risk-attention-governance.md) | 14 | complete description | smoke-ready; not executable | workstation harness |
-| [fixture-020](fixtures/020-integrative-comparative-physiology.md) | 9 | complete description | not executable | none; not yet built |
+| [fixture-020](fixtures/020-integrative-comparative-physiology.md) | 9 | complete description | smoke-ready; not executable | workstation harness |
 | [fixture-021](fixtures/021-tribology-contact-adaptive-interfaces.md) | 9 | complete description | not executable | none; not yet built |
 | [fixture-022](fixtures/022-regenerative-positional-memory.md) | 10 | complete description | smoke-ready; not executable | workstation harness |
 | [fixture-023](fixtures/023-plant-plasticity-memory-signalling.md) | 10 | complete description | smoke-ready; not executable | workstation harness |
@@ -150,7 +150,7 @@ Smoke readiness verifies deterministic plumbing but cannot promote a claim.
   in an existing artifact but lack an exact traceability or test track.
 - 0 claims reach only a partial description.
   The missing facets are concentrated in no artifact.
-- 11 artifact(s) have a validated smoke manifest and
+- 12 artifact(s) have a validated smoke manifest and
   deterministic harness. They remain non-executable for claim coverage until
   confirmation seeds, held-out generators, complete analysis, resume and
   corruption checks, and measured-energy instrumentation satisfy the

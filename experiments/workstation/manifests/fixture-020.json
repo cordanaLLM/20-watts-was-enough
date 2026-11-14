@@ -1,0 +1,110 @@
+{
+  "schema": 1,
+  "artifact": "fixture-020",
+  "readiness": "smoke-ready",
+  "distribution": {
+    "state": "source-only",
+    "runtime_class": "node-source",
+    "authority": "NO_RESULT"
+  },
+  "command": {
+    "prepare": "node experiments/workstation/fixture-020/runner.mjs prepare --profile smoke",
+    "smoke": "node experiments/workstation/fixture-020/runner.mjs smoke --profile smoke --output <run-directory> --resume false",
+    "run": "node experiments/workstation/fixture-020/runner.mjs run --profile development --output <run-directory> --resume false",
+    "analyze": "node experiments/workstation/fixture-020/runner.mjs analyze --output <run-directory>",
+    "validate": "node experiments/workstation/fixture-020/runner.mjs validate --output <run-directory>"
+  },
+  "environment": {
+    "runtime": "Node.js 26.x on a little-endian CPU; exact runtime recorded; binary64 arithmetic only",
+    "lockfiles": [
+      "package-lock.json"
+    ]
+  },
+  "hardware": {
+    "smoke": {
+      "cpu": "one ordinary little-endian CPU thread or more",
+      "memory_bytes": 134217728,
+      "disk_bytes": 52428800,
+      "energy": "not measured or modeled; energy conclusions forbidden"
+    },
+    "workstation": {
+      "cpu": "one ordinary little-endian CPU thread; ICP-T01 public-development A-only smoke scope",
+      "memory_bytes": 268435456,
+      "disk_bytes": 1073741824,
+      "energy": "not measured or modeled; energy conclusions forbidden"
+    }
+  },
+  "seeds": {
+    "development": "experiments/workstation/fixture-020/seeds/development.reveal.json",
+    "confirmation": "experiments/workstation/fixture-020/seeds/confirmation.unavailable.json",
+    "held_out": "experiments/workstation/fixture-020/seeds/transfer.unavailable.json"
+  },
+  "data": {
+    "generator": "experiments/workstation/fixture-020/generator.mjs",
+    "full_profile": "experiments/workstation/fixture-020/configs/development.json",
+    "full_profile_sha256": "98933fd13c98b2c856ffcedc3d170b829a6742a74b5440601ebe60fbcad0e7eb",
+    "external": []
+  },
+  "outputs": {
+    "directory": "experiments/workstation/runs/fixture-020-*",
+    "schema": "experiments/workstation/fixture-020/output.schema.json",
+    "append_only": true,
+    "hash_chain": true
+  },
+  "implementation": {
+    "entrypoint": "experiments/workstation/fixture-020/runner.mjs",
+    "tests": [
+      "experiments/workstation/fixture-020/contract.test.mjs",
+      "experiments/workstation/fixture-020/generator.test.mjs",
+      "experiments/workstation/fixture-020/evaluator.test.mjs",
+      "experiments/workstation/fixture-020/runner.test.mjs"
+    ],
+    "full_tests": [
+      "experiments/workstation/fixture-020/contract.test.mjs",
+      "experiments/workstation/fixture-020/generator.test.mjs",
+      "experiments/workstation/fixture-020/evaluator.test.mjs",
+      "experiments/workstation/fixture-020/runner.test.mjs"
+    ],
+    "execution_claims": [
+      "C-1488"
+    ]
+  },
+  "energy": {
+    "mode": "not-measured",
+    "required": false,
+    "applicability": "not-applicable-to-scoped-claim",
+    "energy_conclusion_allowed": false,
+    "scope_binding": "fixture-020.c-1488.icp-t01-development-smoke.non-energy.v1",
+    "not_applicable_reason": "Simulated pump work is a synthetic transport quantity in J, not workstation joules or watts; no measured energy conclusion is allowed."
+  },
+  "resume": {
+    "supported": true,
+    "module": "experiments/workstation/lib/checkpoint-ledger.mjs",
+    "test": "experiments/workstation/fixture-020/runner.test.mjs"
+  },
+  "promotion_evidence": {
+    "status": "pending",
+    "evidence_path": "experiments/workstation/promotion/fixture-020/evidence.json",
+    "promotion_validation_receipt_path": "experiments/workstation/promotion/fixture-020/promotion-validation.launch-receipt.json",
+    "run_directory": "experiments/workstation/runs/fixture-020-confirmation",
+    "release_root": "experiments/workstation/releases/fixture-020",
+    "release_path": "experiments/workstation/releases/fixture-020/confirmation.release.json",
+    "energy_assignments_path": "experiments/workstation/runs/fixture-020-confirmation/non-energy-boundary.json",
+    "disjoint_seed_pack_paths": [
+      "experiments/workstation/fixture-020/seeds/transfer.unavailable.json"
+    ],
+    "protocol_eligibility": {
+      "status": "blocked",
+      "protocol_version": "F-020/ICP-T01-public-development-smoke-v1",
+      "claim_scope": [
+        "C-1488"
+      ],
+      "blockers": [
+        "Only ICP-T01 base-family public-development generator and arm A are implemented.",
+        "Arms B (MIQP), C (local repair), O (oracle), common inference, sensitivity diagnostic, transfer, parquet artifacts and T02-T09 are deferred.",
+        "No confirmation or transfer seeds or commitments, measured workstation energy or promotion evidence exist.",
+        "Every summary remains NO_RESULT; C-1488 scope binding confers no scientific, comparative or energy result."
+      ]
+    }
+  }
+}
