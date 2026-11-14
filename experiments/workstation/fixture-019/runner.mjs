@@ -1,9 +1,8 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import {
   access,
   lstat,
   mkdir,
-  open,
   readFile,
   realpath,
   rm,
@@ -14,6 +13,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
+import { acquireLock } from "../lib/output-lock.mjs";
 
 import {
   canonicalize,
@@ -355,22 +355,6 @@ function workUnitKey(unit) {
   return `${unit.split}|${unit.cell}|${unit.replicate}|${unit.seed}`;
 }
 
-async function acquireLock(directory) {
-  const lockPath = `${directory}.fixture-019.lock`;
-  const token = randomBytes(32).toString("hex");
-  const handle = await open(lockPath, "wx", 0o600);
-  await handle.writeFile(`${JSON.stringify({ schema: 1, artifact: "fixture-019", token_sha256: sha256Hex(token) })}\n`);
-  await handle.sync();
-  return Object.freeze({
-    async release() {
-      const document = JSON.parse(await readFile(lockPath, "utf8"));
-      if (document.token_sha256 !== sha256Hex(token)) throw new Error("Fixture 019 lock ownership changed.");
-      await handle.close();
-      await rm(lockPath);
-    },
-  });
-}
-
 async function writeStableJson(file, value) {
   const body = `${JSON.stringify(value, null, 2)}\n`;
   try {
@@ -421,7 +405,7 @@ export async function executeFixture019({
   });
   const directory = outputDirectory(output);
   await prepareRunDirectory(directory, resume);
-  const lock = await acquireLock(directory);
+  const lock = await acquireLock(directory, "fixture-019");
   const identity = runIdentity(inputs);
   const rawPath = path.join(directory, "raw-events.jsonl");
   const checkpointPath = path.join(directory, "checkpoint.json");

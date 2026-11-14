@@ -61,13 +61,26 @@ artifacts. A checkpoint may lag the raw ledger. A missing checkpoint can be
 rebuilt; a torn raw record is rejected. Only derivable, unfinished atomic
 writes may be repaired. Complete conflicting evidence is preserved and
 rejected. Output paths reject symlinks and repository escapes.
+No other process may modify the output directory during a command.
+A killed process leaves a sibling `.fixture-020.lock` file; resume refuses
+until it is removed after confirming that no process uses the output.
 
-The command accepts cancellation and finite wall deadlines. An in-flight
-interruption retains a `NO_RESULT` receipt and a terminal-loss world record.
+The wall deadline is checked synchronously and can stop inside a world.
+A wall-deadline interruption retains a `NO_RESULT` receipt and a terminal-loss world record.
 A generation interruption receives the finite generation-failure envelope; an
 arm interruption receives its already computed maximum loss. The recorded
 check index replays the failure boundary. Resume preserves that failed world
 and continues with the next seed. Analysis rejects an incomplete denominator.
+A CLI signal is observed at the next yield: the in-flight world completes
+and is retained as an ordinary record. The next boundary check stops with
+reason `cancelled` and writes `interruption-<n>.json`. Signal handlers use
+`process.once`, so a second signal ends the process at once.
+Smoke shares one wall deadline across execution, analysis and validation.
+The deadline is checked before each world and after its artifact-and-ledger
+commit. That commit can require several I/O operations; each has a 30 s
+deadline and at most 30 s further settlement grace.
+An I/O deadline writes no interruption document: an unsettled operation may
+still complete, and resume re-verifies the ledger and artifacts.
 
 ## Artifacts and bounds
 
@@ -78,6 +91,10 @@ aggregated over each 5 min decision interval. The full oxygen ledger and flow
 history receive SHA-256 digests over little-endian binary64 rows. Raw signed
 observation values remain in the observation file. A's ordinary fixed action
 requires no fallback, so its fallback file is empty.
+Before writing artifacts, the runner atomically retains `pending-outcome.json`.
+Resume replays that outcome, completes its artifacts and appends it to the
+ledger before removing the pending file. Conflicting pending outcomes are
+preserved and rejected; complete outputs have no pending outcome.
 
 The root retains the append-only hash-chained `raw-events.jsonl`, checkpoint,
 source identity, canonical `seed-outcomes.jsonl`, run document and summary.
@@ -90,9 +107,14 @@ mark and cumulative syscall byte counts from `/proc/self/`; these include
 imports and replay. Other platforms mark those counters unavailable and
 retain current RSS. The receipt describes software execution only.
 
-Rejection sites allow 10,000 attempts. Smoke allows 300 s, 134,217,728 B of
-memory and 52,428,800 B of artifacts. Development allows eight hours and
-1,073,741,824 B of artifacts. Execution is serial and CPU-only. Each file has
+Rejection sites allow 10,000 attempts. Smoke allows 300 s and 52,428,800 B
+of artifacts. Development allows eight hours and 1,073,741,824 B of artifacts.
+Both profiles declare a 134,217,728 B memory cap. At every world boundary,
+Linux checks its monotonic VmHWM; a peak inside a world is caught at the
+next boundary. Other platforms check current RSS as a lower bound: exceeding
+the cap fails, while remaining below it proves nothing about peak memory.
+The smoke resource receipt also records the post-command check and its mode.
+Execution is serial and CPU-only. Each file has
 a 52,428,800 B read/write cap and I/O has a 30 s deadline. Exact Node version
 and the shared numeric sentinel are recorded; this source smoke accepts the
 26.x family rather than imposing the later fixture's exact-version check.
@@ -111,7 +133,9 @@ gaps in the executable slice; they do not amend the frozen protocol.
   by the canonical cheap-multiplier step. The older shared constructor and
   its output sequences remain unchanged.
 - Uniforms use `Number(2n*x+1n) / 2**65`. An upper rounding event returns
-  `1-2**-53` and increments `uniform_upper_round` in the world manifest.
+  `1-2**-53`. The hashed generation manifest counts generation events in
+  `uniform_upper_round`; the record metric counts generation plus observation
+  events, counting the replayed seed-delay draw once.
   Gaussian draws use two consecutive uniforms and discard the sine mate;
   innovation clipping is clamping. Inclusive integers use
   `min(b,a+floor(u*(b-a+1)))`. Dirichlet components use two negative log
@@ -130,13 +154,14 @@ gaps in the executable slice; they do not amend the frozen protocol.
   each of at most 10,000 schedule attempts draws K uniformly from integers
   8--20 once. Place hotspots in ID order 0 through K-1. Each hotspot allows
   at most 10,000 tries, drawing start (integer 60--1320), duration (integer
-  10--90), centre (integer 1--N) and multiplier (uniform 1.5--3), in that
+  10--90), centre (integer 0--N) and multiplier (uniform 1.5--3), in that
   order; N is the number of demand nodes. Accept the first try whose
   half-open interval does not overlap any accepted hotspot. Touching is
   allowed. An overlap redraws only that hotspot; K stays fixed. Exhausted
   placement raises `GenerationFailure` at `hotspot-placement` and retains
-  the failed world. Centres exclude the source, and descendants follow
-  primary-tree edges only.
+  the failed world. Descendants follow primary-tree edges only. Source node
+  0 has no demand row; its children and grandchildren receive the same
+  half and quarter excess as descendants of any other centre.
 - After placing all K hotspots, apply the schedule. Count minutes with
   aggregate demand greater than `1.15*C_a*Q_src`. More than 120 overload
   minutes rejects the complete schedule; the next attempt draws a fresh K.

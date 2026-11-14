@@ -37,7 +37,7 @@ function decision(state, world, minute, policy) {
   try {
     flows = policy(visible, state.flows);
   } catch (error) {
-    return error.message === "oracle-key-leak" ? "oracle-key-leak" : "policy-exception";
+    return error?.message === "oracle-key-leak" ? "oracle-key-leak" : "policy-exception";
   }
   const checked = validateFlows(world.graph, flows, state.flows);
   if (checked.failure) return checked.failure;

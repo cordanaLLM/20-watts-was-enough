@@ -1,4 +1,5 @@
-import { lstat, mkdir, open, readFile, readdir, rename, realpath } from "node:fs/promises";
+import { lstat, mkdir, open, readFile, readdir, rename, realpath, unlink } from "node:fs/promises";
+import { constants } from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { canonical } from "./contract.mjs";
@@ -6,23 +7,43 @@ import { canonical } from "./contract.mjs";
 export const OUTPUT_CAP = 52428800;
 const IO_TIMEOUT_MS = 30000;
 
-export async function io(operation, label) {
-  let timer;
+export class IoDeadline extends Error {
+  constructor(label, settled) {
+    super(`I/O deadline: ${label}; operation settled=${settled}.`);
+    this.name = "IoDeadline";
+    this.label = label;
+    this.settled = settled;
+  }
+}
+
+export async function io(operation, label, timeoutMs = IO_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timers = [];
+  const timeout = () => new Promise((resolve) => {
+    timers.push(setTimeout(() => resolve(null), timeoutMs));
+  });
   try {
-    return await Promise.race([operation(), new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new Error(`ICP-T01 I/O deadline: ${label}.`)), IO_TIMEOUT_MS);
-    })]);
+    const pending = Promise.resolve().then(() => operation(controller.signal)).then(
+      (value) => ({ value }), (error) => ({ error, failed: true }));
+    const result = await Promise.race([pending, timeout()]);
+    if (result === null) {
+      controller.abort();
+      const settlement = await Promise.race([pending, timeout()]);
+      throw new IoDeadline(label, settlement !== null);
+    }
+    if (result.failed) throw result.error;
+    return result.value;
   } catch (error) {
-    throw new Error(`ICP-T01 ${label}: ${error.message}`, { cause: error });
+    throw new Error(`ICP-T01 ${label}: ${error?.message ?? String(error)}`, { cause: error });
   } finally {
-    clearTimeout(timer);
+    for (const timer of timers) clearTimeout(timer);
   }
 }
 
 export async function readText(file) {
   const info = await io(() => lstat(file), `stat ${file}`);
   if (!info.isFile() || info.size > OUTPUT_CAP) throw new Error(`ICP-T01 unsafe or oversized file ${file}.`);
-  return io(() => readFile(file, { encoding: "utf8", signal: AbortSignal.timeout(IO_TIMEOUT_MS) }), `read ${file}`);
+  return io((signal) => readFile(file, { encoding: "utf8", signal }), `read ${file}`);
 }
 
 export async function optionalText(file) {
@@ -47,14 +68,33 @@ export async function atomicText(file, body) {
   const temporary = `${file}.pending`;
   const existing = await optionalText(temporary);
   if (existing !== null && !body.startsWith(existing)) throw new Error(`ICP-T01 conflicting interrupted write ${temporary}.`);
-  const handle = await io(() => open(temporary, existing === null ? "wx" : "r+", 0o600), `open ${temporary}`);
+  const handle = await pendingHandle(temporary, existing === null);
   try {
-    if (existing !== body) await io(() => handle.writeFile(body), `write ${temporary}`);
+    if (existing !== body) await io((signal) => handle.writeFile(body, { signal }), `write ${temporary}`);
     await io(() => handle.sync(), `sync ${temporary}`);
   } finally {
     await io(() => handle.close(), `close ${temporary}`);
   }
   await io(() => rename(temporary, file), `rename ${file}`);
+  await syncDirectory(path.dirname(file));
+}
+
+function pendingHandle(file, fresh) {
+  const flags = fresh ? "wx" : constants.O_RDWR | (constants.O_NOFOLLOW ?? 0);
+  return io(() => open(file, flags, 0o600), `open ${file}`);
+}
+
+export async function syncDirectory(directory) {
+  // Windows cannot open directories for fsync.
+  if (process.platform === "win32") return;
+  const handle = await io(() => open(directory, "r"), `open directory ${directory}`);
+  try { await io(() => handle.sync(), `sync directory ${directory}`); }
+  finally { await io(() => handle.close(), `close directory ${directory}`); }
+}
+
+export async function removeText(file) {
+  await io(() => unlink(file), `remove ${file}`);
+  await syncDirectory(path.dirname(file));
 }
 
 export async function stableText(file, body) {
@@ -97,7 +137,7 @@ export async function stableRows(file, rows, digest) {
   const temporary = `${file}.pending`;
   const prefix = await optionalText(temporary);
   assertRowPrefix(rows, prefix, temporary);
-  const handle = await io(() => open(temporary, prefix === null ? "wx" : "r+", 0o600), `open ${temporary}`);
+  const handle = await pendingHandle(temporary, prefix === null);
   try {
     await writeRows(handle, rows, file);
     await io(() => handle.sync(), `sync ${temporary}`);
@@ -106,6 +146,7 @@ export async function stableRows(file, rows, digest) {
   }
   if (await hashFile(temporary) !== digest) throw new Error(`ICP-T01 pending digest differs: ${temporary}.`);
   await io(() => rename(temporary, file), `rename ${file}`);
+  await syncDirectory(path.dirname(file));
 }
 
 async function optionalTextSmall(file) {
@@ -137,11 +178,11 @@ async function writeRows(handle, rows, file) {
     if (bytes > OUTPUT_CAP) throw new Error(`ICP-T01 output cap exceeded: ${file}.`);
     batch += row;
     if (batch.length >= 65536) {
-      await io(() => handle.writeFile(batch), `write ${file}`);
+      await io((signal) => handle.writeFile(batch, { signal }), `write ${file}`);
       batch = "";
     }
   }
-  if (batch !== "") await io(() => handle.writeFile(batch), `write ${file}`);
+  if (batch !== "") await io((signal) => handle.writeFile(batch, { signal }), `write ${file}`);
 }
 
 function inside(root, file) {

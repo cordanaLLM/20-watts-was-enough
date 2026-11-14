@@ -6,7 +6,7 @@ import { armInput, assertArmInput, fixedTreePolicy } from "./policy.mjs";
 import { pumpPower } from "./accounting.mjs";
 import { observationState, observeMinute, arrivedPanels } from "./observations.mjs";
 import { ExecutionStop } from "./contract.mjs";
-import { LabelSeededPcg64Dxsm } from "../lib/pcg64-dxsm.mjs";
+import { IcpRandom } from "./random.mjs";
 
 function cell() {
   return { world_id: "ICP-T01-0x54010000", graph: {
@@ -55,13 +55,13 @@ test("A closes exact tree/source identity, uses no chords, and records secondary
 test("frozen forcing preserves reference maximum loss and arm A accounting", (t) => {
   const world = generateFixture020World({ seed: 0x54010000 });
   const result = evaluateArmA(world);
-  const expected = { maximum_loss_mmol: 11084.515497362665, loss_mmol: 513.4054078188917,
-    delivered_mmol: 12295.093363789085, consumed_mmol: 10571.110089543761,
-    exported_mmol: 1564.88377344659, leaked_mmol: 142.33637482933906,
-    simulated_work_j: 1915.8707532099559, edge_flow_exposure_l: 8677.04976416392 };
+  const expected = { maximum_loss_mmol: 11080.711028790633, loss_mmol: 512.8143123548904,
+    delivered_mmol: 12295.093363805297, consumed_mmol: 10567.896716437928,
+    exported_mmol: 1567.7414377844984, leaked_mmol: 142.69208359952364,
+    simulated_work_j: 1915.8707532098167, edge_flow_exposure_l: 8677.049764164549 };
   t.diagnostic(JSON.stringify({ reference: expected,
     actual: Object.fromEntries(Object.keys(expected).map((key) => [key, result[key]])) }));
-  for (const key of ["maximum_loss_mmol", "loss_mmol"]) {
+  for (const key of Object.keys(expected)) {
     const value = expected[key];
     assert.ok(Math.abs(result[key] / value - 1) <= 1e-12, `${key}: ${result[key]} versus ${value}`);
   }
@@ -70,8 +70,8 @@ test("frozen forcing preserves reference maximum loss and arm A accounting", (t)
   const second = evaluateArmA(generateFixture020World({ seed: 0x54010001 }));
   t.diagnostic(JSON.stringify({ seed: "0x54010001", maximum_loss_mmol: second.maximum_loss_mmol,
     loss_mmol: second.loss_mmol }));
-  assert.ok(Math.abs(second.maximum_loss_mmol / 10855.006851991686 - 1) <= 1e-12);
-  assert.ok(Math.abs(second.loss_mmol / 459.9679501308705 - 1) <= 1e-12);
+  assert.ok(Math.abs(second.maximum_loss_mmol / 10851.73964146941 - 1) <= 1e-12);
+  assert.ok(Math.abs(second.loss_mmol / 460.6966153002908 - 1) <= 1e-12);
   assert.equal(second.failure_reason, null);
 });
 
@@ -259,13 +259,29 @@ test("three consecutive closure failures stop at the third; a valid step resets"
 });
 
 test("replaying the seed-delay draw counts its upper rounding event exactly once", () => {
-  const original = LabelSeededPcg64Dxsm.prototype.nextUint64;
+  const original = IcpRandom.prototype.integer;
   try {
-    LabelSeededPcg64Dxsm.prototype.nextUint64 = () => 2n ** 64n - 1n;
-    const world = cell();
-    world.manifest.uniform_upper_round = 1;
+    IcpRandom.prototype.integer = function (a, b) {
+      if (a !== 0 || b !== 4) return original.call(this, a, b);
+      const next = this.raw.nextUint64;
+      try {
+        this.raw.nextUint64 = () => 2n ** 64n - 1n;
+        return original.call(this, a, b);
+      } finally { this.raw.nextUint64 = next; }
+    };
+    const world = generateFixture020World({ seed: 0x54010000 });
+    assert.equal(world.manifest.terminal_failure, null);
+    assert.equal(world.manifest.uniform_upper_round, 1);
     const state = observationState(world);
     assert.equal(state.delay, 4);
     assert.equal(state.events.uniform_upper_round, 1);
-  } finally { LabelSeededPcg64Dxsm.prototype.nextUint64 = original; }
+  } finally { IcpRandom.prototype.integer = original; }
+});
+
+test("nullish policy exceptions retain policy-exception terminal loss", () => {
+  for (const value of [null, undefined]) {
+    const result = evaluateArmA(cell(), { policy: () => { throw value; } });
+    assert.equal(result.failure_reason, "policy-exception");
+    assert.equal(result.loss_mmol, 1440);
+  }
 });

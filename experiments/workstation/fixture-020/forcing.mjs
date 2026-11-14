@@ -21,7 +21,7 @@ function placeHotspot(graph, random, id, schedule, check, limit) {
   for (let attempt = 0; attempt < limit; attempt += 1) {
     check();
     const hotspot = { id, start: random.integer(60, 1320), duration: random.integer(10, 90),
-      centre: random.integer(1, graph.nodes.length - 1), multiplier: random.range(1.5, 3) };
+      centre: random.integer(0, graph.nodes.length - 1), multiplier: random.range(1.5, 3) };
     if (nonOverlapping([...schedule, hotspot])) return hotspot;
   }
   throw new GenerationFailure("hotspot-placement");

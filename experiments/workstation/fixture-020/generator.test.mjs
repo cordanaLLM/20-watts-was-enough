@@ -11,12 +11,12 @@ import { evaluateArmA } from "./evaluator.mjs";
 const FIRST_HOTSPOTS = [
   [1169, 14, 56, 2.546381078489672], [1019, 26, 69, 1.9641329396134144],
   [570, 53, 48, 2.6888456386727904], [685, 76, 83, 1.5131895687199812],
-  [788, 46, 80, 2.926622919839558], [1238, 61, 96, 1.611516371293575],
-  [928, 20, 77, 1.6920197289866374], [953, 60, 90, 2.2379348988963805],
-  [628, 44, 47, 2.693155517144235], [457, 22, 91, 2.3131697676843364],
-  [525, 10, 60, 1.5123501865298192], [249, 90, 111, 2.2980087093126995],
-  [1315, 16, 29, 1.9667576684918395], [127, 22, 37, 1.5642424303164557],
-  [1135, 30, 54, 2.7791129510326362], [857, 69, 85, 2.585748797509052],
+  [788, 46, 80, 2.926622919839558], [1238, 61, 95, 1.611516371293575],
+  [928, 20, 76, 1.6920197289866374], [953, 60, 89, 2.2379348988963805],
+  [628, 44, 46, 2.693155517144235], [457, 22, 91, 2.3131697676843364],
+  [525, 10, 59, 1.5123501865298192], [249, 90, 111, 2.2980087093126995],
+  [1315, 16, 28, 1.9667576684918395], [127, 22, 36, 1.5642424303164557],
+  [1135, 30, 54, 2.7791129510326362], [857, 69, 84, 2.585748797509052],
   [1081, 47, 93, 2.920538126601855],
 ];
 
@@ -30,7 +30,7 @@ test("frozen hotspot vector keeps K fixed while placing ICP-T01-0x54010000", () 
     [start, duration, centre, multiplier]
   )), FIRST_HOTSPOTS);
   assert.deepEqual(world.forcing.hotspots.map(({ id }) => id), Array.from({ length: 17 }, (_, id) => id));
-  assert.ok(Math.abs(world.forcing.maximum_loss / 11084.515497362665 - 1) <= 1e-12);
+  assert.ok(Math.abs(world.forcing.maximum_loss / 11080.711028790633 - 1) <= 1e-12);
 });
 
 test("second public seed agrees with its frozen hotspot vector", () => {
@@ -42,12 +42,12 @@ test("second public seed agrees with its frozen hotspot vector", () => {
   assert.deepEqual(world.forcing.hotspots.map(({ start, duration, centre, multiplier }) => (
     [start, duration, centre, multiplier]
   )), [
-    [901, 20, 75, 2.9645969396043075], [841, 34, 54, 2.9292728494161757],
+    [901, 20, 75, 2.9645969396043075], [841, 34, 53, 2.9292728494161757],
     [488, 56, 69, 2.9850645260882334], [945, 69, 96, 1.9807426936162673],
-    [1304, 54, 4, 2.1700045379835715], [1063, 20, 64, 2.845976296431222],
-    [352, 36, 32, 1.8506017270178134], [747, 13, 51, 2.4359629617899183],
-    [1089, 16, 44, 2.378444078383307], [1179, 73, 92, 2.6353199293275313],
-    [808, 21, 9, 2.1978929478737412], [444, 15, 79, 2.3313140970244333],
+    [1304, 54, 3, 2.1700045379835715], [1063, 20, 64, 2.845976296431222],
+    [352, 36, 31, 1.8506017270178134], [747, 13, 50, 2.4359629617899183],
+    [1089, 16, 43, 2.378444078383307], [1179, 73, 92, 2.6353199293275313],
+    [808, 21, 8, 2.1978929478737412], [444, 15, 79, 2.3313140970244333],
   ]);
 });
 
@@ -102,13 +102,11 @@ test("world hash and forcing are deterministic; tree and complete graph are feas
 });
 
 test("iterative Dinic handles residual rerouting and disconnected negative graph", () => {
-  const arcs = [
-    { from: 0, to: 1, capacity: 2 }, { from: 0, to: 2, capacity: 1 },
-    { from: 1, to: 2, capacity: 1 }, { from: 1, to: 3, capacity: 1 },
-    { from: 2, to: 3, capacity: 2 },
-  ];
-  assert.equal(dinicMaxFlow(4, arcs, 0, 3), 3);
-  assert.equal(dinicMaxFlow(4, arcs.filter((arc) => arc.to !== 3), 0, 3), 0);
+  // s=0, a=1, b=2, x=3, y=4, c=5, d=6, t=7.
+  const arcs = [[0, 1], [1, 2], [2, 7], [1, 3], [3, 4], [4, 7],
+    [0, 5], [5, 6], [6, 2]].map(([from, to]) => ({ from, to, capacity: 1 }));
+  assert.equal(dinicMaxFlow(8, arcs, 0, 7), 2);
+  assert.equal(dinicMaxFlow(8, arcs.filter((arc) => arc.to !== 7), 0, 7), 0);
 });
 
 test("aggregate overload boundary accepts exactly 120 minutes and rejects 121", () => {
@@ -123,7 +121,8 @@ test("aggregate overload boundary accepts exactly 120 minutes and rejects 121", 
 
 test("hotspots use primary-tree descendants only and half/quarter excess", () => {
   const graph = { nodes: [{ id: 0 }, { id: 1, parent: 0 }, { id: 2, parent: 1 },
-    { id: 3, parent: 2 }, { id: 4, parent: 3 }] };
+    { id: 3, parent: 2 }, { id: 4, parent: 3 }],
+    edges: [{ from: 1, to: 4, primary: false }] };
   const demand = applySchedule(graph, new Float64Array(1440 * 4).fill(1), [
     { start: 60, duration: 10, centre: 1, multiplier: 3 },
   ]);
@@ -175,12 +174,12 @@ test("K histogram over all 64 development seeds matches the frozen registration"
   assert.deepEqual(histogram, { 8: 4, 9: 6, 10: 5, 11: 5, 12: 3, 13: 3, 14: 8,
     15: 2, 16: 2, 17: 3, 18: 8, 19: 11, 20: 4 });
   assert.deepEqual(attempts, new Array(64).fill(1));
-  assert.equal(overloadedWorlds, 3);
-  assert.equal(maximumOverload, 8);
+  assert.equal(overloadedWorlds, 1);
+  assert.equal(maximumOverload, 1);
 });
 
 function hotspotDraws(start, duration = 10, multiplier = 1.5) {
-  return [[60, 1320, start], [10, 90, duration], [1, 1, 1], [1.5, 3, multiplier]];
+  return [[60, 1320, start], [10, 90, duration], [0, 1, 1], [1.5, 3, multiplier]];
 }
 
 function scriptedForcing(draws) {
@@ -210,6 +209,44 @@ test("placement redraws an overlapping try without K; touching intervals are acc
   assert.equal(forcing.hotspots.length, 8);
   assert.equal(forcing.attempts, 1);
   assert.equal(scripted.drawn(), 37);
+});
+
+function guardedDemand(values) {
+  return new Proxy(values, {
+    get(target, key) {
+      assert.notEqual(key, "-1", "source has no demand row");
+      const value = Reflect.get(target, key, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+    set(target, key, value) {
+      assert.notEqual(key, "-1", "source has no demand row");
+      return Reflect.set(target, key, value, target);
+    },
+  });
+}
+
+test("source centre has no demand row; primary children and grandchildren receive excess", () => {
+  const graph = { nodes: [{ id: 0, m0: 999 }, { id: 1, parent: 0 },
+    { id: 2, parent: 1 }, { id: 3, parent: 2 }, { id: 4, parent: 3 }] };
+  const base = new Float64Array(1440 * 4).fill(2);
+  const copy = base.slice();
+  base.slice = () => guardedDemand(copy);
+  const demand = applySchedule(graph, base, [{ start: 0, duration: 1, centre: 0, multiplier: 3 }]);
+  assert.deepEqual([...demand.slice(0, 4)], [4, 3, 2, 2]);
+  assert.equal(demand.length, base.length);
+  assert.equal(Object.hasOwn(demand, "-1"), false);
+  assert.equal(graph.nodes[0].m0, 999);
+  assert.deepEqual([...base.subarray(0, 4)], [2, 2, 2, 2]);
+});
+
+test("uniform centre draw includes node zero in its original draw position", () => {
+  const draws = [[8, 20, 8], ...Array.from({ length: 8 }, (_, i) => [
+    [60, 1320, 60 + i * 10], [10, 90, 10], [0, 1, 0], [1.5, 3, 1.5],
+  ]).flat()];
+  const scripted = scriptedForcing(draws);
+  const forcing = generateForcing(forcingCell(), scripted.random);
+  assert.deepEqual(forcing.hotspots.map(({ centre }) => centre), new Array(8).fill(0));
+  assert.equal(scripted.drawn(), 33);
 });
 
 test("aggregate overload rejection draws a fresh K for the next complete schedule", () => {

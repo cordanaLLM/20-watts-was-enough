@@ -13,7 +13,7 @@ const SOURCES = Object.freeze([
   "runner.mjs", "resources.mjs", "storage.mjs", "output.schema.json", "configs/smoke.json", "configs/development.json",
   "seeds/development.reveal.json", "seeds/confirmation.unavailable.json", "seeds/transfer.unavailable.json",
   "../lib/pcg64-dxsm.mjs", "../lib/exact-keys.mjs", "../lib/canonical-json.mjs",
-  "../lib/checkpoint-ledger.mjs", "../lib/execution-receipt.mjs", "../lib/node-runtime-policy.mjs",
+  "../lib/checkpoint-ledger.mjs", "../lib/output-lock.mjs", "../lib/execution-receipt.mjs", "../lib/node-runtime-policy.mjs",
   "../lib/percentile.mjs", "../../fixtures/020-integrative-comparative-physiology.md",
 ]);
 
@@ -26,7 +26,8 @@ export async function loadInputs(profile) {
     || canonical(document.seeds) !== canonical(PUBLIC_SEEDS)) throw new Error("ICP-T01 public seed pack mismatch.");
   const hashes = {};
   for (const relative of SOURCES) hashes[relative] = sha256(await readText(path.resolve(fixtureRoot, relative)));
-  const receipt = createExperimentExecutionReceipt({ artifact: "fixture-020", command: "run", profile });
+  const receipt = createExperimentExecutionReceipt({ artifact: "fixture-020",
+    command: profile === "smoke" ? "smoke" : "run", profile });
   const runtime = observeNodeRuntime();
   if (!runtime.node_version.startsWith("26.")) throw new Error("ICP-T01 requires Node 26.x.");
   const body = { schema: 1, artifact: "fixture-020", profile, config,

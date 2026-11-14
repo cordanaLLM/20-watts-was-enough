@@ -1,5 +1,13 @@
 import { readText } from "./storage.mjs";
 
+export function memoryCapCheck({ peakBytes, currentBytes, capBytes }) {
+  const status = peakBytes === null ? "current-resident-lower-bound" : "linux-peak-resident";
+  const observed = peakBytes ?? currentBytes;
+  if (!Number.isFinite(observed) || observed < 0) throw new Error("ICP-T01 memory counter unavailable.");
+  if (observed > capBytes) throw new Error(`ICP-T01 memory-cap exceeded: ${observed} B > ${capBytes} B.`);
+  return status;
+}
+
 export async function processCounters() {
   if (process.platform !== "linux") return { peak_resident_bytes: null,
     bytes_read: null, bytes_written: null, counter_mode: "unavailable-on-this-platform",

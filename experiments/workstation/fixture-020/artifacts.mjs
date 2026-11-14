@@ -34,8 +34,7 @@ function* observationRows(rows) {
 
 export function worldArtifacts(world, evaluation) {
   const { aggregates, observations, fallbacks, ...metrics } = evaluation;
-  const manifest = { ...world.manifest,
-    uniform_upper_round: evaluation.uniform_upper_round ?? world.manifest.uniform_upper_round };
+  const manifest = world.manifest;
   const sources = {
     "world-manifest.json": () => singleRow(manifest),
     "graph.json": () => singleRow(world.graph),
