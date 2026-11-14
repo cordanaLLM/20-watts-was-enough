@@ -20,6 +20,7 @@
     { "lane": "workstation-fixture-027", "artifact": "fixture-027", "script": "test:workstation:fixture-027", "creation_rank": 16, "pack": "short" },
     { "lane": "workstation-fixture-023", "artifact": "fixture-023", "script": "test:workstation:fixture-023", "creation_rank": 17, "pack": "short" },
     { "lane": "workstation-fixture-007", "artifact": "fixture-007", "script": "test:workstation:fixture-007", "creation_rank": 18, "pack": "short" },
-    { "lane": "workstation-fixture-025", "artifact": "fixture-025", "script": "test:workstation:fixture-025", "creation_rank": 19, "pack": "short" }
+    { "lane": "workstation-fixture-025", "artifact": "fixture-025", "script": "test:workstation:fixture-025", "creation_rank": 19, "pack": "short" },
+    { "lane": "workstation-fixture-020", "artifact": "fixture-020", "script": "test:workstation:fixture-020", "creation_rank": 20, "pack": "short" }
   ]
 }

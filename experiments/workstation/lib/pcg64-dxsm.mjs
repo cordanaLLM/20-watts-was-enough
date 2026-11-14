@@ -15,6 +15,30 @@ export function littleEndianBigInt(bytes) {
   return value;
 }
 
+function dxsmOutput(state) {
+  let high = (state >> 64n) & MASK_64;
+  const low = (state & MASK_64) | 1n;
+  high ^= high >> 32n;
+  high = (high * DXSM_MULTIPLIER) & MASK_64;
+  high ^= high >> 48n;
+  return (high * low) & MASK_64;
+}
+
+// Registry label seeding, distinct from the legacy fixture stream below.
+export class LabelSeededPcg64Dxsm {
+  constructor(label) {
+    const digest = createHash("sha256").update(label, "utf8").digest();
+    this.state = littleEndianBigInt(digest.subarray(0, 16));
+    this.increment = littleEndianBigInt(digest.subarray(16, 32)) | 1n;
+  }
+
+  nextUint64() {
+    const output = dxsmOutput(this.state);
+    this.state = (this.state * DXSM_MULTIPLIER + this.increment) & MASK_128;
+    return output;
+  }
+}
+
 export class Pcg64Dxsm {
   constructor(literalSeed) {
     const digest = createHash("sha256").update(String(literalSeed), "utf8").digest();
@@ -34,12 +58,7 @@ export class Pcg64Dxsm {
   nextUint64() {
     const old = this.state;
     this.advance();
-    let high = (old >> 64n) & MASK_64;
-    const low = (old & MASK_64) | 1n;
-    high ^= high >> 32n;
-    high = (high * DXSM_MULTIPLIER) & MASK_64;
-    high ^= high >> 48n;
-    return (high * low) & MASK_64;
+    return dxsmOutput(old);
   }
 
   uniform() {
