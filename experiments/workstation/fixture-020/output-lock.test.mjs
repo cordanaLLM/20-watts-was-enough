@@ -137,7 +137,7 @@ test("late failed lock open records EEXIST and preserves the other owner's bytes
     await assert.rejects(() => acquireLock(fixture.output, "fixture-020", 50, {
       open: async (...args) => { await delay(150); return open(...args); },
     }), (error) => { deadline = error; return /Output lock deadline/.test(error.message); });
-    await delay(175);
+    await waitUntil(() => deadline.lateOpenError?.code === "EEXIST");
     assert.equal(deadline.lateOpenError?.code, "EEXIST");
     assert.deepEqual(await readFile(file), original);
   } finally { await cleanup(fixture); }
@@ -175,6 +175,7 @@ test("release accepts a valid lock document padded to exactly 4096 bytes", async
 });
 
 function delayedReadOpen(state, openFailure, closeFailure) {
+  state.readGate = new Promise((resolve) => { state.openReadGate = resolve; });
   return async (...args) => {
     if (args[1] === "wx") {
       state.owner = await open(...args);
@@ -183,7 +184,7 @@ function delayedReadOpen(state, openFailure, closeFailure) {
     assert.equal(args[1], constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
     const slowRead = state.slowRead;
     if (slowRead) {
-      await delay(150);
+      await state.readGate;
       if (openFailure) throw openFailure;
     }
     const reader = await open(...args);
@@ -202,12 +203,12 @@ function delayedReadOpen(state, openFailure, closeFailure) {
   };
 }
 
-async function waitForLateReader(predicate) {
+async function waitUntil(predicate) {
   for (let attempt = 0; attempt < 40; attempt += 1) {
     if (predicate()) return;
     await delay(25);
   }
-  assert.fail("late reader did not settle after bounded poll");
+  assert.fail("condition did not settle after bounded poll");
 }
 
 for (const closeFailure of [null, new Error("injected late reader close failure")]) {
@@ -216,25 +217,27 @@ for (const closeFailure of [null, new Error("injected late reader close failure"
     const fixture = await temporaryOutput("fixture-020-late-reader-");
     const file = fixture.output + ".fixture-020.lock";
     const state = { slowRead: true, closed: false };
-    const lock = await acquireLock(fixture.output, "fixture-020", 50, {
-      open: delayedReadOpen(state, null, closeFailure),
-    });
-    const original = await readFile(file);
     let deadline;
     try {
+      const lock = await acquireLock(fixture.output, "fixture-020", 1000, {
+        open: delayedReadOpen(state, null, closeFailure),
+      });
+      const original = await readFile(file);
       await assert.rejects(() => lock.release(), (error) => {
         deadline = error;
         return /Output lock deadline/.test(error.message);
       });
-      await waitForLateReader(() => state.closed && (!closeFailure || deadline.cleanupErrors?.includes(closeFailure)));
+      state.openReadGate();
+      await waitUntil(() => state.closed && (!closeFailure || deadline.cleanupErrors?.includes(closeFailure)));
       if (closeFailure) assert.deepEqual(deadline.cleanupErrors, [closeFailure]);
       assert.deepEqual(await readFile(file), original);
       state.slowRead = false;
       await lock.release();
       await assert.rejects(() => readFile(file), { code: "ENOENT" });
     } finally {
+      state.openReadGate();
       if (state.reader) await state.reader.close();
-      await state.owner.close();
+      if (state.owner) await state.owner.close();
       await cleanup(fixture);
     }
   });
@@ -245,25 +248,27 @@ test("release deadline records late reader open failure and preserves owner byte
   const file = fixture.output + ".fixture-020.lock";
   const state = { slowRead: true };
   const failure = new Error("injected late reader open failure");
-  const lock = await acquireLock(fixture.output, "fixture-020", 50, {
-    open: delayedReadOpen(state, failure),
-  });
-  const original = await readFile(file);
   let deadline;
   try {
+    const lock = await acquireLock(fixture.output, "fixture-020", 1000, {
+      open: delayedReadOpen(state, failure),
+    });
+    const original = await readFile(file);
     await assert.rejects(() => lock.release(), (error) => {
       deadline = error;
       return /Output lock deadline/.test(error.message);
     });
-    await waitForLateReader(() => deadline.lateOpenError === failure);
+    state.openReadGate();
+    await waitUntil(() => deadline.lateOpenError === failure);
     assert.equal(deadline.lateOpenError, failure);
     assert.deepEqual(await readFile(file), original);
     state.slowRead = false;
     await lock.release();
     await assert.rejects(() => readFile(file), { code: "ENOENT" });
   } finally {
+    state.openReadGate();
     if (state.reader) await state.reader.close();
-    await state.owner.close();
+    if (state.owner) await state.owner.close();
     await cleanup(fixture);
   }
 });
