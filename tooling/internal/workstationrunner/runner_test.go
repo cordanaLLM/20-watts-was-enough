@@ -315,8 +315,15 @@ func TestRunSuitePassesWithoutError(t *testing.T) {
 		helperJob("pass-first", "test:workstation:pass-first"),
 		helperJob("pass-second", "test:workstation:pass-second"),
 	}
-	if err := runSuite(context.Background(), repositoryFixture(t), jobs, helperOptions(t, 2), &bytes.Buffer{}); err != nil {
+	var summary bytes.Buffer
+	if err := runSuite(context.Background(), repositoryFixture(t), jobs, helperOptions(t, 2), &summary); err != nil {
 		t.Fatalf("runSuite() error = %v, want nil for all passing jobs", err)
+	}
+	wantSummary := "PASS pass-first (test:workstation:pass-first)\n" +
+		"PASS pass-second (test:workstation:pass-second)\n" +
+		"Workstation suite: 2 passed, 0 failed, 0 cancelled.\n"
+	if !strings.HasSuffix(summary.String(), "\n"+wantSummary) {
+		t.Fatalf("summary =\n%s\nwant suffix =\n%s", summary.String(), wantSummary)
 	}
 }
 
