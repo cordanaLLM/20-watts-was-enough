@@ -343,6 +343,11 @@ the exact diff; this file records why the project changed.
 
 ### Fixed
 
+- The Go gate and the CI Go lanes run the tests with `-count=1`, because the
+  `go test` cache does not key files outside the `tooling` module and replayed
+  a stale pass for an edited fixture input
+  ([Decision 0131](decisions/0131-run-the-go-tests-without-the-test-cache.md),
+  #459).
 - Research-watch link extraction stops at Markdown delimiters (code spans and
   emphasis), keeps GitHub's autolink rules for non-ASCII paths, IPv6 hosts and
   trailing punctuation, drops URLs ending in an encoded backtick (`%60`), and

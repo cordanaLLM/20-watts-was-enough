@@ -1254,7 +1254,7 @@ export function validateCiNativeReleaseWorkflowObject(
 // Release builds withhold every target the build host cannot execute, so the
 // Windows and macOS sources compile nowhere else (decision 0037 keeps the
 // Windows implementation authoritative).
-const goRaceTestCommand = "go -C tooling test -race ./... && go -C tooling vet ./...";
+const goRaceTestCommand = "go -C tooling test -race -count=1 ./... && go -C tooling vet ./...";
 const goCrossPlatformVetStep = "Type-check the Windows and macOS builds";
 const goCrossPlatformVetCommand = [
   "GOOS=windows GOARCH=amd64 go -C tooling vet ./...",
@@ -1263,7 +1263,7 @@ const goCrossPlatformVetCommand = [
 
 export function validateGoGateScriptObject(scripts, relativePath = "package.json") {
   if (scripts?.["test:go"] !== goRaceTestCommand) {
-    return [`${relativePath}: test:go must run the complete tooling test gate under the race detector and vet`];
+    return [`${relativePath}: test:go must run the complete tooling test gate under the race detector and vet, bypassing the test cache with -count=1`];
   }
   return [];
 }
@@ -1289,7 +1289,7 @@ export function validateCiGoRaceAndPlatformWorkflowObject(
       ))
       : -1;
     if (testIndex < 0) {
-      findings.push(`${relativePath}: ${jobName} must run the Go tests under the race detector`);
+      findings.push(`${relativePath}: ${jobName} must run the Go tests under the race detector and bypass the test cache with -count=1`);
     }
     if (vetIndex < 0 || vetIndex <= testIndex) {
       findings.push(`${relativePath}: ${jobName} must type-check the Windows and macOS builds after the Go tests`);
@@ -1302,13 +1302,13 @@ export function validateCiGoRaceAndPlatformWorkflowObject(
     const steps = Array.isArray(lane?.steps) ? lane.steps : [];
     const testIndex = unconditionalStepIndex(steps, (step) => step?.run?.trim() === crossPlatformGoTestCommand);
     if (!continueOnErrorIsDisabled(lane) || testIndex < 0) {
-      findings.push(`${relativePath}: ${jobName} must run the portable Go tests unconditionally`);
+      findings.push(`${relativePath}: ${jobName} must run the portable Go tests unconditionally and bypass the test cache with -count=1`);
     }
   }
   return findings;
 }
 
-const crossPlatformGoTestCommand = "go -C tooling test ./...";
+const crossPlatformGoTestCommand = "go -C tooling test -count=1 ./...";
 
 const pdfReproducibilitySetupAction ="docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069";
 const pdfReproducibilityBuildKit = "image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8";
