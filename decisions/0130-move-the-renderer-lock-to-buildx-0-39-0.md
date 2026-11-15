@@ -11,10 +11,12 @@
   digest in `tooling/pdf-tools/contract.json`,
   `tooling/clrs-generator/image-contract.json` and
   `tooling/internal/clrsfixture/image_contract.go`, the five workflow lines
-  that install the client, and the approved value in
-  `scripts/validate-engineering-policy.mjs`. The BuildKit daemon image, the
-  exporter settings, the limits and the cache design do not change. No
-  claim, principle or status changes.
+  that install the client, the approved value in
+  `scripts/validate-engineering-policy.mjs`, and the renderer cache inventory
+  in `tooling/internal/pdfrender/build_cache_inventory.go`, which admits one
+  more root entry (point 5). The BuildKit daemon image, the exporter
+  settings and the limits do not change. No claim, principle or status
+  changes.
 - **Extends:** [0115](0115-move-the-renderer-lock-to-buildx-0-38-1-and-let-the-update-bot-carry-it.md)
 - **Related:** [0127](0127-move-the-renderer-lock-to-buildx-0-38-2.md),
   [0105](0105-move-the-renderer-lock-to-buildx-0-38-0.md),
@@ -46,6 +48,22 @@ updated lock as well.
    rendered and recorded in this pull request because the lock SHA-256 is
    part of the manifest contract and provenance must stay consistent with
    the checked-in lock.
+5. The renderer cache inventory admits one more optional root entry next to
+   the OCI layout: a non-symlink directory named `ingest-locks`. Buildx
+   0.39.0 vendors the BuildKit client v0.35.0 (0.38.x vendored v0.34.0),
+   whose `client/solve.go` (`localCacheStore.lock`) takes a file lock per
+   ingest reference under `ingest-locks/<sha256-hex>` and keeps the lock
+   files after unlocking on purpose so one empty file per reference remains
+   even after a cache reset. The first CI render pair on pull request #460
+   with the unchanged inventory failed with "PDF renderer cache has missing,
+   extra or excessive entries", and a workstation render pair at the same
+   head refused its staged export the same way. Every entry in `ingest-locks` must be a
+   non-symlink empty regular file whose name matches `^[0-9a-f]{64}$`, and
+   the directory may hold at most `maximumRendererCacheLayers + 2` (130)
+   entries, the manifest, config and layer closure bound; an empty directory
+   is admitted, and any symlink, non-empty file, subdirectory, other file
+   name, excess entry, non-directory `ingest-locks` or other extra root
+   entry is still refused.
 
 ## Consequences
 
@@ -57,6 +75,10 @@ updated lock as well.
   SHA-256 and source digest. The PDF bytes do not change.
 - The hosted cache key hashes the lock, so the stored seed no longer
   matches and a later run on `main` stores a new one.
+- A cache written by Buildx 0.39.0 carries `ingest-locks`, and the
+  inventory now admits it; an inventory of a cache written by Buildx 0.38.x
+  has no `ingest-locks` directory and still passes because the directory is
+  optional.
 
 ## Verification and disclosure
 
@@ -70,10 +92,15 @@ with no private `DOCKER_CONFIG`.
 | `node scripts/validate-engineering-policy.mjs` | pass |
 | authority digest from the `pdfrenderlock` subset encoding, cross-checked with a Python reproduction | match: both produce `37625b21…` |
 | `npm run generate:book-pdf` | pass: two identical renders; PDF SHA-256 `002896bc…`, the same bytes as before the update |
-| `npm run validate:book-pdf` | pass |
-| `npm run record:book-provenance` | recorded source digest `812f12f4…` (record only, no render) |
+| `npm run generate:book-pdf` after the cache-inventory change, whose Go source is book source | pass: two identical renders; PDF SHA-256 `002896bc…` unchanged; recorded source digest `01b99540…` |
+| `npm run validate:book-pdf` after both renders | pass |
+| `go -C tooling run ./cmd/pdf-proof --proof render-pair` with the unchanged inventory, cold cache | fail after 439 s: the staged export holds `ingest-locks` and is refused with "PDF renderer cache has missing, extra or excessive entries" |
+| `go -C tooling test -count=1 ./internal/pdfrender/` with `allowed["ingest-locks"] = true` removed | fail: `TestRendererCacheInventoryRecordsExactClosureAndAllowsEmptyIngest` refuses the empty `ingest-locks` case with the same diagnostic |
+| `go -C tooling test -count=1 ./internal/pdfrender/` and `go -C tooling vet ./internal/pdfrender/` | pass |
+| `go -C tooling run ./cmd/pdf-proof --proof render-pair`, cold cache | pass: identical image ids `cd15076a…`, PDF and manifest pair `99c96df2…`; the export holds 20 blobs and 20 empty ingest locks |
+| the same render pair, warm cache from the run above | pass: cache imported, the same cache manifest `82523408…`, image ids and PDF and manifest pair; 20 blobs and 20 ingest locks |
 
-Antigravity (Gemini 4 Carbon) drafted the derived values and this record in a
-sparse worktree, and Claude Code reviewed the draft, reran every check above on
-the workstation and rendered the book. Automated tests and retained command
-receipts describe the exercised boundaries, not independent scientific review.
+Antigravity (Gemini 4 Carbon) drafted the derived values, the cache-inventory
+update and this record in a sparse worktree, and Claude Code reviewed both
+drafts, reran every check above on the workstation and rendered the book. Automated tests and retained command receipts describe the
+exercised boundaries, not independent scientific review.

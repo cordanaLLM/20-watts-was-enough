@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -116,6 +117,25 @@ func requireRejectedCacheInventory(t *testing.T, root, diagnostic string) {
 	}
 }
 
+func cacheIngestLockName(seed string) string {
+	return strings.TrimPrefix(digestBytes([]byte(seed)), "sha256:")
+}
+
+func writeCacheIngestLocks(t *testing.T, root string, count int) {
+	t.Helper()
+	directory := filepath.Join(root, "ingest-locks")
+	if err := os.RemoveAll(directory); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for index := range count {
+		name := cacheIngestLockName("ingest-ref-" + strconv.Itoa(index))
+		writeCacheInventoryFixture(t, root, filepath.Join("ingest-locks", name), nil)
+	}
+}
+
 func TestRendererCacheInventoryRecordsExactClosureAndAllowsEmptyIngest(t *testing.T) {
 	t.Parallel()
 	root := cacheInventoryFixture(t)
@@ -125,20 +145,32 @@ func TestRendererCacheInventoryRecordsExactClosureAndAllowsEmptyIngest(t *testin
 		ManifestDigest: index.Manifests[0].Digest, BlobCount: 3,
 		BlobBytes: index.Manifests[0].Size + manifest.Config.Size + manifest.Layers[0].Size,
 	}
-	for _, optional := range []string{"", "ingest", "cache.lock"} {
-		switch optional {
-		case "ingest":
-			if err := os.Mkdir(filepath.Join(root, "ingest"), 0o700); err != nil {
-				t.Fatal(err)
-			}
-		case "cache.lock":
-			// The BuildKit client of Buildx 0.38.0 leaves this empty lock file.
-			writeCacheInventoryFixture(t, root, "cache.lock", nil)
-		}
+	for _, optional := range []string{"", "ingest", "cache.lock", "empty ingest-locks", "ingest-locks", "maximum ingest-locks"} {
+		applyOptionalCacheInventoryEntry(t, root, optional)
 		observed, err := inspectRendererCache(context.Background(), root)
 		if err != nil || observed != expected || observed.Imported {
 			t.Fatalf("cache closure differs after adding %q: %+v %v", optional, observed, err)
 		}
+	}
+}
+
+func applyOptionalCacheInventoryEntry(t *testing.T, root, optional string) {
+	t.Helper()
+	switch optional {
+	case "ingest":
+		if err := os.Mkdir(filepath.Join(root, "ingest"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	case "cache.lock":
+		// The BuildKit client of Buildx 0.38.0 leaves this empty lock file.
+		writeCacheInventoryFixture(t, root, "cache.lock", nil)
+	case "empty ingest-locks":
+		writeCacheIngestLocks(t, root, 0)
+	case "ingest-locks":
+		// The BuildKit client of Buildx 0.39.0 leaves one empty lock file per ref.
+		writeCacheIngestLocks(t, root, 3)
+	case "maximum ingest-locks":
+		writeCacheIngestLocks(t, root, maximumRendererCacheLayers+2)
 	}
 }
 
@@ -171,25 +203,11 @@ func TestRendererCacheInventoryCountsRepeatedLayerBlobOnce(t *testing.T) {
 
 func TestRendererCacheInventoryRejectsSymlinkBoundaries(t *testing.T) {
 	t.Parallel()
-	for _, target := range []string{".", "blobs", "blobs/sha256", "index.json", "oci-layout", "manifest", "config", "layer", "ingest", "cache.lock"} {
+	ingestLockFile := "ingest-locks/" + cacheIngestLockName("ingest-ref-0")
+	for _, target := range []string{".", "blobs", "blobs/sha256", "index.json", "oci-layout", "manifest", "config", "layer", "ingest", "cache.lock", "ingest-locks", ingestLockFile} {
 		t.Run(target, func(t *testing.T) {
 			root := cacheInventoryFixture(t)
-			relative := target
-			manifest := cacheInventoryManifest(t, root)
-			switch target {
-			case "manifest":
-				relative = imageProofBlobPath(cacheInventoryIndex(t, root).Manifests[0].Digest)
-			case "config":
-				relative = imageProofBlobPath(manifest.Config.Digest)
-			case "layer":
-				relative = imageProofBlobPath(manifest.Layers[0].Digest)
-			case "ingest":
-				if err := os.Mkdir(filepath.Join(root, relative), 0o700); err != nil {
-					t.Fatal(err)
-				}
-			case "cache.lock":
-				writeCacheInventoryFixture(t, root, relative, nil)
-			}
+			relative := prepareCacheSymlinkBoundaryTarget(t, root, target, ingestLockFile)
 			original := filepath.Join(root, relative)
 			saved := filepath.Join(t.TempDir(), "original")
 			if err := os.Rename(original, saved); err != nil {
@@ -206,61 +224,169 @@ func TestRendererCacheInventoryRejectsSymlinkBoundaries(t *testing.T) {
 	}
 }
 
+func prepareCacheSymlinkBoundaryTarget(t *testing.T, root, target, ingestLockFile string) string {
+	t.Helper()
+	manifest := cacheInventoryManifest(t, root)
+	switch target {
+	case "manifest":
+		return imageProofBlobPath(cacheInventoryIndex(t, root).Manifests[0].Digest)
+	case "config":
+		return imageProofBlobPath(manifest.Config.Digest)
+	case "layer":
+		return imageProofBlobPath(manifest.Layers[0].Digest)
+	case "ingest":
+		if err := os.Mkdir(filepath.Join(root, target), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	case "cache.lock":
+		writeCacheInventoryFixture(t, root, target, nil)
+	case "ingest-locks", ingestLockFile:
+		writeCacheIngestLocks(t, root, 1)
+	}
+	return target
+}
+
 func TestRendererCacheInventoryRejectsMissingExtraAndCorruptedBlobs(t *testing.T) {
 	t.Parallel()
-	for _, mutation := range []string{"missing layer", "extra blob", "wrong size", "wrong digest", "directory blob", "extra root", "extra algorithm", "nonempty ingest", "nonempty lock", "directory lock", "excessive entries"} {
+	mutations := []string{
+		"missing layer", "extra blob", "wrong size", "wrong digest", "directory blob",
+		"extra root", "extra algorithm", "nonempty ingest", "nonempty lock", "directory lock",
+		"nonempty ingest lock", "directory ingest lock", "bad ingest lock name",
+		"excessive ingest locks", "ingest-locks file", "excessive entries",
+	}
+	for _, mutation := range mutations {
 		t.Run(mutation, func(t *testing.T) {
-			root := cacheInventoryFixture(t)
-			layer := imageProofBlobPath(cacheInventoryManifest(t, root).Layers[0].Digest)
-			diagnostic := "PDF renderer cache"
-			switch mutation {
-			case "missing layer", "directory blob":
-				if err := os.Remove(filepath.Join(root, layer)); err != nil {
-					t.Fatal(err)
-				}
-				if mutation == "directory blob" {
-					if err := os.Mkdir(filepath.Join(root, layer), 0o700); err != nil {
-						t.Fatal(err)
-					}
-				}
-			case "extra blob":
-				writeCacheInventoryFixture(t, root, imageProofBlobPath(digestBytes([]byte("extra"))), []byte("extra"))
-			case "wrong size":
-				writeCacheInventoryFixture(t, root, layer, []byte("short"))
-				diagnostic = "size does not match"
-			case "wrong digest":
-				body := readCacheInventoryFixture(t, root, layer)
-				body[0] ^= 1
-				writeCacheInventoryFixture(t, root, layer, body)
-				diagnostic = "digest does not match"
-			case "extra root":
-				writeCacheInventoryFixture(t, root, "unexpected", []byte("extra"))
-			case "extra algorithm":
-				if err := os.Mkdir(filepath.Join(root, "blobs", "sha512"), 0o700); err != nil {
-					t.Fatal(err)
-				}
-			case "nonempty ingest":
-				if err := os.Mkdir(filepath.Join(root, "ingest"), 0o700); err != nil {
-					t.Fatal(err)
-				}
-				writeCacheInventoryFixture(t, root, "ingest/partial", []byte("partial"))
-			case "nonempty lock":
-				writeCacheInventoryFixture(t, root, "cache.lock", []byte("x"))
-				diagnostic = "lock must be one empty regular file"
-			case "directory lock":
-				if err := os.Mkdir(filepath.Join(root, "cache.lock"), 0o700); err != nil {
-					t.Fatal(err)
-				}
-				diagnostic = "lock must be one empty regular file"
-			case "excessive entries":
-				for index := range maximumRendererCacheLayers + 5 {
-					body := []byte{byte(index)}
-					writeCacheInventoryFixture(t, root, imageProofBlobPath(digestBytes(body)), body)
-				}
+			if mutation == "bad ingest lock name" {
+				assertRejectedBadCacheIngestLockNames(t)
+				return
 			}
+			root := cacheInventoryFixture(t)
+			diagnostic := applyCacheInventoryMutation(t, root, mutation)
 			requireRejectedCacheInventory(t, root, diagnostic)
 		})
 	}
+}
+
+func assertRejectedBadCacheIngestLockNames(t *testing.T) {
+	t.Helper()
+	const diagnostic = "PDF renderer cache ingest lock must be one empty regular file with a SHA-256 hex name"
+	badNames := []string{
+		"A" + strings.Repeat("0", 63),
+		strings.ToUpper(cacheIngestLockName("ingest-ref-0")),
+		strings.Repeat("a", 63),
+		strings.Repeat("a", 65),
+		"not-a-sha256-hex-name",
+		strings.Repeat("g", 64),
+	}
+	for _, badName := range badNames {
+		root := cacheInventoryFixture(t)
+		writeCacheIngestLocks(t, root, 0)
+		writeCacheInventoryFixture(t, root, filepath.Join("ingest-locks", badName), nil)
+		requireRejectedCacheInventory(t, root, diagnostic)
+	}
+}
+
+func applyCacheInventoryMutation(t *testing.T, root, mutation string) string {
+	t.Helper()
+	if diagnostic, handled := applyCacheInventoryBlobMutation(t, root, mutation); handled {
+		return diagnostic
+	}
+	if diagnostic, handled := applyCacheInventoryDirectoryMutation(t, root, mutation); handled {
+		return diagnostic
+	}
+	if diagnostic, handled := applyCacheInventoryLockMutation(t, root, mutation); handled {
+		return diagnostic
+	}
+	t.Fatalf("unhandled mutation %q", mutation)
+	return ""
+}
+
+func applyCacheInventoryBlobMutation(t *testing.T, root, mutation string) (string, bool) {
+	t.Helper()
+	layer := imageProofBlobPath(cacheInventoryManifest(t, root).Layers[0].Digest)
+	switch mutation {
+	case "missing layer", "directory blob":
+		if err := os.Remove(filepath.Join(root, layer)); err != nil {
+			t.Fatal(err)
+		}
+		if mutation == "directory blob" {
+			if err := os.Mkdir(filepath.Join(root, layer), 0o700); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return "PDF renderer cache", true
+	case "extra blob":
+		writeCacheInventoryFixture(t, root, imageProofBlobPath(digestBytes([]byte("extra"))), []byte("extra"))
+		return "PDF renderer cache", true
+	case "wrong size":
+		writeCacheInventoryFixture(t, root, layer, []byte("short"))
+		return "size does not match", true
+	case "wrong digest":
+		body := readCacheInventoryFixture(t, root, layer)
+		body[0] ^= 1
+		writeCacheInventoryFixture(t, root, layer, body)
+		return "digest does not match", true
+	}
+	return "", false
+}
+
+func applyCacheInventoryDirectoryMutation(t *testing.T, root, mutation string) (string, bool) {
+	t.Helper()
+	switch mutation {
+	case "extra root":
+		writeCacheInventoryFixture(t, root, "unexpected", []byte("extra"))
+		return "PDF renderer cache", true
+	case "extra algorithm":
+		if err := os.Mkdir(filepath.Join(root, "blobs", "sha512"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		return "PDF renderer cache", true
+	case "nonempty ingest":
+		if err := os.Mkdir(filepath.Join(root, "ingest"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		writeCacheInventoryFixture(t, root, "ingest/partial", []byte("partial"))
+		return "PDF renderer cache", true
+	case "excessive entries":
+		for index := range maximumRendererCacheLayers + 5 {
+			body := []byte{byte(index)}
+			writeCacheInventoryFixture(t, root, imageProofBlobPath(digestBytes(body)), body)
+		}
+		return "PDF renderer cache", true
+	}
+	return "", false
+}
+
+func applyCacheInventoryLockMutation(t *testing.T, root, mutation string) (string, bool) {
+	t.Helper()
+	const ingestLockDiagnostic = "PDF renderer cache ingest lock must be one empty regular file with a SHA-256 hex name"
+	switch mutation {
+	case "nonempty lock":
+		writeCacheInventoryFixture(t, root, "cache.lock", []byte("x"))
+		return "lock must be one empty regular file", true
+	case "directory lock":
+		if err := os.Mkdir(filepath.Join(root, "cache.lock"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		return "lock must be one empty regular file", true
+	case "nonempty ingest lock":
+		writeCacheIngestLocks(t, root, 0)
+		writeCacheInventoryFixture(t, root, filepath.Join("ingest-locks", cacheIngestLockName("nonempty")), []byte("x"))
+		return ingestLockDiagnostic, true
+	case "directory ingest lock":
+		writeCacheIngestLocks(t, root, 0)
+		if err := os.Mkdir(filepath.Join(root, "ingest-locks", cacheIngestLockName("subdir")), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		return ingestLockDiagnostic, true
+	case "excessive ingest locks":
+		writeCacheIngestLocks(t, root, maximumRendererCacheLayers+3)
+		return "PDF renderer cache has missing, extra or excessive entries: " + filepath.Join(root, "ingest-locks"), true
+	case "ingest-locks file":
+		writeCacheInventoryFixture(t, root, "ingest-locks", nil)
+		return "PDF renderer cache requires a non-symlink directory: " + filepath.Join(root, "ingest-locks"), true
+	}
+	return "", false
 }
 
 func TestRendererCacheInventoryRejectsInvalidDescriptorsBeforeBlobReads(t *testing.T) {
