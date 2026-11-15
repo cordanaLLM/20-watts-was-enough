@@ -39,6 +39,7 @@ test("smoke execution covers all mandatory FM-T02 cells while private seed packs
     assert.equal(executed.run.expected_work_units, 32);
     assert.equal(executed.run.ledger.completed_work_units, 32);
     assert.match(executed.run.source_hashes["../lib/checkpoint-ledger.mjs"], /^[0-9a-f]{64}$/);
+    assert.match(executed.run.source_hashes["../lib/output-lock.mjs"], /^[0-9a-f]{64}$/);
     assert.equal(executed.run.execution_receipt.execution_mode, "release-image");
     assert.equal(executed.run.execution_receipt.runtime.os, process.platform);
     assert.deepEqual(executed.run.execution_receipt.image.digest, {

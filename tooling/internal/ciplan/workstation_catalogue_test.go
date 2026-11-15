@@ -37,7 +37,7 @@ func TestParseWorkstationCatalogueReturnsIsolatedData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if parsed.CoreScript != "test:workstation:core" || len(parsed.Jobs) != 19 {
+	if parsed.CoreScript != "test:workstation:core" || len(parsed.Jobs) != 20 {
 		t.Fatalf("embedded catalogue = %q/%d jobs", parsed.CoreScript, len(parsed.Jobs))
 	}
 	parsed.Jobs[0] = workstationCatalogueJob{}

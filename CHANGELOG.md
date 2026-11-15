@@ -7,6 +7,11 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- Add the F-020 ICP-T01 public-development smoke harness with fixed tree shares,
+  oxygen accounting and resumable retained records within C-1488 scope; B/C/O,
+  inference and transfer remain deferred, and every summary stays `NO_RESULT`
+  (#235).
+
 - Add pinned reader and portal screenshot comparisons with explicit PNG baseline recording and CI difference artifacts ([Decision 0128](decisions/0128-compare-reader-and-portal-screenshots-in-the-pinned-renderer.md), #239).
 
 - Add a scheduled bounded soak for workstation runner and book renderer resource growth.

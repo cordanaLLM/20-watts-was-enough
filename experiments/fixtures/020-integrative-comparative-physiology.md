@@ -4,7 +4,8 @@
 - **Direct claims:** [C-1488](../../research/claims.md#c-1488)–[C-1496](../../research/claims.md#c-1496)
 - **Source audit:** [integrative comparative physiology](../../research/audits/2026-08-25-integrative-comparative-physiology.md)
 - **Protocol IDs:** `ICP-T01`–`ICP-T09`
-- **Execution state:** no runner, execution manifest, generated data, or result exists
+- **Execution state:** ICP-T01 public-development smoke harness and smoke-ready
+  manifest exist for C-1488 scope only; every summary remains `NO_RESULT`
 - **Registry disposition:** no new P-series principle, architecture candidate, or claimed effect
 
 This fixture preserves the audit's complete common contract, nine protocol
@@ -2401,14 +2402,15 @@ dropping candidates, paths, arms, or hours after seeing runtime.
 
 ## Implementation and artifact boundary
 
-The fixture is protocol-complete but not workstation-executable. No manifest,
-runner, seed pack, raw output, result table, effect estimate, or measured energy
-record is created by this integration. Future implementation must preserve the
-frozen IDs and version any scientific change rather than silently editing the
-contract.
+The [ICP-T01 public-development smoke harness](../workstation/fixture-020/README.md)
+and its [smoke-ready manifest](../workstation/manifests/fixture-020.json) implement
+only the base-family generator and arm A within C-1488 scope. The harness checks
+synthetic oxygen accounting and retained execution records; every summary
+remains `NO_RESULT`. Simulated pump work in J supplies no measured workstation
+energy record or energy conclusion.
 
-## Harness status
-
-Blocked by: not-built.
-
-The Common CPU-only falsification contract section fixes a deterministic JavaScript runtime, the PCG64-DXSM generator and binary64 reference arithmetic, so a harness can be built on the workstation as specified; no generator, runner or tests exist yet.
+Arms B, C and O, common inference and the sensitivity diagnostic, transfer,
+Parquet artifacts and ICP-T02--ICP-T09 are not built. No confirmation or
+transfer data, seed pack or commitment exists. These implementation records
+supply no result, effect estimate or claim promotion. Future implementation
+must preserve the frozen IDs and version scientific changes.

@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "artifact": "fixture-020",
+  "partition": "transfer",
+  "state": "not-created",
+  "registered_count": 64,
+  "custody": "registrar-sealed",
+  "contains_seeds": false,
+  "contains_commitment": false,
+  "reason": "Public-development ICP-T01 smoke only; no sealed seeds or commitments created."
+}

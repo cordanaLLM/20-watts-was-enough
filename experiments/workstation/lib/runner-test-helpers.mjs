@@ -16,6 +16,11 @@ const defaultTemporaryRoot = path.join(process.cwd(), "tmp");
 const maxCleanupFixtures = 32;
 const maxRejectedOptions = 16;
 
+export function syntheticProcessCounters(overrides = {}) {
+  return async () => ({ peak_resident_bytes: 1, current_resident_bytes: 1,
+    bytes_read: 0, bytes_written: 0, counter_mode: "synthetic-test-counters", ...overrides });
+}
+
 export async function temporaryOutput(prefix) {
   await mkdir(defaultTemporaryRoot, { recursive: true });
   const parent = await mkdtemp(path.join(defaultTemporaryRoot, prefix));

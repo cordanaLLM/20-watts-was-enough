@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	expectedArtifactJobs         = 19
+	expectedArtifactJobs         = 20
 	maximumSuiteJobs             = 32
 	defaultConcurrency           = 4
 	maximumConcurrency           = 8

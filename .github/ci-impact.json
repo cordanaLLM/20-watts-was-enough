@@ -645,6 +645,26 @@
       ]
     },
     {
+      "id": "workstation-fixture-020",
+      "paths": [
+        "experiments/workstation/fixture-020/**"
+      ],
+      "lanes": [
+        "workstation-fixture-020"
+      ]
+    },
+    {
+      "id": "workstation-fixture-020-manifest",
+      "paths": [
+        "experiments/workstation/manifests/fixture-020.json"
+      ],
+      "lanes": [
+        "research",
+        "site",
+        "workstation-fixture-020"
+      ]
+    },
+    {
       "id": "workstation-fixture-022",
       "paths": [
         "experiments/workstation/fixture-022/**"

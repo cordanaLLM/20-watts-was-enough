@@ -65,6 +65,7 @@ var descriptors = map[string]descriptor{
 			"experiments/workstation/fixture-019/worker.py",
 			"experiments/workstation/lib/checkpoint-ledger.mjs",
 			"experiments/workstation/lib/execution-receipt.mjs",
+			"experiments/workstation/lib/output-lock.mjs",
 			"requirements-ci.txt",
 		},
 	},

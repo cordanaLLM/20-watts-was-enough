@@ -43,7 +43,7 @@ func TestProjectEmitsClosedFullSemanticsAndEveryWorkstationJob(t *testing.T) {
 		{Artifact: "fixture-026-shard-7", Scripts: "test:workstation:fixture-026:shard-7"},
 		{
 			Artifact: "short-fixtures",
-			Scripts:  "test:workstation:fixture-019 test:workstation:fixture-024 test:workstation:fixture-012 test:workstation:fixture-022 test:workstation:fixture-027 test:workstation:fixture-023 test:workstation:fixture-007 test:workstation:fixture-025",
+			Scripts:  "test:workstation:fixture-019 test:workstation:fixture-024 test:workstation:fixture-012 test:workstation:fixture-022 test:workstation:fixture-027 test:workstation:fixture-023 test:workstation:fixture-007 test:workstation:fixture-025 test:workstation:fixture-020",
 		},
 	}
 	if !reflect.DeepEqual(jobs, wantJobs) {
@@ -225,7 +225,7 @@ func TestWorkstationJobsReturnsAnIsolatedCompleteCatalogue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(first) != 19 || coreScript != "test:workstation:core" || !reflect.DeepEqual(first, catalogueJobs) {
+	if len(first) != 20 || coreScript != "test:workstation:core" || !reflect.DeepEqual(first, catalogueJobs) {
 		t.Fatalf("workstation catalogue has %d artifacts and core %q", len(first), coreScript)
 	}
 	for index, job := range first {
@@ -288,8 +288,8 @@ func TestProjectWorkstationJobsRejectsInvalidMatrices(t *testing.T) {
 
 func TestProjectWorkstationJobsPacksShortFixtures(t *testing.T) {
 	t.Parallel()
-	// Positive: all 8 packed jobs in rank order -> one entry "short-fixtures"
-	allEight := []WorkstationJob{
+	// Positive: all 9 packed jobs in rank order -> one entry "short-fixtures"
+	allNine := []WorkstationJob{
 		{Artifact: "fixture-019", Script: "test:workstation:fixture-019", CreationRank: 12, Pack: "short"},
 		{Artifact: "fixture-024", Script: "test:workstation:fixture-024", CreationRank: 13, Pack: "short"},
 		{Artifact: "fixture-012", Script: "test:workstation:fixture-012", CreationRank: 14, Pack: "short"},
@@ -298,8 +298,9 @@ func TestProjectWorkstationJobsPacksShortFixtures(t *testing.T) {
 		{Artifact: "fixture-023", Script: "test:workstation:fixture-023", CreationRank: 17, Pack: "short"},
 		{Artifact: "fixture-007", Script: "test:workstation:fixture-007", CreationRank: 18, Pack: "short"},
 		{Artifact: "fixture-025", Script: "test:workstation:fixture-025", CreationRank: 19, Pack: "short"},
+		{Artifact: "fixture-020", Script: "test:workstation:fixture-020", CreationRank: 20, Pack: "short"},
 	}
-	proj, err := projectWorkstationJobs(Projection{}, allEight)
+	proj, err := projectWorkstationJobs(Projection{}, allNine)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -310,11 +311,11 @@ func TestProjectWorkstationJobsPacksShortFixtures(t *testing.T) {
 	want := []workstationMatrixEntry{
 		{
 			Artifact: "short-fixtures",
-			Scripts:  "test:workstation:fixture-019 test:workstation:fixture-024 test:workstation:fixture-012 test:workstation:fixture-022 test:workstation:fixture-027 test:workstation:fixture-023 test:workstation:fixture-007 test:workstation:fixture-025",
+			Scripts:  "test:workstation:fixture-019 test:workstation:fixture-024 test:workstation:fixture-012 test:workstation:fixture-022 test:workstation:fixture-027 test:workstation:fixture-023 test:workstation:fixture-007 test:workstation:fixture-025 test:workstation:fixture-020",
 		},
 	}
 	if !reflect.DeepEqual(entries, want) {
-		t.Fatalf("all 8 packed = %v, want %v", entries, want)
+		t.Fatalf("all 9 packed = %v, want %v", entries, want)
 	}
 
 	// Boundary: exactly 1 selected -> own entry

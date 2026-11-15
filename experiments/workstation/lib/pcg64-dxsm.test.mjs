@@ -1,7 +1,25 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { littleEndianBigInt, Pcg64Dxsm } from "./pcg64-dxsm.mjs";
+import { littleEndianBigInt, Pcg64Dxsm, LabelSeededPcg64Dxsm } from "./pcg64-dxsm.mjs";
+
+test("canonical label-seeded PCG64-DXSM matches numpy 2.5.4 frozen raw vectors", () => {
+  const vectors = [
+    ["test", [2138930855611928216n, 5553695784128802888n, 12933839061157970110n]],
+    ["ICP-v2|T01|graph|ICP-T01-0x54010000", [
+      14767580380494617713n, 8224138482531333566n,
+      14343269510995284218n, 577886364834464899n,
+    ]],
+    ["ICP-v2|T01|forcing|ICP-T01-0x54010000", [
+      14221902664939042816n, 9351280586926552020n,
+      8272156746429152911n, 17609140250433375508n,
+    ]],
+  ];
+  for (const [label, expected] of vectors) {
+    const random = new LabelSeededPcg64Dxsm(label);
+    assert.deepEqual(expected.map(() => random.nextUint64()), expected);
+  }
+});
 
 test("littleEndianBigInt decodes bytes in little-endian order and handles boundaries", () => {
   assert.equal(littleEndianBigInt(Buffer.alloc(0)), 0n);

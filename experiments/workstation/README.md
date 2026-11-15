@@ -1,12 +1,14 @@
 # Workstation execution contract
 
-The repository now contains eleven executable smoke harnesses alongside research
+The repository now contains twelve executable smoke harnesses alongside research
 and protocol specifications, but no workstation-ready scientific package:
 [Candidate 010](candidate-010/README.md) exercises staged verification and
 [Fixture F-007](fixture-007/README.md) exercises optical null-space honesty;
 [Fixture F-012](fixture-012/README.md) exercises layout-population performance
 inference; [Fixture F-019](fixture-019/README.md) exercises the FM-T02
 endogenous-feedback forecast boundary;
+[Fixture F-020](fixture-020/README.md) exercises ICP-T01 public-development
+oxygen accounting with fixed tree shares;
 [Fixture F-022](fixture-022/README.md) exercises the DEV-T01 positional-memory
 corruption and fallback boundary;
 [Fixture F-023](fixture-023/README.md) exercises the PLM-T01 duration-memory and
@@ -257,6 +259,12 @@ frozen aggregate endpoint is effectively seed-invariant
 under the protocol's symmetric shocks and proportional sales, so confirmation
 is explicitly blocked pending a reviewed protocol revision. No result or
 energy conclusion follows.
+
+[Fixture F-020](fixture-020/README.md) implements the ICP-T01 base-family
+public-development generator and arm A within C-1488 scope. It checks fixed
+tree flows, oxygen closure and retained seed outcomes. B/C/O, common inference,
+transfer and the other eight tracks remain deferred. Simulated pump work in J
+supplies no measured workstation energy; every summary remains `NO_RESULT`.
 
 [Fixture F-022](fixture-022/README.md) implements a bounded public-development
 smoke path for C-1506 / DEV-T01. It exercises valid, independent, local-patch,
