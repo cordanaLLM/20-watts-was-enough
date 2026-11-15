@@ -84,6 +84,9 @@ export async function acquireLock(directory, artifact, timeoutMs = 30000,
     throw error;
   }
   return Object.freeze({
+    async retain() {
+      await lockIo(() => handle.close(), `close ${lockPath}`, timeoutMs);
+    },
     async release() {
       const document = await readLockDocument(lockPath, artifact, timeoutMs, openLock);
       if (document.token_sha256 !== sha256Hex(token)) {

@@ -38,6 +38,84 @@ function failingLockOpen(step, failure, closeFailure) {
   };
 }
 
+function retainingLockOpen(state, closeOutcome) {
+  return async (...args) => {
+    assert.equal(args[1], "wx", "retain must not open a lock reader");
+    state.owner = await open(...args);
+    return {
+      writeFile: (...values) => state.owner.writeFile(...values),
+      sync: () => state.owner.sync(),
+      close: async () => {
+        state.closeCalled = true;
+        await state.owner.close();
+        if (closeOutcome) await closeOutcome();
+      },
+    };
+  };
+}
+
+test("retain closes the owner handle and preserves lock bytes and exclusion", async () => {
+  const fixture = await temporaryOutput("fixture-020-lock-retain-");
+  const file = `${fixture.output}.fixture-020.lock`;
+  const state = { closeCalled: false };
+  try {
+    const lock = await acquireLock(fixture.output, "fixture-020", 1000, {
+      open: retainingLockOpen(state), rm: () => assert.fail("retain must not remove the lock"),
+    });
+    const original = await readFile(file);
+    assert.equal(Object.isFrozen(lock), true);
+    await lock.retain();
+    assert.equal(state.closeCalled, true);
+    await assert.rejects(() => state.owner.stat(), { code: "EBADF" });
+    assert.deepEqual(await readFile(file), original);
+    await assert.rejects(() => acquireLock(fixture.output, "fixture-020"), { code: "EEXIST" });
+    assert.deepEqual(await readFile(file), original);
+  } finally {
+    if (state.owner) await state.owner.close();
+    await cleanup(fixture);
+  }
+});
+
+test("retain rejects owner close failure and preserves the lock bytes", async () => {
+  const fixture = await temporaryOutput("fixture-020-lock-retain-failure-");
+  const file = `${fixture.output}.fixture-020.lock`;
+  const state = {};
+  const failure = new Error("injected retain close failure");
+  try {
+    const lock = await acquireLock(fixture.output, "fixture-020", 1000, {
+      open: retainingLockOpen(state, () => { throw failure; }),
+    });
+    const original = await readFile(file);
+    await assert.rejects(() => lock.retain(), (error) => error === failure);
+    assert.equal(state.closeCalled, true);
+    assert.deepEqual(await readFile(file), original);
+  } finally {
+    if (state.owner) await state.owner.close();
+    await cleanup(fixture);
+  }
+});
+
+test("retain rejects owner close timeout and preserves the lock bytes", async () => {
+  const fixture = await temporaryOutput("fixture-020-lock-retain-timeout-");
+  const file = `${fixture.output}.fixture-020.lock`;
+  const state = {};
+  let finishClose;
+  const closeGate = new Promise((resolve) => { finishClose = resolve; });
+  try {
+    const lock = await acquireLock(fixture.output, "fixture-020", 1000, {
+      open: retainingLockOpen(state, () => closeGate),
+    });
+    const original = await readFile(file);
+    await assert.rejects(() => lock.retain(), { message: `Output lock deadline: close ${file}.` });
+    assert.equal(state.closeCalled, true);
+    assert.deepEqual(await readFile(file), original);
+  } finally {
+    finishClose();
+    if (state.owner) await state.owner.close();
+    await cleanup(fixture);
+  }
+});
+
 test("failed lock write removes its file, preserves the error and permits another acquire", async () => {
   const fixture = await temporaryOutput("fixture-020-lock-write-failure-");
   const failure = new Error("injected lock write failure");

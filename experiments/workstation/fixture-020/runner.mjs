@@ -189,16 +189,31 @@ async function executeBounded({ profile, output, resume = false, maxWorkUnits = 
   const worldCheck = executionCheck({ deadline: end, clock });
   check();
   const directory = await outputDirectory(repositoryRoot, output, true);
-  const lock = await outputLock(directory);
-  let result;
-  try {
+  const result = await withFixture020OutputLock(directory, async () => {
     await initializeOutput(output, resume);
     await stableJson(path.join(directory, "identity.json"), identity);
     const ledger = await openLedger(directory, identity);
-    result = await executeLocked({ directory, identity, ledger, maxWorkUnits, resume, check, worldCheck, counters, append });
-  } finally { await lock.release(); }
+    return executeLocked({ directory, identity, ledger, maxWorkUnits, resume, check, worldCheck, counters, append });
+  });
   check();
   return result;
+}
+
+export async function withFixture020OutputLock(directory, body) {
+  const lock = await outputLock(directory);
+  let retained = false;
+  try {
+    return await body();
+  } catch (error) {
+    if (deadlineCause(error)?.settled !== false) throw error;
+    retained = true;
+    const failure = new Error(`ICP-T01 output lock ${directory}.fixture-020.lock retained; delete it only after confirming no process uses the output.`, { cause: error });
+    try { await lock.retain(); }
+    catch (cleanupError) { failure.cleanupErrors = [cleanupError]; }
+    throw failure;
+  } finally {
+    if (!retained) await lock.release();
+  }
 }
 
 async function outputLock(directory) {
@@ -252,6 +267,9 @@ async function interruption(directory, ledger, error) {
 
 function deadlineInterrupted(error) {
   const deadline = deadlineCause(error);
+  if (deadline.settled === false) {
+    return new Error(`ICP-T01 execution interrupted: ${error.message}; operation settled=false; an unsettled operation may still complete.`, { cause: error });
+  }
   return new Error(`ICP-T01 execution interrupted: ${error.message}; operation settled=${deadline.settled}; an unsettled operation may still complete; resume re-verifies ledger and artifacts.`, { cause: error });
 }
 
@@ -315,12 +333,11 @@ async function checkedAnalysis(output, options) {
 
 export async function analyzeFixture020(output, options = {}) {
   const directory = await outputDirectory(repositoryRoot, output);
-  const lock = await outputLock(directory);
-  let analysis;
-  try {
-    analysis = await checkedAnalysis(output, options);
+  const analysis = await withFixture020OutputLock(directory, async () => {
+    const analysis = await checkedAnalysis(output, options);
     await stableJson(path.join(directory, "summary.json"), analysis.summary);
-  } finally { await lock.release(); }
+    return analysis;
+  });
   analysis.check();
   return analysis.summary;
 }
@@ -433,12 +450,11 @@ async function smokeResources(output, started, cpuStarted, scope, capBytes, read
     ...counters, memory_cap_bytes: capBytes, memory_cap_check: status,
     artifact_bytes_before_resource_receipt: await outputBytes(directory),
     ...NO_RESULT };
-  const lock = await outputLock(directory);
-  try {
+  await withFixture020OutputLock(directory, async () => {
     if (await optionalText(path.join(directory, "resources.json")) === null) {
       await stableJson(path.join(directory, "resources.json"), resources);
     }
-  } finally { await lock.release(); }
+  });
   if (memoryError) throw memoryError;
   return { ...resources, output_bytes: await outputBytes(directory) };
 }

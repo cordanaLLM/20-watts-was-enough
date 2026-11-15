@@ -79,8 +79,10 @@ Smoke shares one wall deadline across execution, analysis and validation.
 The deadline is checked before each world and after its artifact-and-ledger
 commit. That commit can require several I/O operations; each has a 30 s
 deadline and at most 30 s further settlement grace.
-An I/O deadline writes no interruption document: an unsettled operation may
-still complete, and resume re-verifies the ledger and artifacts.
+An I/O deadline writes no interruption document. A settled operation releases
+the lock, and resume re-verifies the ledger and artifacts. An unsettled
+operation keeps the lock. The next execute, resume or analysis refuses until
+the lock is deleted after confirming no process uses the output.
 
 ## Artifacts and bounds
 
