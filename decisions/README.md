@@ -132,3 +132,4 @@ than silently changing its outcome.
 | [0125](0125-bound-ci-jobs-by-measured-time.md) | Bound CI jobs by measured time | accepted |
 | [0126](0126-bound-pages-deploy-jobs-by-the-action-timeout.md) | Bound Pages deploy jobs by the action timeout | accepted |
 | [0128](0128-compare-reader-and-portal-screenshots-in-the-pinned-renderer.md) | Compare reader and portal screenshots in the pinned renderer | accepted |
+| [0131](0131-run-the-go-tests-without-the-test-cache.md) | Run the Go tests without the test cache | accepted |

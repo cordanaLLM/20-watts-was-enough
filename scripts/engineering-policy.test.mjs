@@ -1223,7 +1223,7 @@ test("portable workflows reject Windows runners and PowerShell entry points", ()
 
 test("portable workflows admit only the fixed Windows Go test lane", () => {
   assert.deepEqual(validatePortableWorkflowObject({
-    jobs: { "lane-go-windows": { "runs-on": "windows-2025", steps: [{ run: "go -C tooling test ./..." }] } },
+    jobs: { "lane-go-windows": { "runs-on": "windows-2025", steps: [{ run: "go -C tooling test -count=1 ./..." }] } },
   }), []);
   assert.deepEqual(validatePortableWorkflowObject({
     jobs: {
@@ -1957,12 +1957,12 @@ test("Go gates run under the race detector and type-check the Windows and macOS 
   assert.deepEqual(validateGoGateScriptObject({
     ...scripts,
     "test:go": "go -C tooling test ./... && go -C tooling vet ./...",
-  }), ["package.json: test:go must run the complete tooling test gate under the race detector and vet"]);
+  }), ["package.json: test:go must run the complete tooling test gate under the race detector and vet, bypassing the test cache with -count=1"]);
 
   const valid = workflow("ci");
   assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(valid), []);
   for (const jobName of ["lane-go-windows", "lane-go-macos"]) {
-    const finding = `.github/workflows/ci.yml: ${jobName} must run the portable Go tests unconditionally`;
+    const finding = `.github/workflows/ci.yml: ${jobName} must run the portable Go tests unconditionally and bypass the test cache with -count=1`;
     const vetOnly = structuredClone(valid);
     vetOnly.jobs[jobName].steps.find((step) => step.name === "Test Go packages").run = "go -C tooling vet ./...";
     assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(vetOnly), [finding]);
@@ -1979,7 +1979,7 @@ test("Go gates run under the race detector and type-check the Windows and macOS 
   const laneTest = step(withoutRace, "lane-go", "Test and vet Go packages");
   laneTest.run = laneTest.run.replace(" -race", "");
   assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(withoutRace), [
-    ".github/workflows/ci.yml: lane-go must run the Go tests under the race detector",
+    ".github/workflows/ci.yml: lane-go must run the Go tests under the race detector and bypass the test cache with -count=1",
   ]);
 
   const withoutMacOS = structuredClone(valid);
@@ -2006,8 +2006,37 @@ test("Go gates run under the race detector and type-check the Windows and macOS 
   const allowedFailure = structuredClone(valid);
   step(allowedFailure, "lane-go", "Test and vet Go packages")["continue-on-error"] = true;
   assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(allowedFailure), [
-    ".github/workflows/ci.yml: lane-go must run the Go tests under the race detector",
+    ".github/workflows/ci.yml: lane-go must run the Go tests under the race detector and bypass the test cache with -count=1",
   ]);
+});
+
+test("Go gates refuse suite-wide test commands that omit -count=1", () => {
+  const scripts = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).scripts;
+  assert.deepEqual(validateGoGateScriptObject({
+    ...scripts,
+    "test:go": "go -C tooling test -race ./... && go -C tooling vet ./...",
+  }), [
+    "package.json: test:go must run the complete tooling test gate under the race detector and vet, bypassing the test cache with -count=1",
+  ]);
+
+  const valid = workflow("ci");
+  const cachedLaneGo = structuredClone(valid);
+  cachedLaneGo.jobs["lane-go"].steps.find(
+    (step) => step.name === "Test and vet Go packages",
+  ).run = "go -C tooling test -race ./... && go -C tooling vet ./...";
+  assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(cachedLaneGo), [
+    ".github/workflows/ci.yml: lane-go must run the Go tests under the race detector and bypass the test cache with -count=1",
+  ]);
+
+  for (const jobName of ["lane-go-windows", "lane-go-macos"]) {
+    const cachedNative = structuredClone(valid);
+    cachedNative.jobs[jobName].steps.find(
+      (step) => step.name === "Test Go packages",
+    ).run = "go -C tooling test ./...";
+    assert.deepEqual(validateCiGoRaceAndPlatformWorkflowObject(cachedNative), [
+      `.github/workflows/ci.yml: ${jobName} must run the portable Go tests unconditionally and bypass the test cache with -count=1`,
+    ]);
+  }
 });
 
 test("real PDF reproducibility acceptance stays in the renderer-selected and tagged boundaries", () => {

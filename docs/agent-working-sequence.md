@@ -107,7 +107,7 @@ For targeted development and incremental verification:
   component development.
 - **Go tooling tests:**
   Validate Go packages and tooling CLI commands via `npm run test:go`
-  (`go -C tooling test -race ./... && go -C tooling vet ./...`).
+  (`go -C tooling test -race -count=1 ./... && go -C tooling vet ./...`).
 - **Changed Markdown:**
   Run `npm run check:prose` (`scripts/audit-prose-style.mjs`),
   `npm run validate:docs` and `npm run validate:math`, plus Markdown
