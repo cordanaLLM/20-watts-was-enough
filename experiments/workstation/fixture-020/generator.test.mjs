@@ -20,35 +20,36 @@ const FIRST_HOTSPOTS = [
   [1081, 47, 93, 2.920538126601855],
 ];
 
-test("frozen hotspot vector keeps K fixed while placing ICP-T01-0x54010000", () => {
-  const world = generateFixture020World({ seed: 0x54010000 });
-  assert.equal(world.graph.nodes.length - 1, 112);
-  assert.equal(world.forcing.hotspots.length, 17);
+function assertFrozenHotspotWorld(seed, { nodes, hotspots }) {
+  const world = generateFixture020World({ seed });
+  assert.equal(world.graph.nodes.length - 1, nodes);
+  assert.equal(world.forcing.hotspots.length, hotspots.length);
   assert.equal(world.forcing.attempts, 1);
   assert.equal(world.forcing.overload_minutes, 0);
   assert.deepEqual(world.forcing.hotspots.map(({ start, duration, centre, multiplier }) => (
     [start, duration, centre, multiplier]
-  )), FIRST_HOTSPOTS);
+  )), hotspots);
+  return world;
+}
+
+test("frozen hotspot vector keeps K fixed while placing ICP-T01-0x54010000", () => {
+  const world = assertFrozenHotspotWorld(0x54010000, { nodes: 112, hotspots: FIRST_HOTSPOTS });
   assert.deepEqual(world.forcing.hotspots.map(({ id }) => id), Array.from({ length: 17 }, (_, id) => id));
   assert.ok(Math.abs(world.forcing.maximum_loss / 11080.711028790633 - 1) <= 1e-12);
 });
 
 test("second public seed agrees with its frozen hotspot vector", () => {
-  const world = generateFixture020World({ seed: 0x54010001 });
-  assert.equal(world.graph.nodes.length - 1, 98);
-  assert.equal(world.forcing.hotspots.length, 12);
-  assert.equal(world.forcing.attempts, 1);
-  assert.equal(world.forcing.overload_minutes, 0);
-  assert.deepEqual(world.forcing.hotspots.map(({ start, duration, centre, multiplier }) => (
-    [start, duration, centre, multiplier]
-  )), [
-    [901, 20, 75, 2.9645969396043075], [841, 34, 53, 2.9292728494161757],
-    [488, 56, 69, 2.9850645260882334], [945, 69, 96, 1.9807426936162673],
-    [1304, 54, 3, 2.1700045379835715], [1063, 20, 64, 2.845976296431222],
-    [352, 36, 31, 1.8506017270178134], [747, 13, 50, 2.4359629617899183],
-    [1089, 16, 43, 2.378444078383307], [1179, 73, 92, 2.6353199293275313],
-    [808, 21, 8, 2.1978929478737412], [444, 15, 79, 2.3313140970244333],
-  ]);
+  assertFrozenHotspotWorld(0x54010001, {
+    nodes: 98,
+    hotspots: [
+      [901, 20, 75, 2.9645969396043075], [841, 34, 53, 2.9292728494161757],
+      [488, 56, 69, 2.9850645260882334], [945, 69, 96, 1.9807426936162673],
+      [1304, 54, 3, 2.1700045379835715], [1063, 20, 64, 2.845976296431222],
+      [352, 36, 31, 1.8506017270178134], [747, 13, 50, 2.4359629617899183],
+      [1089, 16, 43, 2.378444078383307], [1179, 73, 92, 2.6353199293275313],
+      [808, 21, 8, 2.1978929478737412], [444, 15, 79, 2.3313140970244333],
+    ],
+  });
 });
 
 test("F-020 uniforms use single rounding, including the upper endpoint event", () => {

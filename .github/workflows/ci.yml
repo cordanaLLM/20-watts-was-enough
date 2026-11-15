@@ -237,7 +237,7 @@ jobs:
             echo "CLRS_PROMISE_TEST_WHEEL=$RUNNER_TEMP/promise-wheel/run-1/promise-2.3-py3-none-any.whl"
           } >> "$GITHUB_ENV"
       - name: Test and vet Go packages
-        run: go -C tooling test -race ./... && go -C tooling vet ./...
+        run: go -C tooling test -race -count=1 ./... && go -C tooling vet ./...
       - name: Type-check the Windows and macOS builds
         run: |
           GOOS=windows GOARCH=amd64 go -C tooling vet ./...
@@ -276,7 +276,7 @@ jobs:
           go-version-file: tooling/go.mod
           cache-dependency-path: tooling/go.sum
       - name: Test Go packages
-        run: go -C tooling test ./...
+        run: go -C tooling test -count=1 ./...
 
   lane-go-macos:
     name: Go lane (macOS)
@@ -297,7 +297,7 @@ jobs:
           go-version-file: tooling/go.mod
           cache-dependency-path: tooling/go.sum
       - name: Test Go packages
-        run: go -C tooling test ./...
+        run: go -C tooling test -count=1 ./...
 
   lane-release:
     name: Release lane
