@@ -289,56 +289,20 @@ async function waitUntil(predicate) {
   assert.fail("condition did not settle after bounded poll");
 }
 
-for (const closeFailure of [null, new Error("injected late reader close failure")]) {
-  const outcome = closeFailure ? "records late reader close failure" : "closes late reader";
-  test(`release deadline ${outcome} and preserves owner bytes`, async () => {
-    const fixture = await temporaryOutput("fixture-020-late-reader-");
-    const file = fixture.output + ".fixture-020.lock";
-    const state = { slowRead: true, closed: false };
-    let deadline;
-    try {
-      const lock = await acquireLock(fixture.output, "fixture-020", 1000, {
-        open: delayedReadOpen(state, null, closeFailure),
-      });
-      const original = await readFile(file);
-      await assert.rejects(() => lock.release(), (error) => {
-        deadline = error;
-        return /Output lock deadline/.test(error.message);
-      });
-      state.openReadGate();
-      await waitUntil(() => state.closed && (!closeFailure || deadline.cleanupErrors?.includes(closeFailure)));
-      if (closeFailure) assert.deepEqual(deadline.cleanupErrors, [closeFailure]);
-      assert.deepEqual(await readFile(file), original);
-      state.slowRead = false;
-      await lock.release();
-      await assert.rejects(() => readFile(file), { code: "ENOENT" });
-    } finally {
-      state.openReadGate();
-      if (state.reader) await state.reader.close();
-      if (state.owner) await state.owner.close();
-      await cleanup(fixture);
-    }
-  });
-}
-
-test("release deadline records late reader open failure and preserves owner bytes", async () => {
-  const fixture = await temporaryOutput("fixture-020-late-reader-failure-");
+async function runLateReaderDeadlineCase({ prefix, state, open: openLock, settled, check }) {
+  const fixture = await temporaryOutput(prefix);
   const file = fixture.output + ".fixture-020.lock";
-  const state = { slowRead: true };
-  const failure = new Error("injected late reader open failure");
   let deadline;
   try {
-    const lock = await acquireLock(fixture.output, "fixture-020", 1000, {
-      open: delayedReadOpen(state, failure),
-    });
+    const lock = await acquireLock(fixture.output, "fixture-020", 1000, { open: openLock });
     const original = await readFile(file);
     await assert.rejects(() => lock.release(), (error) => {
       deadline = error;
       return /Output lock deadline/.test(error.message);
     });
     state.openReadGate();
-    await waitUntil(() => deadline.lateOpenError === failure);
-    assert.equal(deadline.lateOpenError, failure);
+    await waitUntil(() => settled(deadline));
+    check(deadline);
     assert.deepEqual(await readFile(file), original);
     state.slowRead = false;
     await lock.release();
@@ -349,4 +313,32 @@ test("release deadline records late reader open failure and preserves owner byte
     if (state.owner) await state.owner.close();
     await cleanup(fixture);
   }
+}
+
+for (const closeFailure of [null, new Error("injected late reader close failure")]) {
+  const outcome = closeFailure ? "records late reader close failure" : "closes late reader";
+  test(`release deadline ${outcome} and preserves owner bytes`, async () => {
+    const state = { slowRead: true, closed: false };
+    await runLateReaderDeadlineCase({
+      prefix: "fixture-020-late-reader-",
+      state,
+      open: delayedReadOpen(state, null, closeFailure),
+      settled: (deadline) => state.closed && (!closeFailure || deadline.cleanupErrors?.includes(closeFailure)),
+      check: (deadline) => {
+        if (closeFailure) assert.deepEqual(deadline.cleanupErrors, [closeFailure]);
+      },
+    });
+  });
+}
+
+test("release deadline records late reader open failure and preserves owner bytes", async () => {
+  const state = { slowRead: true };
+  const failure = new Error("injected late reader open failure");
+  await runLateReaderDeadlineCase({
+    prefix: "fixture-020-late-reader-failure-",
+    state,
+    open: delayedReadOpen(state, failure),
+    settled: (deadline) => deadline.lateOpenError === failure,
+    check: (deadline) => assert.equal(deadline.lateOpenError, failure),
+  });
 });
