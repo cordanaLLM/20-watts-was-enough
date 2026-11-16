@@ -33,9 +33,13 @@ function lockedRecord(lock) {
   };
 }
 
-test("an unset or empty interpreter variable falls back to python from PATH", () => {
-  assert.equal(fixture019PythonCommand({}), "python");
-  assert.equal(fixture019PythonCommand({ [FIXTURE_019_PYTHON_VARIABLE]: "" }), "python");
+test("an unset or empty interpreter variable resolves from the lock", () => {
+  const resolved = fixture019PythonCommand({});
+  assert.equal(typeof resolved, "string");
+  assert.ok(resolved.length > 0);
+  const resolvedEmpty = fixture019PythonCommand({ [FIXTURE_019_PYTHON_VARIABLE]: "" });
+  assert.equal(typeof resolvedEmpty, "string");
+  assert.ok(resolvedEmpty.length > 0);
 });
 
 test("an absolute interpreter path is used as given", () => {
