@@ -45,13 +45,17 @@ function fixture019VenvDir(version) {
   return path.join(fixture019CacheRoot(), `venv-${version}`);
 }
 
-function isValidVenv(venvDir, venvBin) {
+function isValidVenv(venvDir, venvBin, lockedVersion) {
   if (!existsSync(venvBin)) return false;
   try {
     const st = lstatSync(venvDir);
     if (st.uid !== process.getuid()) return false;
   } catch { return false; }
-  const probe = spawnSync(venvBin, ["-c", "import numpy"], { encoding: "utf8", timeout: 5000, windowsHide: true });
+  if (lockedVersion) {
+    const ver = spawnSync(venvBin, ["-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')"], { encoding: "utf8", timeout: 5000, killSignal: "SIGKILL", windowsHide: true });
+    if (ver.status !== 0 || ver.stdout.trim() !== lockedVersion) return false;
+  }
+  const probe = spawnSync(venvBin, ["-c", "import numpy"], { encoding: "utf8", timeout: 5000, killSignal: "SIGKILL", windowsHide: true });
   return probe.status === 0;
 }
 
@@ -75,10 +79,10 @@ export function fixture019PythonCommand(environment = process.env) {
   if (version) {
     const venvDir = fixture019VenvDir(version);
     const venvBin = path.join(venvDir, "bin", "python");
-    if (isValidVenv(venvDir, venvBin)) return venvBin;
+    if (isValidVenv(venvDir, venvBin, version)) return venvBin;
     const [major, minor] = version.split(".");
     const versioned = `python${major}.${minor}`;
-    const probe = spawnSync(versioned, ["-c", "import numpy"], { encoding: "utf8", timeout: 5000, windowsHide: true });
+    const probe = spawnSync(versioned, ["-c", "import numpy"], { encoding: "utf8", timeout: 5000, killSignal: "SIGKILL", windowsHide: true });
     if (probe.status === 0) return versioned;
   }
   return "python";
@@ -96,24 +100,24 @@ export function provisionFixture019Python(environment = process.env) {
   if (!version) throw new Error("python-environment.lock.json has no python_version.");
   const venvDir = fixture019VenvDir(version);
   const venvBin = path.join(venvDir, "bin", "python");
-  if (isValidVenv(venvDir, venvBin)) return venvBin;
+  if (isValidVenv(venvDir, venvBin, version)) return venvBin;
   const [major, minor] = version.split(".");
   const versioned = `python${major}.${minor}`;
-  const versionProbe = spawnSync(versioned, ["--version"], { encoding: "utf8", timeout: 5000, windowsHide: true });
+  const versionProbe = spawnSync(versioned, ["--version"], { encoding: "utf8", timeout: 5000, killSignal: "SIGKILL", windowsHide: true });
   const baseCommand = versionProbe.status === 0 ? versioned : "python";
   mkdirSync(fixture019CacheRoot(), { recursive: true, mode: 0o700 });
   const staging = `${venvDir}.staging-${process.pid}`;
   rmSync(staging, { recursive: true, force: true });
-  const create = spawnSync(baseCommand, ["-m", "venv", staging], { encoding: "utf8", timeout: 60000, windowsHide: true });
+  const create = spawnSync(baseCommand, ["-m", "venv", staging], { encoding: "utf8", timeout: 60000, killSignal: "SIGKILL", windowsHide: true });
   if (create.status !== 0) throw new Error(`venv creation failed (${create.status}): ${create.stderr}`);
   const stagingBin = path.join(staging, "bin", "python");
   const reqPath = path.join(repositoryRoot, "requirements-ci.txt");
-  const install = spawnSync(stagingBin, ["-m", "pip", "install", "--require-hashes", "-r", reqPath], { encoding: "utf8", timeout: 120000, windowsHide: true });
+  const install = spawnSync(stagingBin, ["-m", "pip", "install", "--no-cache-dir", "--require-hashes", "-r", reqPath], { encoding: "utf8", timeout: 120000, killSignal: "SIGKILL", windowsHide: true });
   if (install.status !== 0) {
     rmSync(staging, { recursive: true, force: true });
     throw new Error(`pip install failed (${install.status}): ${install.stderr}`);
   }
-  const validate = spawnSync(stagingBin, ["-c", "import numpy"], { encoding: "utf8", timeout: 5000, windowsHide: true });
+  const validate = spawnSync(stagingBin, ["-c", "import numpy"], { encoding: "utf8", timeout: 5000, killSignal: "SIGKILL", windowsHide: true });
   if (validate.status !== 0) {
     rmSync(staging, { recursive: true, force: true });
     throw new Error("numpy import failed after installation.");

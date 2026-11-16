@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { execFileSync, spawnSync } from "node:child_process";
+import { chmod, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -182,4 +182,41 @@ test("the runner raises an action failure and a worker exit failure together", p
       return true;
     });
   }));
+});
+
+test("a cached venv with a mismatched Python version is rejected and rebuilt", posixStubOnly, async () => {
+  const lock = await readLock();
+  const version = lock.python_version;
+  if (!version) return;
+  const tmpCache = await mkdtemp(path.join(os.tmpdir(), "f019-cache-mismatch-"));
+  try {
+    const fakeVenv = path.join(tmpCache, `venv-${version}`);
+    const fakeBin = path.join(fakeVenv, "bin");
+    await mkdir(fakeBin, { recursive: true });
+    await writeFile(path.join(fakeBin, "python"), `#!/bin/sh
+case "$*" in
+  *"sys.version_info"*) echo "3.14.99" ;;
+  *"import numpy"*) exit 0 ;;
+  *) exec python3 "$@" ;;
+esac
+`);
+    await chmod(path.join(fakeBin, "python"), 0o755);
+    const { fixture019PythonCommand: resolve } = await import("./runner.mjs");
+    const old = process.env.XDG_CACHE_HOME;
+    process.env.XDG_CACHE_HOME = tmpCache;
+    try {
+      const cmd = resolve({});
+      assert.notEqual(cmd, path.join(fakeBin, "python"), "mismatched venv must not be returned");
+    } finally {
+      if (old === undefined) delete process.env.XDG_CACHE_HOME;
+      else process.env.XDG_CACHE_HOME = old;
+    }
+  } finally {
+    await rm(tmpCache, { recursive: true, force: true });
+  }
+});
+
+test("spawnSync with SIGKILL terminates a SIGTERM-ignoring child", posixStubOnly, () => {
+  const result = spawnSync("sh", ["-c", "trap '' TERM; sleep 60"], { timeout: 500, killSignal: "SIGKILL", windowsHide: true });
+  assert.equal(result.signal, "SIGKILL");
 });
