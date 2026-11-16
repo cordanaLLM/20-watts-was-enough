@@ -108,6 +108,14 @@ function stripArtifactData(evaluation) {
 
 export const TRACKS = Object.freeze({ "ICP-T01": t01, "ICP-T02": t02 });
 
+export const EVENT_CONTRACT_VERSION = "fixture-020.event-dispatch.v1";
+
+export function assertEventRecord(record, options) {
+  if (record?.track === "ICP-T01") return assertFixture020Record(record, options);
+  if (record?.track === "ICP-T02") return assertT02Record(record, options);
+  throw new Error(`fixture-020 unknown track in event: ${record?.track}`);
+}
+
 export function getTrack(name) {
   const track = TRACKS[name];
   if (!track) throw new Error(`fixture-020 unknown track ${name}.`);

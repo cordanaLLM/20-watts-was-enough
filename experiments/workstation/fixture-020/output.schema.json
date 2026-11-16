@@ -2,6 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://20-watts-was-enough.local/schemas/fixture-020.event.schema.json",
   "title": "Fixture 020 public-development smoke event (ICP-T01 or ICP-T02)",
+  "x-runtime-validator": {
+    "module": "tracks.mjs",
+    "export": "assertEventRecord",
+    "version_export": "EVENT_CONTRACT_VERSION",
+    "contract_version": "fixture-020.event-dispatch.v1",
+    "test": "contract.test.mjs"
+  },
   "oneOf": [
     { "$ref": "#/$defs/t01Event" },
     { "$ref": "#/$defs/t02Event" }
