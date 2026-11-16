@@ -3,12 +3,14 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { assertFixture019Runtime, fixture019PythonCommand } from "./runner.mjs";
+import { assertFixture019Runtime, fixture019PythonCommand, provisionFixture019Python } from "./runner.mjs";
 
 const fixtureRoot = path.dirname(fileURLToPath(import.meta.url));
 const workerPath = path.join(fixtureRoot, "worker.py");
 const pythonTimeoutMilliseconds = 10 * 60 * 1000;
 const verifiedCommands = new Set();
+
+provisionFixture019Python();
 
 // readEnvironmentLock returns the fixture's pinned Python environment so test interpreters
 // can be checked against the same lock as the runner.

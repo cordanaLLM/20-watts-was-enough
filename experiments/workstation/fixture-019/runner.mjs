@@ -11,9 +11,9 @@ import {
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
 import { createInterface } from "node:readline";
-import { tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { acquireLock } from "../lib/output-lock.mjs";
 
 import {
@@ -36,11 +36,30 @@ import {
 export const FIXTURE_019_RUNNER_VERSION = "fixture-019.fm-t02-runner.v1";
 export const FIXTURE_019_PYTHON_VARIABLE = "TWENTYW_FIXTURE_019_PYTHON";
 
+function fixture019CacheRoot() {
+  const xdg = process.env.XDG_CACHE_HOME;
+  return path.join(xdg || path.join(homedir(), ".cache"), "fixture-019-python");
+}
+
+function fixture019VenvDir(version) {
+  return path.join(fixture019CacheRoot(), `venv-${version}`);
+}
+
+function isValidVenv(venvBin) {
+  if (!existsSync(venvBin)) return false;
+  try {
+    const st = statSync(venvBin);
+    if (st.uid !== process.getuid()) return false;
+  } catch { return false; }
+  const probe = spawnSync(venvBin, ["-c", "import numpy"], { encoding: "utf8", timeout: 5000, windowsHide: true });
+  return probe.status === 0;
+}
+
 // fixture019PythonCommand returns the interpreter Fixture 019 spawns: the absolute path in
 // TWENTYW_FIXTURE_019_PYTHON; when the variable is unset, the versioned binary
-// python{major}.{minor} from PATH (derived from the lock); or bare `python` as last resort.
-// When the resolved interpreter lacks numpy, a cached venv with requirements-ci.txt is
-// provisioned and its interpreter returned instead.
+// python{major}.{minor} from PATH (derived from the lock); or a prepared venv interpreter
+// from the user-owned cache; or bare `python` as last resort. Never provisions a venv;
+// call prepareFixture019 for that.
 // A relative path is refused, so the choice cannot depend on the working directory. Either
 // way the caller still checks the interpreter against python-environment.lock.json.
 export function fixture019PythonCommand(environment = process.env) {
@@ -52,28 +71,54 @@ export function fixture019PythonCommand(environment = process.env) {
     return configured;
   }
   const lock = JSON.parse(readFileSync(path.join(fixtureRoot, "python-environment.lock.json"), "utf8"));
-  let command = "python";
   const version = lock.python_version;
   if (version) {
+    const venvBin = path.join(fixture019VenvDir(version), "bin", "python");
+    if (isValidVenv(venvBin)) return venvBin;
     const [major, minor] = version.split(".");
     const versioned = `python${major}.${minor}`;
-    const probe = spawnSync(versioned, ["--version"], { encoding: "utf8", timeout: 5000, windowsHide: true });
-    if (probe.status === 0) command = versioned;
+    const probe = spawnSync(versioned, ["-c", "import numpy"], { encoding: "utf8", timeout: 5000, windowsHide: true });
+    if (probe.status === 0) return versioned;
   }
-  return ensureNumpy(command, lock);
+  return "python";
 }
 
-function ensureNumpy(command, lock) {
-  const probe = spawnSync(command, ["-c", "import numpy"], { encoding: "utf8", timeout: 5000, windowsHide: true });
-  if (probe.status === 0) return command;
-  const venvDir = path.join(tmpdir(), `fixture-019-venv-${lock.python_version}`);
+// provisionFixture019Python provisions a venv with numpy matching the lock in a user-owned
+// cache directory. Builds in a staging directory and publishes atomically. Returns the venv
+// interpreter path on success, or throws on failure. Intended for test setup, not the
+// runner's execution path.
+export function provisionFixture019Python(environment = process.env) {
+  const configured = environment[FIXTURE_019_PYTHON_VARIABLE];
+  if (configured !== undefined && configured !== "") return configured;
+  const lock = JSON.parse(readFileSync(path.join(fixtureRoot, "python-environment.lock.json"), "utf8"));
+  const version = lock.python_version;
+  if (!version) throw new Error("python-environment.lock.json has no python_version.");
+  const venvDir = fixture019VenvDir(version);
   const venvBin = path.join(venvDir, "bin", "python");
-  if (existsSync(venvBin)) return venvBin;
+  if (isValidVenv(venvBin)) return venvBin;
+  const [major, minor] = version.split(".");
+  const versioned = `python${major}.${minor}`;
+  const versionProbe = spawnSync(versioned, ["--version"], { encoding: "utf8", timeout: 5000, windowsHide: true });
+  const baseCommand = versionProbe.status === 0 ? versioned : "python";
+  mkdirSync(fixture019CacheRoot(), { recursive: true, mode: 0o700 });
+  const staging = `${venvDir}.staging-${process.pid}`;
+  rmSync(staging, { recursive: true, force: true });
+  const create = spawnSync(baseCommand, ["-m", "venv", staging], { encoding: "utf8", timeout: 60000, windowsHide: true });
+  if (create.status !== 0) throw new Error(`venv creation failed (${create.status}): ${create.stderr}`);
+  const stagingBin = path.join(staging, "bin", "python");
   const reqPath = path.join(repositoryRoot, "requirements-ci.txt");
-  const create = spawnSync(command, ["-m", "venv", venvDir], { encoding: "utf8", timeout: 60000, windowsHide: true });
-  if (create.status !== 0) return command;
-  const install = spawnSync(venvBin, ["-m", "pip", "install", "--require-hashes", "-r", reqPath], { encoding: "utf8", timeout: 120000, windowsHide: true });
-  if (install.status !== 0) return command;
+  const install = spawnSync(stagingBin, ["-m", "pip", "install", "--require-hashes", "-r", reqPath], { encoding: "utf8", timeout: 120000, windowsHide: true });
+  if (install.status !== 0) {
+    rmSync(staging, { recursive: true, force: true });
+    throw new Error(`pip install failed (${install.status}): ${install.stderr}`);
+  }
+  const validate = spawnSync(stagingBin, ["-c", "import numpy"], { encoding: "utf8", timeout: 5000, windowsHide: true });
+  if (validate.status !== 0) {
+    rmSync(staging, { recursive: true, force: true });
+    throw new Error("numpy import failed after installation.");
+  }
+  rmSync(venvDir, { recursive: true, force: true });
+  renameSync(staging, venvDir);
   return venvBin;
 }
 
