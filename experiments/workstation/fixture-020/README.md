@@ -1,10 +1,12 @@
 # Fixture 020 public-development smoke harness
 
-This directory implements the base-family generator and fixed-tree arm A of
-[ICP-T01](../../fixtures/020-integrative-comparative-physiology.md).
-ICP means integrative comparative physiology. The harness checks synthetic
-oxygen accounting, public seed identity, retained failures and verified resume
-within C-1488 scope. Its
+This directory implements the base-family generators and fixed-tree arm A of
+[ICP-T01](../../fixtures/020-integrative-comparative-physiology.md) and
+[ICP-T02](../../fixtures/020-integrative-comparative-physiology.md).
+ICP means integrative comparative physiology. ICP-T01 checks synthetic
+oxygen accounting; ICP-T02 checks vascular tree radius optimisation.
+Both tracks share public seed identity, retained failures and verified resume
+within C-1488 and C-1489 scope. The
 [manifest](../manifests/fixture-020.json) declares `smoke-ready` only.
 
 ## Implemented slice
@@ -24,16 +26,34 @@ The smoke profile selects the first two of 64 public development seeds.
 Development selects all 64, with the same spatial and temporal settings.
 Generation exhaustion remains a typed world failure in the denominator.
 
+## ICP-T02 implemented slice
+
+Each T02 world contains a complete binary tree of depth 4--7 with BFS node
+indexing. Edge flows are drawn from a Dirichlet split; edge lengths are uniform.
+A regime (classic, rheology, pulsatile or wall-floor) is drawn once per world
+before any attempt. Stream continuation ensures draws continue across rejected
+attempts on the same IcpRandom stream.
+
+Arm A fits radii r_e = alpha * Q_e^(1/3) where alpha is found by golden-section
+search on x = ln(alpha) minimising total power P(r). The objective includes
+Poiseuille pumping, volume penalty, pulsatile inertia and wall-floor surface
+terms. The loss unit is J (power in W times a fixed time constant L_max/P).
+Five candidates (bounds, midpoints and golden-section pair) check feasibility
+against pressure propagation and radius bounds. The calibration cell verifies
+the solver against analytic alpha* and power* on a 3-edge stem-bifurcation
+tree.
+
 ## Authority boundary
 
-Every summary is `NO_RESULT`. The execution claim binding covers C-1488 only
-and supplies no scientific, comparative, performance or energy conclusion.
-Simulated pump work is a synthetic transport quantity in J, not workstation
-joules or watts. No measured workstation energy is available.
+Every summary is `NO_RESULT`. The execution claim binding covers C-1488 and
+C-1489 and supplies no scientific, comparative, performance or energy
+conclusion. Simulated pump work (T01) and optimised power (T02) are synthetic
+transport quantities in J, not workstation joules or watts. No measured
+workstation energy is available.
 
 Arms B (the MIQP null), C (local repair) and O (the evaluator oracle) are
 deferred. Common bootstrap-t inference, the development sensitivity diagnostic,
-the transfer family, Parquet artifacts and ICP-T02--ICP-T09 are deferred too.
+the transfer family, Parquet artifacts and ICP-T03--ICP-T09 are deferred too.
 No B:A contrast is computed. The confirmation and transfer documents state
 that the 128 and 64 sealed seeds and their commitments have not been created;
 they contain no seeds or data.
@@ -52,6 +72,14 @@ node experiments/workstation/fixture-020/runner.mjs analyze \
   --output tmp/fixture-020-smoke
 node experiments/workstation/fixture-020/runner.mjs validate \
   --output tmp/fixture-020-smoke
+
+# ICP-T02 commands use --track ICP-T02
+node experiments/workstation/fixture-020/runner.mjs prepare --profile smoke \
+  --track ICP-T02
+node experiments/workstation/fixture-020/runner.mjs smoke --profile smoke \
+  --output tmp/fixture-020-t02-smoke --resume false --track ICP-T02
+node experiments/workstation/fixture-020/runner.mjs run --profile development \
+  --output tmp/fixture-020-t02-development --resume false --track ICP-T02
 ```
 
 Confirmation and transfer are not executable actions. Existing run identities

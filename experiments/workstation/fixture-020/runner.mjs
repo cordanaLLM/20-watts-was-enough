@@ -3,18 +3,14 @@ import { fileURLToPath } from "node:url";
 import { performance } from "node:perf_hooks";
 import { openCheckpointLedger } from "../lib/checkpoint-ledger.mjs";
 import { acquireLock } from "../lib/output-lock.mjs";
-import { assertFixture020Record, canonical, ExecutionStop, FIXTURE_020_EVENT_CONTRACT_VERSION,
-  NO_RESULT, scientificPayload, worldId } from "./contract.mjs";
-import { evaluateArmA } from "./evaluator.mjs";
-import { generateFixture020World, interruptedWorld } from "./generator.mjs";
+import { canonical, ExecutionStop, NO_RESULT } from "./contract.mjs";
 import { loadInputs, repositoryRoot } from "./inputs.mjs";
 import { memoryCapCheck, processCounters } from "./resources.mjs";
-import { verifyWorldArtifacts, worldArtifacts, writeWorldArtifacts } from "./artifacts.mjs";
 import { atomicText, io, IoDeadline, json, optionalText, outputBytes, outputDirectory,
   readText, removeText, stableJson, stableText } from "./storage.mjs";
+import { getTrack, TRACKS } from "./tracks.mjs";
 
 export const FIXTURE_020_RUNNER_VERSION = "fixture-020.icp-t01-runner.v1";
-const ledgerFormat = "fixture-020.icp-t01-ledger.v1";
 
 export function executionCheck({ signal, deadline, clock = () => performance.now() }) {
   return () => {
@@ -23,18 +19,7 @@ export function executionCheck({ signal, deadline, clock = () => performance.now
   };
 }
 
-function makeRecord(identity, world, artifacts, stop) {
-  const evaluation = artifacts.metrics;
-  return { schema: 1, contract_version: FIXTURE_020_EVENT_CONTRACT_VERSION,
-    artifact: "fixture-020", track: "ICP-T01", run_id: identity.run_id,
-    profile: identity.profile, pack: "public-development", seed: world.seed,
-    world_id: world.world_id, world_sha256: world.world_sha256, arm: "A",
-    maximum_loss_mmol: evaluation.maximum_loss_mmol, loss_mmol: evaluation.loss_mmol,
-    failure_reason: evaluation.failure_reason, evaluation, execution_stop: stop,
-    artifacts_sha256: artifacts.hashes, ...NO_RESULT };
-}
-
-function computeWorld(identity, seed, check = () => {}) {
+function computeWorld(identity, seed, track, check = () => {}) {
   let index = 0;
   let stop = null;
   const tracked = () => {
@@ -44,54 +29,55 @@ function computeWorld(identity, seed, check = () => {}) {
       throw error;
     }
   };
-  const world = generatedOrInterrupted(seed, tracked);
-  const evaluation = evaluateArmA(world, { check: tracked });
-  const artifacts = worldArtifacts(world, evaluation);
-  return { world, artifacts, record: makeRecord(identity, world, artifacts, stop) };
+  const world = generatedOrInterrupted(seed, track, tracked);
+  const evaluation = track.evaluate(world, { check: tracked,
+    resourceCap: identity.config.resource_cap_evaluations });
+  const artifacts = track.makeArtifacts(world, evaluation);
+  return { world, artifacts, record: track.makeRecord(identity, world, artifacts, stop) };
 }
 
-function generatedOrInterrupted(seed, check) {
-  try { return generateFixture020World({ seed, check }); } catch (error) {
+function generatedOrInterrupted(seed, track, check) {
+  try { return track.generate({ seed, check, rejectionLimit: 10000 }); } catch (error) {
     if (!(error instanceof ExecutionStop)) throw error;
-    return interruptedWorld(seed, error.reason);
+    return track.interruptedWorld(seed, error.reason);
   }
 }
 
-async function openLedger(directory, identity) {
+async function openLedger(directory, identity, track) {
   await optionalText(path.join(directory, "raw-events.jsonl"));
   await optionalText(path.join(directory, "checkpoint.json"));
-  return io(() => openCheckpointLedger({ artifact: "fixture-020", ledgerFormat,
+  return io(() => openCheckpointLedger({ artifact: "fixture-020", ledgerFormat: track.ledgerFormat,
     rawPath: path.join(directory, "raw-events.jsonl"),
     checkpointPath: path.join(directory, "checkpoint.json"), runIdentity: identity,
-    scientificPayload, workKey: (record) => record.world_id,
-    assertRecord: (record, options) => assertFixture020Record(record, { ...options, context: identity }),
+    scientificPayload: track.scientificPayload, workKey: (record) => record.world_id,
+    assertRecord: (record, options) => track.assertRecord(record, { ...options, context: identity }),
   }), "open verified checkpoint ledger");
 }
 
 async function rawRecords(directory) {
   const raw = await optionalText(path.join(directory, "raw-events.jsonl"));
   if (!raw) return [];
-  if (!raw.endsWith("\n")) throw new Error("ICP-T01 torn raw ledger; refusing repair.");
+  if (!raw.endsWith("\n")) throw new Error("fixture-020 torn raw ledger; refusing repair.");
   return raw.slice(0, -1).split("\n").map((line) => JSON.parse(line));
 }
 
-async function verifyReplay(directory, identity, records, check = () => {}) {
-  if (records.length > identity.seeds.length) throw new Error("ICP-T01 too many world records.");
+async function verifyReplay(directory, identity, records, track, check = () => {}) {
+  if (records.length > identity.seeds.length) throw new Error("fixture-020 too many world records.");
   for (let index = 0; index < records.length; index += 1) {
-    const fresh = replayedWorld(identity, records[index], identity.seeds[index], check);
-    await verifyWorldArtifacts(path.join(directory, fresh.world.world_id), fresh.artifacts);
+    const fresh = replayedWorld(identity, records[index], identity.seeds[index], track, check);
+    await track.verifyArtifacts(path.join(directory, fresh.world.world_id), fresh.artifacts);
   }
 }
 
-function replayedWorld(identity, record, seed, check) {
+function replayedWorld(identity, record, seed, track, check) {
   let interrupted;
   const outerCheck = () => {
     try { check(); } catch (error) { interrupted = error; throw error; }
   };
-  const fresh = computeWorld(identity, seed, replayCheck(record.execution_stop, outerCheck));
-  if (interrupted) throw new Error(`ICP-T01 replay ${interrupted.reason ?? interrupted.message}.`, { cause: interrupted });
-  if (canonical(scientificPayload(record)) !== canonical(fresh.record)) {
-    throw new Error("ICP-T01 canonical world replay differs from retained payload.");
+  const fresh = computeWorld(identity, seed, track, replayCheck(record.execution_stop, outerCheck));
+  if (interrupted) throw new Error(`fixture-020 replay ${interrupted.reason ?? interrupted.message}.`, { cause: interrupted });
+  if (canonical(track.scientificPayload(record)) !== canonical(fresh.record)) {
+    throw new Error("fixture-020 canonical world replay differs from retained payload.");
   }
   return fresh;
 }
@@ -108,21 +94,21 @@ function replayCheck(stop, check) {
 async function initializeOutput(output, resume) {
   const directory = await outputDirectory(repositoryRoot, output);
   const previous = await optionalText(path.join(directory, "identity.json"));
-  if (previous !== null && !resume) throw new Error("ICP-T01 output already exists; use --resume true.");
-  if (previous === null && resume) throw new Error("ICP-T01 cannot resume missing identity.");
+  if (previous !== null && !resume) throw new Error("fixture-020 output already exists; use --resume true.");
+  if (previous === null && resume) throw new Error("fixture-020 cannot resume missing identity.");
   await outputDirectory(repositoryRoot, output, true);
   return directory;
 }
 
-async function appendWorld(directory, ledger, identity, seed, check, append) {
-  const pending = path.join(directory, worldId(seed), "pending-outcome.json");
+async function appendWorld(directory, ledger, identity, seed, track, check, append) {
+  const pending = path.join(directory, track.worldId(seed), "pending-outcome.json");
   const retained = await optionalText(pending);
-  const fresh = retained === null ? computeWorld(identity, seed, check)
-    : replayedWorld(identity, JSON.parse(retained), seed, check);
+  const fresh = retained === null ? computeWorld(identity, seed, track, check)
+    : replayedWorld(identity, JSON.parse(retained), seed, track, check);
   const worldDirectory = path.join(directory, fresh.world.world_id);
   await outputDirectory(repositoryRoot, worldDirectory, true);
   await stableJson(pending, fresh.record);
-  await writeWorldArtifacts(worldDirectory, fresh.artifacts);
+  await track.writeArtifacts(worldDirectory, fresh.artifacts);
   await outputBytes(directory, identity.config.max_output_bytes);
   await io(() => append(ledger, fresh.record), "append world outcome");
   await removeText(pending);
@@ -130,40 +116,40 @@ async function appendWorld(directory, ledger, identity, seed, check, append) {
   if (fresh.record.execution_stop && retained === null) throw new ExecutionStop(fresh.record.execution_stop.reason);
 }
 
-async function reconcilePending(directory, identity, records, check) {
+async function reconcilePending(directory, identity, records, track, check) {
   for (let index = 0; index < identity.seeds.length; index += 1) {
-    const file = path.join(directory, worldId(identity.seeds[index]), "pending-outcome.json");
+    const file = path.join(directory, track.worldId(identity.seeds[index]), "pending-outcome.json");
     const pending = await optionalText(file);
     if (pending === null) continue;
     if (index === records.length) {
-      replayedWorld(identity, JSON.parse(pending), identity.seeds[index], check);
+      replayedWorld(identity, JSON.parse(pending), identity.seeds[index], track, check);
       continue;
     }
-    if (index > records.length || canonical(JSON.parse(pending)) !== canonical(scientificPayload(records[index]))) {
-      throw new Error(`ICP-T01 conflicting pending outcome: ${file}.`);
+    if (index > records.length || canonical(JSON.parse(pending)) !== canonical(track.scientificPayload(records[index]))) {
+      throw new Error(`fixture-020 conflicting pending outcome: ${file}.`);
     }
     await removeText(file);
   }
 }
 
-function runDocument(identity, ledger) {
-  return { ...identity, runner_version: FIXTURE_020_RUNNER_VERSION,
-    expected_work_units: identity.seeds.length, ledger: ledger.summary(), ...NO_RESULT };
+function runDocument(identity, track, ledger) {
+  return { ...identity, runner_version: track.runnerVersion,
+    expected_work_units: identity.seeds.length, ledger: ledger.summary(), ...track.noResult };
 }
 
 function assertRepairableRun(previous, body) {
   if (previous.length >= body.length || !body.startsWith(previous)) {
-    throw new Error("ICP-T01 complete run document differs.");
+    throw new Error("fixture-020 complete run document differs.");
   }
 }
 
-async function writeRun(directory, identity, ledger, resume) {
-  const run = runDocument(identity, ledger);
+async function writeRun(directory, identity, track, ledger, resume) {
+  const run = runDocument(identity, track, ledger);
   const file = path.join(directory, "run.json");
   const previous = await optionalText(file);
   const body = `${canonical(run)}\n`;
   if (previous !== null && previous !== body) {
-    if (!resume || previous.endsWith("\n")) throw new Error("ICP-T01 run document differs.");
+    if (!resume || previous.endsWith("\n")) throw new Error("fixture-020 run document differs.");
     assertRepairableRun(previous, body);
     await atomicText(file, body);
   } else await stableText(file, body);
@@ -174,16 +160,17 @@ async function writeRun(directory, identity, ledger, resume) {
 
 export async function executeFixture020(options) {
   try { return await executeBounded(options); } catch (error) {
-    if (deadlineCause(error)) throw deadlineInterrupted(error);
+    if (deadlineCause(error)) throw deadlineInterrupted(error, options.track ?? "ICP-T01");
     throw error;
   }
 }
 
-async function executeBounded({ profile, output, resume = false, maxWorkUnits = 64,
+async function executeBounded({ profile, output, track: trackId = "ICP-T01", resume = false, maxWorkUnits = 64,
   signal, wallMs, deadline, clock = () => performance.now(), counters = processCounters,
   append = (ledger, record) => ledger.append(record) }) {
-  const identity = await loadInputs(profile);
-  const budget = executionBudget(identity, maxWorkUnits, wallMs);
+  const track = getTrack(trackId);
+  const identity = await loadInputs(profile, trackId);
+  const budget = executionBudget(identity, maxWorkUnits, wallMs, trackId);
   const end = deadline ?? clock() + budget;
   const check = executionCheck({ signal, deadline: end, clock });
   const worldCheck = executionCheck({ deadline: end, clock });
@@ -192,8 +179,8 @@ async function executeBounded({ profile, output, resume = false, maxWorkUnits = 
   const result = await withFixture020OutputLock(directory, async () => {
     await initializeOutput(output, resume);
     await stableJson(path.join(directory, "identity.json"), identity);
-    const ledger = await openLedger(directory, identity);
-    return executeLocked({ directory, identity, ledger, maxWorkUnits, resume, check, worldCheck, counters, append });
+    const ledger = await openLedger(directory, identity, track);
+    return executeLocked({ directory, identity, track, ledger, maxWorkUnits, resume, check, worldCheck, counters, append });
   });
   check();
   return result;
@@ -207,7 +194,7 @@ export async function withFixture020OutputLock(directory, body) {
   } catch (error) {
     if (deadlineCause(error)?.settled !== false) throw error;
     retained = true;
-    const failure = new Error(`ICP-T01 output lock ${directory}.fixture-020.lock retained; delete it only after confirming no process uses the output.`, { cause: error });
+    const failure = new Error(`fixture-020 output lock ${directory}.fixture-020.lock retained; delete it only after confirming no process uses the output.`, { cause: error });
     try { await lock.retain(); }
     catch (cleanupError) { failure.cleanupErrors = [cleanupError]; }
     throw failure;
@@ -219,30 +206,30 @@ export async function withFixture020OutputLock(directory, body) {
 async function outputLock(directory) {
   try { return await acquireLock(directory, "fixture-020"); } catch (error) {
     if (error.code !== "EEXIST") throw error;
-    throw new Error(`ICP-T01 output lock ${directory}.fixture-020.lock exists; delete it only after confirming no process uses the output.`, { cause: error });
+    throw new Error(`fixture-020 output lock ${directory}.fixture-020.lock exists; delete it only after confirming no process uses the output.`, { cause: error });
   }
 }
 
-async function executeLocked({ directory, identity, ledger, maxWorkUnits, resume, check, worldCheck, counters, append }) {
+async function executeLocked({ directory, identity, track, ledger, maxWorkUnits, resume, check, worldCheck, counters, append }) {
   const records = await rawRecords(directory);
-  await verifyReplay(directory, identity, records, check);
-  await reconcilePending(directory, identity, records, check);
+  await verifyReplay(directory, identity, records, track, check);
+  await reconcilePending(directory, identity, records, track, check);
   try {
     const remaining = identity.seeds.slice(ledger.summary().records, ledger.summary().records + maxWorkUnits);
     for (const seed of remaining) {
       check();
       await memoryBoundary(identity, counters);
-      await appendWorld(directory, ledger, identity, seed, worldCheck, append);
+      await appendWorld(directory, ledger, identity, seed, track, worldCheck, append);
       check();
       await memoryBoundary(identity, counters);
     }
     await io(() => ledger.saveCheckpoint(), "save final checkpoint");
     const complete = ledger.summary().records === identity.seeds.length;
-    const run = complete ? await writeRun(directory, identity, ledger, resume) : null;
+    const run = complete ? await writeRun(directory, identity, track, ledger, resume) : null;
     await outputBytes(directory, identity.config.max_output_bytes);
     check();
-    return { directory, complete, run, ...NO_RESULT };
-  } catch (error) { return interruption(directory, ledger, error); }
+    return { directory, complete, run, ...track.noResult };
+  } catch (error) { return interruption(directory, track, ledger, error); }
 }
 
 async function memoryBoundary(identity, counters) {
@@ -257,20 +244,20 @@ async function memoryBoundary(identity, counters) {
   }
 }
 
-async function interruption(directory, ledger, error) {
-  if (deadlineCause(error)) throw deadlineInterrupted(error);
+async function interruption(directory, track, ledger, error) {
+  if (deadlineCause(error)) throw deadlineInterrupted(error, track.id);
   await stableJson(path.join(directory, `interruption-${ledger.summary().records}.json`), {
-    completed_worlds: ledger.summary().records, reason: error.message, ...NO_RESULT,
+    completed_worlds: ledger.summary().records, reason: error.message, ...track.noResult,
   });
-  throw new Error(`ICP-T01 execution interrupted: ${error.message}`, { cause: error });
+  throw new Error(`${track.id} execution interrupted: ${error.message}`, { cause: error });
 }
 
-function deadlineInterrupted(error) {
+function deadlineInterrupted(error, trackId) {
   const deadline = deadlineCause(error);
   if (deadline.settled === false) {
-    return new Error(`ICP-T01 execution interrupted: ${error.message}; operation settled=false; an unsettled operation may still complete.`, { cause: error });
+    return new Error(`${trackId} execution interrupted: ${error.message}; operation settled=false; an unsettled operation may still complete.`, { cause: error });
   }
-  return new Error(`ICP-T01 execution interrupted: ${error.message}; operation settled=${deadline.settled}; an unsettled operation may still complete; resume re-verifies ledger and artifacts.`, { cause: error });
+  return new Error(`${trackId} execution interrupted: ${error.message}; operation settled=${deadline.settled}; an unsettled operation may still complete; resume re-verifies ledger and artifacts.`, { cause: error });
 }
 
 function deadlineCause(error) {
@@ -282,59 +269,63 @@ function deadlineCause(error) {
   return null;
 }
 
-function executionBudget(identity, maxWorkUnits, wallMs) {
+function executionBudget(identity, maxWorkUnits, wallMs, trackId) {
   if (!Number.isSafeInteger(maxWorkUnits) || maxWorkUnits < 1 || maxWorkUnits > 64) {
-    throw new Error("ICP-T01 maxWorkUnits must be in [1,64].");
+    throw new Error(`${trackId} maxWorkUnits must be in [1,64].`);
   }
   const budget = wallMs ?? identity.config.max_wall_ms;
   if (!Number.isFinite(budget) || budget < 0 || budget > identity.config.max_wall_ms) {
-    throw new Error("ICP-T01 wall budget invalid.");
+    throw new Error(`${trackId} wall budget invalid.`);
   }
   return budget;
 }
 
-async function checkedRun(output, { signal, deadline, clock = () => performance.now() } = {}) {
+async function checkedRun(output, trackId, { signal, deadline, clock = () => performance.now() } = {}) {
+  const track = getTrack(trackId);
   const directory = await outputDirectory(repositoryRoot, output);
   const stored = await json(path.join(directory, "identity.json"));
-  const identity = await loadInputs(stored.profile);
+  const identity = await loadInputs(stored.profile, trackId);
   await outputBytes(directory, identity.config.max_output_bytes);
-  if (canonical(identity) !== canonical(stored)) throw new Error("ICP-T01 run identity differs from fresh inputs.");
-  const ledger = await openLedger(directory, identity);
+  if (canonical(identity) !== canonical(stored)) throw new Error(`${trackId} run identity differs from fresh inputs.`);
+  const ledger = await openLedger(directory, identity, track);
   const records = await rawRecords(directory);
-  if (records.length !== identity.seeds.length) throw new Error("ICP-T01 incomplete world denominator.");
+  if (records.length !== identity.seeds.length) throw new Error(`${trackId} incomplete world denominator.`);
   const check = executionCheck({ signal, deadline: deadline ?? clock() + identity.config.max_wall_ms, clock });
-  await verifyReplay(directory, identity, records, check);
+  await verifyReplay(directory, identity, records, track, check);
   const run = await json(path.join(directory, "run.json"));
-  if (canonical(run) !== canonical(runDocument(identity, ledger))) {
-    throw new Error("ICP-T01 run document differs from authoritative ledger.");
+  if (canonical(run) !== canonical(runDocument(identity, track, ledger))) {
+    throw new Error(`${trackId} run document differs from authoritative ledger.`);
   }
   if (await readText(path.join(directory, "seed-outcomes.jsonl")) !== `${records.map(canonical).join("\n")}\n`) {
-    throw new Error("ICP-T01 seed outcome stand-in differs from ledger.");
+    throw new Error(`${trackId} seed outcome stand-in differs from ledger.`);
   }
   check();
-  return { directory, identity, records, check };
+  return { directory, identity, records, track, check };
 }
 
 export async function computeFixture020Analysis(output, options = {}) {
-  return (await checkedAnalysis(output, options)).summary;
+  const trackId = options.track ?? "ICP-T01";
+  return (await checkedAnalysis(output, trackId, options)).summary;
 }
 
-async function checkedAnalysis(output, options) {
-  const { identity, records, check } = await checkedRun(output, options);
-  const summary = { schema: 1, artifact: "fixture-020", track: "ICP-T01", run_id: identity.run_id,
+async function checkedAnalysis(output, trackId, options) {
+  const { identity, records, track, check } = await checkedRun(output, trackId, options);
+  const extras = track.summaryExtras(records);
+  const summary = { schema: 1, artifact: "fixture-020", track: trackId, run_id: identity.run_id,
     profile: identity.profile, partition: "public-development-only", readiness: "smoke-ready",
     attempted_worlds: identity.seeds.length, retained_worlds: records.length,
     retained_failures: records.filter((record) => record.failure_reason !== null).length,
-    loss_unit: "mmol", resource_unit: "synthetic J", confirmation_partition_present: false,
-    transfer_partition_present: false, ...NO_RESULT };
+    loss_unit: track.lossUnit, resource_unit: track.resourceUnit, confirmation_partition_present: false,
+    transfer_partition_present: false, ...extras, ...track.noResult };
   check();
   return { summary, check };
 }
 
-export async function analyzeFixture020(output, options = {}) {
+export async function analyzeFixture020(output, optionsOrTrack = {}) {
+  const { trackId, opts } = resolveTrackOptions(optionsOrTrack);
   const directory = await outputDirectory(repositoryRoot, output);
   const analysis = await withFixture020OutputLock(directory, async () => {
-    const analysis = await checkedAnalysis(output, options);
+    const analysis = await checkedAnalysis(output, trackId, opts);
     await stableJson(path.join(directory, "summary.json"), analysis.summary);
     return analysis;
   });
@@ -342,28 +333,36 @@ export async function analyzeFixture020(output, options = {}) {
   return analysis.summary;
 }
 
-export async function validateFixture020Output(output, options = {}) {
-  const { summary: expected, check } = await checkedAnalysis(output, options);
+export async function validateFixture020Output(output, optionsOrTrack = {}) {
+  const { trackId, opts } = resolveTrackOptions(optionsOrTrack);
+  const { summary: expected, check } = await checkedAnalysis(output, trackId, opts);
   const directory = await outputDirectory(repositoryRoot, output);
+  const track = getTrack(trackId);
   if (canonical(await json(path.join(directory, "summary.json"))) !== canonical(expected)) {
-    throw new Error("ICP-T01 stored summary differs from replay.");
+    throw new Error(`${trackId} stored summary differs from replay.`);
   }
   check();
-  return { valid: true, run_id: expected.run_id, ...NO_RESULT };
+  return { valid: true, run_id: expected.run_id, ...track.noResult };
 }
 
-export async function prepareFixture020(profile) {
-  const identity = await loadInputs(profile);
-  return { valid: true, artifact: "fixture-020", track: "ICP-T01", profile,
+function resolveTrackOptions(arg) {
+  if (typeof arg === "string") return { trackId: arg, opts: {} };
+  return { trackId: arg?.track ?? "ICP-T01", opts: arg ?? {} };
+}
+
+export async function prepareFixture020(profile, trackId = "ICP-T01") {
+  const track = getTrack(trackId);
+  const identity = await loadInputs(profile, trackId);
+  return { valid: true, artifact: "fixture-020", track: trackId, profile,
     partition: "public-development-only", seeds: identity.seeds.length, worlds_per_seed: 1,
     work_units: identity.seeds.length, confirmation_seeds_created: false, transfer_seeds_created: false,
-    ...NO_RESULT };
+    ...track.noResult };
 }
 
 function parseOptions(argv) {
   const action = argv[2];
-  if (!["prepare", "smoke", "run", "analyze", "validate"].includes(action)) throw new Error("ICP-T01 action must be prepare, smoke, run, analyze, or validate.");
-  if (argv.length > 11 || (argv.length - 3) % 2 !== 0) throw new Error("ICP-T01 options require --name value pairs.");
+  if (!["prepare", "smoke", "run", "analyze", "validate"].includes(action)) throw new Error("fixture-020 action must be prepare, smoke, run, analyze, or validate.");
+  if (argv.length > 13 || (argv.length - 3) % 2 !== 0) throw new Error("fixture-020 options require --name value pairs.");
   const options = {};
   for (let index = 3; index < argv.length; index += 2) {
     addOption(options, argv[index], argv[index + 1]);
@@ -373,29 +372,32 @@ function parseOptions(argv) {
 
 function addOption(options, token, value) {
   const name = token.slice(2);
-  if (!token.startsWith("--") || !["profile", "output", "resume"].includes(name)
+  if (!token.startsWith("--") || !["profile", "output", "resume", "track"].includes(name)
     || Object.hasOwn(options, name) || !value || value.startsWith("--")) {
-    throw new Error("Unknown or duplicate ICP-T01 option or missing value.");
+    throw new Error("Unknown or duplicate fixture-020 option or missing value.");
   }
   options[name] = value;
 }
 
 function validateOptions(action, options) {
+  const trackId = options.track ?? "ICP-T01";
+  if (!TRACKS[trackId]) throw new Error(`fixture-020 unknown track ${trackId}.`);
   const executing = ["prepare", "smoke", "run"].includes(action);
-  validateActionProfile(action, options.profile, executing);
-  if (action === "prepare" && (options.output || options.resume)) throw new Error("prepare accepts only --profile.");
+  if (["analyze", "validate"].includes(action) && options.track) throw new Error("analysis does not accept --track; track is stored in the output.");
+  validateActionProfile(action, options.profile, executing, trackId);
+  if (action === "prepare" && (options.output || options.resume)) throw new Error("prepare accepts only --profile and --track.");
   if (action !== "prepare" && !options.output) throw new Error(`${action} requires --output.`);
   if (!executing && (options.profile || options.resume)) throw new Error("analysis accepts only --output.");
   assertResumeFlag(options.resume);
-  return { action, options };
+  return { action, options: { ...options, track: trackId } };
 }
 
 function assertResumeFlag(value) {
   if (value !== undefined && !["true", "false"].includes(value)) throw new Error("--resume must be true or false.");
 }
 
-function validateActionProfile(action, profile, executing) {
-  if (executing && !["smoke", "development"].includes(profile)) throw new Error("ICP-T01 public profiles only.");
+function validateActionProfile(action, profile, executing, trackId) {
+  if (executing && !["smoke", "development"].includes(profile)) throw new Error(`${trackId} public profiles only.`);
   if (action === "smoke" && profile !== "smoke") throw new Error("smoke requires --profile smoke.");
   if (action === "run" && profile !== "development") throw new Error("run requires --profile development.");
 }
@@ -404,26 +406,35 @@ export async function main(argv = process.argv, { signal, clock = () => performa
   const commandStarted = clock();
   const { started, cpuStarted, scope } = smokeBaseline(fromProcessStart);
   const { action, options } = parseOptions(argv);
+  const trackId = options.track;
+  const track = getTrack(trackId);
   const execution = { signal, clock };
   if (action === "prepare") {
-    const result = await prepareFixture020(options.profile);
+    const result = await prepareFixture020(options.profile, trackId);
     executionCheck(execution)();
     return result;
   }
   if (action === "analyze" || action === "validate") {
+    const stored = await json(path.join(await outputDirectory(repositoryRoot, options.output), "identity.json"));
+    const storedTrack = stored.track ?? "ICP-T01";
+    const execOpts = { ...execution, track: storedTrack };
     const operation = action === "analyze" ? analyzeFixture020 : validateFixture020Output;
-    const result = await operation(options.output, execution);
+    const result = await operation(options.output, execOpts);
     executionCheck(execution)();
     return result;
   }
-  const identity = await loadInputs(options.profile);
+  if (track.calibration) {
+    const cal = track.calibration();
+    if (cal.status !== "passed") throw new Error(`${trackId} calibration failed: ${JSON.stringify(cal)}`);
+  }
+  const identity = await loadInputs(options.profile, trackId);
   execution.deadline = commandStarted + identity.config.max_wall_ms;
   const result = await executeFixture020({ profile: options.profile, output: options.output,
-    resume: options.resume === "true", counters, ...execution });
+    track: trackId, resume: options.resume === "true", counters, ...execution });
   executionCheck(execution)();
   if (action === "run") return result;
-  await analyzeFixture020(options.output, execution);
-  const validation = await validateFixture020Output(options.output, execution);
+  await analyzeFixture020(options.output, { ...execution, track: trackId });
+  const validation = await validateFixture020Output(options.output, { ...execution, track: trackId });
   const resources = await smokeResources(options.output, started, cpuStarted, scope, identity.config.memory_bytes, counters);
   executionCheck(execution)();
   return { ...validation, resources };

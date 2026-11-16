@@ -53,15 +53,17 @@ test("the event digest rejects unchanged payload with a forged hash", () => {
 
 test("output schema is closed and agrees structurally with the runtime event", async () => {
   const schema = JSON.parse(await readFile(new URL("./output.schema.json", import.meta.url), "utf8"));
-  assert.equal(schema.additionalProperties, false);
-  assert.deepEqual([...schema.required].sort(), Object.keys(record()).sort());
-  assert.deepEqual(Object.keys(schema.properties).sort(), [...schema.required].sort());
-  assert.equal(schema.properties.evaluation.additionalProperties, false);
-  assert.deepEqual([...schema.properties.evaluation.required].sort(), [...EVALUATION_KEYS].sort());
-  assert.equal(schema["x-runtime-validator"].contract_version, FIXTURE_020_EVENT_CONTRACT_VERSION);
-  assert.deepEqual(schema.properties.protocol_outcome, { const: "NO_RESULT" });
-  assert.deepEqual(schema.properties.failure_reason.enum, [null, ...FAILURE_REASONS]);
-  assert.deepEqual(schema.properties.evaluation.properties.failure_reason.enum, [null, ...FAILURE_REASONS]);
+  assert.ok(Array.isArray(schema.oneOf), "top-level oneOf discriminated union");
+  const t01 = schema.$defs.t01Event;
+  assert.equal(t01.additionalProperties, false);
+  assert.deepEqual([...t01.required].sort(), Object.keys(record()).sort());
+  assert.deepEqual(Object.keys(t01.properties).sort(), [...t01.required].sort());
+  assert.equal(t01.properties.evaluation.additionalProperties, false);
+  assert.deepEqual([...t01.properties.evaluation.required].sort(), [...EVALUATION_KEYS].sort());
+  assert.equal(t01["x-runtime-validator"].contract_version, FIXTURE_020_EVENT_CONTRACT_VERSION);
+  assert.deepEqual(t01.properties.protocol_outcome, { const: "NO_RESULT" });
+  assert.deepEqual(t01.properties.failure_reason.enum, [null, ...FAILURE_REASONS]);
+  assert.deepEqual(t01.properties.evaluation.properties.failure_reason.enum, [null, ...FAILURE_REASONS]);
 });
 
 test("new generation reasons validate and unknown failure reasons remain rejected", () => {

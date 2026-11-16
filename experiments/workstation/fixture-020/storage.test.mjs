@@ -10,7 +10,7 @@ test("I/O deadline aborts and reports an operation that never settles", async ()
     signal = received;
     return new Promise(() => {});
   }, "never settles", 5), (error) => {
-    assert.match(error.message, /ICP-T01 never settles:/);
+    assert.match(error.message, /fixture-020 never settles:/);
     assert.ok(error.cause instanceof IoDeadline);
     assert.equal(error.cause.label, "never settles");
     assert.equal(error.cause.settled, false);
