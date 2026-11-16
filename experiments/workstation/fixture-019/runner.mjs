@@ -11,7 +11,7 @@ import {
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, renameSync, rmSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { homedir } from "node:os";
 import { acquireLock } from "../lib/output-lock.mjs";
@@ -45,10 +45,10 @@ function fixture019VenvDir(version) {
   return path.join(fixture019CacheRoot(), `venv-${version}`);
 }
 
-function isValidVenv(venvBin) {
+function isValidVenv(venvDir, venvBin) {
   if (!existsSync(venvBin)) return false;
   try {
-    const st = statSync(venvBin);
+    const st = lstatSync(venvDir);
     if (st.uid !== process.getuid()) return false;
   } catch { return false; }
   const probe = spawnSync(venvBin, ["-c", "import numpy"], { encoding: "utf8", timeout: 5000, windowsHide: true });
@@ -73,8 +73,9 @@ export function fixture019PythonCommand(environment = process.env) {
   const lock = JSON.parse(readFileSync(path.join(fixtureRoot, "python-environment.lock.json"), "utf8"));
   const version = lock.python_version;
   if (version) {
-    const venvBin = path.join(fixture019VenvDir(version), "bin", "python");
-    if (isValidVenv(venvBin)) return venvBin;
+    const venvDir = fixture019VenvDir(version);
+    const venvBin = path.join(venvDir, "bin", "python");
+    if (isValidVenv(venvDir, venvBin)) return venvBin;
     const [major, minor] = version.split(".");
     const versioned = `python${major}.${minor}`;
     const probe = spawnSync(versioned, ["-c", "import numpy"], { encoding: "utf8", timeout: 5000, windowsHide: true });
@@ -95,7 +96,7 @@ export function provisionFixture019Python(environment = process.env) {
   if (!version) throw new Error("python-environment.lock.json has no python_version.");
   const venvDir = fixture019VenvDir(version);
   const venvBin = path.join(venvDir, "bin", "python");
-  if (isValidVenv(venvBin)) return venvBin;
+  if (isValidVenv(venvDir, venvBin)) return venvBin;
   const [major, minor] = version.split(".");
   const versioned = `python${major}.${minor}`;
   const versionProbe = spawnSync(versioned, ["--version"], { encoding: "utf8", timeout: 5000, windowsHide: true });
