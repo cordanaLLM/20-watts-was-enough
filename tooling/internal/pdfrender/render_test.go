@@ -386,7 +386,7 @@ func (executor *recordingExecutor) run(_ context.Context, request commandRequest
 	if slices.Equal(request.arguments, []string{"buildx", "version"}) {
 		output := executor.buildxOutput
 		if output == "" {
-			output = "github.com/docker/buildx 0.38.2 3c4cbd35852fc1a476923627a780a7836c28b654"
+			output = "github.com/docker/buildx 0.39.0 360040a78d6113dc84e5d4dcdf0f438e1be7a41f"
 		}
 		return []byte(output + "\n"), nil
 	}

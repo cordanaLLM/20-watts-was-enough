@@ -18,6 +18,11 @@ the exact diff; this file records why the project changed.
 
 ### Changed
 
+- Lock the PDF renderer to Buildx 0.39.0; the renderer cache inventory admits
+  the empty ingest lock files under `ingest-locks` that its BuildKit client
+  keeps in a local cache store
+  ([Decision 0130](decisions/0130-move-the-renderer-lock-to-buildx-0-39-0.md)).
+
 - The bounded workstation suite error now names every failed and cancelled
   job after its counts, for example `workstation suite incomplete: 1 failed,
   0 cancelled out of 21 jobs; failed: <artifact>`. The pre-push gate keeps

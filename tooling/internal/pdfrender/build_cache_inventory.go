@@ -16,6 +16,7 @@ import (
 )
 
 const maximumRendererCacheLayers = 128
+const maximumRendererCacheIngestLocks = maximumRendererCacheLayers + 2
 const maximumRendererCacheBytes int64 = 4 * 1024 * 1024 * 1024
 
 // inspectRendererCache hashes compressed blobs without unpacking layers. The
@@ -147,10 +148,12 @@ func inspectCacheBlobs(ctx context.Context, root, manifestDigest string, descrip
 	return observation, nil
 }
 
-// rendererCacheRootEntries admits two optional root entries next to the OCI
-// layout: an empty ingest directory, and the empty cache.lock file that the
+// rendererCacheRootEntries admits three optional root entries next to the OCI
+// layout: an empty ingest directory, the empty cache.lock file that the
 // BuildKit client creates from v0.34.0 (Buildx 0.38.0) to serialise exports
-// and deliberately keeps (client/solve.go, resetCacheStore).
+// and deliberately keeps (client/solve.go, resetCacheStore), and the
+// ingest-locks directory under which BuildKit client v0.35.0 (Buildx 0.39.0)
+// client/solve.go localCacheStore.lock keeps one empty file per ingest ref.
 func rendererCacheRootEntries(root string) (map[string]bool, error) {
 	allowed := map[string]bool{"index.json": false, "oci-layout": false, "blobs": true}
 	if _, err := fileidentity.Lstat(filepath.Join(root, "ingest")); err == nil {
@@ -169,7 +172,44 @@ func rendererCacheRootEntries(root string) (map[string]bool, error) {
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
+	if err := admitCacheIngestLocks(root, allowed); err != nil {
+		return nil, err
+	}
 	return allowed, nil
+}
+
+func admitCacheIngestLocks(root string, allowed map[string]bool) error {
+	directory := filepath.Join(root, "ingest-locks")
+	if _, err := fileidentity.Lstat(directory); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+	err := inspectCacheDirectory(directory, maximumRendererCacheIngestLocks+1, func(entries []os.DirEntry) error {
+		if len(entries) > maximumRendererCacheIngestLocks {
+			return fmt.Errorf("PDF renderer cache has missing, extra or excessive entries: %s", directory)
+		}
+		for _, entry := range entries {
+			if err := validateCacheIngestLockEntry(entry); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	allowed["ingest-locks"] = true
+	return nil
+}
+
+func validateCacheIngestLockEntry(entry os.DirEntry) error {
+	info, err := fileidentity.Info(entry)
+	if err != nil || !rawSHA256Pattern.MatchString(entry.Name()) || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() || info.Size() != 0 {
+		return errors.New("PDF renderer cache ingest lock must be one empty regular file with a SHA-256 hex name")
+	}
+	return nil
 }
 
 func hashCacheBlob(ctx context.Context, root string, descriptor imageProofDescriptor) (returnError error) {
@@ -203,7 +243,23 @@ func hashCacheBlob(ctx context.Context, root string, descriptor imageProofDescri
 	return nil
 }
 
-func exactCacheDirectory(directory string, expected map[string]bool) (returnError error) {
+func exactCacheDirectory(directory string, expected map[string]bool) error {
+	return inspectCacheDirectory(directory, maximumRendererCacheLayers+4, func(entries []os.DirEntry) error {
+		if len(entries) != len(expected) {
+			return fmt.Errorf("PDF renderer cache has missing, extra or excessive entries: %s", directory)
+		}
+		for _, entry := range entries {
+			directoryExpected, exists := expected[entry.Name()]
+			info, err := fileidentity.Info(entry)
+			if err != nil || !exists || info.Mode()&os.ModeSymlink != 0 || info.IsDir() != directoryExpected || (!directoryExpected && !info.Mode().IsRegular()) {
+				return fmt.Errorf("PDF renderer cache has an unsupported entry: %s", entry.Name())
+			}
+		}
+		return nil
+	})
+}
+
+func inspectCacheDirectory(directory string, limit int, check func([]os.DirEntry) error) (returnError error) {
 	initial, err := fileidentity.Lstat(directory)
 	if err != nil || !initial.IsDir() || initial.Mode()&os.ModeSymlink != 0 {
 		return fmt.Errorf("PDF renderer cache requires a non-symlink directory: %s", directory)
@@ -213,19 +269,12 @@ func exactCacheDirectory(directory string, expected map[string]bool) (returnErro
 		return err
 	}
 	defer func() { returnError = errors.Join(returnError, opened.Close()) }()
-	entries, err := opened.ReadDir(maximumRendererCacheLayers + 4)
+	entries, err := opened.ReadDir(limit)
 	if err != nil && !errors.Is(err, io.EOF) {
 		return err
 	}
-	if len(entries) != len(expected) {
-		return fmt.Errorf("PDF renderer cache has missing, extra or excessive entries: %s", directory)
-	}
-	for _, entry := range entries {
-		directoryExpected, exists := expected[entry.Name()]
-		info, err := fileidentity.Info(entry)
-		if err != nil || !exists || info.Mode()&os.ModeSymlink != 0 || info.IsDir() != directoryExpected || (!directoryExpected && !info.Mode().IsRegular()) {
-			return fmt.Errorf("PDF renderer cache has an unsupported entry: %s", entry.Name())
-		}
+	if err := check(entries); err != nil {
+		return err
 	}
 	final, err := opened.Stat()
 	if err != nil || !os.SameFile(initial, final) {

@@ -427,7 +427,7 @@ func (executor *reproducibilityExecutor) run(_ context.Context, request commandR
 	defer executor.mu.Unlock()
 	executor.requests = append(executor.requests, request)
 	if slices.Equal(request.arguments, []string{"buildx", "version"}) {
-		return []byte("github.com/docker/buildx 0.38.2 3c4cbd35852fc1a476923627a780a7836c28b654\n"), nil
+		return []byte("github.com/docker/buildx 0.39.0 360040a78d6113dc84e5d4dcdf0f438e1be7a41f\n"), nil
 	}
 	if len(request.arguments) > 1 && slices.Equal(request.arguments[:2], []string{"buildx", "build"}) {
 		tag := argumentAfterValue(request.arguments, "--tag")
