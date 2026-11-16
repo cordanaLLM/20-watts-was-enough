@@ -190,7 +190,7 @@ test("a cached venv with a mismatched Python version is rejected and rebuilt", p
   if (!version) return;
   const tmpCache = await mkdtemp(path.join(os.tmpdir(), "f019-cache-mismatch-"));
   try {
-    const fakeVenv = path.join(tmpCache, `venv-${version}`);
+    const fakeVenv = path.join(tmpCache, "fixture-019-python", `venv-${version}`);
     const fakeBin = path.join(fakeVenv, "bin");
     await mkdir(fakeBin, { recursive: true });
     await writeFile(path.join(fakeBin, "python"), `#!/bin/sh
