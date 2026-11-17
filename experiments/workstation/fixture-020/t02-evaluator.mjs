@@ -83,9 +83,11 @@ function makeOracle(world, radiusLimits, check, state) {
       return { aborted: true };
     }
     state.evaluations += 1;
-    const obj = computeObjective(world.tree, radii, world.regime_params, radiusLimits);
+    const snapshot = Object.freeze(radii.slice());
+    const obj = computeObjective(world.tree, snapshot, world.regime_params, radiusLimits);
     if (obj.brokenClosure) { state.abortReason = "broken-closure"; return { aborted: true }; }
     if (obj.nonFinite) { state.abortReason = "non-finite-objective"; return { aborted: true }; }
+    state.evaluatedRadii.set(obj, snapshot);
     return obj;
   };
 }
@@ -108,7 +110,16 @@ function invokePolicySafely(world, radiusLimits, check, state, policy, options) 
 function validChosenRadii(outcome, edgeCount) {
   if (!outcome) return false;
   if (outcome.chosen === null) return true;
-  return Array.isArray(outcome.chosen.radii) && outcome.chosen.radii.length === edgeCount;
+  return Array.isArray(outcome.chosen?.radii) && outcome.chosen.radii.length === edgeCount;
+}
+
+function matchesEvaluatedRadii(chosen, evaluatedRadii) {
+  const snapshot = evaluatedRadii.get(chosen.result);
+  if (!snapshot || snapshot.length !== chosen.radii.length) return false;
+  for (let i = 0; i < snapshot.length; i += 1) {
+    if (!Object.is(snapshot[i], chosen.radii[i])) return false;
+  }
+  return true;
 }
 
 function precheckWorld(world, radiusLimits) {
@@ -129,10 +140,14 @@ export function evaluateArmAT02(world, {
 } = {}) {
   const precheckFailure = precheckWorld(world, radiusLimits);
   if (precheckFailure) return failedEval(world, precheckFailure, { resourceCap });
-  const state = { evaluations: 0, goldenIterations: 0, solverLog: [], resourceCap, abortReason: null };
+  const state = { evaluations: 0, goldenIterations: 0, solverLog: [], resourceCap,
+    abortReason: null, evaluatedRadii: new WeakMap() };
   const { outcome, failure } = invokePolicySafely(world, radiusLimits, check, state, policy,
     { goldenRelativeWidth, maxGoldenIterations, exponent });
   if (failure) return failedEval(world, failure, state);
+  if (outcome === null || typeof outcome !== "object") {
+    return failedEval(world, state.abortReason ?? "missing-output", state);
+  }
   state.goldenIterations = outcome.goldenIterations ?? 0;
   state.solverLog = outcome.solverLog ?? [];
   if (state.abortReason) return failedEval(world, state.abortReason, state);
@@ -140,6 +155,9 @@ export function evaluateArmAT02(world, {
   const candidates = outcome.candidates ?? [];
   if (!outcome.chosen?.result?.feasible) {
     return failedEval(world, "infeasible-design", { ...state, designCandidates: candidates });
+  }
+  if (!matchesEvaluatedRadii(outcome.chosen, state.evaluatedRadii)) {
+    return failedEval(world, "missing-output", state);
   }
   return buildSuccessResult(outcome.chosen, world, candidates, state);
 }

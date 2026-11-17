@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { createAjv } from "../lib/ajv.mjs";
 import { ARTIFACT_FILES, assertFixture020Record, assertFixture020Summary, canonical, EVALUATION_KEYS,
   EVALUATION_NUMBERS, FAILURE_REASONS, FIXTURE_020_EVENT_CONTRACT_VERSION, NO_RESULT, scientificPayload,
   sha256, validateFixture020Config, worldId } from "./contract.mjs";
@@ -55,109 +56,18 @@ function sampleSummaries() {
   };
 }
 
-function valueKind(value) {
-  if (Array.isArray(value)) return "array";
-  return value === null ? "null" : typeof value;
-}
-
-function matchesNumberBounds(node, value) {
-  if (!Number.isFinite(value)) return false;
-  if (node.minimum !== undefined && value < node.minimum) return false;
-  if (node.maximum !== undefined && value > node.maximum) return false;
-  return node.exclusiveMinimum === undefined || value > node.exclusiveMinimum;
-}
-
-function matchesStringBounds(node, value) {
-  if (node.minLength !== undefined && value.length < node.minLength) return false;
-  return !node.pattern || new RegExp(node.pattern, "u").test(value);
-}
-
-function matchesType(expectedType, value) {
-  if (!expectedType) return true;
-  if (expectedType === "integer") return typeof value === "number" && Number.isSafeInteger(value);
-  return valueKind(value) === expectedType;
-}
-
-function checkScalarNode(node, value) {
-  if (Object.hasOwn(node, "const") && canonical(value) !== canonical(node.const)) return false;
-  if (node.enum && !node.enum.some((entry) => canonical(entry) === canonical(value))) return false;
-  if (!matchesType(node.type, value)) return false;
-  if (typeof value === "number") return matchesNumberBounds(node, value);
-  if (typeof value === "string") return matchesStringBounds(node, value);
-  return true;
-}
-
-function resolveRef(rootSchema, ref) {
-  return ref.slice(2).split("/").reduce((acc, part) => acc?.[part], rootSchema);
-}
-
-function pushArrayItems(stack, node, value) {
-  if (node.minItems !== undefined && value.length < node.minItems) return false;
-  if (node.maxItems !== undefined && value.length > node.maxItems) return false;
-  if (!node.items) return true;
-  for (let i = 0; i < value.length; i += 1) stack.push({ node: node.items, value: value[i] });
-  return true;
-}
-
-function pushObjectProperties(stack, node, value) {
-  const props = node.properties ?? {};
-  if ((node.required ?? []).some((key) => !Object.hasOwn(value, key))) return false;
-  if (node.additionalProperties === false && Object.keys(value).some((key) => !Object.hasOwn(props, key))) {
-    return false;
-  }
-  for (const key of Object.keys(props)) {
-    if (Object.hasOwn(value, key)) stack.push({ node: props[key], value: value[key] });
-  }
-  return true;
-}
-
-function matchesShallowObject(resolved, value) {
-  const props = resolved.properties ?? {};
-  if ((resolved.required ?? []).some((key) => !Object.hasOwn(value, key))) return false;
-  if (resolved.additionalProperties === false && Object.keys(value).some((key) => !Object.hasOwn(props, key))) {
-    return false;
-  }
-  return Object.keys(props).every((key) => !Object.hasOwn(value, key)
-    || !Object.hasOwn(props[key], "const")
-    || canonical(value[key]) === canonical(props[key].const));
-}
-
-function matchesSchemaSingle(rootSchema, branch, value) {
-  const resolved = branch.$ref ? resolveRef(rootSchema, branch.$ref) : branch;
-  if (!resolved || !checkScalarNode(resolved, value)) return false;
-  if (value && typeof value === "object" && !Array.isArray(value)) return matchesShallowObject(resolved, value);
-  return true;
-}
-
-function selectOneOfBranch(rootSchema, branches, value) {
-  const matched = branches.filter((branch) => matchesSchemaSingle(rootSchema, branch, value));
-  return matched.length === 1 ? matched[0] : null;
-}
-
-function stepSchemaFrame(rootSchema, stack, node, value) {
-  if (node.$ref) {
-    const resolved = resolveRef(rootSchema, node.$ref);
-    if (resolved) stack.push({ node: resolved, value });
-    return Boolean(resolved);
-  }
-  if (node.oneOf) {
-    const branch = selectOneOfBranch(rootSchema, node.oneOf, value);
-    if (branch) stack.push({ node: branch, value });
-    return Boolean(branch);
-  }
-  if (!checkScalarNode(node, value)) return false;
-  if (Array.isArray(value)) return pushArrayItems(stack, node, value);
-  if (value && typeof value === "object") return pushObjectProperties(stack, node, value);
-  return true;
-}
-
-function matchesSchema(rootSchema, targetNode, rootValue) {
-  const stack = [{ node: targetNode, value: rootValue }];
-  for (let step = 0; step < 4096 && stack.length > 0; step += 1) {
-    const { node, value } = stack.pop();
-    if (!stepSchemaFrame(rootSchema, stack, node, value)) return false;
-  }
-  return stack.length === 0;
+function schemaValidators(declared) {
+  const copy = { ...declared };
+  delete copy.$schema;
+  const ajv = createAjv({ allErrors: true });
+  ajv.addSchema(copy);
+  const event = ajv.getSchema(copy.$id);
+  const identity = ajv.getSchema(`${copy.$id}#/$defs/identity`);
+  const summary = ajv.getSchema(`${copy.$id}#/$defs/summary`);
+  assert.equal(typeof event, "function");
+  assert.equal(typeof identity, "function");
+  assert.equal(typeof summary, "function");
+  return { event, identity, summary };
 }
 
 test("closed runtime event binds identity, terminal loss, authority and hash chain", () => {
@@ -213,30 +123,32 @@ test("output schema is closed and agrees structurally with the runtime event", a
 
 test("output schema closed identity, event, and summary shapes accept T01/T02 and refuse extra keys", async () => {
   const schema = JSON.parse(await readFile(new URL("./output.schema.json", import.meta.url), "utf8"));
+  const validate = schemaValidators(schema);
   const idT01 = await loadInputs("smoke", "ICP-T01");
   const idT02 = await loadInputs("smoke", "ICP-T02");
   const evT01 = record();
   const evT02 = t02Record();
   const { t01: sumT01, t02: sumT02 } = sampleSummaries();
-  assert.equal(matchesSchema(schema, schema.$defs.identity, idT01), true);
-  assert.equal(matchesSchema(schema, schema.$defs.identity, idT02), true);
-  assert.equal(matchesSchema(schema, schema, evT01), true);
-  assert.equal(matchesSchema(schema, schema, evT02), true);
-  assert.equal(matchesSchema(schema, schema.$defs.summary, sumT01), true);
-  assert.equal(matchesSchema(schema, schema.$defs.summary, sumT02), true);
+  assert.equal(validate.identity(idT01), true, JSON.stringify(validate.identity.errors));
+  assert.equal(validate.identity(idT02), true, JSON.stringify(validate.identity.errors));
+  assert.equal(validate.event(evT01), true, JSON.stringify(validate.event.errors));
+  assert.equal(validate.event(evT02), true, JSON.stringify(validate.event.errors));
+  assert.equal(validate.summary(sumT01), true, JSON.stringify(validate.summary.errors));
+  assert.equal(validate.summary(sumT02), true, JSON.stringify(validate.summary.errors));
 
-  assert.equal(matchesSchema(schema, schema.$defs.identity, { ...idT02, extra: 1 }), false);
-  assert.equal(matchesSchema(schema, schema.$defs.identity,
-    { ...idT02, config: { ...idT02.config, extra: 1 } }), false);
-  assert.equal(matchesSchema(schema, schema, { ...evT02, extra: 1 }), false);
-  assert.equal(matchesSchema(schema, schema,
-    { ...evT02, evaluation: { ...evT02.evaluation, extra: 1 } }), false);
-  assert.equal(matchesSchema(schema, schema, { ...evT02, seed: 0x5401ffff }), false);
-  assert.equal(matchesSchema(schema, schema, { ...evT02, seed: 0x54020040 }), false);
-  assert.equal(matchesSchema(schema, schema.$defs.summary, { ...sumT02, extra: 1 }), false);
-  assert.equal(matchesSchema(schema, schema.$defs.summary,
-    { ...sumT02, development_calibration: { ...sumT02.development_calibration, extra: 1 } }), false);
-  assert.equal(matchesSchema(schema, schema.$defs.summary, { ...sumT01, regime_counts: sumT02.regime_counts }), false);
+  assert.equal(validate.identity({ ...idT02, extra: 1 }), false);
+  assert.equal(validate.identity({ ...idT02, config: { ...idT02.config, extra: 1 } }), false);
+  assert.equal(validate.event({ ...evT02, extra: 1 }), false);
+  assert.equal(validate.event({ ...evT02, evaluation: { ...evT02.evaluation, extra: 1 } }), false);
+  assert.equal(validate.event({ ...evT02, seed: 0x5401ffff }), false);
+  assert.equal(validate.event({ ...evT02, seed: 0x54020040 }), false);
+  assert.equal(validate.summary({ ...sumT02, extra: 1 }), false);
+  assert.equal(validate.summary(
+    { ...sumT02, development_calibration: { ...sumT02.development_calibration, extra: 1 } },
+  ), false);
+  assert.equal(validate.summary({ ...sumT01, regime_counts: sumT02.regime_counts }), false);
+  assert.equal(validate.summary({ ...sumT02, run_id: "z".repeat(64) }), false);
+  assert.equal(validate.event(rehash({ ...evT02, world_id: "ICP-T02-0x54020040" })), false);
 });
 
 test("T02 runtime validators enforce closed records, summaries, configs, seeds, and track dispatch", async () => {

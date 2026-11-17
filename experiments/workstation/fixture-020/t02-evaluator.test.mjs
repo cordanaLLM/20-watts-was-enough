@@ -116,3 +116,35 @@ test("resource cap, generation failure, broken closure, non-finite, stop, and po
   const throwPolicy = evaluateArmAT02(world, { policy: () => { throw new Error("boom"); } });
   assert.equal(throwPolicy.failure_reason, "policy-exception");
 });
+
+test("malformed policy return shapes produce missing-output with abortReason precedence", () => {
+  const world = generateT02World({ seed: T02_SEEDS[0] });
+  for (const shape of [null, undefined, {}]) {
+    const res = evaluateArmAT02(world, { policy: () => shape });
+    assert.equal(res.failure_reason, "missing-output");
+    assert.equal(res.loss_j, T02_L_MAX);
+    const capped = evaluateArmAT02(world, {
+      resourceCap: 0,
+      policy: (input, evaluateDesign) => {
+        evaluateDesign(new Array(input.geometry.edge_count).fill(2e-3));
+        return shape;
+      },
+    });
+    assert.equal(capped.failure_reason, "resource-cap");
+  }
+});
+
+test("post-evaluation radii mutation is rejected while honest evaluated radii pass", () => {
+  const world = generateT02World({ seed: T02_SEEDS[0] });
+  const makePolicy = (mutate) => (input, evaluateDesign) => {
+    const r = new Array(input.geometry.edge_count).fill(2e-3);
+    const result = evaluateDesign(r);
+    if (mutate) r[0] *= 1.5;
+    return { chosen: { alpha: 1, radii: r, result }, candidates: [], solverLog: [], goldenIterations: 0 };
+  };
+  const honest = evaluateArmAT02(world, { policy: makePolicy(false) });
+  assert.equal(honest.failure_reason, null);
+  const mutated = evaluateArmAT02(world, { policy: makePolicy(true) });
+  assert.equal(mutated.failure_reason, "missing-output");
+  assert.equal(mutated.loss_j, T02_L_MAX);
+});
