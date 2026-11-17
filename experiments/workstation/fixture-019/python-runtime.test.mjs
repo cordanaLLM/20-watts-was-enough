@@ -61,6 +61,28 @@ async function writeWorkerStub(filePath, record, exitCode = 0) {
   await chmod(filePath, 0o755);
 }
 
+// writePythonPathStub writes an executable POSIX shell script that answers the first worker
+// request with defaultRecord when PYTHONPATH is unset or empty and pythonPathRecord when
+// PYTHONPATH is set.
+async function writePythonPathStub(filePath, defaultRecord, pythonPathRecord) {
+  const defaultResponse = JSON.stringify({ ok: true, result: defaultRecord });
+  const pythonPathResponse = JSON.stringify({ ok: true, result: pythonPathRecord });
+  const script = [
+    "#!/bin/sh",
+    "IFS= read -r _",
+    "if [ -z \"${PYTHONPATH:-}\" ]; then",
+    `  printf '%s\\n' '${defaultResponse}'`,
+    "else",
+    `  printf '%s\\n' '${pythonPathResponse}'`,
+    "fi",
+    "while IFS= read -r _; do :; done",
+    "exit 0",
+    "",
+  ].join("\n");
+  await writeFile(filePath, script);
+  await chmod(filePath, 0o755);
+}
+
 // writeCachedVenvStub creates <xdgDir>/fixture-019-python/venv-<version>/bin/python
 // answering the worker environment action with record, and returns that interpreter path.
 async function writeCachedVenvStub(xdgDir, version, record) {
@@ -260,6 +282,26 @@ test("a configured interpreter that reports another runtime is refused", posixSt
       (error) => error.message.startsWith(runtimeDiffers(stub)),
     );
   });
+});
+
+test("a cached verification does not cover another environment", posixStubOnly, async () => {
+  const lock = await readLock();
+  const locked = lockedRecord(lock);
+  const directory = await mkdtemp(path.join(os.tmpdir(), "f019-python-stub-"));
+  try {
+    const stub = path.join(directory, "python");
+    const pythonPath = path.join(directory, "site-packages");
+    await mkdir(pythonPath);
+    await writePythonPathStub(stub, locked, { ...locked, python_version: "3.14.9" });
+    assert.equal(verifiedFixture019Python({ [FIXTURE_019_PYTHON_VARIABLE]: stub }), stub);
+    assert.equal(verifiedFixture019Python({ [FIXTURE_019_PYTHON_VARIABLE]: stub, PYTHONPATH: "" }), stub);
+    assert.throws(
+      () => verifiedFixture019Python({ [FIXTURE_019_PYTHON_VARIABLE]: stub, PYTHONPATH: pythonPath }),
+      (error) => error.message.startsWith(runtimeDiffers(stub)),
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("the runner closes a worker that exits cleanly after a matching runtime", posixStubOnly, async () => {

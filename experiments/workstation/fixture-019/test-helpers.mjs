@@ -13,7 +13,7 @@ import {
 const fixtureRoot = path.dirname(fileURLToPath(import.meta.url));
 const workerPath = path.join(fixtureRoot, "worker.py");
 const pythonTimeoutMilliseconds = 10 * 60 * 1000;
-const verifiedCommands = new Set();
+const verifiedRuntimes = new Set();
 let provisionedDefaultRuntime = false;
 
 // readEnvironmentLock returns the fixture's pinned Python environment so test interpreters
@@ -43,10 +43,19 @@ function parseWorkerResponse(output) {
   return response.result;
 }
 
+// runtimeCacheKey binds command to the sorted environment entries so a cached probe
+// never covers a modified environment.
+function runtimeCacheKey(command, environment) {
+  const entries = Object.entries(environment)
+    .filter(([, value]) => value !== undefined)
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
+  return JSON.stringify([command, entries]);
+}
+
 // verifiedFixture019Python lazily provisions the cached runtime via provisionFixture019Python
 // once per process when TWENTYW_FIXTURE_019_PYTHON is unset, resolves the interpreter via
 // fixture019PythonCommand, and refuses it unless its worker environment matches the lock.
-// Each resolved command is checked once per process.
+// One probe runs per (command, environment) pair per process.
 export function verifiedFixture019Python(environment = process.env) {
   const configured = environment[FIXTURE_019_PYTHON_VARIABLE];
   if (!provisionedDefaultRuntime && (configured === undefined || configured === "")) {
@@ -54,12 +63,13 @@ export function verifiedFixture019Python(environment = process.env) {
     provisionedDefaultRuntime = true;
   }
   const command = fixture019PythonCommand(environment);
-  if (verifiedCommands.has(command)) return command;
+  const runtimeKey = runtimeCacheKey(command, environment);
+  if (verifiedRuntimes.has(runtimeKey)) return command;
   const actual = parseWorkerResponse(
     execPython(command, ["-B", workerPath], `${JSON.stringify({ action: "environment" })}\n`, environment),
   );
   assertFixture019Runtime(actual, readEnvironmentLock(), command);
-  verifiedCommands.add(command);
+  verifiedRuntimes.add(runtimeKey);
   return command;
 }
 
