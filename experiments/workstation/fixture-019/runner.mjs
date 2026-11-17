@@ -227,35 +227,61 @@ function publishStagedVenv(staging, venvDir) {
   if (movedExisting) rmSync(oldDir, { recursive: true, force: true });
 }
 
-// buildStagedVenv creates staging from baseCommand, installs hashed requirements, and
-// validates staging with the locked worker runtime probe.
-function buildStagedVenv(baseCommand, staging, lock, environment) {
-  const create = spawnSync(baseCommand, ["-m", "venv", staging], {
+// assertProvisionTimeout rejects non-integer or non-positive millisecond bounds before any
+// provisioning probe or child process starts.
+function assertProvisionTimeout(name, value) {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`${name} must be a positive integer, got ${String(value)}.`);
+  }
+}
+
+// killProvisionProcessGroup sends SIGKILL to a POSIX provisioning step's process group,
+// ignoring ESRCH when the group already exited.
+function killProvisionProcessGroup(pid) {
+  // POSIX kill(-1) signals every user process; a spawned child pid is always above 1.
+  if (process.platform === "win32" || !Number.isInteger(pid) || pid <= 1) return;
+  try {
+    process.kill(-pid, "SIGKILL");
+  } catch (error) {
+    if (error?.code !== "ESRCH") throw error;
+  }
+}
+
+// runProvisionStep executes one provisioning command in its own POSIX process group, kills
+// that group on timeout or signal termination, and throws on any non-zero outcome.
+function runProvisionStep(label, command, args, environment, timeout) {
+  const result = spawnSync(command, args, {
     env: environment,
     encoding: "utf8",
-    timeout: 60000,
+    timeout,
     killSignal: "SIGKILL",
     windowsHide: true,
+    detached: process.platform !== "win32",
   });
-  if (create.error || create.status !== 0) {
-    throw new Error(`venv creation failed (${create.status ?? create.error?.code}): ${create.stderr ?? create.error?.message}`);
+  const errorCode = result.error?.code;
+  if (errorCode === "ETIMEDOUT" || result.signal) {
+    killProvisionProcessGroup(result.pid);
   }
+  if (!result.error && result.status === 0) return;
+  throw new Error(
+    `${label} failed (${result.status ?? errorCode ?? result.signal}): ${result.stderr ?? result.error?.message}`,
+  );
+}
+
+// buildStagedVenv creates staging from baseCommand and installs hashed requirements under
+// bounded process groups (killing a step's group on timeout or signal), then validates
+// staging with the locked worker runtime probe.
+function buildStagedVenv(baseCommand, staging, lock, environment, { venvTimeoutMs, installTimeoutMs }) {
+  runProvisionStep("venv creation", baseCommand, ["-m", "venv", staging], environment, venvTimeoutMs);
   const stagingBin = path.join(staging, "bin", "python");
   const reqPath = path.join(repositoryRoot, "requirements-ci.txt");
-  const install = spawnSync(
+  runProvisionStep(
+    "pip install",
     stagingBin,
     ["-m", "pip", "install", "--no-cache-dir", "--require-hashes", "-r", reqPath],
-    {
-      env: environment,
-      encoding: "utf8",
-      timeout: 120000,
-      killSignal: "SIGKILL",
-      windowsHide: true,
-    },
+    environment,
+    installTimeoutMs,
   );
-  if (install.error || install.status !== 0) {
-    throw new Error(`pip install failed (${install.status ?? install.error?.code}): ${install.stderr ?? install.error?.message}`);
-  }
   if (!matchesLockedRuntime(stagingBin, lock, environment)) {
     throw new Error("Fixture 019 staged venv failed locked runtime validation.");
   }
@@ -265,9 +291,16 @@ function buildStagedVenv(baseCommand, staging, lock, environment) {
 // (refusing relative paths), an existing valid cached venv, or python{major}.{minor} on
 // environment.PATH when it already passes the worker probe without building; otherwise
 // verifies a base interpreter (python{major}.{minor}, then python) for exact implementation
-// and version, builds and validates in staging, and publishes atomically. Intended for test
-// setup, not the runner CLI execution path.
-export function provisionFixture019Python(environment = process.env) {
+// and version, builds and validates in staging under optional positive-integer millisecond
+// bounds (60 s venv and 120 s pip install by default, killing the step's process group on
+// timeout or signal), and publishes atomically. Intended for test setup, not the runner CLI
+// execution path.
+export function provisionFixture019Python(
+  environment = process.env,
+  { venvTimeoutMs = 60000, installTimeoutMs = 120000 } = {},
+) {
+  assertProvisionTimeout("venvTimeoutMs", venvTimeoutMs);
+  assertProvisionTimeout("installTimeoutMs", installTimeoutMs);
   const configured = configuredFixture019Python(environment);
   if (configured !== null) return configured;
   const lock = readPythonEnvironmentLock();
@@ -286,7 +319,7 @@ export function provisionFixture019Python(environment = process.env) {
   rmSync(staging, { recursive: true, force: true });
   let published = false;
   try {
-    buildStagedVenv(baseCommand, staging, lock, environment);
+    buildStagedVenv(baseCommand, staging, lock, environment, { venvTimeoutMs, installTimeoutMs });
     publishStagedVenv(staging, venvDir);
     published = true;
   } finally {

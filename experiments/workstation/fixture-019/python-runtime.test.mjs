@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
@@ -185,6 +186,60 @@ async function writeBaseProvisionStub(root, pathDir, name, { baseVersion, staged
   await writeFile(stub, script);
   await chmod(stub, 0o755);
   return stub;
+}
+
+// writeHungVenvBaseStub writes a base interpreter stub on pathDir that passes the stdlib
+// base probe and, on `-m venv <staging>`, creates staging, starts a background `sleep 30`
+// grandchild recorded at pidFile, and sleeps 30 s itself.
+async function writeHungVenvBaseStub(pathDir, name, { baseVersion, pidFile, sleepBin, mkdirBin }) {
+  const baseInfo = JSON.stringify({
+    python_implementation: "CPython",
+    python_version: baseVersion,
+  });
+  const stub = path.join(pathDir, name);
+  const script = [
+    "#!/bin/sh",
+    "if [ \"$1\" = \"-B\" ] && [ \"$2\" = \"-c\" ]; then",
+    `  printf '%s\\n' '${baseInfo}'`,
+    "  exit 0",
+    "fi",
+    "if [ \"$1\" = \"-m\" ] && [ \"$2\" = \"venv\" ]; then",
+    `  "${mkdirBin}" -p "$3"`,
+    `  "${sleepBin}" 30 &`,
+    `  printf '%s\\n' "$!" > "${pidFile}"`,
+    `  exec "${sleepBin}" 30`,
+    "fi",
+    "exit 1",
+    "",
+  ].join("\n");
+  await writeFile(stub, script);
+  await chmod(stub, 0o755);
+  return stub;
+}
+
+// killIfAlive sends SIGKILL to pid when pid is an integer above 1, ignoring ESRCH.
+function killIfAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 1) return;
+  try {
+    process.kill(pid, "SIGKILL");
+  } catch (error) {
+    if (error?.code !== "ESRCH") throw error;
+  }
+}
+
+// waitForProcessExit polls up to 2 s in 50 ms steps and asserts kill(pid, 0) throws ESRCH.
+async function waitForProcessExit(pid) {
+  const maxSteps = 40;
+  for (let step = 0; step < maxSteps; step += 1) {
+    try {
+      process.kill(pid, 0);
+    } catch (error) {
+      if (error?.code === "ESRCH") break;
+      throw error;
+    }
+    await delay(50);
+  }
+  assert.throws(() => process.kill(pid, 0), { code: "ESRCH" });
 }
 
 test("unset or empty interpreter override resolves cached venv, matching PATH python, then bare python", posixStubOnly, async () => {
@@ -497,5 +552,68 @@ test("test-helpers does not provision at import or when TWENTYW_FIXTURE_019_PYTH
     assert.equal(child.status, 0, child.stderr);
     assert.equal(child.stdout, stub);
     assert.deepEqual(await readdir(xdgDir), []);
+  });
+});
+
+test("a timed-out venv step kills the step's process group and leaves no staging", { ...posixStubOnly, timeout: 15_000 }, async () => {
+  const lock = await readLock();
+  const versioned = versionedName(lock);
+  const sleepBin = execFileSync("sh", ["-c", "command -v sleep"], { encoding: "utf8", timeout: 5_000 }).trim();
+  const mkdirBin = execFileSync("sh", ["-c", "command -v mkdir"], { encoding: "utf8", timeout: 5_000 }).trim();
+  await withIsolatedEnvironment(async ({ root, xdgDir, pathDir }) => {
+    const pidFile = path.join(root, "grandchild.pid");
+    await writeHungVenvBaseStub(pathDir, versioned, {
+      baseVersion: lock.python_version,
+      pidFile,
+      sleepBin,
+      mkdirBin,
+    });
+    try {
+      assert.throws(
+        () => provisionFixture019Python({ XDG_CACHE_HOME: xdgDir, PATH: pathDir }, { venvTimeoutMs: 2_000 }),
+        (error) => error instanceof Error && error.message.startsWith("venv creation failed"),
+      );
+      const grandchildPid = Number((await readFile(pidFile, "utf8")).trim());
+      assert.ok(Number.isInteger(grandchildPid) && grandchildPid > 1, `invalid grandchild pid: ${grandchildPid}`);
+      await waitForProcessExit(grandchildPid);
+      const cacheRoot = path.join(xdgDir, "fixture-019-python");
+      const venvDir = path.join(cacheRoot, `venv-${lock.python_version}`);
+      assert.equal(existsSync(venvDir), false);
+      const entries = existsSync(cacheRoot) ? await readdir(cacheRoot) : [];
+      assert.deepEqual(entries.filter((name) => name.includes(".staging-")), []);
+    } finally {
+      if (existsSync(pidFile)) {
+        killIfAlive(Number((await readFile(pidFile, "utf8")).trim()));
+      }
+    }
+  });
+});
+
+test("provisionFixture019Python rejects non-positive or non-integer timeout bounds before any subprocess", async () => {
+  await withIsolatedEnvironment(async ({ root, pathDir }) => {
+    const uncreatedXdg = path.join(root, "never-created-xdg");
+    const env = { XDG_CACHE_HOME: uncreatedXdg, PATH: pathDir };
+    const invalidCases = [
+      { venvTimeoutMs: 0 },
+      { installTimeoutMs: -1 },
+      { venvTimeoutMs: 1.5 },
+      { installTimeoutMs: 0 },
+      { venvTimeoutMs: -1 },
+      { installTimeoutMs: 1.5 },
+      { venvTimeoutMs: Number.NaN },
+      { installTimeoutMs: Number.POSITIVE_INFINITY },
+      { venvTimeoutMs: "500" },
+    ];
+    for (const options of invalidCases) {
+      assert.throws(
+        () => provisionFixture019Python(env, options),
+        { name: "Error", message: /^(?:venv|install)TimeoutMs must be a positive integer/u },
+      );
+    }
+    assert.throws(
+      () => provisionFixture019Python({ [FIXTURE_019_PYTHON_VARIABLE]: path.resolve(root, "python") }, { venvTimeoutMs: 0 }),
+      { name: "Error", message: /^venvTimeoutMs must be a positive integer/u },
+    );
+    assert.equal(existsSync(uncreatedXdg), false);
   });
 });
