@@ -10,8 +10,10 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { lstatSync, mkdirSync, readFileSync, renameSync, rmSync } from "node:fs";
 import { createInterface } from "node:readline";
+import { homedir } from "node:os";
 import { acquireLock } from "../lib/output-lock.mjs";
 
 import {
@@ -34,18 +36,11 @@ import {
 export const FIXTURE_019_RUNNER_VERSION = "fixture-019.fm-t02-runner.v1";
 export const FIXTURE_019_PYTHON_VARIABLE = "TWENTYW_FIXTURE_019_PYTHON";
 
-// fixture019PythonCommand returns the interpreter Fixture 019 spawns: the absolute path in
-// TWENTYW_FIXTURE_019_PYTHON, or `python` from PATH when the variable is unset or empty.
-// A relative path is refused, so the choice cannot depend on the working directory. Either
-// way the caller still checks the interpreter against python-environment.lock.json.
-export function fixture019PythonCommand(environment = process.env) {
-  const configured = environment[FIXTURE_019_PYTHON_VARIABLE];
-  if (configured === undefined || configured === "") return "python";
-  if (!path.isAbsolute(configured)) {
-    throw new Error(`${FIXTURE_019_PYTHON_VARIABLE} must be an absolute interpreter path, got ${JSON.stringify(configured)}.`);
-  }
-  return configured;
-}
+const fixtureRoot = path.dirname(fileURLToPath(import.meta.url));
+const repositoryRoot = path.resolve(fixtureRoot, "../../..");
+const workerScriptPath = path.join(fixtureRoot, "worker.py");
+const lockFilePath = path.join(fixtureRoot, "python-environment.lock.json");
+const baseRuntimeExpression = "import json, platform; print(json.dumps({'python_implementation': platform.python_implementation(), 'python_version': platform.python_version()}))";
 
 // assertFixture019Runtime refuses a worker environment record that does not match the lock,
 // naming the interpreter, what it reported and what the lock pins.
@@ -65,8 +60,294 @@ export function assertFixture019Runtime(actual, lock, command) {
   );
 }
 
-const fixtureRoot = path.dirname(fileURLToPath(import.meta.url));
-const repositoryRoot = path.resolve(fixtureRoot, "../../..");
+// fixture019CacheRoot resolves the cache directory from environment.XDG_CACHE_HOME when it
+// is a non-empty absolute path, ignoring empty or relative values per the XDG Base Directory
+// Specification and falling back to ~/.cache/fixture-019-python.
+function fixture019CacheRoot(environment = process.env) {
+  const xdg = environment.XDG_CACHE_HOME;
+  const base = typeof xdg === "string" && xdg !== "" && path.isAbsolute(xdg)
+    ? xdg
+    : path.join(homedir(), ".cache");
+  return path.join(base, "fixture-019-python");
+}
+
+// configuredFixture019Python returns the absolute TWENTYW_FIXTURE_019_PYTHON override from
+// environment, null when unset or empty, and throws when a relative path is supplied.
+function configuredFixture019Python(environment) {
+  const configured = environment[FIXTURE_019_PYTHON_VARIABLE];
+  if (configured === undefined || configured === "") return null;
+  if (!path.isAbsolute(configured)) {
+    throw new Error(
+      `${FIXTURE_019_PYTHON_VARIABLE} must be an absolute interpreter path, got ${JSON.stringify(configured)}.`,
+    );
+  }
+  return configured;
+}
+
+// readPythonEnvironmentLock loads python-environment.lock.json and requires python_version.
+function readPythonEnvironmentLock() {
+  const lock = JSON.parse(readFileSync(lockFilePath, "utf8"));
+  if (typeof lock.python_version !== "string" || lock.python_version === "") {
+    throw new Error("python-environment.lock.json has no python_version.");
+  }
+  return lock;
+}
+
+// matchesLockedRuntime probes command via worker.py's environment action under environment
+// with a 5 s SIGKILL timeout and returns true only when assertFixture019Runtime accepts it.
+function matchesLockedRuntime(command, lock, environment) {
+  const probe = spawnSync(command, ["-B", workerScriptPath], {
+    cwd: fixtureRoot,
+    env: environment,
+    input: `${JSON.stringify({ action: "environment" })}\n`,
+    encoding: "utf8",
+    timeout: 5000,
+    killSignal: "SIGKILL",
+    windowsHide: true,
+  });
+  if (probe.error || probe.status !== 0 || typeof probe.stdout !== "string") return false;
+  try {
+    const response = JSON.parse(probe.stdout.trim());
+    if (response?.ok !== true) return false;
+    assertFixture019Runtime(response.result, lock, command);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// isOwnedDirectory requires target under lstatSync to be a real directory (not a symlink)
+// owned by process.getuid().
+function isOwnedDirectory(target) {
+  try {
+    const info = lstatSync(target);
+    return info.isDirectory() && (process.getuid === undefined || info.uid === process.getuid());
+  } catch {
+    return false;
+  }
+}
+
+// isValidVenv checks that both cacheRoot and venvDir are real user-owned directories and
+// that venvBin passes the locked worker runtime probe.
+function isValidVenv(cacheRoot, venvDir, venvBin, lock, environment) {
+  if (!isOwnedDirectory(cacheRoot) || !isOwnedDirectory(venvDir)) return false;
+  return matchesLockedRuntime(venvBin, lock, environment);
+}
+
+// versionedPythonName derives python{major}.{minor} from a major.minor.micro version string.
+function versionedPythonName(version) {
+  const [major, minor] = version.split(".");
+  return `python${major}.${minor}`;
+}
+
+// fixture019PythonCommand returns the interpreter Fixture 019 spawns in lookup order:
+// (1) the absolute path in TWENTYW_FIXTURE_019_PYTHON (relative paths are refused so the
+// choice cannot depend on the working directory); (2) a valid user-owned cached venv at
+// <XDG_CACHE_HOME or ~/.cache>/fixture-019-python/venv-<version>/bin/python accepted by the
+// worker runtime probe; (3) python{major}.{minor} on environment.PATH when accepted by the
+// worker runtime probe; or (4) bare `python` as last resort. Never provisions a venv; call
+// provisionFixture019Python for that. Callers still check the runtime against
+// python-environment.lock.json.
+export function fixture019PythonCommand(environment = process.env) {
+  const configured = configuredFixture019Python(environment);
+  if (configured !== null) return configured;
+  const lock = readPythonEnvironmentLock();
+  const cacheRoot = fixture019CacheRoot(environment);
+  const venvDir = path.join(cacheRoot, `venv-${lock.python_version}`);
+  const venvBin = path.join(venvDir, "bin", "python");
+  if (isValidVenv(cacheRoot, venvDir, venvBin, lock, environment)) return venvBin;
+  const versioned = versionedPythonName(lock.python_version);
+  if (matchesLockedRuntime(versioned, lock, environment)) return versioned;
+  return "python";
+}
+
+// probeBaseInterpreter queries command's stdlib implementation and version without requiring
+// NumPy, bounded by a 5 s SIGKILL timeout under environment.
+function probeBaseInterpreter(command, environment) {
+  const probe = spawnSync(command, ["-B", "-c", baseRuntimeExpression], {
+    env: environment,
+    encoding: "utf8",
+    timeout: 5000,
+    killSignal: "SIGKILL",
+    windowsHide: true,
+  });
+  if (probe.error) {
+    return { ok: false, found: probe.error.code === "ENOENT" ? "not found" : probe.error.message };
+  }
+  if (probe.status !== 0 || typeof probe.stdout !== "string") {
+    return { ok: false, found: probe.signal ? `signal ${probe.signal}` : `exit ${probe.status}` };
+  }
+  try {
+    const parsed = JSON.parse(probe.stdout.trim());
+    if (typeof parsed?.python_implementation !== "string" || typeof parsed?.python_version !== "string") {
+      return { ok: false, found: "malformed output" };
+    }
+    return {
+      ok: true,
+      implementation: parsed.python_implementation,
+      version: parsed.python_version,
+      found: `${parsed.python_implementation} ${parsed.python_version}`,
+    };
+  } catch {
+    return { ok: false, found: "malformed output" };
+  }
+}
+
+// selectBaseInterpreter picks python{major}.{minor} then python only when implementation and
+// exact major.minor.micro version match the lock, throwing found vs pinned otherwise.
+function selectBaseInterpreter(versioned, lock, environment) {
+  const findings = [];
+  for (const candidate of [versioned, "python"]) {
+    const result = probeBaseInterpreter(candidate, environment);
+    if (
+      result.ok
+      && result.implementation === lock.python_implementation
+      && result.version === lock.python_version
+    ) return candidate;
+    findings.push(`${candidate}: ${result.found}`);
+  }
+  throw new Error(
+    `Cannot provision Fixture 019 venv: base interpreter must match pinned ${lock.python_implementation} ${lock.python_version}; found ${findings.join(", ")}.`,
+  );
+}
+
+// restorePreviousVenv moves oldDir back to venvDir after a failed publication, raising
+// publishError and restoreError together when the restore rename also fails.
+function restorePreviousVenv(oldDir, venvDir, publishError) {
+  try {
+    renameSync(oldDir, venvDir);
+  } catch (restoreError) {
+    throw new AggregateError(
+      [publishError, restoreError],
+      `Fixture 019 venv publication failed and the previous venv stays at ${oldDir}.`,
+      { cause: restoreError },
+    );
+  }
+}
+
+// publishStagedVenv atomically replaces venvDir without pre-deleting it: renames any
+// existing venvDir to venvDir.old-<pid>, renames staging to venvDir (restoring oldDir to
+// venvDir if publication fails), then removes oldDir.
+function publishStagedVenv(staging, venvDir) {
+  const oldDir = `${venvDir}.old-${process.pid}`;
+  rmSync(oldDir, { recursive: true, force: true });
+  let movedExisting = false;
+  try {
+    renameSync(venvDir, oldDir);
+    movedExisting = true;
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  try {
+    renameSync(staging, venvDir);
+  } catch (publishError) {
+    if (movedExisting) restorePreviousVenv(oldDir, venvDir, publishError);
+    throw publishError;
+  }
+  if (movedExisting) rmSync(oldDir, { recursive: true, force: true });
+}
+
+// assertProvisionTimeout rejects non-integer or non-positive millisecond bounds before any
+// provisioning probe or child process starts.
+function assertProvisionTimeout(name, value) {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`${name} must be a positive integer, got ${String(value)}.`);
+  }
+}
+
+// killProvisionProcessGroup sends SIGKILL to a POSIX provisioning step's process group,
+// ignoring ESRCH when the group already exited.
+function killProvisionProcessGroup(pid) {
+  // POSIX kill(-1) signals every user process; a spawned child pid is always above 1.
+  if (process.platform === "win32" || !Number.isInteger(pid) || pid <= 1) return;
+  try {
+    process.kill(-pid, "SIGKILL");
+  } catch (error) {
+    if (error?.code !== "ESRCH") throw error;
+  }
+}
+
+// runProvisionStep executes one provisioning command in its own POSIX process group, kills
+// that group on timeout or signal termination, and throws on any non-zero outcome.
+function runProvisionStep(label, command, args, environment, timeout) {
+  const result = spawnSync(command, args, {
+    env: environment,
+    encoding: "utf8",
+    timeout,
+    killSignal: "SIGKILL",
+    windowsHide: true,
+    detached: process.platform !== "win32",
+  });
+  const errorCode = result.error?.code;
+  if (errorCode === "ETIMEDOUT" || result.signal) {
+    killProvisionProcessGroup(result.pid);
+  }
+  if (!result.error && result.status === 0) return;
+  throw new Error(
+    `${label} failed (${result.status ?? errorCode ?? result.signal}): ${result.stderr ?? result.error?.message}`,
+  );
+}
+
+// buildStagedVenv creates staging from baseCommand and installs hashed requirements under
+// bounded process groups (killing a step's group on timeout or signal), then validates
+// staging with the locked worker runtime probe.
+function buildStagedVenv(baseCommand, staging, lock, environment, { venvTimeoutMs, installTimeoutMs }) {
+  runProvisionStep("venv creation", baseCommand, ["-m", "venv", staging], environment, venvTimeoutMs);
+  const stagingBin = path.join(staging, "bin", "python");
+  const reqPath = path.join(repositoryRoot, "requirements-ci.txt");
+  runProvisionStep(
+    "pip install",
+    stagingBin,
+    ["-m", "pip", "install", "--no-cache-dir", "--require-hashes", "-r", reqPath],
+    environment,
+    installTimeoutMs,
+  );
+  if (!matchesLockedRuntime(stagingBin, lock, environment)) {
+    throw new Error("Fixture 019 staged venv failed locked runtime validation.");
+  }
+}
+
+// provisionFixture019Python returns the validated TWENTYW_FIXTURE_019_PYTHON override
+// (refusing relative paths), an existing valid cached venv, or python{major}.{minor} on
+// environment.PATH when it already passes the worker probe without building; otherwise
+// verifies a base interpreter (python{major}.{minor}, then python) for exact implementation
+// and version, builds and validates in staging under optional positive-integer millisecond
+// bounds (60 s venv and 120 s pip install by default, killing the step's process group on
+// timeout or signal), and publishes atomically. Intended for test setup, not the runner CLI
+// execution path.
+export function provisionFixture019Python(
+  environment = process.env,
+  { venvTimeoutMs = 60000, installTimeoutMs = 120000 } = {},
+) {
+  assertProvisionTimeout("venvTimeoutMs", venvTimeoutMs);
+  assertProvisionTimeout("installTimeoutMs", installTimeoutMs);
+  const configured = configuredFixture019Python(environment);
+  if (configured !== null) return configured;
+  const lock = readPythonEnvironmentLock();
+  const cacheRoot = fixture019CacheRoot(environment);
+  const venvDir = path.join(cacheRoot, `venv-${lock.python_version}`);
+  const venvBin = path.join(venvDir, "bin", "python");
+  if (isValidVenv(cacheRoot, venvDir, venvBin, lock, environment)) return venvBin;
+  const versioned = versionedPythonName(lock.python_version);
+  if (matchesLockedRuntime(versioned, lock, environment)) return versioned;
+  const baseCommand = selectBaseInterpreter(versioned, lock, environment);
+  mkdirSync(cacheRoot, { recursive: true, mode: 0o700 });
+  if (!isOwnedDirectory(cacheRoot)) {
+    throw new Error("Fixture 019 cache root must be a user-owned directory.");
+  }
+  const staging = `${venvDir}.staging-${process.pid}`;
+  rmSync(staging, { recursive: true, force: true });
+  let published = false;
+  try {
+    buildStagedVenv(baseCommand, staging, lock, environment, { venvTimeoutMs, installTimeoutMs });
+    publishStagedVenv(staging, venvDir);
+    published = true;
+  } finally {
+    if (!published) rmSync(staging, { recursive: true, force: true });
+  }
+  return venvBin;
+}
+
 const coreSources = [
   "../lib/checkpoint-ledger.mjs",
   "../lib/output-lock.mjs",

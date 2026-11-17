@@ -3,12 +3,18 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { assertFixture019Runtime, fixture019PythonCommand } from "./runner.mjs";
+import {
+  FIXTURE_019_PYTHON_VARIABLE,
+  assertFixture019Runtime,
+  fixture019PythonCommand,
+  provisionFixture019Python,
+} from "./runner.mjs";
 
 const fixtureRoot = path.dirname(fileURLToPath(import.meta.url));
 const workerPath = path.join(fixtureRoot, "worker.py");
 const pythonTimeoutMilliseconds = 10 * 60 * 1000;
-const verifiedCommands = new Set();
+const verifiedRuntimes = new Set();
+let provisionedDefaultRuntime = false;
 
 // readEnvironmentLock returns the fixture's pinned Python environment so test interpreters
 // can be checked against the same lock as the runner.
@@ -18,9 +24,10 @@ function readEnvironmentLock() {
 
 // execPython returns interpreter stdout from the fixture directory with a ten-minute
 // timeout, propagating subprocess failures to the calling test.
-function execPython(command, args, input) {
+function execPython(command, args, input, environment = process.env) {
   return execFileSync(command, args, {
     cwd: fixtureRoot,
+    env: environment,
     input,
     encoding: "utf8",
     timeout: pythonTimeoutMilliseconds,
@@ -36,15 +43,33 @@ function parseWorkerResponse(output) {
   return response.result;
 }
 
-// verifiedFixture019Python resolves the interpreter (TWENTYW_FIXTURE_019_PYTHON, else PATH
-// `python`) and refuses it unless its worker environment matches the lock. Each command is
-// checked once per process.
+// runtimeCacheKey binds command to the sorted environment entries so a cached probe
+// never covers a modified environment.
+function runtimeCacheKey(command, environment) {
+  const entries = Object.entries(environment)
+    .filter(([, value]) => value !== undefined)
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
+  return JSON.stringify([command, entries]);
+}
+
+// verifiedFixture019Python lazily provisions the cached runtime via provisionFixture019Python
+// once per process when TWENTYW_FIXTURE_019_PYTHON is unset, resolves the interpreter via
+// fixture019PythonCommand, and refuses it unless its worker environment matches the lock.
+// One probe runs per (command, environment) pair per process.
 export function verifiedFixture019Python(environment = process.env) {
+  const configured = environment[FIXTURE_019_PYTHON_VARIABLE];
+  if (!provisionedDefaultRuntime && (configured === undefined || configured === "")) {
+    provisionFixture019Python(environment);
+    provisionedDefaultRuntime = true;
+  }
   const command = fixture019PythonCommand(environment);
-  if (verifiedCommands.has(command)) return command;
-  const actual = parseWorkerResponse(execPython(command, ["-B", workerPath], `${JSON.stringify({ action: "environment" })}\n`));
+  const runtimeKey = runtimeCacheKey(command, environment);
+  if (verifiedRuntimes.has(runtimeKey)) return command;
+  const actual = parseWorkerResponse(
+    execPython(command, ["-B", workerPath], `${JSON.stringify({ action: "environment" })}\n`, environment),
+  );
   assertFixture019Runtime(actual, readEnvironmentLock(), command);
-  verifiedCommands.add(command);
+  verifiedRuntimes.add(runtimeKey);
   return command;
 }
 
