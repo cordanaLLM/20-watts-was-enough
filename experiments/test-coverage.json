@@ -8788,7 +8788,7 @@
           "id": "execution-claim-scope",
           "label": "Explicit execution-track claim scope",
           "passed": true,
-          "detail": "execution track is limited to C-1488"
+          "detail": "execution track is limited to C-1488, C-1489"
         },
         {
           "id": "full-profile",
@@ -8840,7 +8840,8 @@
         }
       ],
       "executionClaims": [
-        "C-1488"
+        "C-1488",
+        "C-1489"
       ],
       "harnessBlockers": [],
       "harnessDependencies": [],

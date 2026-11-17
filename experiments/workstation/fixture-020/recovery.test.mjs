@@ -172,7 +172,7 @@ test("pending stopped outcome survives append failure and resume keeps its origi
   let ticks = 0;
   let retained;
   const suffix = "; operation settled=true; an unsettled operation may still complete; resume re-verifies ledger and artifacts.";
-  const message = "ICP-T01 append world outcome: injected append failure after artifacts";
+  const message = "fixture-020 append world outcome: injected append failure after artifacts";
   try {
     await assert.rejects(() => executeFixture020({ profile: "smoke", output: fixture.output,
       wallMs: 5, clock: () => ++ticks, append: async (_ledger, record) => {

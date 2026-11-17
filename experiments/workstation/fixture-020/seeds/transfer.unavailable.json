@@ -7,5 +7,5 @@
   "custody": "registrar-sealed",
   "contains_seeds": false,
   "contains_commitment": false,
-  "reason": "Public-development ICP-T01 smoke only; no sealed seeds or commitments created."
+  "reason": "Public-development ICP-T01 and ICP-T02 smoke only; no sealed seeds or commitments created."
 }
