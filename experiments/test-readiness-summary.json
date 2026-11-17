@@ -806,14 +806,15 @@
         "executionReady": false,
         "executionManifest": "experiments/workstation/manifests/fixture-020.json",
         "executionClaims": [
-          "C-1488"
+          "C-1488",
+          "C-1489"
         ],
         "promotionChecks": [
           {
             "id": "execution-claim-scope",
             "label": "Explicit execution-track claim scope",
             "passed": true,
-            "detail": "execution track is limited to C-1488"
+            "detail": "execution track is limited to C-1488, C-1489"
           },
           {
             "id": "full-profile",

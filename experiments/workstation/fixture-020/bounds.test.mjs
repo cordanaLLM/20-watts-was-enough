@@ -65,6 +65,37 @@ test("both profiles stop at the first boundary when the peak exceeds their cap",
   }
 });
 
+test("T02 memory cap at the post-world boundary retains an ordinary record and interruption", async () => {
+  const fixture = await temporaryOutput("fixture-020-t02-memory-boundary-");
+  let reads = 0;
+  const low = syntheticProcessCounters();
+  const high = syntheticProcessCounters({ peak_resident_bytes: 268435457 });
+  try {
+    await assert.rejects(() => executeFixture020({ profile: "development", output: fixture.output,
+      track: "ICP-T02", maxWorkUnits: 1,
+      counters: () => (++reads === 1 ? low() : high()) }), /memory-cap/);
+    const interruption = JSON.parse(await readFile(path.join(fixture.output, "interruption-1.json"), "utf8"));
+    assert.equal(interruption.completed_worlds, 1);
+    assert.equal(interruption.reason, "ICP-T02 memory-cap.");
+    const record = JSON.parse(await readFile(path.join(fixture.output, "raw-events.jsonl"), "utf8"));
+    assert.equal(record.track, "ICP-T02");
+    assert.equal(record.execution_stop, null);
+  } finally { await cleanup(fixture); }
+});
+
+test("T02 smoke stops at the first boundary when the peak exceeds the cap", async () => {
+  const fixture = await temporaryOutput("fixture-020-t02-memory-first-boundary-");
+  try {
+    await assert.rejects(() => executeFixture020({ profile: "smoke", output: fixture.output,
+      track: "ICP-T02", maxWorkUnits: 1,
+      counters: syntheticProcessCounters({ peak_resident_bytes: 134217729 }) }), /memory-cap/);
+    const interruption = JSON.parse(await readFile(path.join(fixture.output, "interruption-0.json"), "utf8"));
+    assert.equal(interruption.completed_worlds, 0);
+    assert.equal(interruption.reason, "ICP-T02 memory-cap.");
+    await assert.rejects(() => readFile(path.join(fixture.output, "raw-events.jsonl")), { code: "ENOENT" });
+  } finally { await cleanup(fixture); }
+});
+
 test("development completes a work unit at its cap and above the smoke cap", async () => {
   for (const peakBytes of [268435456, 134217729]) {
     const fixture = await temporaryOutput("fixture-020-memory-within-development-cap-");

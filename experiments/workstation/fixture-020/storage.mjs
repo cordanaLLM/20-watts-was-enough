@@ -34,7 +34,7 @@ export async function io(operation, label, timeoutMs = IO_TIMEOUT_MS) {
     if (result.failed) throw result.error;
     return result.value;
   } catch (error) {
-    throw new Error(`ICP-T01 ${label}: ${error?.message ?? String(error)}`, { cause: error });
+    throw new Error(`fixture-020 ${label}: ${error?.message ?? String(error)}`, { cause: error });
   } finally {
     for (const timer of timers) clearTimeout(timer);
   }
@@ -42,7 +42,7 @@ export async function io(operation, label, timeoutMs = IO_TIMEOUT_MS) {
 
 export async function readText(file) {
   const info = await io(() => lstat(file), `stat ${file}`);
-  if (!info.isFile() || info.size > OUTPUT_CAP) throw new Error(`ICP-T01 unsafe or oversized file ${file}.`);
+  if (!info.isFile() || info.size > OUTPUT_CAP) throw new Error(`fixture-020 unsafe or oversized file ${file}.`);
   return io((signal) => readFile(file, { encoding: "utf8", signal }), `read ${file}`);
 }
 
@@ -59,15 +59,15 @@ export async function json(file) {
   try {
     return JSON.parse(await readText(file));
   } catch (error) {
-    throw new Error(`ICP-T01 JSON ${file}: ${error.message}`, { cause: error });
+    throw new Error(`fixture-020 JSON ${file}: ${error.message}`, { cause: error });
   }
 }
 
 export async function atomicText(file, body) {
-  if (Buffer.byteLength(body) > OUTPUT_CAP) throw new Error("ICP-T01 output cap exceeded.");
+  if (Buffer.byteLength(body) > OUTPUT_CAP) throw new Error("fixture-020 output cap exceeded.");
   const temporary = `${file}.pending`;
   const existing = await optionalText(temporary);
-  if (existing !== null && !body.startsWith(existing)) throw new Error(`ICP-T01 conflicting interrupted write ${temporary}.`);
+  if (existing !== null && !body.startsWith(existing)) throw new Error(`fixture-020 conflicting interrupted write ${temporary}.`);
   const handle = await pendingHandle(temporary, existing === null);
   try {
     if (existing !== body) await io((signal) => handle.writeFile(body, { signal }), `write ${temporary}`);
@@ -99,7 +99,7 @@ export async function removeText(file) {
 
 export async function stableText(file, body) {
   const previous = await optionalText(file);
-  if (previous !== null && previous !== body) throw new Error(`ICP-T01 artifact differs: ${file}.`);
+  if (previous !== null && previous !== body) throw new Error(`fixture-020 artifact differs: ${file}.`);
   if (previous === null) await atomicText(file, body);
 }
 
@@ -110,7 +110,7 @@ export async function stableJson(file, value) {
 export async function hashFile(file) {
   const info = await io(() => lstat(file), `stat ${file}`);
   if (!info.isFile() || info.isSymbolicLink() || info.size > OUTPUT_CAP) {
-    throw new Error(`ICP-T01 unsafe or oversized hash input ${file}.`);
+    throw new Error(`fixture-020 unsafe or oversized hash input ${file}.`);
   }
   const handle = await io(() => open(file, "r"), `open ${file}`);
   const buffer = Buffer.alloc(65536);
@@ -119,7 +119,7 @@ export async function hashFile(file) {
     for (let offset = 0; offset < info.size; offset += buffer.length) {
       const length = Math.min(buffer.length, info.size - offset);
       const { bytesRead } = await io(() => handle.read(buffer, 0, length, offset), `hash ${file}`);
-      if (bytesRead !== length) throw new Error(`ICP-T01 short hash read ${file}.`);
+      if (bytesRead !== length) throw new Error(`fixture-020 short hash read ${file}.`);
       hash.update(buffer.subarray(0, bytesRead));
     }
   } finally {
@@ -131,7 +131,7 @@ export async function hashFile(file) {
 export async function stableRows(file, rows, digest) {
   const previous = await optionalTextSmall(file);
   if (previous) {
-    if (await hashFile(file) !== digest) throw new Error(`ICP-T01 artifact differs: ${file}.`);
+    if (await hashFile(file) !== digest) throw new Error(`fixture-020 artifact differs: ${file}.`);
     return;
   }
   const temporary = `${file}.pending`;
@@ -144,7 +144,7 @@ export async function stableRows(file, rows, digest) {
   } finally {
     await io(() => handle.close(), `close ${temporary}`);
   }
-  if (await hashFile(temporary) !== digest) throw new Error(`ICP-T01 pending digest differs: ${temporary}.`);
+  if (await hashFile(temporary) !== digest) throw new Error(`fixture-020 pending digest differs: ${temporary}.`);
   await io(() => rename(temporary, file), `rename ${file}`);
   await syncDirectory(path.dirname(file));
 }
@@ -152,7 +152,7 @@ export async function stableRows(file, rows, digest) {
 async function optionalTextSmall(file) {
   try {
     const info = await io(() => lstat(file), `inspect ${file}`);
-    if (!info.isFile() || info.isSymbolicLink()) throw new Error(`ICP-T01 unsafe artifact ${file}.`);
+    if (!info.isFile() || info.isSymbolicLink()) throw new Error(`fixture-020 unsafe artifact ${file}.`);
     return true;
   } catch (error) {
     if (error.cause?.code === "ENOENT") return false;
@@ -167,7 +167,7 @@ function assertRowPrefix(rows, prefix, file) {
     expected += row;
     if (expected.length >= prefix.length) break;
   }
-  if (!expected.startsWith(prefix)) throw new Error(`ICP-T01 conflicting interrupted write ${file}.`);
+  if (!expected.startsWith(prefix)) throw new Error(`fixture-020 conflicting interrupted write ${file}.`);
 }
 
 async function writeRows(handle, rows, file) {
@@ -175,7 +175,7 @@ async function writeRows(handle, rows, file) {
   let bytes = 0;
   for (const row of rows()) {
     bytes += Buffer.byteLength(row);
-    if (bytes > OUTPUT_CAP) throw new Error(`ICP-T01 output cap exceeded: ${file}.`);
+    if (bytes > OUTPUT_CAP) throw new Error(`fixture-020 output cap exceeded: ${file}.`);
     batch += row;
     if (batch.length >= 65536) {
       await io((signal) => handle.writeFile(batch, { signal }), `write ${file}`);
@@ -193,7 +193,7 @@ function inside(root, file) {
 export async function outputDirectory(root, output, create = false,
   { syncDirectory: syncParent = syncDirectory } = {}) {
   const directory = path.resolve(root, output);
-  if (!inside(root, directory) || directory === root) throw new Error("ICP-T01 output must stay inside repository.");
+  if (!inside(root, directory) || directory === root) throw new Error("fixture-020 output must stay inside repository.");
   const segments = path.relative(root, directory).split(path.sep);
   let current = root;
   for (const segment of segments) {
@@ -201,7 +201,7 @@ export async function outputDirectory(root, output, create = false,
     await directorySegment(current, create, syncParent);
   }
   if (create && await io(() => realpath(directory), "resolve output") !== directory) {
-    throw new Error("ICP-T01 output real path differs.");
+    throw new Error("fixture-020 output real path differs.");
   }
   return directory;
 }
@@ -209,7 +209,7 @@ export async function outputDirectory(root, output, create = false,
 async function directorySegment(current, create, syncParent) {
   try {
     const info = await io(() => lstat(current), `inspect output ${current}`);
-    if (!info.isDirectory() || info.isSymbolicLink()) throw new Error("ICP-T01 output path substitution rejected.");
+    if (!info.isDirectory() || info.isSymbolicLink()) throw new Error("fixture-020 output path substitution rejected.");
   } catch (error) {
     if (error.cause?.code !== "ENOENT") throw error;
     if (create) {
@@ -224,15 +224,15 @@ export async function outputBytes(directory, maximum = OUTPUT_CAP) {
   let total = 0;
   for (let index = 0; index < queue.length && index < 256; index += 1) {
     const entries = await io(() => readdir(queue[index], { withFileTypes: true }), "count output files");
-    if (entries.length > 1024) throw new Error("ICP-T01 output file-count cap exceeded.");
+    if (entries.length > 1024) throw new Error("fixture-020 output file-count cap exceeded.");
     for (const entry of entries) {
       const file = path.join(queue[index], entry.name);
       const info = await io(() => lstat(file), "count output bytes");
-      if (info.isSymbolicLink()) throw new Error("ICP-T01 output symlink rejected.");
+      if (info.isSymbolicLink()) throw new Error("fixture-020 output symlink rejected.");
       if (info.isDirectory()) queue.push(file);
       else total += info.size;
     }
   }
-  if (queue.length > 256 || total > maximum) throw new Error("ICP-T01 output cap exceeded.");
+  if (queue.length > 256 || total > maximum) throw new Error("fixture-020 output cap exceeded.");
   return total;
 }

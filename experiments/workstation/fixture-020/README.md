@@ -1,10 +1,12 @@
 # Fixture 020 public-development smoke harness
 
-This directory implements the base-family generator and fixed-tree arm A of
-[ICP-T01](../../fixtures/020-integrative-comparative-physiology.md).
-ICP means integrative comparative physiology. The harness checks synthetic
-oxygen accounting, public seed identity, retained failures and verified resume
-within C-1488 scope. Its
+This directory implements the base-family generators and fixed-tree arm A of
+[ICP-T01](../../fixtures/020-integrative-comparative-physiology.md) and
+[ICP-T02](../../fixtures/020-integrative-comparative-physiology.md).
+ICP means integrative comparative physiology. ICP-T01 checks synthetic
+oxygen accounting; ICP-T02 checks vascular tree radius optimisation.
+Both tracks share public seed identity, retained failures and verified resume
+within C-1488 and C-1489 scope. The
 [manifest](../manifests/fixture-020.json) declares `smoke-ready` only.
 
 ## Implemented slice
@@ -24,19 +26,44 @@ The smoke profile selects the first two of 64 public development seeds.
 Development selects all 64, with the same spatial and temporal settings.
 Generation exhaustion remains a typed world failure in the denominator.
 
+## ICP-T02 implemented slice
+
+Each T02 world contains a complete binary tree of depth 4--7 with BFS node
+indexing (root `0`, children `2n+1` and `2n+2`, edge ID equal to child node ID,
+no stem edge above root). Edge lengths follow `logU(0.005, 0.05)` m, terminal
+base flows follow `logU(1e-10, 1e-8)` m^3/s normalised to a total flow from
+`logU(1e-7, 1e-5)` m^3/s, and internal edge flows equal exact bottom-up child
+sums. A regime (`classic`, `rheology`, `pulsatile` or `wall-floor`) is drawn
+once per world before attempt zero; rejected attempts continue the same
+`IcpRandom` tree and regime streams.
+
+Arm A enforces `r_e = alpha * Q_e^(1/3)`, selecting `alpha` by deterministic
+golden-section search on `x = ln(alpha)` over the radius-feasible interval to
+minimise total power `P(r)` in W. Episode loss over the 1 h horizon is
+`L_s = 3600 * P(r)` J; any infeasible or failed arm receives the registered cap
+`L_max = 3600e9` J without soft penalties. Five canonical candidates check
+pressure propagation and radius bounds through a closed-key policy view that
+excludes stream labels, attempt counts and manifest internals. A three-edge
+classic calibration cell checks Arm A against analytic `alpha*`, `P*` and
+Murray's junction identity during `prepare`, execution and `analyze`.
+
 ## Authority boundary
 
-Every summary is `NO_RESULT`. The execution claim binding covers C-1488 only
-and supplies no scientific, comparative, performance or energy conclusion.
-Simulated pump work is a synthetic transport quantity in J, not workstation
-joules or watts. No measured workstation energy is available.
+Every summary is `NO_RESULT`. The execution claim binding covers C-1488 and
+C-1489 and supplies no scientific, comparative, performance or energy
+conclusion. Simulated pump work (T01) and optimised transport power over 1 h
+(T02) are synthetic quantities in J, not workstation joules or watts. No
+measured workstation energy is available.
 
-Arms B (the MIQP null), C (local repair) and O (the evaluator oracle) are
-deferred. Common bootstrap-t inference, the development sensitivity diagnostic,
-the transfer family, Parquet artifacts and ICP-T02--ICP-T09 are deferred too.
-No B:A contrast is computed. The confirmation and transfer documents state
-that the 128 and 64 sealed seeds and their commitments have not been created;
-they contain no seeds or data.
+Arms B (MIQP in T01; primal-dual interior-point in T02), C (local repair) and
+O (the evaluator oracle) are deferred. Arm B KKT residuals, Arm B calibration
+agreement (`b_agreement: "not-built"`), the Arm B/C fallback chain, tight
+transfer radius bounds, common bootstrap-t inference, the development
+sensitivity diagnostic, the transfer family, Parquet artifacts and
+ICP-T03--ICP-T09 are not built. No B:A contrast is computed, and no biological
+exponent is inferred. The confirmation and transfer documents state that the
+128 and 64 sealed seeds and their commitments have not been created; they
+contain no seeds or data.
 
 ## CLI
 
@@ -52,6 +79,15 @@ node experiments/workstation/fixture-020/runner.mjs analyze \
   --output tmp/fixture-020-smoke
 node experiments/workstation/fixture-020/runner.mjs validate \
   --output tmp/fixture-020-smoke
+
+# ICP-T02 commands use --track ICP-T02 on prepare/smoke/run;
+# analyze and validate refuse --track and read it from identity.json
+node experiments/workstation/fixture-020/runner.mjs prepare --profile smoke \
+  --track ICP-T02
+node experiments/workstation/fixture-020/runner.mjs smoke --profile smoke \
+  --output tmp/fixture-020-t02-smoke --resume false --track ICP-T02
+node experiments/workstation/fixture-020/runner.mjs run --profile development \
+  --output tmp/fixture-020-t02-development --resume false --track ICP-T02
 ```
 
 Confirmation and transfer are not executable actions. Existing run identities
@@ -86,13 +122,23 @@ the lock is deleted after confirming no process uses the output.
 
 ## Artifacts and bounds
 
-Each world directory contains `world-manifest.json`, `graph.json`,
+Each ICP-T01 world directory contains `world-manifest.json`, `graph.json`,
 `demand.jsonl`, `oxygen-ledger.jsonl`, `flows.json`, `observations.jsonl` and
 `fallbacks.jsonl`. The demand file retains minute rates. Oxygen rows are
 aggregated over each 5 min decision interval. The full oxygen ledger and flow
 history receive SHA-256 digests over little-endian binary64 rows. Raw signed
 observation values remain in the observation file. A's ordinary fixed action
 requires no fallback, so its fallback file is empty.
+
+Each ICP-T02 world directory contains `world-manifest.json`, `tree.json`,
+`regime.json`, `designs.jsonl` (JSONL stand-in for `designs.parquet` with one
+row per canonical Arm A candidate), `pressure-ledger.csv` (terminal
+`node_id,pressure_pa,required_pa,margin_pa` for the chosen design, or header
+only when no feasible design is chosen), `objective-components.csv` (per-edge
+`edge_id,radius_m,mu_e_pa_s,pressure_drop_pa,pumping_w,volume_w,pulsatile_w,wall_floor_w`,
+or header only when no design is chosen) and `solver-log.jsonl` (one row per
+golden-section iteration). Each T02 arm is capped at 200,000 objective
+evaluations.
 Before writing artifacts, the runner atomically retains `pending-outcome.json`.
 Resume replays that outcome, completes its artifacts and appends it to the
 ledger before removing the pending file. Conflicting pending outcomes are
@@ -219,6 +265,72 @@ gaps in the executable slice; they do not amend the frozen protocol.
   file I/O has a 30 s deadline. Fixed-format numeric JSON rows use native
   array encoding in canonical key order, avoiding an intermediate token
   tree; file hashing and writing use bounded chunks.
+
+## ICP-T02 harness registrations
+
+Registration version: `fixture-020-icp-t02-registrations-v1`. These choices
+fill execution gaps in the ICP-T02 smoke slice; they are harness registrations,
+not contract seed or protocol amendments.
+
+- Public seed IDs are a harness registration, not contract text:
+  `0x54020000` through `0x5402003f` (`1409417216`--`1409417279`), following the
+  ICP-T01 hexadecimal convention. World IDs use eight lowercase hex digits, for
+  example `ICP-T02-0x54020000`. Smoke runs the first two seeds; development
+  runs all 64.
+- Stream labels are `ICP-v2|T02|regime|<worldID>` and
+  `ICP-v2|T02|tree|<worldID>`. The regime label
+  (`["classic","rheology","pulsatile","wall-floor"][integer(0,3)]`) is drawn
+  once per world on the regime stream before any attempt so rejection sampling
+  preserves uniform regime shares.
+- Each attempt draws on the tree stream in fixed order: depth
+  `d = integer(4, 7)`, edge lengths `logRange(0.005, 0.05)` m in ascending edge
+  ID `1..2^(d+1)-2`, terminal base flows `logRange(1e-10, 1e-8)` m^3/s in
+  ascending terminal ID, total flow `logRange(1e-7, 1e-5)` m^3/s, exact
+  bottom-up internal edge flows in descending node ID, `mu0 = logRange(0.001, 0.006)` Pa s,
+  `lambda_V = logRange(1e2, 1e5)` W/m^3 and root pressure
+  `P_root = range(5000, 25000)` Pa (drawn for all four regimes so pressure
+  propagation is defined everywhere). The regime stream then draws only the
+  active intervention parameters (`rheology`: `a = range(0.5, 4)`,
+  `r_c = logRange(1e-4, 1e-3)` m; `pulsatile`: `lambda_I = range(0.1, 2)`,
+  `f = range(0.5, 4)` s^-1, `rho = 1000` kg/m^3; `wall-floor`:
+  `lambda_A = logRange(1, 1e3)` W/m^2, `P_min = range(0.2, 0.8) * P_root`).
+  Outside `wall-floor`, required terminal pressure is `0` Pa and every terminal
+  must strictly exceed its required pressure (`pressure_pa > required_pa`).
+  An attempt is accepted iff the uniform upper-bound design (`r_e = 5e-3` m) is
+  pressure-feasible and `3600 * P(r_max) < 3600e9` J; exhausting 10,000
+  attempts retains a typed `generator-failure` world with `regime: null` on the
+  event record and terminal loss `3600e9` J.
+- Arm A computes the exact radius-feasible scale interval
+  `[max_e(r_min / cbrt(Q_e)), min_e(r_max / cbrt(Q_e))]` with
+  `r_min = 5e-5` m and `r_max = 5e-3` m; an empty interval returns
+  `infeasible-design`. Golden-section search on `x = ln(alpha)` minimises true
+  power `P(r)` until `exp(hi - lo) - 1 <= 1e-10` with a hard cap of 200
+  iterations (hitting the 200-iteration cap raises `policy-exception`).
+- Candidates are evaluated in canonical order: `lower`, `midpoint` (the
+  `ln(alpha)` midpoint of the initial interval), `upper`, `golden-a` and
+  `golden-b`. Each candidate computes `alpha * Math.cbrt(Q_e)` and clamps into
+  `[r_min, r_max]`; if clamping moves any edge radius by more than `1e-12`
+  relative, evaluation fails with `policy-exception`. The feasible candidate
+  with lowest `P(r)` is chosen, keeping the earlier candidate whenever
+  `|P_1 - P_2| <= 1e-12 * max(1, |P_1|, |P_2|)`. If no candidate is feasible,
+  Arm A stays in the cubic family and records `infeasible-design` with terminal
+  loss (no upper-bound rescue; the Arm B/C fallback chain is not built).
+- `fitted_exponent` is registered as the ordinary least-squares slope of
+  `ln(r_e)` on `ln(Q_e)` across all edges (equal to `1/3` for Arm A by
+  construction, and `0` when no feasible design is chosen). It records a
+  descriptive summary of the design vector and infers no biological exponent.
+  Arm B's KKT residual is absent because Arm B is not built.
+- Development calibration uses a fixed classic cell with one stem edge
+  (`Q = 2e-6` m^3/s) bifurcating symmetrically into two terminal edges
+  (`Q = 1e-6` m^3/s each, `parents = [null, 0, 1, 1]`, `L = 0.02` m on all
+  three edges, `mu0 = 0.0035` Pa s, `lambda_V = 1e3` W/m^3, `P_root = 25000` Pa,
+  inactive bounds `[5e-5, 5e-3]` m), checked against
+  `alpha* = (16 * mu0 / (pi^2 * lambda_V))^(1/6)` and
+  `P* = (sum_e Q_e^(2/3) L_e) * (8 * mu0 / (pi * alpha*^4) + lambda_V * pi * alpha*^2)`
+  within `1e-6` relative error and Murray junction balance
+  `|r_0^3 / (r_1^3 + r_2^3) - 1| <= 1e-12`, recording `b_agreement: "not-built"`.
+  Calibration failure throws `ICP-T02 development calibration invalidates the track.`
+  in `prepare`, execution and `analyze`.
 
 ## Verification
 

@@ -7,6 +7,12 @@ the exact diff; this file records why the project changed.
 
 ### Added
 
+- Add the F-020 ICP-T02 public-development smoke harness with vascular tree
+  generation, four-regime radius optimisation via golden-section search on total
+  power, calibration cell verification and track-parameterised runner within
+  C-1489 scope. T01 byte stability pinned with replay test. B/C/O, inference
+  and transfer remain deferred, and every summary stays `NO_RESULT`.
+
 - Add the F-020 ICP-T01 public-development smoke harness with fixed tree shares,
   oxygen accounting and resumable retained records within C-1488 scope; B/C/O,
   inference and transfer remain deferred, and every summary stays `NO_RESULT`
