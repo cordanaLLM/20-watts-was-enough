@@ -3,12 +3,24 @@ import { createHash } from "node:crypto";
 import { canonical } from "./contract.mjs";
 import { stableRows, hashFile } from "./storage.mjs";
 
-function* singleRow(value) {
+export function* singleRow(value) {
   yield `${canonical(value)}\n`;
 }
 
-function* canonicalRows(rows) {
-  for (const row of rows) yield `${canonical(row)}\n`;
+export function* canonicalRows(rows) {
+  for (let index = 0; index < rows.length; index += 1) yield `${canonical(rows[index])}\n`;
+}
+
+export function hashArtifactSources(sources) {
+  const entries = Object.entries(sources);
+  const hashes = {};
+  for (let index = 0; index < entries.length; index += 1) {
+    const [name, rows] = entries[index];
+    const hash = createHash("sha256");
+    for (const row of rows()) hash.update(row);
+    hashes[name] = hash.digest("hex");
+  }
+  return hashes;
 }
 
 function* demandRows(world) {
@@ -22,7 +34,8 @@ function* demandRows(world) {
 }
 
 function* observationRows(rows) {
-  for (const row of rows) {
+  for (let index = 0; index < rows.length; index += 1) {
+    const row = rows[index];
     const ordered = row.kind === "source"
       ? { concentration_raw: row.concentration_raw, flow_raw: row.flow_raw,
         kind: row.kind, measurement_minute: row.measurement_minute }
@@ -46,25 +59,23 @@ export function worldArtifacts(world, evaluation) {
     "observations.jsonl": () => observationRows(observations),
     "fallbacks.jsonl": () => canonicalRows(fallbacks),
   };
-  const hashes = {};
-  for (const [name, rows] of Object.entries(sources)) {
-    const hash = createHash("sha256");
-    for (const row of rows()) hash.update(row);
-    hashes[name] = hash.digest("hex");
-  }
-  return { sources, hashes, metrics };
+  return { sources, hashes: hashArtifactSources(sources), metrics };
 }
 
 export async function writeWorldArtifacts(directory, artifacts) {
-  for (const [name, rows] of Object.entries(artifacts.sources)) {
+  const entries = Object.entries(artifacts.sources);
+  for (let index = 0; index < entries.length; index += 1) {
+    const [name, rows] = entries[index];
     await stableRows(path.join(directory, name), rows, artifacts.hashes[name]);
   }
 }
 
 export async function verifyWorldArtifacts(directory, artifacts) {
-  for (const [name, digest] of Object.entries(artifacts.hashes)) {
+  const entries = Object.entries(artifacts.hashes);
+  for (let index = 0; index < entries.length; index += 1) {
+    const [name, digest] = entries[index];
     if (await hashFile(path.join(directory, name)) !== digest) {
-      throw new Error(`ICP-T01 artifact replay differs: ${name}.`);
+      throw new Error(`fixture-020 artifact replay differs: ${name}.`);
     }
   }
 }

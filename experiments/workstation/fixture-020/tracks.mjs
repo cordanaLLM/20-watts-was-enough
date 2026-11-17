@@ -1,21 +1,21 @@
-import { FIXTURE_020_EVENT_CONTRACT_VERSION, PUBLIC_SEEDS,
-  validateFixture020Config, worldId, assertFixture020Record, ARTIFACT_FILES,
-  EVALUATION_KEYS, NO_RESULT, scientificPayload } from "./contract.mjs";
-import { T02_EVENT_CONTRACT_VERSION, T02_SEEDS,
-  validateT02Config, t02WorldId, assertT02Record, T02_ARTIFACT_FILES,
-  T02_EVALUATION_KEYS, T02_NO_RESULT } from "./t02-contract.mjs";
+import { ARTIFACT_FILES, assertFixture020Record, assertFixture020Summary,
+  EVALUATION_KEYS, FIXTURE_020_EVENT_CONTRACT_VERSION, NO_RESULT, PUBLIC_SEEDS,
+  scientificPayload, validateFixture020Config, worldId } from "./contract.mjs";
+import { assertT02CalibrationRecord, assertT02Record, assertT02Summary,
+  T02_ARTIFACT_FILES, T02_EVALUATION_KEYS, T02_EVENT_CONTRACT_VERSION,
+  T02_NO_RESULT, T02_SEEDS, t02WorldId, validateT02Config } from "./t02-contract.mjs";
 import { generateFixture020World, interruptedWorld } from "./generator.mjs";
 import { generateT02World, interruptedT02World } from "./t02-generator.mjs";
 import { evaluateArmA } from "./evaluator.mjs";
 import { evaluateArmAT02 } from "./t02-evaluator.mjs";
-import { worldArtifacts, verifyWorldArtifacts, writeWorldArtifacts } from "./artifacts.mjs";
+import { verifyWorldArtifacts, worldArtifacts, writeWorldArtifacts } from "./artifacts.mjs";
 import { t02WorldArtifacts, verifyT02WorldArtifacts, writeT02WorldArtifacts } from "./t02-artifacts.mjs";
 import { developmentCalibration } from "./t02-policy.mjs";
 
 const T01_RUNNER_VERSION = "fixture-020.icp-t01-runner.v1";
 export const T02_RUNNER_VERSION = "fixture-020.icp-t02-runner.v1";
 
-const t01 = {
+const t01 = Object.freeze({
   id: "ICP-T01",
   contractVersion: FIXTURE_020_EVENT_CONTRACT_VERSION,
   runnerVersion: T01_RUNNER_VERSION,
@@ -36,6 +36,7 @@ const t01 = {
   evaluationKeys: EVALUATION_KEYS,
   noResult: NO_RESULT,
   assertRecord: assertFixture020Record,
+  assertSummary: assertFixture020Summary,
   scientificPayload,
   makeRecord(identity, world, artifacts, stop) {
     const evaluation = artifacts.metrics;
@@ -51,9 +52,10 @@ const t01 = {
   lossUnit: "mmol",
   resourceUnit: "synthetic J",
   calibration: null,
-};
+  runCalibration: null,
+});
 
-const t02 = {
+const t02 = Object.freeze({
   id: "ICP-T02",
   contractVersion: T02_EVENT_CONTRACT_VERSION,
   runnerVersion: T02_RUNNER_VERSION,
@@ -64,7 +66,7 @@ const t02 = {
   configFile: (profile) => `configs/t02-${profile}.json`,
   validateConfig: validateT02Config,
   worldId: t02WorldId,
-  generate: (options) => generateT02World(options),
+  generate: generateT02World,
   interruptedWorld: interruptedT02World,
   evaluate: evaluateArmAT02,
   makeArtifacts: t02WorldArtifacts,
@@ -74,7 +76,8 @@ const t02 = {
   evaluationKeys: T02_EVALUATION_KEYS,
   noResult: T02_NO_RESULT,
   assertRecord: assertT02Record,
-  scientificPayload(record) { const payload = { ...record }; delete payload.integrity; return payload; },
+  assertSummary: assertT02Summary,
+  scientificPayload,
   makeRecord(identity, world, artifacts, stop) {
     const evaluation = artifacts.metrics;
     return { schema: 1, contract_version: T02_EVENT_CONTRACT_VERSION,
@@ -83,41 +86,39 @@ const t02 = {
       world_id: world.world_id, world_sha256: world.world_sha256,
       regime: world.regime ?? null, arm: "A",
       maximum_loss_j: evaluation.maximum_loss_j, loss_j: evaluation.loss_j,
-      failure_reason: evaluation.failure_reason, evaluation: stripArtifactData(evaluation),
+      failure_reason: evaluation.failure_reason, evaluation,
       execution_stop: stop, artifacts_sha256: artifacts.hashes, ...T02_NO_RESULT };
   },
-  summaryExtras(records) {
+  summaryExtras(records, { calibration } = {}) {
+    const development_calibration = assertT02CalibrationRecord((calibration ?? developmentCalibration)());
     const counts = { classic: 0, rheology: 0, pulsatile: 0, "wall-floor": 0 };
-    for (const record of records) if (record.regime) counts[record.regime] += 1;
-    return { regime_counts: counts };
+    for (let index = 0; index < records.length; index += 1) {
+      if (records[index].regime) counts[records[index].regime] += 1;
+    }
+    return { regime_counts: counts, development_calibration };
   },
   lossUnit: "J",
   resourceUnit: "objective evaluations",
   calibration: developmentCalibration,
-};
-
-function stripArtifactData(evaluation) {
-  const clean = { ...evaluation };
-  delete clean.radii;
-  delete clean.solverLog;
-  delete clean.designCandidates;
-  delete clean.edgeComponents;
-  delete clean.nodePressures;
-  return clean;
-}
+  runCalibration(calibration = developmentCalibration) {
+    return assertT02CalibrationRecord(calibration());
+  },
+});
 
 export const TRACKS = Object.freeze({ "ICP-T01": t01, "ICP-T02": t02 });
 
 export const EVENT_CONTRACT_VERSION = "fixture-020.event-dispatch.v1";
 
 export function assertEventRecord(record, options) {
-  if (record?.track === "ICP-T01") return assertFixture020Record(record, options);
-  if (record?.track === "ICP-T02") return assertT02Record(record, options);
+  if (typeof record?.track === "string" && Object.hasOwn(TRACKS, record.track)) {
+    return TRACKS[record.track].assertRecord(record, options);
+  }
   throw new Error(`fixture-020 unknown track in event: ${record?.track}`);
 }
 
 export function getTrack(name) {
-  const track = TRACKS[name];
-  if (!track) throw new Error(`fixture-020 unknown track ${name}.`);
-  return track;
+  if (typeof name !== "string" || !Object.hasOwn(TRACKS, name)) {
+    throw new Error(`fixture-020 unknown track ${name}.`);
+  }
+  return TRACKS[name];
 }

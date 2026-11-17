@@ -1,191 +1,145 @@
-import { T02_L_MAX, T02_R_MIN, T02_R_MAX } from "./t02-contract.mjs";
-import { computeObjective, designSha256, fittedExponent } from "./t02-objective.mjs";
+import { ExecutionStop } from "./contract.mjs";
+import { T02_L_MAX, T02_R_MAX, T02_R_MIN } from "./t02-contract.mjs";
+import { checkFlowClosure, computeObjective, designSha256, fittedExponent } from "./t02-objective.mjs";
+import { cubicArmAPolicy, MAX_GOLDEN_ITERATIONS, t02ArmInput, T02PolicyError } from "./t02-policy.mjs";
 
-const GOLDEN_RATIO = (Math.sqrt(5) - 1) / 2;
-const MAX_GOLDEN_ITERATIONS = 200;
-
-function goldenSectionSearch(tree, cubrtFlows, params, xLo, xHi, check, state) {
-  let a = xLo;
-  let b = xHi;
-  let xA = a + (1 - GOLDEN_RATIO) * (b - a);
-  let xB = a + GOLDEN_RATIO * (b - a);
-  const evalX = (x) => {
-    check();
-    state.evaluations += 1;
-    if (state.evaluations > state.resourceCap) return { power: Infinity, resourceCapHit: true };
-    const alpha = Math.exp(x);
-    const radii = cubrtFlows.map((c) => Math.max(T02_R_MIN, Math.min(T02_R_MAX, alpha * c)));
-    return computeObjective(tree, radii, params);
-  };
-  let fA = evalX(xA);
-  let fB = evalX(xB);
-  if (fA.resourceCapHit || fB.resourceCapHit) return null;
-  state.solverLog.push({ iteration: 0, x_a: xA, x_b: xB, f_a: fA.power, f_b: fB.power, lo: a, hi: b });
-  while (Math.expm1(b - a) > 1e-10 && state.goldenIterations < MAX_GOLDEN_ITERATIONS) {
-    state.goldenIterations += 1;
-    if (fA.power <= fB.power) {
-      b = xB; xB = xA; fB = fA;
-      xA = a + (1 - GOLDEN_RATIO) * (b - a);
-      fA = evalX(xA);
-    } else {
-      a = xA; xA = xB; fA = fB;
-      xB = a + GOLDEN_RATIO * (b - a);
-      fB = evalX(xB);
-    }
-    if (fA.resourceCapHit || fB.resourceCapHit) return null;
-    state.solverLog.push({ iteration: state.goldenIterations, x_a: xA, x_b: xB, f_a: fA.power, f_b: fB.power, lo: a, hi: b });
-  }
-  if (state.goldenIterations >= MAX_GOLDEN_ITERATIONS) return "policy";
-  return { xA, xB };
+function zeroEval(world, resourceCap = 200000) {
+  const ec = world.tree?.edge_count ?? 0;
+  const tc = world.tree?.terminal_count ?? 0;
+  return { loss_j: T02_L_MAX, maximum_loss_j: T02_L_MAX, objective_w: 0, pumping_w: 0, volume_w: 0,
+    pulsatile_w: 0, wall_floor_w: 0, pumping_j: 0, volume_j: 0, pulsatile_j: 0,
+    wall_floor_j: 0, material_volume_m3: 0, alpha: 0, fitted_exponent: 0,
+    minimum_terminal_margin_pa: 0, maximum_pressure_shortfall_pa: 0,
+    mean_pressure_shortfall_pa: 0, evaluations: 0, golden_iterations: 0,
+    resource_cap_evaluations: resourceCap, edges: ec, terminals: tc,
+    uniform_upper_round: world.manifest?.uniform_upper_round ?? 0,
+    failure_reason: null, design_sha256: designSha256([]),
+    radii: [], solverLog: [], designCandidates: [], edgeComponents: [],
+    nodePressures: new Float64Array(0) };
 }
 
-function evaluateCandidates(tree, cubrtFlows, params, xLo, xHi, xA, xB, check, state) {
-  const candidates = [
-    { candidate: "lower", x: xLo },
-    { candidate: "midpoint", x: (xLo + xHi) / 2 },
-    { candidate: "upper", x: xHi },
-    { candidate: "golden-a", x: xA },
-    { candidate: "golden-b", x: xB },
-  ];
-  const evaluated = [];
-  for (const c of candidates) {
-    check();
-    const alpha = Math.exp(c.x);
-    const rawRadii = cubrtFlows.map((cf) => alpha * cf);
-    const clampedRadii = rawRadii.map((r) => Math.max(T02_R_MIN, Math.min(T02_R_MAX, r)));
-    let clampExceeded = false;
-    for (let e = 0; e < rawRadii.length; e += 1) {
-      if (rawRadii[e] !== 0 && Math.abs(clampedRadii[e] - rawRadii[e]) > 1e-12 * Math.max(1, Math.abs(rawRadii[e]))) {
-        clampExceeded = true;
-        break;
-      }
-    }
-    if (clampExceeded) return "policy";
-    state.evaluations += 1;
-    if (state.evaluations > state.resourceCap) return null;
-    const result = computeObjective(tree, clampedRadii, params);
-    if (result.nonFinite) return { nonFinite: true, result, radii: clampedRadii };
-    evaluated.push({ ...c, alpha, radii: clampedRadii, result, feasible: result.feasible });
-  }
-  return evaluated;
+function failedEval(world, reason, { resourceCap = 200000, evaluations = 0,
+  goldenIterations = 0, solverLog = [], designCandidates = [] } = {}) {
+  return { ...zeroEval(world, resourceCap), failure_reason: reason,
+    evaluations, golden_iterations: goldenIterations, solverLog, designCandidates };
 }
 
-function selectBest(evaluated) {
-  let best = null;
-  for (const c of evaluated) {
-    if (!c.feasible) continue;
-    if (best === null) { best = c; continue; }
-    const diff = Math.abs(c.x - best.x);
-    const scale = Math.max(1, Math.abs(c.x), Math.abs(best.x));
-    if (diff <= 1e-12 * scale) continue;
-    if (c.result.power < best.result.power) best = c;
-  }
-  return best;
+function hasTreeArrays(tree) {
+  return Boolean(tree)
+    && Array.isArray(tree.edge_lengths) && Array.isArray(tree.edge_flows)
+    && tree.edge_lengths.length === tree.edge_count
+    && tree.edge_flows.length === tree.edge_count;
 }
 
-function buildSuccessResult(best, tree, world, evaluated, state) {
-  const obj = best.result;
-  const radii = best.radii;
-  const fe = fittedExponent(tree.edge_flows, radii);
-  const dSha = designSha256(radii);
-  const designCandidates = evaluated.map((c) => ({
-    candidate: c.candidate, alpha: c.alpha, objective_w: c.result.power, feasible: c.feasible,
-    chosen: c === best,
-  }));
+function hasFiniteWorldParameters(world, radiusLimits) {
+  const { tree, regime_params: rp } = world;
+  if (!hasTreeArrays(tree)) return false;
+  const scalars = [tree.mu0, tree.lambda_V, tree.P_root, radiusLimits.r_min, radiusLimits.r_max,
+    rp?.required_terminal_pressure ?? 0];
+  for (const key of ["a", "r_c", "lambda_I", "f", "rho", "lambda_A"]) {
+    if (rp?.[key] !== undefined) scalars.push(rp[key]);
+  }
+  return scalars.every(Number.isFinite)
+    && tree.edge_lengths.every(Number.isFinite)
+    && tree.edge_flows.every(Number.isFinite);
+}
+
+function buildSuccessResult(chosen, world, candidates, state) {
+  const obj = chosen.result;
+  const radii = chosen.radii;
+  const tree = world.tree;
   return { loss_j: 3600 * obj.power, maximum_loss_j: T02_L_MAX,
     objective_w: obj.power, pumping_w: obj.pumping, volume_w: obj.volume,
     pulsatile_w: obj.pulsatile, wall_floor_w: obj.wallFloor,
     pumping_j: 3600 * obj.pumping, volume_j: 3600 * obj.volume,
     pulsatile_j: 3600 * obj.pulsatile, wall_floor_j: 3600 * obj.wallFloor,
-    material_volume_m3: obj.materialVolume, alpha: best.alpha,
-    fitted_exponent: fe, minimum_terminal_margin_pa: obj.minMargin,
-    maximum_pressure_shortfall_pa: obj.maxShortfall, mean_pressure_shortfall_pa: obj.meanShortfall,
+    material_volume_m3: obj.materialVolume, alpha: chosen.alpha,
+    fitted_exponent: fittedExponent(tree.edge_flows, radii),
+    minimum_terminal_margin_pa: obj.minMargin,
+    maximum_pressure_shortfall_pa: obj.maxShortfall,
+    mean_pressure_shortfall_pa: obj.meanShortfall,
     evaluations: state.evaluations, golden_iterations: state.goldenIterations,
     resource_cap_evaluations: state.resourceCap,
     edges: tree.edge_count, terminals: tree.terminal_count,
     uniform_upper_round: world.manifest.uniform_upper_round,
-    failure_reason: null, design_sha256: dSha,
-    radii, solverLog: state.solverLog, designCandidates, edgeComponents: obj.edgeComponents,
-    nodePressures: obj.nodePressures };
+    failure_reason: null, design_sha256: designSha256(radii),
+    radii, solverLog: state.solverLog, designCandidates: candidates,
+    edgeComponents: obj.edgeComponents, nodePressures: obj.nodePressures };
 }
 
-export function evaluateArmAT02(world, { check = () => {}, resourceCap = 200000 } = {}) {
-  if (world.manifest.terminal_failure) return generationFailure(world);
-  const tree = world.tree;
-  const params = world.regime_params;
-  const cubrtFlows = tree.edge_flows.map((q) => Math.cbrt(q));
-  const alphaLo = cubrtFlows.reduce((mx, c) => Math.max(mx, T02_R_MIN / c), -Infinity);
-  const alphaHi = cubrtFlows.reduce((mn, c) => Math.min(mn, T02_R_MAX / c), Infinity);
-  if (alphaLo > alphaHi) return infeasibleDesign(world, resourceCap);
-  const xLo = Math.log(alphaLo);
-  const xHi = Math.log(alphaHi);
-  const state = { evaluations: 0, goldenIterations: 0, solverLog: [], resourceCap };
-  const gss = goldenSectionSearch(tree, cubrtFlows, params, xLo, xHi, check, state);
-  if (gss === null) return resourceCapFailure(world, state.evaluations, state.goldenIterations, state.solverLog, resourceCap);
-  if (gss === "policy") return policyException(world, state.evaluations, state.goldenIterations, state.solverLog, resourceCap);
-  const cands = evaluateCandidates(tree, cubrtFlows, params, xLo, xHi, gss.xA, gss.xB, check, state);
-  if (cands === null) return resourceCapFailure(world, state.evaluations, state.goldenIterations, state.solverLog, resourceCap);
-  if (cands === "policy") return policyException(world, state.evaluations, state.goldenIterations, state.solverLog, resourceCap);
-  if (cands.nonFinite) return nonFiniteFailure(world, state.evaluations, state.goldenIterations, state.solverLog, resourceCap, cands.result, cands.radii);
-  const best = selectBest(cands);
-  if (best === null) return infeasibleDesign(world, resourceCap);
-  return buildSuccessResult(best, tree, world, cands, state);
+function makeOracle(world, radiusLimits, check, state) {
+  return (radii) => {
+    try { check(); } catch (error) {
+      if (!(error instanceof ExecutionStop)) throw error;
+      state.abortReason = "missing-output";
+      return { aborted: true };
+    }
+    if (!Array.isArray(radii) || radii.length !== world.tree.edge_count) {
+      state.abortReason = "missing-output";
+      return { aborted: true };
+    }
+    if (state.evaluations >= state.resourceCap) {
+      state.abortReason = "resource-cap";
+      return { aborted: true };
+    }
+    state.evaluations += 1;
+    const obj = computeObjective(world.tree, radii, world.regime_params, radiusLimits);
+    if (obj.brokenClosure) { state.abortReason = "broken-closure"; return { aborted: true }; }
+    if (obj.nonFinite) { state.abortReason = "non-finite-objective"; return { aborted: true }; }
+    return obj;
+  };
 }
 
-function generationFailure(world) {
-  return { ...zeroEval(world), failure_reason: world.manifest.terminal_failure.reason,
-    loss_j: T02_L_MAX, maximum_loss_j: T02_L_MAX,
-    uniform_upper_round: world.manifest.uniform_upper_round,
-    design_sha256: designSha256([]),
-    radii: [], solverLog: [], designCandidates: [], edgeComponents: [], nodePressures: new Float64Array(0) };
+function invokePolicySafely(world, radiusLimits, check, state, policy, options) {
+  try {
+    check();
+    const input = t02ArmInput(world, radiusLimits);
+    return { outcome: policy(input, makeOracle(world, radiusLimits, check, state), options), failure: null };
+  } catch (error) {
+    if (error instanceof ExecutionStop) return { outcome: null, failure: "missing-output" };
+    if (error instanceof T02PolicyError) {
+      state.goldenIterations = error.goldenIterations;
+      state.solverLog = error.solverLog;
+    }
+    return { outcome: null, failure: "policy-exception" };
+  }
 }
 
-function infeasibleDesign(world, resourceCap) {
-  return { ...zeroEval(world), failure_reason: "infeasible-design",
-    loss_j: T02_L_MAX, maximum_loss_j: T02_L_MAX, resource_cap_evaluations: resourceCap,
-    uniform_upper_round: world.manifest.uniform_upper_round,
-    design_sha256: designSha256([]),
-    radii: [], solverLog: [], designCandidates: [], edgeComponents: [], nodePressures: new Float64Array(0) };
+function validChosenRadii(outcome, edgeCount) {
+  if (!outcome) return false;
+  if (outcome.chosen === null) return true;
+  return Array.isArray(outcome.chosen.radii) && outcome.chosen.radii.length === edgeCount;
 }
 
-function resourceCapFailure(world, evaluations, goldenIterations, solverLog, resourceCap) {
-  return { ...zeroEval(world), failure_reason: "resource-cap",
-    loss_j: T02_L_MAX, maximum_loss_j: T02_L_MAX,
-    evaluations, golden_iterations: goldenIterations, resource_cap_evaluations: resourceCap,
-    uniform_upper_round: world.manifest.uniform_upper_round,
-    design_sha256: designSha256([]),
-    radii: [], solverLog, designCandidates: [], edgeComponents: [], nodePressures: new Float64Array(0) };
+function precheckWorld(world, radiusLimits) {
+  if (world.manifest.terminal_failure) return world.manifest.terminal_failure.reason;
+  if (!hasFiniteWorldParameters(world, radiusLimits)) return "non-finite-objective";
+  if (!checkFlowClosure(world.tree)) return "broken-closure";
+  return null;
 }
 
-function policyException(world, evaluations, goldenIterations, solverLog, resourceCap) {
-  return { ...zeroEval(world), failure_reason: "policy-exception",
-    loss_j: T02_L_MAX, maximum_loss_j: T02_L_MAX,
-    evaluations, golden_iterations: goldenIterations, resource_cap_evaluations: resourceCap,
-    uniform_upper_round: world.manifest.uniform_upper_round,
-    design_sha256: designSha256([]),
-    radii: [], solverLog, designCandidates: [], edgeComponents: [], nodePressures: new Float64Array(0) };
-}
-
-function nonFiniteFailure(world, evaluations, goldenIterations, solverLog, resourceCap, obj, radii) {
-  return { ...zeroEval(world), failure_reason: "non-finite-objective",
-    loss_j: T02_L_MAX, maximum_loss_j: T02_L_MAX,
-    evaluations, golden_iterations: goldenIterations, resource_cap_evaluations: resourceCap,
-    uniform_upper_round: world.manifest.uniform_upper_round,
-    design_sha256: designSha256(radii),
-    objective_w: obj.power, pumping_w: obj.pumping, volume_w: obj.volume,
-    pulsatile_w: obj.pulsatile, wall_floor_w: obj.wallFloor,
-    radii, solverLog, designCandidates: [], edgeComponents: obj.edgeComponents ?? [],
-    nodePressures: obj.nodePressures ?? new Float64Array(0) };
-}
-
-function zeroEval(world) {
-  const ec = world.tree?.edge_count ?? 0;
-  const tc = world.tree?.terminal_count ?? 0;
-  return { loss_j: 0, maximum_loss_j: T02_L_MAX, objective_w: 0, pumping_w: 0, volume_w: 0,
-    pulsatile_w: 0, wall_floor_w: 0, pumping_j: 0, volume_j: 0, pulsatile_j: 0,
-    wall_floor_j: 0, material_volume_m3: 0, alpha: 0, fitted_exponent: 0,
-    minimum_terminal_margin_pa: 0, maximum_pressure_shortfall_pa: 0,
-    mean_pressure_shortfall_pa: 0, evaluations: 0, golden_iterations: 0,
-    resource_cap_evaluations: 200000, edges: ec, terminals: tc, uniform_upper_round: 0,
-    failure_reason: null, design_sha256: "" };
+export function evaluateArmAT02(world, {
+  check = () => {},
+  resourceCap = 200000,
+  goldenRelativeWidth = 1e-10,
+  maxGoldenIterations = MAX_GOLDEN_ITERATIONS,
+  exponent = 1 / 3,
+  policy = cubicArmAPolicy,
+  radiusLimits = { r_min: T02_R_MIN, r_max: T02_R_MAX },
+} = {}) {
+  const precheckFailure = precheckWorld(world, radiusLimits);
+  if (precheckFailure) return failedEval(world, precheckFailure, { resourceCap });
+  const state = { evaluations: 0, goldenIterations: 0, solverLog: [], resourceCap, abortReason: null };
+  const { outcome, failure } = invokePolicySafely(world, radiusLimits, check, state, policy,
+    { goldenRelativeWidth, maxGoldenIterations, exponent });
+  if (failure) return failedEval(world, failure, state);
+  state.goldenIterations = outcome.goldenIterations ?? 0;
+  state.solverLog = outcome.solverLog ?? [];
+  if (state.abortReason) return failedEval(world, state.abortReason, state);
+  if (!validChosenRadii(outcome, world.tree.edge_count)) return failedEval(world, "missing-output", state);
+  const candidates = outcome.candidates ?? [];
+  if (!outcome.chosen?.result?.feasible) {
+    return failedEval(world, "infeasible-design", { ...state, designCandidates: candidates });
+  }
+  return buildSuccessResult(outcome.chosen, world, candidates, state);
 }

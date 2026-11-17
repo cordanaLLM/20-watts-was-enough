@@ -65,7 +65,9 @@
       "experiments/workstation/fixture-020/t01-replay.test.mjs",
       "experiments/workstation/fixture-020/t02-generator.test.mjs",
       "experiments/workstation/fixture-020/t02-objective.test.mjs",
+      "experiments/workstation/fixture-020/t02-policy.test.mjs",
       "experiments/workstation/fixture-020/t02-evaluator.test.mjs",
+      "experiments/workstation/fixture-020/t02-artifacts.test.mjs",
       "experiments/workstation/fixture-020/t02-runner.test.mjs"
     ],
     "full_tests": [
@@ -76,7 +78,9 @@
       "experiments/workstation/fixture-020/t01-replay.test.mjs",
       "experiments/workstation/fixture-020/t02-generator.test.mjs",
       "experiments/workstation/fixture-020/t02-objective.test.mjs",
+      "experiments/workstation/fixture-020/t02-policy.test.mjs",
       "experiments/workstation/fixture-020/t02-evaluator.test.mjs",
+      "experiments/workstation/fixture-020/t02-artifacts.test.mjs",
       "experiments/workstation/fixture-020/t02-runner.test.mjs"
     ],
     "execution_claims": [
@@ -90,7 +94,7 @@
     "applicability": "not-applicable-to-scoped-claim",
     "energy_conclusion_allowed": false,
     "scope_binding": "fixture-020.c-1488-c-1489.icp-t01-t02-development-smoke.non-energy.v1",
-    "not_applicable_reason": "Simulated pump work is a synthetic transport quantity in J, not workstation joules or watts; no measured energy conclusion is allowed."
+    "not_applicable_reason": "Simulated pump work (ICP-T01) and synthetic vascular transport power/episode cost (ICP-T02) are model quantities in W and J, not workstation joules or watts; no measured energy conclusion is allowed."
   },
   "resume": {
     "supported": true,
@@ -117,7 +121,7 @@
       ],
       "blockers": [
         "Only ICP-T01 and ICP-T02 base-family public-development generators and arm A are implemented.",
-        "Arms B (MIQP), C (local repair), O (oracle), common inference, sensitivity diagnostic, transfer, parquet artifacts and T03-T09 are deferred.",
+        "Arms B, C and O, common inference, sensitivity diagnostic, transfer, parquet artifacts and ICP-T03 through ICP-T09 are deferred.",
         "No confirmation or transfer seeds or commitments, measured workstation energy or promotion evidence exist.",
         "Every summary remains NO_RESULT; C-1488/C-1489 scope binding confers no scientific, comparative or energy result."
       ]

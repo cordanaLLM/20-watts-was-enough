@@ -1,9 +1,16 @@
-import { canonical, sha256 } from "./contract.mjs";
+import { canonical, GenerationFailure, sha256 } from "./contract.mjs";
 import { IcpRandom } from "./random.mjs";
 import { T02_L_MAX, T02_R_MAX, T02_REGISTRATIONS, T02_REGIME_LABELS, t02WorldId } from "./t02-contract.mjs";
 import { computeObjective } from "./t02-objective.mjs";
 
 export const T02_GENERATOR_VERSION = "fixture-020.icp-t02-generator.v1";
+
+export function acceptT02Attempt(tree, regimeParams) {
+  const radii = new Array(tree.edge_count).fill(T02_R_MAX);
+  const obj = computeObjective(tree, radii, regimeParams);
+  if (!obj.feasible) return false;
+  return 3600 * obj.power < T02_L_MAX;
+}
 
 export function generateT02World({ seed, check = () => {}, rejectionLimit = 10000 }) {
   const id = t02WorldId(seed);
@@ -12,23 +19,34 @@ export function generateT02World({ seed, check = () => {}, rejectionLimit = 1000
   }
   const events = { uniform_upper_round: 0 };
   const streams = { regime: `ICP-v2|T02|regime|${id}`, tree: `ICP-v2|T02|tree|${id}` };
-  const regimeRng = new IcpRandom(streams.regime, events);
-  const regime = T02_REGIME_LABELS[regimeRng.integer(0, 3)];
-  const treeRng = new IcpRandom(streams.tree, events);
-  for (let attempt = 0; attempt < rejectionLimit; attempt += 1) {
+  let regime = null;
+  try {
     check();
-    const tree = drawTree(treeRng);
-    const regimeParams = drawRegimeParams(regimeRng, regime, tree.P_root);
-    if (acceptAttempt(tree, regimeParams)) {
-      const manifest = { schema: 1, seed, world_id: id, family: "base", regime,
-        registrations: T02_REGISTRATIONS, generator_version: T02_GENERATOR_VERSION,
-        streams, attempts: attempt + 1, tree_sha256: sha256(canonical(tree)),
-        uniform_upper_round: events.uniform_upper_round, terminal_failure: null };
-      return { seed, world_id: id, tree, regime, regime_params: regimeParams, manifest,
-        world_sha256: sha256(canonical(manifest)) };
+    const regimeRng = new IcpRandom(streams.regime, events);
+    regime = T02_REGIME_LABELS[regimeRng.integer(0, 3)];
+    const treeRng = new IcpRandom(streams.tree, events);
+    for (let attempt = 0; attempt < rejectionLimit; attempt += 1) {
+      if (attempt > 0) check();
+      const tree = drawTree(treeRng);
+      const regimeParams = drawRegimeParams(regimeRng, regime, tree.P_root);
+      if (acceptT02Attempt(tree, regimeParams)) {
+        return acceptedT02World(seed, id, tree, regime, regimeParams, streams, attempt + 1, events);
+      }
     }
+    throw new GenerationFailure("rejection-limit", "", "ICP-T02");
+  } catch (error) {
+    if (!(error instanceof GenerationFailure)) throw error;
+    return failedT02World(seed, id, streams, events, regime, rejectionLimit, error.stage);
   }
-  return failedT02World(seed, id, streams, events, regime);
+}
+
+function acceptedT02World(seed, id, tree, regime, regimeParams, streams, attempts, events) {
+  const manifest = { schema: 1, seed, world_id: id, family: "base", regime,
+    registrations: T02_REGISTRATIONS, generator_version: T02_GENERATOR_VERSION,
+    streams, attempts, tree_sha256: sha256(canonical(tree)),
+    uniform_upper_round: events.uniform_upper_round, terminal_failure: null };
+  return { seed, world_id: id, tree, regime, regime_params: regimeParams, manifest,
+    world_sha256: sha256(canonical(manifest)) };
 }
 
 function drawTree(rng) {
@@ -46,11 +64,9 @@ function drawTree(rng) {
   const terminalFlows = baseFlows.map((b) => b * total / baseSum);
   const edgeFlows = new Array(edgeCount).fill(0);
   for (let n = nodeCount - 1; n >= 1; n -= 1) {
-    if (n >= firstTerminal) {
-      edgeFlows[n - 1] = terminalFlows[n - firstTerminal];
-    } else {
-      edgeFlows[n - 1] = edgeFlows[2 * n] + edgeFlows[2 * n + 1];
-    }
+    edgeFlows[n - 1] = n >= firstTerminal
+      ? terminalFlows[n - firstTerminal]
+      : edgeFlows[2 * n] + edgeFlows[2 * n + 1];
   }
   const mu0 = rng.logRange(0.001, 0.006);
   const lambda_V = rng.logRange(1e2, 1e5);
@@ -74,34 +90,19 @@ function drawRegimeParams(rng, regime, P_root) {
   return { lambda_A, P_min, required_terminal_pressure: P_min };
 }
 
-function acceptAttempt(tree, regimeParams) {
-  const radii = new Array(tree.edge_count).fill(T02_R_MAX);
-  const obj = computeObjective(tree, radii, regimeParams);
-  if (!obj.feasible) return false;
-  return 3600 * obj.power < T02_L_MAX;
-}
-
-function failedT02World(seed, id, streams, events, regime) {
+function failedT02World(seed, id, streams, events, regime, attempts, stage) {
   const manifest = { schema: 1, seed, world_id: id, family: "base", regime,
     registrations: T02_REGISTRATIONS, generator_version: T02_GENERATOR_VERSION,
-    streams, uniform_upper_round: events.uniform_upper_round,
-    terminal_failure: { reason: "generator-failure", stage: "rejection-limit" } };
-  return { seed, world_id: id, tree: null, regime, regime_params: null, manifest,
+    streams, attempts, tree_sha256: null, uniform_upper_round: events.uniform_upper_round,
+    terminal_failure: { reason: "generator-failure", stage } };
+  return { seed, world_id: id, tree: null, regime: null, regime_params: null, manifest,
     world_sha256: sha256(canonical(manifest)) };
 }
 
-export function interruptedT02World(seed, reason) {
+export function interruptedT02World(seed, stage) {
   const id = t02WorldId(seed);
-  const events = { uniform_upper_round: 0 };
   const streams = { regime: `ICP-v2|T02|regime|${id}`, tree: `ICP-v2|T02|tree|${id}` };
-  const regimeRng = new IcpRandom(streams.regime, events);
-  const regime = T02_REGIME_LABELS[regimeRng.integer(0, 3)];
-  const manifest = { schema: 1, seed, world_id: id, family: "base", regime,
-    registrations: T02_REGISTRATIONS, generator_version: T02_GENERATOR_VERSION,
-    streams, uniform_upper_round: events.uniform_upper_round,
-    terminal_failure: { reason, stage: reason } };
-  return { seed, world_id: id, tree: null, regime, regime_params: null, manifest,
-    world_sha256: sha256(canonical(manifest)) };
+  return failedT02World(seed, id, streams, { uniform_upper_round: 0 }, null, 0, stage);
 }
 
 export function calibrationCell() {

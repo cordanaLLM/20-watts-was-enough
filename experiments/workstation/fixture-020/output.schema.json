@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://20-watts-was-enough.local/schemas/fixture-020.event.schema.json",
-  "title": "Fixture 020 public-development smoke event (ICP-T01 or ICP-T02)",
+  "title": "Fixture 020 public-development smoke event, identity, and summary (ICP-T01 or ICP-T02)",
   "x-runtime-validator": {
     "module": "tracks.mjs",
     "export": "assertEventRecord",
@@ -42,20 +42,225 @@
         }
       ]
     },
-    "noResultConstants": {
+    "typedReceiptValue": {
       "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "value"],
       "properties": {
-        "protocol_outcome": { "const": "NO_RESULT" },
-        "no_result": { "const": true },
-        "claim_eligible": { "const": false },
-        "scientific_result": { "const": false },
-        "performance_result": { "const": false },
-        "measured_energy_present": { "const": false },
-        "energy_conclusion_allowed": { "const": false },
-        "comparison_inference_permitted": { "const": false },
-        "arms_implemented": { "const": ["A"] },
-        "arms_deferred": { "const": ["B", "C", "O"] }
+        "state": { "type": "string", "minLength": 1 },
+        "value": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1 }
+          ]
+        }
       }
+    },
+    "executionReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version", "artifact", "execution_mode", "image", "source_revision",
+        "runtime", "command", "profile", "result_authority", "authority_reason"
+      ],
+      "properties": {
+        "contract_version": { "const": "experiment.execution-receipt.v1" },
+        "artifact": { "const": "fixture-020" },
+        "execution_mode": { "enum": ["source", "development-image", "release-image"] },
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "version", "digest"],
+          "properties": {
+            "name": { "$ref": "#/$defs/typedReceiptValue" },
+            "version": { "$ref": "#/$defs/typedReceiptValue" },
+            "digest": { "$ref": "#/$defs/typedReceiptValue" }
+          }
+        },
+        "source_revision": { "$ref": "#/$defs/typedReceiptValue" },
+        "runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["node", "os", "architecture"],
+          "properties": {
+            "node": { "type": "string", "minLength": 1 },
+            "os": { "type": "string", "minLength": 1 },
+            "architecture": { "type": "string", "minLength": 1 }
+          }
+        },
+        "command": { "enum": ["smoke", "run"] },
+        "profile": { "enum": ["smoke", "development"] },
+        "result_authority": { "const": "NO_RESULT" },
+        "authority_reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "nodeRuntime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_version", "numeric_sentinel_id", "numeric_sentinel_json"],
+      "properties": {
+        "node_version": { "type": "string", "pattern": "^26\\." },
+        "numeric_sentinel_id": { "type": "string", "minLength": 1 },
+        "numeric_sentinel_json": { "type": "string", "minLength": 1 }
+      }
+    },
+    "sourceHashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accounting.mjs", "artifacts.mjs", "contract.mjs", "evaluator.mjs", "forcing.mjs",
+        "generator.mjs", "graph.mjs", "inputs.mjs", "max-flow.mjs", "observations.mjs",
+        "policy.mjs", "random.mjs", "runner.mjs", "resources.mjs", "storage.mjs",
+        "output.schema.json", "t02-contract.mjs", "t02-generator.mjs", "t02-objective.mjs",
+        "t02-evaluator.mjs", "t02-policy.mjs", "t02-artifacts.mjs", "tracks.mjs",
+        "configs/smoke.json", "configs/development.json", "configs/t02-smoke.json",
+        "configs/t02-development.json", "seeds/development.reveal.json",
+        "seeds/t02-development.reveal.json", "seeds/confirmation.unavailable.json",
+        "seeds/transfer.unavailable.json", "../lib/pcg64-dxsm.mjs", "../lib/exact-keys.mjs",
+        "../lib/canonical-json.mjs", "../lib/checkpoint-ledger.mjs", "../lib/output-lock.mjs",
+        "../lib/execution-receipt.mjs", "../lib/node-runtime-policy.mjs",
+        "../lib/percentile.mjs", "../../fixtures/020-integrative-comparative-physiology.md"
+      ],
+      "properties": {
+        "accounting.mjs": { "$ref": "#/$defs/sha256" },
+        "artifacts.mjs": { "$ref": "#/$defs/sha256" },
+        "contract.mjs": { "$ref": "#/$defs/sha256" },
+        "evaluator.mjs": { "$ref": "#/$defs/sha256" },
+        "forcing.mjs": { "$ref": "#/$defs/sha256" },
+        "generator.mjs": { "$ref": "#/$defs/sha256" },
+        "graph.mjs": { "$ref": "#/$defs/sha256" },
+        "inputs.mjs": { "$ref": "#/$defs/sha256" },
+        "max-flow.mjs": { "$ref": "#/$defs/sha256" },
+        "observations.mjs": { "$ref": "#/$defs/sha256" },
+        "policy.mjs": { "$ref": "#/$defs/sha256" },
+        "random.mjs": { "$ref": "#/$defs/sha256" },
+        "runner.mjs": { "$ref": "#/$defs/sha256" },
+        "resources.mjs": { "$ref": "#/$defs/sha256" },
+        "storage.mjs": { "$ref": "#/$defs/sha256" },
+        "output.schema.json": { "$ref": "#/$defs/sha256" },
+        "t02-contract.mjs": { "$ref": "#/$defs/sha256" },
+        "t02-generator.mjs": { "$ref": "#/$defs/sha256" },
+        "t02-objective.mjs": { "$ref": "#/$defs/sha256" },
+        "t02-evaluator.mjs": { "$ref": "#/$defs/sha256" },
+        "t02-policy.mjs": { "$ref": "#/$defs/sha256" },
+        "t02-artifacts.mjs": { "$ref": "#/$defs/sha256" },
+        "tracks.mjs": { "$ref": "#/$defs/sha256" },
+        "configs/smoke.json": { "$ref": "#/$defs/sha256" },
+        "configs/development.json": { "$ref": "#/$defs/sha256" },
+        "configs/t02-smoke.json": { "$ref": "#/$defs/sha256" },
+        "configs/t02-development.json": { "$ref": "#/$defs/sha256" },
+        "seeds/development.reveal.json": { "$ref": "#/$defs/sha256" },
+        "seeds/t02-development.reveal.json": { "$ref": "#/$defs/sha256" },
+        "seeds/confirmation.unavailable.json": { "$ref": "#/$defs/sha256" },
+        "seeds/transfer.unavailable.json": { "$ref": "#/$defs/sha256" },
+        "../lib/pcg64-dxsm.mjs": { "$ref": "#/$defs/sha256" },
+        "../lib/exact-keys.mjs": { "$ref": "#/$defs/sha256" },
+        "../lib/canonical-json.mjs": { "$ref": "#/$defs/sha256" },
+        "../lib/checkpoint-ledger.mjs": { "$ref": "#/$defs/sha256" },
+        "../lib/output-lock.mjs": { "$ref": "#/$defs/sha256" },
+        "../lib/execution-receipt.mjs": { "$ref": "#/$defs/sha256" },
+        "../lib/node-runtime-policy.mjs": { "$ref": "#/$defs/sha256" },
+        "../lib/percentile.mjs": { "$ref": "#/$defs/sha256" },
+        "../../fixtures/020-integrative-comparative-physiology.md": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "t01Config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema", "artifact", "profile", "worlds_per_seed", "minutes", "truth_dt_min",
+        "decision_interval_min", "max_rejection_attempts", "max_wall_ms", "max_output_bytes", "memory_bytes"
+      ],
+      "properties": {
+        "schema": { "const": 1 },
+        "artifact": { "const": "fixture-020" },
+        "profile": { "enum": ["smoke", "development"] },
+        "worlds_per_seed": { "const": 1 },
+        "minutes": { "const": 1440 },
+        "truth_dt_min": { "const": 0.25 },
+        "decision_interval_min": { "const": 5 },
+        "max_rejection_attempts": { "const": 10000 },
+        "max_wall_ms": { "type": "integer", "minimum": 1, "maximum": 28800000 },
+        "max_output_bytes": { "enum": [52428800, 1073741824] },
+        "memory_bytes": { "enum": [134217728, 268435456] }
+      }
+    },
+    "t02Config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema", "artifact", "track", "profile", "worlds_per_seed", "max_rejection_attempts",
+        "resource_cap_evaluations", "golden_relative_width", "max_wall_ms", "max_output_bytes", "memory_bytes"
+      ],
+      "properties": {
+        "schema": { "const": 1 },
+        "artifact": { "const": "fixture-020" },
+        "track": { "const": "ICP-T02" },
+        "profile": { "enum": ["smoke", "development"] },
+        "worlds_per_seed": { "const": 1 },
+        "max_rejection_attempts": { "const": 10000 },
+        "resource_cap_evaluations": { "const": 200000 },
+        "golden_relative_width": { "const": 1e-10 },
+        "max_wall_ms": { "type": "integer", "minimum": 1, "maximum": 28800000 },
+        "max_output_bytes": { "enum": [52428800, 1073741824] },
+        "memory_bytes": { "enum": [134217728, 268435456] }
+      }
+    },
+    "t01Identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema", "artifact", "track", "profile", "config", "seeds",
+        "source_hashes", "execution_receipt", "node_runtime", "run_id"
+      ],
+      "properties": {
+        "schema": { "const": 1 },
+        "artifact": { "const": "fixture-020" },
+        "track": { "const": "ICP-T01" },
+        "profile": { "enum": ["smoke", "development"] },
+        "config": { "$ref": "#/$defs/t01Config" },
+        "seeds": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 64,
+          "items": { "type": "integer", "minimum": 1409351680, "maximum": 1409351743 }
+        },
+        "source_hashes": { "$ref": "#/$defs/sourceHashes" },
+        "execution_receipt": { "$ref": "#/$defs/executionReceipt" },
+        "node_runtime": { "$ref": "#/$defs/nodeRuntime" },
+        "run_id": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "t02Identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema", "artifact", "track", "profile", "config", "seeds",
+        "source_hashes", "execution_receipt", "node_runtime", "run_id"
+      ],
+      "properties": {
+        "schema": { "const": 1 },
+        "artifact": { "const": "fixture-020" },
+        "track": { "const": "ICP-T02" },
+        "profile": { "enum": ["smoke", "development"] },
+        "config": { "$ref": "#/$defs/t02Config" },
+        "seeds": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 64,
+          "items": { "type": "integer", "minimum": 1409417216, "maximum": 1409417279 }
+        },
+        "source_hashes": { "$ref": "#/$defs/sourceHashes" },
+        "execution_receipt": { "$ref": "#/$defs/executionReceipt" },
+        "node_runtime": { "$ref": "#/$defs/nodeRuntime" },
+        "run_id": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "identity": {
+      "oneOf": [
+        { "$ref": "#/$defs/t01Identity" },
+        { "$ref": "#/$defs/t02Identity" }
+      ]
     },
     "t01Event": {
       "type": "object",
@@ -187,7 +392,7 @@
         "run_id": { "$ref": "#/$defs/sha256" },
         "profile": { "enum": ["smoke", "development"] },
         "pack": { "const": "public-development" },
-        "seed": { "type": "integer", "minimum": 1409286144, "maximum": 1409286207 },
+        "seed": { "type": "integer", "minimum": 1409417216, "maximum": 1409417279 },
         "world_id": { "type": "string", "pattern": "^ICP-T02-0x540200[0-3][0-9a-f]$" },
         "world_sha256": { "$ref": "#/$defs/sha256" },
         "arm": { "const": "A" },
@@ -224,11 +429,11 @@
             "minimum_terminal_margin_pa": { "type": "number" },
             "maximum_pressure_shortfall_pa": { "type": "number", "minimum": 0 },
             "mean_pressure_shortfall_pa": { "type": "number", "minimum": 0 },
-            "evaluations": { "type": "number", "minimum": 0 },
-            "golden_iterations": { "type": "number", "minimum": 0 },
-            "resource_cap_evaluations": { "type": "number", "minimum": 0 },
-            "edges": { "type": "number", "minimum": 0 },
-            "terminals": { "type": "number", "minimum": 0 },
+            "evaluations": { "type": "integer", "minimum": 0 },
+            "golden_iterations": { "type": "integer", "minimum": 0 },
+            "resource_cap_evaluations": { "type": "integer", "minimum": 0 },
+            "edges": { "type": "integer", "minimum": 0 },
+            "terminals": { "type": "integer", "minimum": 0 },
             "uniform_upper_round": { "type": "integer", "minimum": 0 },
             "failure_reason": {
               "enum": [null, "generator-failure", "missing-output", "infeasible-design",
@@ -284,6 +489,123 @@
         "measured_energy_present", "energy_conclusion_allowed",
         "comparison_inference_permitted", "arms_implemented", "arms_deferred",
         "execution_stop"
+      ]
+    },
+    "event": {
+      "oneOf": [
+        { "$ref": "#/$defs/t01Event" },
+        { "$ref": "#/$defs/t02Event" }
+      ]
+    },
+    "t02RegimeCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["classic", "rheology", "pulsatile", "wall-floor"],
+      "properties": {
+        "classic": { "type": "integer", "minimum": 0 },
+        "rheology": { "type": "integer", "minimum": 0 },
+        "pulsatile": { "type": "integer", "minimum": 0 },
+        "wall-floor": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "t02Calibration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status", "alpha_relative_error", "power_relative_error",
+        "murray_relative_error", "b_agreement"
+      ],
+      "properties": {
+        "status": { "const": "passed" },
+        "alpha_relative_error": { "type": "number", "minimum": 0, "maximum": 1e-6 },
+        "power_relative_error": { "type": "number", "minimum": 0, "maximum": 1e-6 },
+        "murray_relative_error": { "type": "number", "minimum": 0, "maximum": 1e-12 },
+        "b_agreement": { "const": "not-built" }
+      }
+    },
+    "t01Summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema", "artifact", "track", "run_id", "profile", "partition", "readiness",
+        "attempted_worlds", "retained_worlds", "retained_failures", "loss_unit",
+        "resource_unit", "confirmation_partition_present", "transfer_partition_present",
+        "protocol_outcome", "no_result", "claim_eligible", "scientific_result",
+        "performance_result", "measured_energy_present", "energy_conclusion_allowed",
+        "comparison_inference_permitted", "arms_implemented", "arms_deferred"
+      ],
+      "properties": {
+        "schema": { "const": 1 },
+        "artifact": { "const": "fixture-020" },
+        "track": { "const": "ICP-T01" },
+        "run_id": { "$ref": "#/$defs/sha256" },
+        "profile": { "enum": ["smoke", "development"] },
+        "partition": { "const": "public-development-only" },
+        "readiness": { "const": "smoke-ready" },
+        "attempted_worlds": { "enum": [2, 64] },
+        "retained_worlds": { "enum": [2, 64] },
+        "retained_failures": { "type": "integer", "minimum": 0, "maximum": 64 },
+        "loss_unit": { "const": "mmol" },
+        "resource_unit": { "const": "synthetic J" },
+        "confirmation_partition_present": { "const": false },
+        "transfer_partition_present": { "const": false },
+        "protocol_outcome": { "const": "NO_RESULT" },
+        "no_result": { "const": true },
+        "claim_eligible": { "const": false },
+        "scientific_result": { "const": false },
+        "performance_result": { "const": false },
+        "measured_energy_present": { "const": false },
+        "energy_conclusion_allowed": { "const": false },
+        "comparison_inference_permitted": { "const": false },
+        "arms_implemented": { "const": ["A"] },
+        "arms_deferred": { "const": ["B", "C", "O"] }
+      }
+    },
+    "t02Summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema", "artifact", "track", "run_id", "profile", "partition", "readiness",
+        "attempted_worlds", "retained_worlds", "retained_failures", "regime_counts",
+        "loss_unit", "resource_unit", "development_calibration",
+        "confirmation_partition_present", "transfer_partition_present",
+        "protocol_outcome", "no_result", "claim_eligible", "scientific_result",
+        "performance_result", "measured_energy_present", "energy_conclusion_allowed",
+        "comparison_inference_permitted", "arms_implemented", "arms_deferred"
+      ],
+      "properties": {
+        "schema": { "const": 1 },
+        "artifact": { "const": "fixture-020" },
+        "track": { "const": "ICP-T02" },
+        "run_id": { "$ref": "#/$defs/sha256" },
+        "profile": { "enum": ["smoke", "development"] },
+        "partition": { "const": "public-development-only" },
+        "readiness": { "const": "smoke-ready" },
+        "attempted_worlds": { "enum": [2, 64] },
+        "retained_worlds": { "enum": [2, 64] },
+        "retained_failures": { "type": "integer", "minimum": 0, "maximum": 64 },
+        "regime_counts": { "$ref": "#/$defs/t02RegimeCounts" },
+        "loss_unit": { "const": "J" },
+        "resource_unit": { "const": "objective evaluations" },
+        "development_calibration": { "$ref": "#/$defs/t02Calibration" },
+        "confirmation_partition_present": { "const": false },
+        "transfer_partition_present": { "const": false },
+        "protocol_outcome": { "const": "NO_RESULT" },
+        "no_result": { "const": true },
+        "claim_eligible": { "const": false },
+        "scientific_result": { "const": false },
+        "performance_result": { "const": false },
+        "measured_energy_present": { "const": false },
+        "energy_conclusion_allowed": { "const": false },
+        "comparison_inference_permitted": { "const": false },
+        "arms_implemented": { "const": ["A"] },
+        "arms_deferred": { "const": ["B", "C", "O"] }
+      }
+    },
+    "summary": {
+      "oneOf": [
+        { "$ref": "#/$defs/t01Summary" },
+        { "$ref": "#/$defs/t02Summary" }
       ]
     }
   }

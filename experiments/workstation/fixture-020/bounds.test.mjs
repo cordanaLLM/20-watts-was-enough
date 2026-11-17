@@ -76,7 +76,7 @@ test("T02 memory cap at the post-world boundary retains an ordinary record and i
       counters: () => (++reads === 1 ? low() : high()) }), /memory-cap/);
     const interruption = JSON.parse(await readFile(path.join(fixture.output, "interruption-1.json"), "utf8"));
     assert.equal(interruption.completed_worlds, 1);
-    assert.match(interruption.reason, /memory-cap/);
+    assert.equal(interruption.reason, "ICP-T02 memory-cap.");
     const record = JSON.parse(await readFile(path.join(fixture.output, "raw-events.jsonl"), "utf8"));
     assert.equal(record.track, "ICP-T02");
     assert.equal(record.execution_stop, null);
@@ -91,7 +91,7 @@ test("T02 smoke stops at the first boundary when the peak exceeds the cap", asyn
       counters: syntheticProcessCounters({ peak_resident_bytes: 134217729 }) }), /memory-cap/);
     const interruption = JSON.parse(await readFile(path.join(fixture.output, "interruption-0.json"), "utf8"));
     assert.equal(interruption.completed_worlds, 0);
-    assert.match(interruption.reason, /memory-cap/);
+    assert.equal(interruption.reason, "ICP-T02 memory-cap.");
     await assert.rejects(() => readFile(path.join(fixture.output, "raw-events.jsonl")), { code: "ENOENT" });
   } finally { await cleanup(fixture); }
 });

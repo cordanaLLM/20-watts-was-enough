@@ -2,9 +2,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createExperimentExecutionReceipt } from "../lib/execution-receipt.mjs";
 import { observeNodeRuntime } from "../lib/node-runtime-policy.mjs";
-import { canonical, PUBLIC_SEEDS, sha256, validateFixture020Config } from "./contract.mjs";
-import { T02_SEEDS, validateT02Config } from "./t02-contract.mjs";
+import { canonical, sha256 } from "./contract.mjs";
 import { json, readText } from "./storage.mjs";
+import { getTrack } from "./tracks.mjs";
 
 export const fixtureRoot = path.dirname(fileURLToPath(import.meta.url));
 export const repositoryRoot = path.resolve(fixtureRoot, "../../..");
@@ -23,32 +23,25 @@ const SOURCES = Object.freeze([
   "../lib/percentile.mjs", "../../fixtures/020-integrative-comparative-physiology.md",
 ]);
 
-const TRACK_PARAMS = Object.freeze({
-  "ICP-T01": { seeds: PUBLIC_SEEDS, seedDocument: "seeds/development.reveal.json",
-    seedAlgorithm: "fixture-020-icp-t01-public-seeds-v1", configFile: (p) => `configs/${p}.json`,
-    validateConfig: validateFixture020Config },
-  "ICP-T02": { seeds: T02_SEEDS, seedDocument: "seeds/t02-development.reveal.json",
-    seedAlgorithm: "fixture-020-icp-t02-public-seeds-v1", configFile: (p) => `configs/t02-${p}.json`,
-    validateConfig: validateT02Config },
-});
-
-export async function loadInputs(profile, track = "ICP-T01") {
-  const tp = TRACK_PARAMS[track];
-  if (!tp) throw new Error(`fixture-020 unknown track ${track}.`);
-  if (!new Set(["smoke", "development"]).has(profile)) throw new Error(`${track} public profiles only.`);
-  const config = tp.validateConfig(await json(path.join(fixtureRoot, tp.configFile(profile))));
-  if (config.profile !== profile) throw new Error(`${track} profile/config mismatch.`);
-  const document = await json(path.join(fixtureRoot, tp.seedDocument));
-  if (document.algorithm !== tp.seedAlgorithm
-    || canonical(document.seeds) !== canonical(tp.seeds)) throw new Error(`${track} public seed pack mismatch.`);
+export async function loadInputs(profile, trackId = "ICP-T01") {
+  const track = getTrack(trackId);
+  if (!new Set(["smoke", "development"]).has(profile)) throw new Error(`${track.id} public profiles only.`);
+  const config = track.validateConfig(await json(path.join(fixtureRoot, track.configFile(profile))));
+  if (config.profile !== profile) throw new Error(`${track.id} profile/config mismatch.`);
+  const document = await json(path.join(fixtureRoot, track.seedDocument));
+  if (document.algorithm !== track.seedAlgorithm
+    || canonical(document.seeds) !== canonical(track.seeds)) throw new Error(`${track.id} public seed pack mismatch.`);
   const hashes = {};
-  for (const relative of SOURCES) hashes[relative] = sha256(await readText(path.resolve(fixtureRoot, relative)));
+  for (let index = 0; index < SOURCES.length; index += 1) {
+    const relative = SOURCES[index];
+    hashes[relative] = sha256(await readText(path.resolve(fixtureRoot, relative)));
+  }
   const receipt = createExperimentExecutionReceipt({ artifact: "fixture-020",
     command: profile === "smoke" ? "smoke" : "run", profile });
   const runtime = observeNodeRuntime();
   if (!runtime.node_version.startsWith("26.")) throw new Error("fixture-020 requires Node 26.x.");
-  const body = { schema: 1, artifact: "fixture-020", track, profile, config,
-    seeds: profile === "smoke" ? tp.seeds.slice(0, 2) : tp.seeds,
+  const body = { schema: 1, artifact: "fixture-020", track: track.id, profile, config,
+    seeds: profile === "smoke" ? track.seeds.slice(0, 2) : track.seeds,
     source_hashes: hashes, execution_receipt: receipt, node_runtime: runtime };
   return { ...body, run_id: sha256(canonical(body)) };
 }

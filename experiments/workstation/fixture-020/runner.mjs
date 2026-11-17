@@ -12,10 +12,10 @@ import { getTrack, TRACKS } from "./tracks.mjs";
 
 export const FIXTURE_020_RUNNER_VERSION = "fixture-020.icp-t01-runner.v1";
 
-export function executionCheck({ signal, deadline, clock = () => performance.now() }) {
+export function executionCheck({ signal, deadline, clock = () => performance.now(), track = "ICP-T01" }) {
   return () => {
-    if (signal?.aborted) throw new ExecutionStop("cancelled");
-    if (clock() >= deadline) throw new ExecutionStop("timeout");
+    if (signal?.aborted) throw new ExecutionStop("cancelled", track);
+    if (clock() >= deadline) throw new ExecutionStop("timeout", track);
   };
 }
 
@@ -29,15 +29,20 @@ function computeWorld(identity, seed, track, check = () => {}) {
       throw error;
     }
   };
-  const world = generatedOrInterrupted(seed, track, tracked);
-  const evaluation = track.evaluate(world, { check: tracked,
-    resourceCap: identity.config.resource_cap_evaluations });
+  const world = generatedOrInterrupted(seed, identity, track, tracked);
+  const evaluation = track.evaluate(world, {
+    check: tracked,
+    resourceCap: identity.config.resource_cap_evaluations,
+    goldenRelativeWidth: identity.config.golden_relative_width,
+  });
   const artifacts = track.makeArtifacts(world, evaluation);
   return { world, artifacts, record: track.makeRecord(identity, world, artifacts, stop) };
 }
 
-function generatedOrInterrupted(seed, track, check) {
-  try { return track.generate({ seed, check, rejectionLimit: 10000 }); } catch (error) {
+function generatedOrInterrupted(seed, identity, track, check) {
+  try {
+    return track.generate({ seed, check, rejectionLimit: identity.config.max_rejection_attempts });
+  } catch (error) {
     if (!(error instanceof ExecutionStop)) throw error;
     return track.interruptedWorld(seed, error.reason);
   }
@@ -54,15 +59,15 @@ async function openLedger(directory, identity, track) {
   }), "open verified checkpoint ledger");
 }
 
-async function rawRecords(directory) {
+async function rawRecords(directory, trackId = "fixture-020") {
   const raw = await optionalText(path.join(directory, "raw-events.jsonl"));
   if (!raw) return [];
-  if (!raw.endsWith("\n")) throw new Error("fixture-020 torn raw ledger; refusing repair.");
+  if (!raw.endsWith("\n")) throw new Error(`${trackId} torn raw ledger; refusing repair.`);
   return raw.slice(0, -1).split("\n").map((line) => JSON.parse(line));
 }
 
 async function verifyReplay(directory, identity, records, track, check = () => {}) {
-  if (records.length > identity.seeds.length) throw new Error("fixture-020 too many world records.");
+  if (records.length > identity.seeds.length) throw new Error(`${track.id} too many world records.`);
   for (let index = 0; index < records.length; index += 1) {
     const fresh = replayedWorld(identity, records[index], identity.seeds[index], track, check);
     await track.verifyArtifacts(path.join(directory, fresh.world.world_id), fresh.artifacts);
@@ -74,20 +79,20 @@ function replayedWorld(identity, record, seed, track, check) {
   const outerCheck = () => {
     try { check(); } catch (error) { interrupted = error; throw error; }
   };
-  const fresh = computeWorld(identity, seed, track, replayCheck(record.execution_stop, outerCheck));
-  if (interrupted) throw new Error(`fixture-020 replay ${interrupted.reason ?? interrupted.message}.`, { cause: interrupted });
+  const fresh = computeWorld(identity, seed, track, replayCheck(record.execution_stop, outerCheck, track.id));
+  if (interrupted) throw new Error(`${track.id} replay ${interrupted.reason ?? interrupted.message}.`, { cause: interrupted });
   if (canonical(track.scientificPayload(record)) !== canonical(fresh.record)) {
-    throw new Error("fixture-020 canonical world replay differs from retained payload.");
+    throw new Error(`${track.id} canonical world replay differs from retained payload.`);
   }
   return fresh;
 }
 
-function replayCheck(stop, check) {
+function replayCheck(stop, check, trackId) {
   let index = 0;
   return () => {
     check();
     index += 1;
-    if (stop && index === stop.check_index) throw new ExecutionStop(stop.reason);
+    if (stop && index === stop.check_index) throw new ExecutionStop(stop.reason, trackId);
   };
 }
 
@@ -113,7 +118,9 @@ async function appendWorld(directory, ledger, identity, seed, track, check, appe
   await io(() => append(ledger, fresh.record), "append world outcome");
   await removeText(pending);
   await io(() => ledger.saveCheckpoint(), "save checkpoint");
-  if (fresh.record.execution_stop && retained === null) throw new ExecutionStop(fresh.record.execution_stop.reason);
+  if (fresh.record.execution_stop && retained === null) {
+    throw new ExecutionStop(fresh.record.execution_stop.reason, track.id);
+  }
 }
 
 async function reconcilePending(directory, identity, records, track, check) {
@@ -126,7 +133,7 @@ async function reconcilePending(directory, identity, records, track, check) {
       continue;
     }
     if (index > records.length || canonical(JSON.parse(pending)) !== canonical(track.scientificPayload(records[index]))) {
-      throw new Error(`fixture-020 conflicting pending outcome: ${file}.`);
+      throw new Error(`${track.id} conflicting pending outcome: ${file}.`);
     }
     await removeText(file);
   }
@@ -137,9 +144,9 @@ function runDocument(identity, track, ledger) {
     expected_work_units: identity.seeds.length, ledger: ledger.summary(), ...track.noResult };
 }
 
-function assertRepairableRun(previous, body) {
+function assertRepairableRun(previous, body, trackId) {
   if (previous.length >= body.length || !body.startsWith(previous)) {
-    throw new Error("fixture-020 complete run document differs.");
+    throw new Error(`${trackId} complete run document differs.`);
   }
 }
 
@@ -149,11 +156,11 @@ async function writeRun(directory, identity, track, ledger, resume) {
   const previous = await optionalText(file);
   const body = `${canonical(run)}\n`;
   if (previous !== null && previous !== body) {
-    if (!resume || previous.endsWith("\n")) throw new Error("fixture-020 run document differs.");
-    assertRepairableRun(previous, body);
+    if (!resume || previous.endsWith("\n")) throw new Error(`${track.id} run document differs.`);
+    assertRepairableRun(previous, body, track.id);
     await atomicText(file, body);
   } else await stableText(file, body);
-  const records = await rawRecords(directory);
+  const records = await rawRecords(directory, track.id);
   await stableText(path.join(directory, "seed-outcomes.jsonl"), `${records.map(canonical).join("\n")}\n`);
   return run;
 }
@@ -167,13 +174,14 @@ export async function executeFixture020(options) {
 
 async function executeBounded({ profile, output, track: trackId = "ICP-T01", resume = false, maxWorkUnits = 64,
   signal, wallMs, deadline, clock = () => performance.now(), counters = processCounters,
-  append = (ledger, record) => ledger.append(record) }) {
+  calibration, append = (ledger, record) => ledger.append(record) }) {
   const track = getTrack(trackId);
+  if (track.runCalibration) track.runCalibration(calibration);
   const identity = await loadInputs(profile, trackId);
   const budget = executionBudget(identity, maxWorkUnits, wallMs, trackId);
   const end = deadline ?? clock() + budget;
-  const check = executionCheck({ signal, deadline: end, clock });
-  const worldCheck = executionCheck({ deadline: end, clock });
+  const check = executionCheck({ signal, deadline: end, clock, track: trackId });
+  const worldCheck = executionCheck({ deadline: end, clock, track: trackId });
   check();
   const directory = await outputDirectory(repositoryRoot, output, true);
   const result = await withFixture020OutputLock(directory, async () => {
@@ -211,17 +219,17 @@ async function outputLock(directory) {
 }
 
 async function executeLocked({ directory, identity, track, ledger, maxWorkUnits, resume, check, worldCheck, counters, append }) {
-  const records = await rawRecords(directory);
+  const records = await rawRecords(directory, track.id);
   await verifyReplay(directory, identity, records, track, check);
   await reconcilePending(directory, identity, records, track, check);
   try {
     const remaining = identity.seeds.slice(ledger.summary().records, ledger.summary().records + maxWorkUnits);
-    for (const seed of remaining) {
+    for (let index = 0; index < remaining.length; index += 1) {
       check();
-      await memoryBoundary(identity, counters);
-      await appendWorld(directory, ledger, identity, seed, track, worldCheck, append);
+      await memoryBoundary(identity, counters, track.id);
+      await appendWorld(directory, ledger, identity, remaining[index], track, worldCheck, append);
       check();
-      await memoryBoundary(identity, counters);
+      await memoryBoundary(identity, counters, track.id);
     }
     await io(() => ledger.saveCheckpoint(), "save final checkpoint");
     const complete = ledger.summary().records === identity.seeds.length;
@@ -232,13 +240,13 @@ async function executeLocked({ directory, identity, track, ledger, maxWorkUnits,
   } catch (error) { return interruption(directory, track, ledger, error); }
 }
 
-async function memoryBoundary(identity, counters) {
+async function memoryBoundary(identity, counters, trackId) {
   const observed = await io(() => counters(), "read boundary memory counters");
   try {
     memoryCapCheck({ peakBytes: observed.peak_resident_bytes,
       currentBytes: observed.current_resident_bytes, capBytes: identity.config.memory_bytes });
   } catch (error) {
-    const stop = new ExecutionStop("memory-cap");
+    const stop = new ExecutionStop("memory-cap", trackId);
     stop.cause = error;
     throw stop;
   }
@@ -280,17 +288,26 @@ function executionBudget(identity, maxWorkUnits, wallMs, trackId) {
   return budget;
 }
 
-async function checkedRun(output, trackId, { signal, deadline, clock = () => performance.now() } = {}) {
-  const track = getTrack(trackId);
+function resolveStoredTrack(stored, explicitTrackId) {
+  const storedTrackId = stored.track ?? "ICP-T01";
+  if (explicitTrackId !== undefined && explicitTrackId !== storedTrackId) {
+    throw new Error(`fixture-020 track ${explicitTrackId} differs from stored ${storedTrackId}.`);
+  }
+  return explicitTrackId ?? storedTrackId;
+}
+
+async function checkedRun(output, explicitTrackId, { signal, deadline, clock = () => performance.now() } = {}) {
   const directory = await outputDirectory(repositoryRoot, output);
   const stored = await json(path.join(directory, "identity.json"));
+  const trackId = resolveStoredTrack(stored, explicitTrackId);
+  const track = getTrack(trackId);
   const identity = await loadInputs(stored.profile, trackId);
   await outputBytes(directory, identity.config.max_output_bytes);
   if (canonical(identity) !== canonical(stored)) throw new Error(`${trackId} run identity differs from fresh inputs.`);
   const ledger = await openLedger(directory, identity, track);
-  const records = await rawRecords(directory);
+  const records = await rawRecords(directory, trackId);
   if (records.length !== identity.seeds.length) throw new Error(`${trackId} incomplete world denominator.`);
-  const check = executionCheck({ signal, deadline: deadline ?? clock() + identity.config.max_wall_ms, clock });
+  const check = executionCheck({ signal, deadline: deadline ?? clock() + identity.config.max_wall_ms, clock, track: trackId });
   await verifyReplay(directory, identity, records, track, check);
   const run = await json(path.join(directory, "run.json"));
   if (canonical(run) !== canonical(runDocument(identity, track, ledger))) {
@@ -304,30 +321,29 @@ async function checkedRun(output, trackId, { signal, deadline, clock = () => per
 }
 
 export async function computeFixture020Analysis(output, options = {}) {
-  const trackId = options.track ?? "ICP-T01";
-  return (await checkedAnalysis(output, trackId, options)).summary;
+  return (await checkedAnalysis(output, options.track, options)).summary;
 }
 
-async function checkedAnalysis(output, trackId, options) {
-  const { identity, records, track, check } = await checkedRun(output, trackId, options);
-  const extras = track.summaryExtras(records);
-  const summary = { schema: 1, artifact: "fixture-020", track: trackId, run_id: identity.run_id,
-    profile: identity.profile, partition: "public-development-only", readiness: "smoke-ready",
-    attempted_worlds: identity.seeds.length, retained_worlds: records.length,
+async function checkedAnalysis(output, explicitTrackId, options) {
+  const { identity, records, track, check } = await checkedRun(output, explicitTrackId, options);
+  const extras = track.summaryExtras(records, options);
+  const summary = track.assertSummary({ schema: 1, artifact: "fixture-020", track: track.id,
+    run_id: identity.run_id, profile: identity.profile, partition: "public-development-only",
+    readiness: "smoke-ready", attempted_worlds: identity.seeds.length, retained_worlds: records.length,
     retained_failures: records.filter((record) => record.failure_reason !== null).length,
     loss_unit: track.lossUnit, resource_unit: track.resourceUnit, confirmation_partition_present: false,
-    transfer_partition_present: false, ...extras, ...track.noResult };
+    transfer_partition_present: false, ...extras, ...track.noResult });
   check();
-  return { summary, check };
+  return { summary, track, check };
 }
 
 export async function analyzeFixture020(output, optionsOrTrack = {}) {
   const { trackId, opts } = resolveTrackOptions(optionsOrTrack);
   const directory = await outputDirectory(repositoryRoot, output);
   const analysis = await withFixture020OutputLock(directory, async () => {
-    const analysis = await checkedAnalysis(output, trackId, opts);
-    await stableJson(path.join(directory, "summary.json"), analysis.summary);
-    return analysis;
+    const computed = await checkedAnalysis(output, trackId, opts);
+    await stableJson(path.join(directory, "summary.json"), computed.summary);
+    return computed;
   });
   analysis.check();
   return analysis.summary;
@@ -335,34 +351,41 @@ export async function analyzeFixture020(output, optionsOrTrack = {}) {
 
 export async function validateFixture020Output(output, optionsOrTrack = {}) {
   const { trackId, opts } = resolveTrackOptions(optionsOrTrack);
-  const { summary: expected, check } = await checkedAnalysis(output, trackId, opts);
+  const { summary: expected, track, check } = await checkedAnalysis(output, trackId, opts);
   const directory = await outputDirectory(repositoryRoot, output);
-  const track = getTrack(trackId);
-  if (canonical(await json(path.join(directory, "summary.json"))) !== canonical(expected)) {
-    throw new Error(`${trackId} stored summary differs from replay.`);
+  const storedSummary = await json(path.join(directory, "summary.json"));
+  if (canonical(storedSummary) !== canonical(expected)) {
+    throw new Error(`${track.id} stored summary differs from replay.`);
   }
+  track.assertSummary(storedSummary);
   check();
   return { valid: true, run_id: expected.run_id, ...track.noResult };
 }
 
 function resolveTrackOptions(arg) {
   if (typeof arg === "string") return { trackId: arg, opts: {} };
-  return { trackId: arg?.track ?? "ICP-T01", opts: arg ?? {} };
+  return { trackId: arg?.track, opts: arg ?? {} };
 }
 
-export async function prepareFixture020(profile, trackId = "ICP-T01") {
+export async function prepareFixture020(profile, trackId = "ICP-T01", { calibration } = {}) {
   const track = getTrack(trackId);
+  const cal = track.runCalibration ? track.runCalibration(calibration) : null;
   const identity = await loadInputs(profile, trackId);
   return { valid: true, artifact: "fixture-020", track: trackId, profile,
     partition: "public-development-only", seeds: identity.seeds.length, worlds_per_seed: 1,
     work_units: identity.seeds.length, confirmation_seeds_created: false, transfer_seeds_created: false,
+    ...(cal ? { development_calibration: cal } : {}),
     ...track.noResult };
 }
 
 function parseOptions(argv) {
   const action = argv[2];
-  if (!["prepare", "smoke", "run", "analyze", "validate"].includes(action)) throw new Error("fixture-020 action must be prepare, smoke, run, analyze, or validate.");
-  if (argv.length > 13 || (argv.length - 3) % 2 !== 0) throw new Error("fixture-020 options require --name value pairs.");
+  if (!["prepare", "smoke", "run", "analyze", "validate"].includes(action)) {
+    throw new Error("fixture-020 action must be prepare, smoke, run, analyze, or validate.");
+  }
+  if (argv.length > 13 || (argv.length - 3) % 2 !== 0) {
+    throw new Error("fixture-020 options require --name value pairs.");
+  }
   const options = {};
   for (let index = 3; index < argv.length; index += 2) {
     addOption(options, argv[index], argv[index + 1]);
@@ -379,17 +402,29 @@ function addOption(options, token, value) {
   options[name] = value;
 }
 
+function assertActionFlags(action, options, executing) {
+  if (!executing && options.track !== undefined) {
+    throw new Error("analysis does not accept --track; track is stored in the output.");
+  }
+  if (action === "prepare" && Boolean(options.output ?? options.resume)) {
+    throw new Error("prepare accepts only --profile and --track.");
+  }
+  if (action !== "prepare" && !options.output) throw new Error(`${action} requires --output.`);
+  if (!executing && Boolean(options.profile ?? options.resume)) {
+    throw new Error("analysis accepts only --output.");
+  }
+}
+
 function validateOptions(action, options) {
   const trackId = options.track ?? "ICP-T01";
-  if (!TRACKS[trackId]) throw new Error(`fixture-020 unknown track ${trackId}.`);
+  if (typeof trackId !== "string" || !Object.hasOwn(TRACKS, trackId)) {
+    throw new Error(`fixture-020 unknown track ${trackId}.`);
+  }
   const executing = ["prepare", "smoke", "run"].includes(action);
-  if (["analyze", "validate"].includes(action) && options.track) throw new Error("analysis does not accept --track; track is stored in the output.");
+  assertActionFlags(action, options, executing);
   validateActionProfile(action, options.profile, executing, trackId);
-  if (action === "prepare" && (options.output || options.resume)) throw new Error("prepare accepts only --profile and --track.");
-  if (action !== "prepare" && !options.output) throw new Error(`${action} requires --output.`);
-  if (!executing && (options.profile || options.resume)) throw new Error("analysis accepts only --output.");
   assertResumeFlag(options.resume);
-  return { action, options: { ...options, track: trackId } };
+  return { action, options: executing ? { ...options, track: trackId } : { ...options } };
 }
 
 function assertResumeFlag(value) {
@@ -406,37 +441,32 @@ export async function main(argv = process.argv, { signal, clock = () => performa
   const commandStarted = clock();
   const { started, cpuStarted, scope } = smokeBaseline(fromProcessStart);
   const { action, options } = parseOptions(argv);
-  const trackId = options.track;
-  const track = getTrack(trackId);
   const execution = { signal, clock };
   if (action === "prepare") {
-    const result = await prepareFixture020(options.profile, trackId);
-    executionCheck(execution)();
+    const result = await prepareFixture020(options.profile, options.track);
+    executionCheck({ ...execution, track: options.track })();
     return result;
   }
   if (action === "analyze" || action === "validate") {
-    const stored = await json(path.join(await outputDirectory(repositoryRoot, options.output), "identity.json"));
-    const storedTrack = stored.track ?? "ICP-T01";
-    const execOpts = { ...execution, track: storedTrack };
     const operation = action === "analyze" ? analyzeFixture020 : validateFixture020Output;
-    const result = await operation(options.output, execOpts);
-    executionCheck(execution)();
+    const result = await operation(options.output, execution);
+    executionCheck({ ...execution, track: result.track ?? "fixture-020" })();
     return result;
   }
-  if (track.calibration) {
-    const cal = track.calibration();
-    if (cal.status !== "passed") throw new Error(`${trackId} calibration failed: ${JSON.stringify(cal)}`);
-  }
+  const trackId = options.track;
+  const track = getTrack(trackId);
+  if (track.runCalibration) track.runCalibration();
   const identity = await loadInputs(options.profile, trackId);
   execution.deadline = commandStarted + identity.config.max_wall_ms;
   const result = await executeFixture020({ profile: options.profile, output: options.output,
     track: trackId, resume: options.resume === "true", counters, ...execution });
-  executionCheck(execution)();
+  executionCheck({ ...execution, track: trackId })();
   if (action === "run") return result;
   await analyzeFixture020(options.output, { ...execution, track: trackId });
   const validation = await validateFixture020Output(options.output, { ...execution, track: trackId });
-  const resources = await smokeResources(options.output, started, cpuStarted, scope, identity.config.memory_bytes, counters);
-  executionCheck(execution)();
+  const resources = await smokeResources(options.output, started, cpuStarted, scope,
+    identity.config.memory_bytes, counters, track.noResult);
+  executionCheck({ ...execution, track: trackId })();
   return { ...validation, resources };
 }
 
@@ -446,7 +476,7 @@ function smokeBaseline(fromProcessStart) {
     scope: fromProcessStart ? "whole smoke command from process start" : "in-process main call after module load" };
 }
 
-async function smokeResources(output, started, cpuStarted, scope, capBytes, readCounters) {
+async function smokeResources(output, started, cpuStarted, scope, capBytes, readCounters, noResult = NO_RESULT) {
   const directory = await outputDirectory(repositoryRoot, output);
   const cpu = process.cpuUsage(cpuStarted);
   const counters = await readCounters();
@@ -460,7 +490,7 @@ async function smokeResources(output, started, cpuStarted, scope, capBytes, read
     wall_s: (performance.now() - started) / 1000, cpu_s: (cpu.user + cpu.system) / 1e6,
     ...counters, memory_cap_bytes: capBytes, memory_cap_check: status,
     artifact_bytes_before_resource_receipt: await outputBytes(directory),
-    ...NO_RESULT };
+    ...noResult };
   await withFixture020OutputLock(directory, async () => {
     if (await optionalText(path.join(directory, "resources.json")) === null) {
       await stableJson(path.join(directory, "resources.json"), resources);
