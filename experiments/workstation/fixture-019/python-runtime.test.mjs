@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { chmod, mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
+import { createInterface } from "node:readline";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -142,8 +143,10 @@ function runtimeDiffers(stub) {
 }
 
 // writeBaseProvisionStub writes a base interpreter stub on pathDir that reports baseVersion
-// to the stdlib base probe and populates staging via Node when `-m venv` is invoked.
-async function writeBaseProvisionStub(root, pathDir, name, { baseVersion, stagedRecord }) {
+// to the stdlib base probe and populates staging via Node when `-m venv` is invoked. When
+// rmBin is set, the staged interpreter removes its staging directory after printing its
+// probe response and before draining stdin.
+async function writeBaseProvisionStub(root, pathDir, name, { baseVersion, stagedRecord, rmBin }) {
   const makerPath = path.join(root, "make-staged.mjs");
   const stagedResponse = JSON.stringify({ ok: true, result: stagedRecord });
   const stagedBody = [
@@ -151,6 +154,7 @@ async function writeBaseProvisionStub(root, pathDir, name, { baseVersion, staged
     "if [ \"$1\" = \"-m\" ] && [ \"$2\" = \"pip\" ]; then exit 0; fi",
     "IFS= read -r _",
     `printf '%s\\n' '${stagedResponse}'`,
+    ...(rmBin ? [`"${rmBin}" -rf -- "\${0%/bin/python}"`] : []),
     "while IFS= read -r _; do :; done",
     "exit 0",
     "",
@@ -227,19 +231,77 @@ function killIfAlive(pid) {
   }
 }
 
-// waitForProcessExit polls up to 2 s in 50 ms steps and asserts kill(pid, 0) throws ESRCH.
+// processPsState queries procps or BSD ps (`ps -o stat= -p <pid>`) under the test process's
+// environment, returning null when pid is gone (status 1).
+function processPsState(pid) {
+  const result = spawnSync("ps", ["-o", "stat=", "-p", String(pid)], {
+    encoding: "utf8",
+    timeout: 5_000,
+    killSignal: "SIGKILL",
+    windowsHide: true,
+  });
+  if (result.error) throw result.error;
+  if (result.status === 1) return null;
+  assert.equal(result.status, 0, `ps -p ${pid} failed (${result.status ?? result.signal}): ${result.stderr}`);
+  return result.stdout.trim();
+}
+
+// processHasExited returns true when pid is gone (ESRCH or ps exit 1) or when procps or
+// BSD ps reports an unreaped zombie state starting with Z.
+function processHasExited(pid) {
+  try {
+    process.kill(pid, 0);
+  } catch (error) {
+    if (error?.code === "ESRCH") return true;
+    throw error;
+  }
+  const state = processPsState(pid);
+  return state === null || state.startsWith("Z");
+}
+
+// waitForProcessExit polls up to 2 s in 50 ms steps until pid is gone (ESRCH) or an
+// unreaped zombie.
 async function waitForProcessExit(pid) {
   const maxSteps = 40;
   for (let step = 0; step < maxSteps; step += 1) {
-    try {
-      process.kill(pid, 0);
-    } catch (error) {
-      if (error?.code === "ESRCH") break;
-      throw error;
-    }
+    if (processHasExited(pid)) break;
     await delay(50);
   }
-  assert.throws(() => process.kill(pid, 0), { code: "ESRCH" });
+  assert.ok(processHasExited(pid), `${pid} still runs after 2 s`);
+}
+
+// waitForZombieState polls up to 2 s in 50 ms steps until procps or BSD ps reports pid in
+// zombie state.
+async function waitForZombieState(pid) {
+  const maxSteps = 40;
+  for (let step = 0; step < maxSteps; step += 1) {
+    if (processPsState(pid)?.startsWith("Z")) break;
+    await delay(50);
+  }
+  const state = processPsState(pid);
+  assert.ok(state?.startsWith("Z"), `expected zombie state for ${pid}, got ${String(state)}`);
+}
+
+// readFirstStdoutLine reads the first line from child.stdout and closes the reader, failing
+// if stdout ends before emitting a line.
+async function readFirstStdoutLine(child) {
+  const lines = createInterface({ input: child.stdout, crlfDelay: Infinity });
+  try {
+    const next = await lines[Symbol.asyncIterator]().next();
+    if (next.done) throw new Error("child closed stdout before printing a line");
+    return next.value.trim();
+  } finally {
+    lines.close();
+  }
+}
+
+// stopChild sends SIGKILL to child (ignoring ESRCH), closes its stdout pipe, and awaits
+// exit or spawn error so no child process leaks.
+async function stopChild(child, completion) {
+  killIfAlive(child.pid);
+  child.stdout?.destroy();
+  const outcome = await completion;
+  if (outcome.error) throw outcome.error;
 }
 
 test("unset or empty interpreter override resolves cached venv, matching PATH python, then bare python", posixStubOnly, async () => {
@@ -616,4 +678,51 @@ test("provisionFixture019Python rejects non-positive or non-integer timeout boun
     );
     assert.equal(existsSync(uncreatedXdg), false);
   });
+});
+
+test("a failed venv publication restores the previous venv and leaves no staging or old directory", posixStubOnly, async () => {
+  const lock = await readLock();
+  const versioned = versionedName(lock);
+  const rmBin = execFileSync("sh", ["-c", "command -v rm"], { encoding: "utf8", timeout: 5_000 }).trim();
+  await withIsolatedEnvironment(async ({ root, xdgDir, pathDir }) => {
+    const cacheRoot = path.join(xdgDir, "fixture-019-python");
+    const venvDir = path.join(cacheRoot, `venv-${lock.python_version}`);
+    await mkdir(venvDir, { recursive: true });
+    const markerPath = path.join(venvDir, "keep.txt");
+    await writeFile(markerPath, "preserve-on-failed-publication");
+
+    await writeBaseProvisionStub(root, pathDir, versioned, {
+      baseVersion: lock.python_version,
+      stagedRecord: lockedRecord(lock),
+      rmBin,
+    });
+    assert.throws(
+      () => provisionFixture019Python({ XDG_CACHE_HOME: xdgDir, PATH: pathDir }),
+      { code: "ENOENT", syscall: "rename" },
+    );
+    assert.equal(await readFile(markerPath, "utf8"), "preserve-on-failed-publication");
+    assert.deepEqual(await readdir(cacheRoot), [`venv-${lock.python_version}`]);
+  });
+});
+
+test("processHasExited treats an unreaped zombie as exited and a live process as running", { ...posixStubOnly, timeout: 15_000 }, async () => {
+  const shBin = execFileSync("sh", ["-c", "command -v sh"], { encoding: "utf8", timeout: 5_000 }).trim();
+  const parent = spawn(shBin, ["-c", "sleep 0 & echo $!; exec sleep 10"], {
+    stdio: ["ignore", "pipe", "ignore"],
+    windowsHide: true,
+  });
+  const completion = new Promise((resolve) => {
+    parent.once("error", (error) => resolve({ error }));
+    parent.once("exit", (code, signal) => resolve({ code, signal }));
+  });
+  try {
+    const zpid = Number(await readFirstStdoutLine(parent));
+    assert.ok(Number.isInteger(zpid) && zpid > 1, `invalid zombie pid: ${zpid}`);
+    await waitForZombieState(zpid);
+    assert.doesNotThrow(() => process.kill(zpid, 0));
+    assert.equal(processHasExited(zpid), true);
+    assert.equal(processHasExited(parent.pid), false);
+  } finally {
+    await stopChild(parent, completion);
+  }
 });

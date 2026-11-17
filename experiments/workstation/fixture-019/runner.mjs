@@ -211,8 +211,23 @@ function selectBaseInterpreter(versioned, lock, environment) {
   );
 }
 
+// restorePreviousVenv moves oldDir back to venvDir after a failed publication, raising
+// publishError and restoreError together when the restore rename also fails.
+function restorePreviousVenv(oldDir, venvDir, publishError) {
+  try {
+    renameSync(oldDir, venvDir);
+  } catch (restoreError) {
+    throw new AggregateError(
+      [publishError, restoreError],
+      `Fixture 019 venv publication failed and the previous venv stays at ${oldDir}.`,
+      { cause: restoreError },
+    );
+  }
+}
+
 // publishStagedVenv atomically replaces venvDir without pre-deleting it: renames any
-// existing venvDir to venvDir.old-<pid>, renames staging to venvDir, then removes oldDir.
+// existing venvDir to venvDir.old-<pid>, renames staging to venvDir (restoring oldDir to
+// venvDir if publication fails), then removes oldDir.
 function publishStagedVenv(staging, venvDir) {
   const oldDir = `${venvDir}.old-${process.pid}`;
   rmSync(oldDir, { recursive: true, force: true });
@@ -223,7 +238,12 @@ function publishStagedVenv(staging, venvDir) {
   } catch (error) {
     if (error.code !== "ENOENT") throw error;
   }
-  renameSync(staging, venvDir);
+  try {
+    renameSync(staging, venvDir);
+  } catch (publishError) {
+    if (movedExisting) restorePreviousVenv(oldDir, venvDir, publishError);
+    throw publishError;
+  }
   if (movedExisting) rmSync(oldDir, { recursive: true, force: true });
 }
 
