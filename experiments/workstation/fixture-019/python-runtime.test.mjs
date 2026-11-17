@@ -287,9 +287,10 @@ async function waitForZombieState(pid) {
 async function readFirstStdoutLine(child) {
   const lines = createInterface({ input: child.stdout, crlfDelay: Infinity });
   try {
-    const next = await lines[Symbol.asyncIterator]().next();
-    if (next.done) throw new Error("child closed stdout before printing a line");
-    return next.value.trim();
+    for await (const line of lines) {
+      return line.trim();
+    }
+    throw new Error("child closed stdout before printing a line");
   } finally {
     lines.close();
   }
