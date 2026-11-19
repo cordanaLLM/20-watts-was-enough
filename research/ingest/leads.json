@@ -659,7 +659,7 @@
           ],
           "milestone_title": "M0 — Evidence, synthesis, and contracts",
           "created_at": "2026-09-18T08:55:43Z",
-          "updated_at": "2026-10-15T20:37:42Z",
+          "updated_at": "2026-11-19T02:07:10Z",
           "closed_at": null,
           "author_type": "User",
           "tier": "untiered",
@@ -669,9 +669,9 @@
             "arxiv_ids": [],
             "release_tags": []
           },
-          "content_hash": "e30ae40c640a8304d5044d3e32f3c3722d33bca143e160f82b5d869993845a3b",
-          "fetched_at": "2026-10-17T02:07:01.951Z",
-          "watermark": ""
+          "content_hash": "4597894e663ec3704a9f6a40fa6e184be3a1d17378f127b7d62243a7bf3484e7",
+          "fetched_at": "2026-11-19T02:13:29.052Z",
+          "watermark": "2026-11-16T02:10:49.192Z"
         }
       ],
       "private_origin_count": 0,
@@ -993,6 +993,105 @@
       "content_duplicate_of": []
     },
     {
+      "canonical_key": "issue:I_kwDOVA2wIs8AAAABgkXZwg",
+      "origins": [
+        {
+          "stable_key": "tekmora/epitrop#390",
+          "node_id": "I_kwDOVA2wIs8AAAABgkXZwg",
+          "title": "Watch golusoris issue 1011 and switch the file reads to its bounded reader (ADR-0004 trigger)",
+          "url": "https://github.com/tekmora/epitrop/issues/390",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-11-19T01:51:45Z",
+          "updated_at": "2026-11-19T01:51:46Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "d54eaa6670793566819abea3247e5d375644672a0e8cb2d708c63043fc870ded",
+          "fetched_at": "2026-11-19T02:13:29.052Z",
+          "watermark": "2026-11-16T02:10:49.192Z"
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOVA2wIs8AAAABgkXa6g",
+      "origins": [
+        {
+          "stable_key": "tekmora/epitrop#391",
+          "node_id": "I_kwDOVA2wIs8AAAABgkXa6g",
+          "title": "Keep Epitrop's side of the Praetor integration surface current (Praetor issue 1045)",
+          "url": "https://github.com/tekmora/epitrop/issues/391",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-11-19T01:51:47Z",
+          "updated_at": "2026-11-19T01:51:47Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "7160be666ed16055c10c2b425cb535df9813b884425b2762a69117b9f3603bd6",
+          "fetched_at": "2026-11-19T02:13:29.052Z",
+          "watermark": "2026-11-16T02:10:49.192Z"
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOVA2wIs8AAAABgkXb8Q",
+      "origins": [
+        {
+          "stable_key": "tekmora/epitrop#392",
+          "node_id": "I_kwDOVA2wIs8AAAABgkXb8Q",
+          "title": "Evaluate Antigravity 2.0 and the Antigravity SDK as building blocks for the runtime",
+          "url": "https://github.com/tekmora/epitrop/issues/392",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-11-19T01:51:48Z",
+          "updated_at": "2026-11-19T01:51:48Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "277b80335d742ee2804e12c2d8779eaf7c977cc74eb04412985496f6a89cbfa5",
+          "fetched_at": "2026-11-19T02:13:29.052Z",
+          "watermark": "2026-11-16T02:10:49.192Z"
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
       "canonical_key": "issue:I_kwDOVC-MNc8AAAABXE_8ZQ",
       "origins": [
         {
@@ -1121,6 +1220,138 @@
           "content_hash": "c850d279b21cb33a1dc23282424c460d9365ab7759b729108bee26c52492f384",
           "fetched_at": "2026-10-17T02:07:01.951Z",
           "watermark": ""
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOVE4LYc8AAAABgkFavA",
+      "origins": [
+        {
+          "stable_key": "plurano/amussis#117",
+          "node_id": "I_kwDOVE4LYc8AAAABgkFavA",
+          "title": "Upstream watch: actionlint accepts the queue key under concurrency",
+          "url": "https://github.com/plurano/amussis/issues/117",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-11-19T01:25:40Z",
+          "updated_at": "2026-11-19T01:25:40Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "d1cdc8a3668fe1e4a88036ee79f50aa5f36a4fa905a018bcea59e514a5084f9b",
+          "fetched_at": "2026-11-19T02:13:29.052Z",
+          "watermark": "2026-11-16T02:10:49.192Z"
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOVE4LYc8AAAABgkFdJw",
+      "origins": [
+        {
+          "stable_key": "plurano/amussis#118",
+          "node_id": "I_kwDOVE4LYc8AAAABgkFdJw",
+          "title": "Upstream watch: a semgrep release without the mcp and opentelemetry-api pins",
+          "url": "https://github.com/plurano/amussis/issues/118",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-11-19T01:25:43Z",
+          "updated_at": "2026-11-19T01:25:44Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "5c52bbf1ebd3f91a1df70e319b4d70f1cf32f18ebd65343049b1cb0866881bc1",
+          "fetched_at": "2026-11-19T02:13:29.052Z",
+          "watermark": "2026-11-16T02:10:49.192Z"
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOVE4LYc8AAAABgkFfkg",
+      "origins": [
+        {
+          "stable_key": "plurano/amussis#119",
+          "node_id": "I_kwDOVE4LYc8AAAABgkFfkg",
+          "title": "Upstream watch: a stable compiler setting that fixes function order in the WebAssembly module",
+          "url": "https://github.com/plurano/amussis/issues/119",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-11-19T01:25:46Z",
+          "updated_at": "2026-11-19T01:25:47Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "0027119052e4e4b2a58536b2d99787de3af6b1d262b113b572db313fc8cbb6ed",
+          "fetched_at": "2026-11-19T02:13:29.052Z",
+          "watermark": "2026-11-16T02:10:49.192Z"
+        }
+      ],
+      "private_origin_count": 0,
+      "content_duplicate_of": []
+    },
+    {
+      "canonical_key": "issue:I_kwDOVE4LYc8AAAABgkFh1w",
+      "origins": [
+        {
+          "stable_key": "plurano/amussis#120",
+          "node_id": "I_kwDOVE4LYc8AAAABgkFh1w",
+          "title": "Upstream follow-up: check the engine fix for required names of calling jobs",
+          "url": "https://github.com/plurano/amussis/issues/120",
+          "state": "open",
+          "visibility": "public",
+          "labels": [
+            "research-watch"
+          ],
+          "milestone_title": "Ongoing — Research and upstream watch",
+          "created_at": "2026-11-19T01:25:49Z",
+          "updated_at": "2026-11-19T01:25:50Z",
+          "closed_at": null,
+          "author_type": "User",
+          "tier": "untiered",
+          "source_links": {
+            "urls": [],
+            "dois": [],
+            "arxiv_ids": [],
+            "release_tags": []
+          },
+          "content_hash": "883b93220849306041c325a56c41bd0be33333a5e1bb6f22cd16c3d933876847",
+          "fetched_at": "2026-11-19T02:13:29.052Z",
+          "watermark": "2026-11-16T02:10:49.192Z"
         }
       ],
       "private_origin_count": 0,
