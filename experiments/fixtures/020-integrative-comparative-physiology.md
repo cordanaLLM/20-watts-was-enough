@@ -4,8 +4,8 @@
 - **Direct claims:** [C-1488](../../research/claims.md#c-1488)–[C-1496](../../research/claims.md#c-1496)
 - **Source audit:** [integrative comparative physiology](../../research/audits/2026-08-25-integrative-comparative-physiology.md)
 - **Protocol IDs:** `ICP-T01`–`ICP-T09`
-- **Execution state:** ICP-T01 public-development smoke harness and smoke-ready
-  manifest exist for C-1488 scope only; every summary remains `NO_RESULT`
+- **Execution state:** ICP-T01 and ICP-T02 public-development smoke harnesses and
+  smoke-ready manifest exist for C-1488 and C-1489 scope; every summary remains `NO_RESULT`
 - **Registry disposition:** no new P-series principle, architecture candidate, or claimed effect
 
 This fixture preserves the audit's complete common contract, nine protocol
@@ -2402,15 +2402,17 @@ dropping candidates, paths, arms, or hours after seeing runtime.
 
 ## Implementation and artifact boundary
 
-The [ICP-T01 public-development smoke harness](../workstation/fixture-020/README.md)
+The [ICP-T01 and ICP-T02 public-development smoke harness](../workstation/fixture-020/README.md)
 and its [smoke-ready manifest](../workstation/manifests/fixture-020.json) implement
-only the base-family generator and arm A within C-1488 scope. The harness checks
-synthetic oxygen accounting and retained execution records; every summary
-remains `NO_RESULT`. Simulated pump work in J supplies no measured workstation
-energy record or energy conclusion.
+the base-family generators and arm A within C-1488 and C-1489 scope. ICP-T01
+checks synthetic oxygen accounting; ICP-T02 checks vascular tree radius
+optimisation via golden-section search on total power. Both tracks share the
+retained execution record infrastructure; every summary remains `NO_RESULT`.
+Simulated pump work in J (T01) and optimised power in W converted to J (T02)
+supply no measured workstation energy record or energy conclusion.
 
 Arms B, C and O, common inference and the sensitivity diagnostic, transfer,
-Parquet artifacts and ICP-T02--ICP-T09 are not built. No confirmation or
+Parquet artifacts and ICP-T03--ICP-T09 are not built. No confirmation or
 transfer data, seed pack or commitment exists. These implementation records
 supply no result, effect estimate or claim promotion. Future implementation
 must preserve the frozen IDs and version scientific changes.

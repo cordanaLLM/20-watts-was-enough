@@ -3,9 +3,9 @@ import { readText } from "./storage.mjs";
 export function memoryCapCheck({ peakBytes, currentBytes, capBytes }) {
   const status = peakBytes === null ? "current-resident-lower-bound" : "linux-peak-resident";
   const observed = peakBytes ?? currentBytes;
-  if (!Number.isFinite(observed) || observed < 0) throw new Error("ICP-T01 memory counter unavailable.");
+  if (!Number.isFinite(observed) || observed < 0) throw new Error("fixture-020 memory counter unavailable.");
   if (observed > capBytes || currentBytes > capBytes) {
-    throw new Error(`ICP-T01 memory-cap exceeded: ${Math.max(observed, currentBytes)} B > ${capBytes} B.`);
+    throw new Error(`fixture-020 memory-cap exceeded: ${Math.max(observed, currentBytes)} B > ${capBytes} B.`);
   }
   return status;
 }
@@ -19,7 +19,7 @@ export async function processCounters() {
   const peak = /^VmHWM:\s+(\d+) kB$/m.exec(status);
   const reads = /^rchar: (\d+)$/m.exec(io);
   const writes = /^wchar: (\d+)$/m.exec(io);
-  if (!peak || !reads || !writes) throw new Error("ICP-T01 Linux process counters unavailable.");
+  if (!peak || !reads || !writes) throw new Error("fixture-020 Linux process counters unavailable.");
   return { peak_resident_bytes: Number(peak[1]) * 1024, bytes_read: Number(reads[1]),
     bytes_written: Number(writes[1]), counter_mode: "linux-self-process-high-water-and-syscall-bytes",
     current_resident_bytes: process.memoryUsage().rss };

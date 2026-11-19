@@ -158,19 +158,19 @@ test("Fixture 019 is smoke-ready with an explicit non-energy claim boundary", as
   );
 });
 
-test("Fixture 020 remains A-only public-development smoke with a C-1488 scope ceiling", async () => {
+test("Fixture 020 remains A-only public-development smoke with a C-1488/C-1489 scope ceiling", async () => {
   const manifestPath = path.join(root, "experiments/workstation/manifests/fixture-020.json");
   const result = await validateExecutionManifest(root, manifestPath, "fixture-020");
   const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
   assert.equal(result.readiness, "smoke-ready");
   assert.equal(result.ready, false);
   assert.deepEqual(result.errors, []);
-  assert.deepEqual(result.executionClaims, ["C-1488"]);
+  assert.deepEqual(result.executionClaims, ["C-1488", "C-1489"]);
   assert.equal(manifest.distribution.authority, "NO_RESULT");
   assert.equal(manifest.energy.mode, "not-measured");
   assert.equal(manifest.energy.energy_conclusion_allowed, false);
   assert.equal(manifest.energy.scope_binding,
-    "fixture-020.c-1488.icp-t01-development-smoke.non-energy.v1");
+    "fixture-020.c-1488-c-1489.icp-t01-t02-development-smoke.non-energy.v1");
   assert.equal(manifest.promotion_evidence.protocol_eligibility.status, "blocked");
   const checks = new Map(result.promotionChecks.map((check) => [check.id, check]));
   for (const id of ["confirmation-seeds", "held_out-seeds", "promotion-evidence"]) {
