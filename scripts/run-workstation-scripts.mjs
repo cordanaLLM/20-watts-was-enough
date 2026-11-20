@@ -7,6 +7,7 @@ const SCRIPT_NAME_PATTERN = /^test:workstation:[a-z0-9:-]+$/u;
 const MAX_SCRIPTS_COUNT = 19;
 const DEFAULT_TIMEOUT_MS = 30 * 60 * 1000;
 const MAX_TIMEOUT_MS = 2147483647;
+export const KILL_GRACE_MS = 5000;
 
 export function parseTimeoutMs(rawValue) {
   if (rawValue === undefined) {
@@ -107,7 +108,7 @@ export function runSingleScript(scriptName, {
         if (!settled) {
           signalProcessGroup(child.pid, "SIGKILL");
         }
-      }, 5000);
+      }, KILL_GRACE_MS);
       killTimer.unref();
     }, timeoutMs);
     timeoutTimer.unref();
