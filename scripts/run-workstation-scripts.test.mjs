@@ -236,7 +236,7 @@ test("negative: a hung script whose descendant ignores SIGTERM is killed and the
   const dir = createStubWorkspace({
     "test:workstation:stub-baseline": "node -e 'process.exit(0)'",
     "test:workstation:stub-descendant":
-      `node -e "const { spawn } = require('node:child_process'); const fs = require('node:fs'); const child = spawn(process.execPath, ['-e', 'process.on(\\\"SIGTERM\\\",()=>{}); setTimeout(()=>{},${HANG_MS})'], { stdio: 'ignore' }); fs.writeFileSync('descendant.pid', String(child.pid)); setTimeout(()=>{}, ${HANG_MS});"`,
+      `node -e "const { spawn } = require('node:child_process'); const fs = require('node:fs'); const child = spawn(process.execPath, ['-e', 'process.on(\\"SIGTERM\\",()=>{}); setTimeout(()=>{},${HANG_MS})'], { stdio: 'ignore' }); fs.writeFileSync('descendant.pid', String(child.pid)); setTimeout(()=>{}, ${HANG_MS});"`,
     "test:workstation:stub-next":
       "node -e \"const fs = require('node:fs'); const pid = Number(fs.readFileSync('descendant.pid', 'utf8')); if (!Number.isInteger(pid) || pid <= 1) process.exit(43); try { process.kill(pid, 0); process.exit(42); } catch (err) { process.exit(0); }\"",
   });
