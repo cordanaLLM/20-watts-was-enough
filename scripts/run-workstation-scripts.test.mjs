@@ -12,9 +12,10 @@ const runnerScript = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 
 const HANG_MS = 60000;
 const STARTUP_SAMPLES = 3;
 // The deadline tests race the passing stub against the deadline that kills the hung one. Measured 2026-11-20
-// on a 32-CPU host (issue 451): through real npm, that stub took up to 3.1 times the slowest of the three
-// runner runs before it at load 19-26, and more than 6 times under the full gate. Through NPM_STAND_IN the
-// worst ratio was 0.23 for an `exit 0` stub and 0.60 for a node stub, so the margin of 6 covers it tenfold.
+// on a 32-CPU host (issue 451), ratio = that stub's raced start-up / slowest of the three runner runs before
+// it: through real npm up to 3.11 at load 19-26 and 11.92 beside the full gate (load 29-54, 700 runs).
+// Through NPM_STAND_IN the worst beside the full gate was 0.44 for an `exit 0` stub and 1.19 for a node stub,
+// so the margin of 6 covers the worst measured case five times.
 const STARTUP_MARGIN = 6;
 const SLOW_START_MS = 1200;
 // Stands in for npm on PATH in the deadline tests: `npm run <name>` runs the stub command without npm's own
