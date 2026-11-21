@@ -6,11 +6,24 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { runWorkstationScripts, signalProcessGroup } from "./run-workstation-scripts.mjs";
+import { KILL_GRACE_MS, runWorkstationScripts, signalProcessGroup } from "./run-workstation-scripts.mjs";
 
 const runnerScript = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "run-workstation-scripts.mjs");
+const HANG_MS = 60000;
+const STARTUP_SAMPLES = 3;
+// The deadline tests race the passing stub against the deadline that kills the hung one. Measured 2026-11-20
+// on a 32-CPU host (issue 451), ratio = that stub's raced start-up / slowest of the three runner runs before
+// it: through real npm up to 3.11 at load 19-26 and 11.92 beside the full gate (load 29-54, 700 runs).
+// Through NPM_STAND_IN the worst beside the full gate was 0.44 for an `exit 0` stub and 1.19 for a node stub,
+// so the margin of 6 covers the worst measured case five times.
+const STARTUP_MARGIN = 6;
+const SLOW_START_MS = 1200;
+// Stands in for npm on PATH in the deadline tests: `npm run <name>` runs the stub command without npm's own
+// start-up. The other tests keep real npm.
+const NPM_STAND_IN = '#!/bin/sh\n[ "$#" -eq 2 ] && [ "$1" = run ] || exit 2\nexec sh "$(dirname "$0")/scripts/$2"\n';
+const STAND_IN_DIRECTORY = "npm-stand-in";
 
-function createStubWorkspace(scripts) {
+function createStubWorkspace(scripts, { npmStandIn = false } = {}) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "workstation-runner-test-"));
   const packageJson = {
     name: "stub-workstation-tests",
@@ -18,7 +31,47 @@ function createStubWorkspace(scripts) {
     scripts,
   };
   fs.writeFileSync(path.join(directory, "package.json"), `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
+  if (npmStandIn) {
+    const scriptDirectory = path.join(directory, STAND_IN_DIRECTORY, "scripts");
+    fs.mkdirSync(scriptDirectory, { recursive: true });
+    for (const [name, command] of Object.entries(scripts)) {
+      fs.writeFileSync(path.join(scriptDirectory, name), `${command}\n`, "utf8");
+    }
+    fs.writeFileSync(path.join(directory, STAND_IN_DIRECTORY, "npm"), NPM_STAND_IN, { encoding: "utf8", mode: 0o755 });
+  }
   return directory;
+}
+
+function standInEnv(dir, variables) {
+  const env = { ...process.env, PATH: `${path.join(dir, STAND_IN_DIRECTORY)}${path.delimiter}${process.env.PATH}` };
+  delete env.WORKSTATION_SCRIPT_TIMEOUT_MS;
+  return { ...env, ...variables };
+}
+
+function measureStubStartupMs(dir, scriptName) {
+  const env = standInEnv(dir, { SCRIPTS: scriptName });
+  let baselineMs = 0;
+  for (let sample = 0; sample < STARTUP_SAMPLES; sample += 1) {
+    const started = Date.now();
+    const result = spawnSync(process.execPath, [runnerScript], {
+      cwd: dir,
+      env,
+      encoding: "utf8",
+      timeout: HANG_MS,
+    });
+    baselineMs = Math.max(baselineMs, Date.now() - started);
+    assert.strictEqual(result.status, 0, `startup sample for ${scriptName}: ${result.stdout}\n${result.stderr}`);
+  }
+  return baselineMs;
+}
+
+function stubDeadlineMs(t, baselineMs) {
+  const deadlineMs = Math.ceil(baselineMs * STARTUP_MARGIN);
+  if (2 * deadlineMs + KILL_GRACE_MS >= HANG_MS) {
+    assert.fail(`UNDECIDED: host starved; measured baseline ${baselineMs} ms; deadline ${deadlineMs} ms; HANG_MS ${HANG_MS}`);
+  }
+  t.diagnostic(`stub baseline ${baselineMs} ms; deadline ${deadlineMs} ms`);
+  return deadlineMs;
 }
 
 test("positive: runs two passing stub scripts in order", () => {
@@ -115,31 +168,40 @@ test("negative: malformed script name or excessive count exits 2", () => {
   }
 });
 
-test("negative: a script past its timeout is terminated and reported as exit 124", () => {
+function testScriptTimeout(t, passingCommand) {
   const dir = createStubWorkspace({
-    "test:workstation:stub-hang": "node -e 'setTimeout(() => {}, 60000)'",
-    "test:workstation:stub-after": "node -e 'process.exit(0)'",
-  });
+    "test:workstation:stub-hang": `node -e 'setTimeout(() => {}, ${HANG_MS})'`,
+    "test:workstation:stub-after": passingCommand,
+  }, { npmStandIn: true });
   try {
+    const baselineMs = measureStubStartupMs(dir, "test:workstation:stub-after");
+    const deadlineMs = stubDeadlineMs(t, baselineMs);
     const started = Date.now();
     const result = spawnSync(process.execPath, [runnerScript], {
       cwd: dir,
-      env: {
-        ...process.env,
+      env: standInEnv(dir, {
         SCRIPTS: "test:workstation:stub-hang test:workstation:stub-after",
-        WORKSTATION_SCRIPT_TIMEOUT_MS: "1000",
-      },
+        WORKSTATION_SCRIPT_TIMEOUT_MS: String(deadlineMs),
+      }),
       encoding: "utf8",
-      timeout: 30000,
+      timeout: HANG_MS,
     });
     const output = `${result.stdout}\n${result.stderr}`;
     assert.strictEqual(result.status, 1);
-    assert.ok(Date.now() - started < 30000, "runner must not wait for the hung script");
+    assert.ok(Date.now() - started < HANG_MS, "runner must not wait for the hung script");
     assert.match(output, /workstation script failed: test:workstation:stub-hang \(exit 124\)/u);
     assert.match(output, /workstation script passed: test:workstation:stub-after/u);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+}
+
+test("negative: a script past its timeout is terminated and reported as exit 124", (t) => {
+  testScriptTimeout(t, "exit 0");
+});
+
+test("boundary: a passing stub starting beyond the old 1000 ms limit survives the derived deadline", (t) => {
+  testScriptTimeout(t, `node -e 'setTimeout(() => process.exit(0), ${SLOW_START_MS})'`);
 });
 
 test("boundary: single script execution succeeds", () => {
@@ -189,29 +251,31 @@ test("negative: invalid timeout values exit 2 and run nothing", () => {
   }
 });
 
-test("negative: a hung script whose descendant ignores SIGTERM is killed and the next script still passes", () => {
+test("negative: a hung script whose descendant ignores SIGTERM is killed and the next script still passes", (t) => {
   const dir = createStubWorkspace({
+    "test:workstation:stub-baseline": "node -e 'process.exit(0)'",
     "test:workstation:stub-descendant":
-      "node -e \"const { spawn } = require('node:child_process'); const fs = require('node:fs'); const child = spawn(process.execPath, ['-e', 'process.on(\\\"SIGTERM\\\",()=>{}); setTimeout(()=>{},60000)'], { stdio: 'ignore' }); fs.writeFileSync('descendant.pid', String(child.pid)); setTimeout(()=>{}, 60000);\"",
+      `node -e "const { spawn } = require('node:child_process'); const fs = require('node:fs'); const child = spawn(process.execPath, ['-e', 'process.on(\\"SIGTERM\\",()=>{}); setTimeout(()=>{},${HANG_MS})'], { stdio: 'ignore' }); fs.writeFileSync('descendant.pid', String(child.pid)); setTimeout(()=>{}, ${HANG_MS});"`,
     "test:workstation:stub-next":
       "node -e \"const fs = require('node:fs'); const pid = Number(fs.readFileSync('descendant.pid', 'utf8')); if (!Number.isInteger(pid) || pid <= 1) process.exit(43); try { process.kill(pid, 0); process.exit(42); } catch (err) { process.exit(0); }\"",
-  });
+  }, { npmStandIn: true });
   const pidPath = path.join(dir, "descendant.pid");
   try {
+    const baselineMs = measureStubStartupMs(dir, "test:workstation:stub-baseline");
+    const deadlineMs = stubDeadlineMs(t, baselineMs);
     const started = Date.now();
     const result = spawnSync(process.execPath, [runnerScript], {
       cwd: dir,
-      env: {
-        ...process.env,
+      env: standInEnv(dir, {
         SCRIPTS: "test:workstation:stub-descendant test:workstation:stub-next",
-        WORKSTATION_SCRIPT_TIMEOUT_MS: "1000",
-      },
+        WORKSTATION_SCRIPT_TIMEOUT_MS: String(deadlineMs),
+      }),
       encoding: "utf8",
-      timeout: 30000,
+      timeout: HANG_MS,
     });
     const output = `${result.stdout}\n${result.stderr}`;
     assert.strictEqual(result.status, 1);
-    assert.ok(Date.now() - started < 30000, "runner must not wait for the hung script");
+    assert.ok(Date.now() - started < HANG_MS, "runner must not wait for the hung script");
     assert.match(output, /workstation script failed: test:workstation:stub-descendant \(exit 124\)/u);
     assert.match(output, /workstation script passed: test:workstation:stub-next/u);
     assert.ok(fs.existsSync(pidPath), "descendant pid must have been recorded");
